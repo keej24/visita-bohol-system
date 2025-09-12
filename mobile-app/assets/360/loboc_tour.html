@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Loboc Church - Virtual Tour</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.pannellum.org/2.5/pannellum.js"></script>
+    <link rel="stylesheet" href="https://cdn.pannellum.org/2.5/pannellum.css"/>
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #panorama { width: 100vw; height: 100vh; }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 300px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="info-panel">
+        <h3>Loboc Church</h3>
+        <p><strong>Location:</strong> Loboc, Bohol</p>
+        <p><strong>Founded:</strong> 1602</p>
+        <p><strong>Style:</strong> Baroque</p>
+        <p>Famous for its riverside location and world-renowned children's choir.</p>
+    </div>
+    
+    <div id="panorama"></div>
+    
+    <script>
+        var viewer = pannellum.viewer('panorama', {
+            "type": "equirectangular",
+            "panorama": "https://pannellum.org/images/bma-0.jpg", // Demo image
+            "autoLoad": true,
+            "autoRotate": 1,
+            "compass": true,
+            "showZoomCtrl": true,
+            "showFullscreenCtrl": true
+        });
+    </script>
+</body>
+</html>

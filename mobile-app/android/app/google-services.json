@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "490423265288",
+    "project_id": "visitaproject-5cd9f",
+    "storage_bucket": "visitaproject-5cd9f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:490423265288:android:f06cbfdb7e3e4810bfc9bd",
+        "android_client_info": {
+          "package_name": "com.example.visita_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfenR2dQXnheuPWB2ED0kUNaBEyjsWjAE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

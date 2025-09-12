@@ -1,0 +1,60 @@
+name: visita_mobile
+description: "VISITA: Bohol Churches Information System - Public User Prototype"
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  # Widen Dart SDK constraint to allow newer plugin versions (geolocator, etc.)
+  sdk: ">=2.19.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  flutter_svg: ^2.0.7
+  provider: ^6.0.5
+  http: ^0.13.6
+  shared_preferences: ^2.1.1
+  url_launcher: ^6.1.10
+  path_provider: ^2.0.14
+  flutter_map: ^4.0.0
+  latlong2: ^0.8.2
+  flutter_map_marker_cluster: ^1.1.1
+  photo_view: ^0.14.0
+  uuid: ^4.5.1
+  webview_flutter: ^4.4.2
+  # Firebase dependencies
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.3
+  firebase_storage: ^12.3.2
+  # New for location validation & photo uploads
+  # Geolocator updated (ensure platform impl uses v2 embedding)
+  geolocator: ^11.1.0
+  image_picker: ^0.8.7+5
+  carousel_slider: ^5.0.0
+  # Enhanced announcements features
+  intl: ^0.18.1
+  # Upgraded to address Android compile ambiguity (bigLargeIcon overload)
+  flutter_local_notifications: ^17.1.0
+  # Enhanced profile features
+  share_plus: ^7.2.2
+  cached_network_image: ^3.3.0
+  # Enhanced Church Exploration
+  google_maps_flutter: ^2.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/data/
+    - assets/images/
+    - assets/360/
+
+## Removed dependency_overrides for geolocator_android (resolved via normal solver)

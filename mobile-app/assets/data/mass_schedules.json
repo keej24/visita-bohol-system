@@ -1,0 +1,315 @@
+[
+  {
+    "id": "ms-baclayon-1",
+    "churchId": "st-michael",
+    "dayOfWeek": "Sunday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Early morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-2", 
+    "churchId": "st-michael",
+    "dayOfWeek": "Sunday",
+    "time": "8:00 AM",
+    "type": "Regular",
+    "language": "English",
+    "notes": "Family mass with children's choir",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-3",
+    "churchId": "st-michael", 
+    "dayOfWeek": "Sunday",
+    "time": "10:00 AM",
+    "type": "High Mass",
+    "language": "Filipino",
+    "notes": "Main Sunday celebration",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-4",
+    "churchId": "st-michael",
+    "dayOfWeek": "Sunday", 
+    "time": "5:00 PM",
+    "type": "Regular",
+    "language": "English",
+    "notes": "Evening mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-5",
+    "churchId": "st-michael",
+    "dayOfWeek": "Monday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-6",
+    "churchId": "st-michael",
+    "dayOfWeek": "Tuesday",
+    "time": "6:00 AM", 
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-7",
+    "churchId": "st-michael",
+    "dayOfWeek": "Wednesday",
+    "time": "6:00 AM",
+    "type": "Regular", 
+    "language": "Filipino",
+    "notes": "Weekday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-8",
+    "churchId": "st-michael",
+    "dayOfWeek": "Thursday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino", 
+    "notes": "Weekday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-9",
+    "churchId": "st-michael",
+    "dayOfWeek": "Friday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-10",
+    "churchId": "st-michael",
+    "dayOfWeek": "Friday",
+    "time": "6:00 PM",
+    "type": "Regular",
+    "language": "English",
+    "notes": "Way of the Cross followed by mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-11",
+    "churchId": "st-michael",
+    "dayOfWeek": "Saturday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Saturday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-baclayon-12",
+    "churchId": "st-michael",
+    "dayOfWeek": "Saturday",
+    "time": "6:00 PM",
+    "type": "Vigil",
+    "language": "English",
+    "notes": "Saturday vigil mass for Sunday",
+    "isActive": true
+  },
+
+  {
+    "id": "ms-loboc-1",
+    "churchId": "loboc",
+    "dayOfWeek": "Sunday",
+    "time": "7:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Early Sunday mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-loboc-2",
+    "churchId": "loboc",
+    "dayOfWeek": "Sunday", 
+    "time": "9:00 AM",
+    "type": "High Mass",
+    "language": "Filipino",
+    "notes": "Main Sunday mass with famous children's choir",
+    "isActive": true
+  },
+  {
+    "id": "ms-loboc-3",
+    "churchId": "loboc",
+    "dayOfWeek": "Sunday",
+    "time": "5:00 PM",
+    "type": "Regular",
+    "language": "English",
+    "notes": "Evening mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-loboc-4",
+    "churchId": "loboc",
+    "dayOfWeek": "Tuesday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-loboc-5",
+    "churchId": "loboc",
+    "dayOfWeek": "Thursday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-loboc-6",
+    "churchId": "loboc",
+    "dayOfWeek": "Saturday",
+    "time": "6:00 PM",
+    "type": "Vigil",
+    "language": "English",
+    "notes": "Saturday vigil mass",
+    "isActive": true
+  },
+
+  {
+    "id": "ms-talibon-1",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Sunday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Early morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-talibon-2",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Sunday",
+    "time": "8:00 AM",
+    "type": "High Mass",
+    "language": "Filipino",
+    "notes": "Cathedral's main Sunday celebration",
+    "isActive": true
+  },
+  {
+    "id": "ms-talibon-3",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Sunday",
+    "time": "10:00 AM",
+    "type": "Regular",
+    "language": "English",
+    "notes": "English mass for visitors",
+    "isActive": true
+  },
+  {
+    "id": "ms-talibon-4",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Sunday",
+    "time": "5:00 PM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Evening mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-talibon-5",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Monday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-talibon-6",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Wednesday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-talibon-7",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Friday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-talibon-8",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Friday",
+    "time": "6:00 PM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Stations of the Cross followed by mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-talibon-9",
+    "churchId": "st-joseph-talibon",
+    "dayOfWeek": "Saturday",
+    "time": "6:00 PM",
+    "type": "Vigil",
+    "language": "English",
+    "notes": "Saturday vigil mass",
+    "isActive": true
+  },
+
+  {
+    "id": "ms-buenavista-1",
+    "churchId": "san-isidro-talibon",
+    "dayOfWeek": "Sunday",
+    "time": "7:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Sunday morning mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-buenavista-2",
+    "churchId": "san-isidro-talibon",
+    "dayOfWeek": "Sunday",
+    "time": "9:00 AM",
+    "type": "High Mass",
+    "language": "Filipino",
+    "notes": "Main Sunday celebration",
+    "isActive": true
+  },
+  {
+    "id": "ms-buenavista-3",
+    "churchId": "san-isidro-talibon",
+    "dayOfWeek": "Wednesday",
+    "time": "6:00 AM",
+    "type": "Regular",
+    "language": "Filipino",
+    "notes": "Weekday mass",
+    "isActive": true
+  },
+  {
+    "id": "ms-buenavista-4",
+    "churchId": "san-isidro-talibon",
+    "dayOfWeek": "Saturday",
+    "time": "6:00 PM",
+    "type": "Vigil",
+    "language": "Filipino",
+    "notes": "Saturday vigil mass",
+    "isActive": true
+  }
+]

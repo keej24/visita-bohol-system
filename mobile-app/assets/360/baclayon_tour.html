@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>St. Michael the Archangel Church - Virtual Tour</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.pannellum.org/2.5/pannellum.js"></script>
+    <link rel="stylesheet" href="https://cdn.pannellum.org/2.5/pannellum.css"/>
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #panorama { width: 100vw; height: 100vh; }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 300px;
+            z-index: 1000;
+        }
+        .control-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 2px;
+        }
+        button:hover { background: #1976D2; }
+    </style>
+</head>
+<body>
+    <div class="info-panel">
+        <h3>St. Michael the Archangel Church</h3>
+        <p><strong>Location:</strong> Baclayon, Bohol</p>
+        <p><strong>Founded:</strong> 1596</p>
+        <p><strong>Style:</strong> Spanish Colonial</p>
+        <p>One of the oldest churches in Bohol and a National Cultural Treasure.</p>
+    </div>
+    
+    <div class="control-panel">
+        <button onclick="viewer.setPitch(-10)">Look Up</button>
+        <button onclick="viewer.setPitch(10)">Look Down</button><br>
+        <button onclick="viewer.setYaw(viewer.getYaw() - 45)">Turn Left</button>
+        <button onclick="viewer.setYaw(viewer.getYaw() + 45)">Turn Right</button>
+    </div>
+    
+    <div id="panorama"></div>
+    
+    <script>
+        // For demo purposes, using a placeholder panoramic image
+        // In production, you would use actual 360° photos of the church
+        var viewer = pannellum.viewer('panorama', {
+            "type": "equirectangular",
+            "panorama": "https://pannellum.org/images/alma.jpg", // Demo image
+            "autoLoad": true,
+            "autoRotate": -2,
+            "compass": true,
+            "showZoomCtrl": true,
+            "showFullscreenCtrl": true,
+            "hotSpots": [
+                {
+                    "pitch": -2,
+                    "yaw": 117,
+                    "type": "info",
+                    "text": "Historic Altar",
+                    "URL": "https://example.com/altar-info"
+                },
+                {
+                    "pitch": -0.9,
+                    "yaw": 222.6,
+                    "type": "info", 
+                    "text": "Stone Bell Tower",
+                    "URL": "https://example.com/tower-info"
+                }
+            ]
+        });
+        
+        // Custom hotspot interactions
+        viewer.on('hotspotclick', function(event) {
+            console.log('Hotspot clicked:', event);
+        });
+    </script>
+</body>
+</html>
