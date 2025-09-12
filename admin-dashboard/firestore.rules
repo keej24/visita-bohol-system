@@ -1,0 +1,215 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for authentication and authorization
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+    
+    function hasAnyRole(roles) {
+      return isAuthenticated() && getUserData().role in roles;
+    }
+    
+    function belongsToDiocese(diocese) {
+      return isAuthenticated() && getUserData().diocese == diocese;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isMuseumResearcher() {
+      return hasRole('museum_researcher');
+    }
+    
+    function isChanceryOffice() {
+      return hasRole('chancery_office');
+    }
+    
+    function isParishSecretary() {
+      return hasRole('parish_secretary');
+    }
+    
+    // Users collection - User profiles and authentication data
+    match /users/{userId} {
+      // Users can read and update their own profile
+      allow read, write: if isOwner(userId);
+      
+  // Chancery office can read all users in their diocese
+  allow read: if isChanceryOffice() && 
+         (resource.data.diocese == getUserData().diocese);
+      
+      // Museum researchers can read user profiles (for attribution)
+      allow read: if isMuseumResearcher();
+      
+  // Chancery office may create user profiles for parish secretaries in their diocese
+  allow create: if isChanceryOffice() && request.resource.data.role == 'parish_secretary' &&
+           request.resource.data.diocese == getUserData().diocese;
+    }
+    
+    // Churches collection - Main church data
+    match /churches/{churchId} {
+      // Everyone can read church data (public information)
+      allow read: if true;
+      
+  // Parish secretaries can create exactly one church in their diocese,
+  // with doc ID equal to their parish ID, and only if it does not exist yet
+  allow create: if isParishSecretary() &&
+           request.resource.data.diocese == getUserData().diocese &&
+           getUserData().parish == churchId &&
+           // ensure not overwriting existing
+           !exists(/databases/$(database)/documents/churches/$(churchId));
+
+  // Parish secretaries can update their own parish church only (cannot change diocese)
+  allow update: if isParishSecretary() &&
+           churchId == getUserData().parish &&
+           resource.data.diocese == getUserData().diocese &&
+           request.resource.data.diocese == resource.data.diocese;
+
+  // Chancery office can create churches in their diocese
+  allow create: if isChanceryOffice() && request.resource.data.diocese == getUserData().diocese;
+
+  // Chancery office can update churches in their diocese (cannot change diocese)
+  allow update: if isChanceryOffice() &&
+           resource.data.diocese == getUserData().diocese &&
+           request.resource.data.diocese == resource.data.diocese;
+
+  // Chancery office can delete churches in their diocese
+  allow delete: if isChanceryOffice() && resource.data.diocese == getUserData().diocese;
+      
+      // Museum researchers can update heritage-related fields across dioceses
+      allow update: if isMuseumResearcher() &&
+                           request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['culturalSignificance', 'heritageNotes', 'heritageValidation',
+                                       'heritageDeclaration', 'lastHeritageUpdate', 'heritageResearcher']);
+    }
+    
+    // Church heritage validation subcollection
+    match /churches/{churchId}/heritage/{heritageId} {
+      // Museum researchers can read and write heritage validations
+      allow read, write: if isMuseumResearcher();
+      
+      // Chancery office can read heritage validations in their diocese
+      allow read: if isChanceryOffice() && 
+                     get(/databases/$(database)/documents/churches/$(churchId)).data.diocese == getUserData().diocese;
+      
+      // Parish secretaries can read heritage validations for their diocese churches
+      allow read: if isParishSecretary() && 
+                     get(/databases/$(database)/documents/churches/$(churchId)).data.diocese == getUserData().diocese;
+    }
+    
+    // Church images subcollection
+    match /churches/{churchId}/images/{imageId} {
+      // Anyone can read images (public)
+      allow read: if true;
+      
+      // Parish secretaries and chancery can manage images for their diocese
+      allow create, update, delete: if (isParishSecretary() || isChanceryOffice()) && 
+                                       get(/databases/$(database)/documents/churches/$(churchId)).data.diocese == getUserData().diocese;
+      
+      // Museum researchers can add heritage documentation images
+      allow create, update: if isMuseumResearcher();
+    }
+    
+    // Parish information collection
+    match /parishes/{parishId} {
+      // Everyone can read parish data
+      allow read: if true;
+      
+      // Chancery office can manage parishes in their diocese
+      allow create, update, delete: if isChanceryOffice() && 
+                                       (request.resource.data.diocese == getUserData().diocese ||
+                                        resource.data.diocese == getUserData().diocese);
+      
+      // Parish secretaries can update their own parish
+      allow update: if isParishSecretary() && 
+                       resource.data.diocese == getUserData().diocese &&
+                       getUserData().parish == parishId;
+    }
+    
+    // Diocese information collection
+    match /dioceses/{dioceseId} {
+      // Everyone can read diocese information
+      allow read: if true;
+      
+      // Only chancery office can update their own diocese info
+      allow update: if isChanceryOffice() && 
+                       dioceseId == getUserData().diocese;
+    }
+    
+    // Reports collection
+    match /reports/{reportId} {
+      // Chancery office can create and read reports for their diocese
+      allow read, create: if isChanceryOffice() && 
+                             (request.resource.data.diocese == getUserData().diocese ||
+                              resource.data.diocese == getUserData().diocese);
+      
+      // Museum researchers can read heritage reports across dioceses
+      allow read: if isMuseumResearcher() && 
+                     resource.data.type == 'heritage';
+    }
+    
+    // Feedback and reviews collection
+    match /feedback/{feedbackId} {
+      // Anyone can create feedback (public users via mobile app)
+      allow create: if true;
+      
+      // Anyone can read approved feedback
+      allow read: if resource.data.status == 'approved';
+      
+      // Chancery office can moderate feedback for churches in their diocese
+      allow read, update: if isChanceryOffice() && 
+                             get(/databases/$(database)/documents/churches/$(resource.data.churchId)).data.diocese == getUserData().diocese;
+    }
+    
+    // User activity logs (audit trail)
+    match /logs/{logId} {
+      // System can write logs (server-side)
+      allow create: if isAuthenticated();
+      
+      // Chancery office can read logs for their diocese
+      allow read: if isChanceryOffice() && 
+                     resource.data.diocese == getUserData().diocese;
+    }
+    
+    // Configuration and system settings
+    match /config/{configId} {
+      // Everyone can read public configuration
+      allow read: if resource.data.public == true;
+      
+      // Only chancery office can read/write diocese-specific config
+      allow read, write: if isChanceryOffice() && 
+                            resource.data.diocese == getUserData().diocese;
+    }
+
+    // Invites collection - Chancery invites parish secretaries
+    match /invites/{inviteId} {
+      // Allow read of invite details so invited user can load registration form
+      allow read: if true;
+      
+      // Chancery office can create invites for their own diocese
+      allow create: if isChanceryOffice() && request.resource.data.diocese == getUserData().diocese;
+      
+      // Allow invited user to mark invite as accepted after registration
+      allow update: if isAuthenticated() &&
+                      resource.data.status == 'pending' &&
+                      request.resource.data.status == 'accepted' &&
+                      request.resource.data.acceptedBy.uid == request.auth.uid;
+    }
+    
+    // Default deny rule for any other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

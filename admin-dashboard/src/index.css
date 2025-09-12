@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Catholic Heritage-Inspired Design System for Chancery Office Dashboard */
+
+@layer base {
+  :root {
+    /* Background System */
+    --background: 33 100% 98%;
+    --foreground: 220 39% 11%;
+
+    /* Card System */
+    --card: 0 0% 100%;
+    --card-foreground: 220 39% 11%;
+
+    /* Popover System */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 39% 11%;
+
+    /* Primary - Deep Ecclesiastical Blue */
+    --primary: 220 72% 24%;
+    --primary-foreground: 33 100% 98%;
+    --primary-light: 220 55% 35%;
+    --primary-dark: 220 84% 18%;
+
+    /* Secondary - Warm Cream */
+    --secondary: 33 100% 96%;
+    --secondary-foreground: 220 39% 11%;
+
+    /* Muted - Soft Neutral */
+    --muted: 30 25% 92%;
+    --muted-foreground: 220 13% 46%;
+
+    /* Accent - Sacred Gold */
+    --accent: 43 96% 56%;
+    --accent-foreground: 220 39% 11%;
+    --accent-light: 43 74% 70%;
+    --accent-glow: 43 96% 56%;
+
+    /* Heritage Palette */
+    --heritage-cream: 33 100% 96%;
+    --heritage-ivory: 33 100% 98%;
+    --heritage-gold: 43 96% 56%;
+    --heritage-blue: 220 72% 24%;
+    --heritage-blue-light: 220 55% 35%;
+
+    /* Status Colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+
+    /* Interface Elements */
+    --border: 30 25% 88%;
+    --input: 30 25% 92%;
+    --ring: 43 96% 56%;
+
+    --radius: 0.5rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent-light)));
+    --gradient-heritage: linear-gradient(135deg, hsl(var(--heritage-blue)), hsl(var(--heritage-gold) / 0.1));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(var(--secondary) / 0.3));
+
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(var(--primary) / 0.1);
+    --shadow-medium: 0 4px 16px -4px hsl(var(--primary) / 0.15);
+    --shadow-strong: 0 8px 32px -8px hsl(var(--primary) / 0.2);
+    --shadow-accent: 0 4px 16px -4px hsl(var(--accent) / 0.3);
+
+    /* Sidebar */
+    --sidebar-background: 220 72% 24%;
+    --sidebar-foreground: 33 100% 98%;
+    --sidebar-primary: 43 96% 56%;
+    --sidebar-primary-foreground: 220 39% 11%;
+    --sidebar-accent: 220 55% 35%;
+    --sidebar-accent-foreground: 33 100% 98%;
+    --sidebar-border: 220 84% 18%;
+    --sidebar-ring: 43 96% 56%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-medium;
+  }
+}
+
+@layer components {
+  /* Heritage Card Components */
+  .heritage-card {
+    @apply bg-card border border-border rounded-lg shadow-[var(--shadow-soft)] backdrop-blur-sm;
+    background: var(--gradient-card);
+  }
+
+  .heritage-card-accent {
+    @apply heritage-card border-accent/20;
+    box-shadow: var(--shadow-accent);
+  }
+
+  /* Button Variants */
+  .btn-heritage {
+    @apply bg-gradient-to-r from-primary to-primary-light text-primary-foreground hover:shadow-[var(--shadow-medium)] transition-all duration-200;
+  }
+
+  .btn-accent {
+    @apply bg-accent text-accent-foreground hover:bg-accent-light hover:shadow-[var(--shadow-accent)] transition-all duration-200;
+  }
+
+  /* Sidebar Enhancements */
+  .sidebar-nav-item {
+    @apply relative flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-foreground;
+  }
+
+  .sidebar-nav-item.active {
+    @apply bg-sidebar-accent text-sidebar-foreground;
+  }
+
+  .sidebar-nav-item.active::before {
+    @apply absolute left-0 top-0 h-full w-1 bg-sidebar-primary rounded-r;
+    content: '';
+  }
+
+  /* Stats Cards */
+  .stats-card {
+    @apply heritage-card p-6 hover:shadow-[var(--shadow-medium)] transition-all duration-200;
+  }
+
+  .stats-value {
+    @apply text-2xl font-bold text-primary;
+  }
+
+  .stats-label {
+    @apply text-sm text-muted-foreground font-medium;
+  }
+
+  /* Table Enhancements */
+  .data-table {
+    @apply heritage-card overflow-hidden;
+  }
+
+  .table-header {
+    @apply bg-secondary/50 text-secondary-foreground font-semibold;
+  }
+
+  .table-row {
+    @apply border-b border-border/50 hover:bg-secondary/30 transition-colors duration-150;
+  }
+}
