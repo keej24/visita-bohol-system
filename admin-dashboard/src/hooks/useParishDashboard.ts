@@ -1,6 +1,6 @@
 // Enhanced Parish Dashboard Hook with real Firebase integration
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
 import { ParishDataService } from '@/services/parishDataService';
 import type { ChurchInfo, FileUpload, AnnouncementItem } from '@/components/parish/types';

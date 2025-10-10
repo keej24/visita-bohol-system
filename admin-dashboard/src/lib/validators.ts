@@ -23,3 +23,4 @@ export function isNameLike(value: unknown, min = 2, max = 100): boolean {
   if (s.length < min || s.length > max) return false;
   return /^[A-Za-zÀ-ÖØ-öø-ÿ .'-]+$/.test(s);
 }
+

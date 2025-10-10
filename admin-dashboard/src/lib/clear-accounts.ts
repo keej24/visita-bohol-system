@@ -26,3 +26,4 @@ export const clearExistingAccounts = async () => {
   console.log('2. Delete existing users manually');
   console.log('3. Go to Firestore Database and delete user documents');
 };
+

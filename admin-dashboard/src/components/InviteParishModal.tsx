@@ -108,3 +108,4 @@ export const InviteParishModal = ({ diocese, trigger }: InviteParishModalProps) 
 };
 
 export default InviteParishModal;
+

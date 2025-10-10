@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import { usePendingChurches, useUpdateChurchStatus } from '@/lib/optimized/queries';
-import { useAuth } from '@/contexts/AuthContext';
-import type { Diocese } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
+import type { Diocese } from '@/hooks/useAuth';
 import type { Church } from '@/lib/churches';
 
 interface OptimizedChanceryReviewListProps {
@@ -160,3 +160,4 @@ export const OptimizedChanceryReviewList = React.memo<OptimizedChanceryReviewLis
 });
 
 OptimizedChanceryReviewList.displayName = 'OptimizedChanceryReviewList';
+

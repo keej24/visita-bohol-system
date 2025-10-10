@@ -6,7 +6,7 @@ import { StatsGrid } from '@/components/optimized/StatsGrid';
 import { ChanceryReviewList } from '@/components/ChanceryReviewList';
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useChurchStats } from '@/hooks/useChurchStats';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';

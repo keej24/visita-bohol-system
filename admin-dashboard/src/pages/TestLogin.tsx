@@ -1,6 +1,6 @@
 // Test Login Component for debugging
 import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -122,3 +122,4 @@ const TestLogin = () => {
 };
 
 export default TestLogin;
+

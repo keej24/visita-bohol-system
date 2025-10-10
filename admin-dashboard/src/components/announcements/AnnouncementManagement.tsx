@@ -1,13 +1,13 @@
 // Main announcement management component for chancery dashboards
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { AnnouncementService } from '@/services/announcementService';
 import { AnnouncementList } from './AnnouncementList';
 import { AnnouncementForm } from './AnnouncementForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import type { Announcement, AnnouncementFormData } from '@/types/announcement';
-import type { Diocese } from '@/contexts/AuthContext';
+import type { Diocese } from '@/hooks/useAuth';
 
 interface AnnouncementManagementProps {
   diocese: Diocese;
@@ -230,3 +230,4 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     </div>
   );
 };
+

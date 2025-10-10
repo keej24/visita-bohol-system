@@ -160,3 +160,4 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
 };
 
 export default CreateParishAccountModal;
+

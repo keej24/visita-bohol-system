@@ -61,3 +61,4 @@ export async function markInviteAccepted(inviteId: string, by: { uid: string; em
     acceptedBy: by,
   });
 }
+

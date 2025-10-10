@@ -510,3 +510,4 @@ export class DioceseAnalyticsService {
     return analytics.topChurches;
   }
 }
+

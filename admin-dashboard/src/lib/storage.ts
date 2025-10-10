@@ -200,3 +200,4 @@ export function getThumbnailUrl(imageUrl: string, size: number = 200): string {
   // In future, you can implement Cloud Functions to generate thumbnails
   return imageUrl;
 }
+

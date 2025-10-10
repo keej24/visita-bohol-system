@@ -505,3 +505,4 @@ const MuseumResearcherDashboard = () => {
 };
 
 export default MuseumResearcherDashboard;
+

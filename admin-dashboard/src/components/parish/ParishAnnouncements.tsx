@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { AnnouncementService } from '@/services/announcementService';
 import { AnnouncementList } from '@/components/announcements/AnnouncementList';
 import { AnnouncementForm } from '@/components/announcements/AnnouncementForm';
