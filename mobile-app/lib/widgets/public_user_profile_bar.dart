@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_state.dart';
 import '../services/auth_service.dart';
-import '../screens/registration_screen.dart';
-import '../screens/login_screen.dart';
+import '../screens/auth/register_screen.dart';
+import '../screens/auth/login_screen.dart';
 
 class PublicUserProfileBar extends StatelessWidget {
-  const PublicUserProfileBar({Key? key}) : super(key: key);
+  const PublicUserProfileBar({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -288,7 +288,7 @@ class PublicUserProfileBar extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const RegistrationScreen()),
+                            builder: (_) => const RegisterScreen()),
                       );
                     },
                     style: ElevatedButton.styleFrom(

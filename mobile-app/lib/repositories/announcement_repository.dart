@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/announcement.dart';
-import '../util/constants.dart';
+import '../utils/constants.dart';
 
 class AnnouncementRepository {
   List<Announcement>? _cache;

@@ -13,7 +13,8 @@ import '../theme/header_palette.dart';
 import 'church_detail_screen.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({Key? key}) : super(key: key);
+  final Church? selectedChurch; // Church to focus on when opening map
+  const MapScreen({super.key, this.selectedChurch});
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
@@ -59,6 +60,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
 
     _getCurrentLocation();
+
+    // If a church was passed, select it and center on it
+    if (widget.selectedChurch != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _selectChurch(widget.selectedChurch!);
+      });
+    }
   }
 
   @override
@@ -86,6 +94,20 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       debugPrint('Error getting location: $e');
+    }
+  }
+
+  void _selectChurch(Church church) {
+    setState(() {
+      _selectedChurch = church;
+    });
+
+    // Center map on the selected church with appropriate zoom
+    if (church.latitude != null && church.longitude != null) {
+      _mapController.move(
+        LatLng(church.latitude!, church.longitude!),
+        15.0, // Zoom level for focused view
+      );
     }
   }
 
@@ -217,13 +239,18 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
-        center: center,
-        zoom: 11.5,
+        initialCenter: center,
+        initialZoom: 11.5,
         maxZoom: 18,
         minZoom: 8,
         onTap: (_, __) => setState(() => _selectedChurch = null),
       ),
-      nonRotatedChildren: [
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.example.visitaMobile',
+        ),
+        MarkerLayer(markers: markers),
         RichAttributionWidget(
           attributions: [
             TextSourceAttribution(
@@ -233,42 +260,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
-      ],
-      children: [
-        // Custom styled tile layer
-        TileLayer(
-          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          subdomains: const ['a', 'b', 'c'],
-          maxZoom: 19,
-        ),
-        // User location marker
-        if (_userLocation != null)
-          MarkerLayer(
-            markers: [
-              Marker(
-                point:
-                    LatLng(_userLocation!.latitude, _userLocation!.longitude),
-                width: 60,
-                height: 60,
-                builder: (context) => Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child:
-                      const Icon(Icons.person, color: Colors.white, size: 24),
-                ),
-              ),
-            ],
-          ),
         // Church markers with clustering
         MarkerClusterLayerWidget(
           options: MarkerClusterLayerOptions(
@@ -318,7 +309,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         point: LatLng(church.latitude!, church.longitude!),
         width: isSelected ? 70 : 50,
         height: isSelected ? 70 : 50,
-        builder: (context) => GestureDetector(
+        child: GestureDetector(
           onTap: () => setState(() => _selectedChurch = church),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -658,7 +649,7 @@ class _FilterToggle extends StatelessWidget {
         Switch.adaptive(
           value: value,
           onChanged: onChanged,
-          activeColor: color,
+          activeTrackColor: color,
         ),
       ],
     );
@@ -850,10 +841,71 @@ class _EnhancedChurchDetailSheet extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
-                      onPressed: () {
-                        isVisited
-                            ? appState.unmarkVisited(c)
-                            : appState.markVisited(c);
+                      onPressed: () async {
+                        if (isVisited) {
+                          appState.unmarkVisited(c);
+                        } else {
+                          // Validate location before marking as visited
+                          try {
+                            final position =
+                                await Geolocator.getCurrentPosition(
+                              locationSettings: const LocationSettings(
+                                accuracy: LocationAccuracy.high,
+                              ),
+                            );
+
+                            final result = await appState
+                                .markVisitedWithValidation(c, position);
+
+                            if (!context.mounted) return;
+
+                            if (result.isValid) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle,
+                                          color: Colors.white),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: Text(result.message)),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFF10B981),
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.location_off,
+                                          color: Colors.white),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: Text(result.message)),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  duration: const Duration(seconds: 4),
+                                  action: SnackBarAction(
+                                    label: 'OK',
+                                    textColor: Colors.white,
+                                    onPressed: () {},
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Error getting location: ${e.toString()}'),
+                                backgroundColor: const Color(0xFFDC2626),
+                              ),
+                            );
+                          }
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor:

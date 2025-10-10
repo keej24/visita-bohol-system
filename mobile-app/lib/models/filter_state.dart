@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'enums.dart';
-import '../util/constants.dart';
+import '../utils/constants.dart';
 import 'church_filter.dart';
 
 class FilterState extends ChangeNotifier {

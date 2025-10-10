@@ -45,11 +45,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null) {
-        // Success! AuthWrapper will automatically show HomeScreen.
-        // If this screen was pushed (e.g., from a bottom sheet/menu), close it.
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
+        // Success! AuthWrapper will automatically show HomeScreen
+        // No need to navigate manually
       } else {
         setState(() {
           _errorMessage = 'Login failed. Please check your credentials.';

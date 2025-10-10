@@ -76,7 +76,7 @@ class _ChurchFiltersCardState extends State<ChurchFiltersCard> {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
-              value: widget.selectedDiocese?.label ?? 'All',
+              initialValue: widget.selectedDiocese?.label ?? 'All',
               items: const [
                 DropdownMenuItem(value: 'All', child: Text('All Dioceses')),
                 DropdownMenuItem(
@@ -121,7 +121,7 @@ class _ChurchFiltersCardState extends State<ChurchFiltersCard> {
                       labelText: 'Location',
                       border: OutlineInputBorder(),
                     ),
-                    value: widget.location.isEmpty ? null : widget.location,
+                    initialValue: widget.location.isEmpty ? null : widget.location,
                     items: const [
                       DropdownMenuItem(value: '', child: Text('All Locations')),
                       DropdownMenuItem(
@@ -143,7 +143,7 @@ class _ChurchFiltersCardState extends State<ChurchFiltersCard> {
                       labelText: 'Type',
                       border: OutlineInputBorder(),
                     ),
-                    value: widget.classification.isEmpty
+                    initialValue: widget.classification.isEmpty
                         ? null
                         : widget.classification,
                     items: const [

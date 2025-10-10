@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 import '../models/church.dart';
-import '../util/constants.dart';
+import '../utils/constants.dart';
 
 /// Repository providing cached access to churches data.
 class ChurchRepository {

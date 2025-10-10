@@ -6,7 +6,7 @@ import '../repositories/mass_schedule_repository.dart';
 class MassScheduleScreen extends StatelessWidget {
   final Church church;
 
-  const MassScheduleScreen({Key? key, required this.church}) : super(key: key);
+  const MassScheduleScreen({super.key, required this.church});
 
   @override
   Widget build(BuildContext context) {
@@ -142,65 +142,58 @@ class MassScheduleScreen extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        ...groupedSchedules[today]!
-                            .map((schedule) => Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          schedule.time,
+                        ...groupedSchedules[today]!.map((schedule) => Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      schedule.time,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          schedule.type,
                                           style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
+                                            fontWeight: FontWeight.w600,
                                             color: Colors.white,
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              schedule.type,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.white,
-                                              ),
+                                        if (schedule.language != null ||
+                                            schedule.notes != null)
+                                          Text(
+                                            [schedule.language, schedule.notes]
+                                                .where((s) =>
+                                                    s != null && s.isNotEmpty)
+                                                .join(' • '),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.8),
                                             ),
-                                            if (schedule.language != null ||
-                                                schedule.notes != null)
-                                              Text(
-                                                [
-                                                  schedule.language,
-                                                  schedule.notes
-                                                ]
-                                                    .where((s) =>
-                                                        s != null &&
-                                                        s.isNotEmpty)
-                                                    .join(' • '),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.8),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                ))
-                            .toList(),
+                                ],
+                              ),
+                            )),
                       ],
                     ),
                   ),
@@ -225,13 +218,11 @@ class MassScheduleScreen extends StatelessWidget {
                   'Thursday',
                   'Friday',
                   'Saturday'
-                ]
-                    .map((day) => _DayScheduleCard(
-                          day: day,
-                          schedules: groupedSchedules[day] ?? [],
-                          isToday: day == today,
-                        ))
-                    .toList(),
+                ].map((day) => _DayScheduleCard(
+                      day: day,
+                      schedules: groupedSchedules[day] ?? [],
+                      isToday: day == today,
+                    )),
               ],
             ),
           );
@@ -341,85 +332,82 @@ class _DayScheduleCard extends StatelessWidget {
                 ),
               )
             else
-              ...schedules
-                  .map((schedule) => Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8F9FA),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF8B5E3C),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                schedule.time,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
+              ...schedules.map((schedule) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8B5E3C),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            schedule.time,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontSize: 12,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        schedule.type,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF1A1A1A),
-                                        ),
-                                      ),
-                                      if (schedule.language != null) ...[
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF8B5E3C)
-                                                .withValues(alpha: 0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            schedule.language!,
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w500,
-                                              color: Color(0xFF8B5E3C),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                                  Text(
+                                    schedule.type,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1A1A1A),
+                                    ),
                                   ),
-                                  if (schedule.notes != null &&
-                                      schedule.notes!.isNotEmpty)
-                                    Text(
-                                      schedule.notes!,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
+                                  if (schedule.language != null) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF8B5E3C)
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        schedule.language!,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: Color(0xFF8B5E3C),
+                                        ),
                                       ),
                                     ),
+                                  ],
                                 ],
                               ),
-                            ),
-                          ],
+                              if (schedule.notes != null &&
+                                  schedule.notes!.isNotEmpty)
+                                Text(
+                                  schedule.notes!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ))
-                  .toList(),
+                      ],
+                    ),
+                  )),
           ],
         ),
       ),

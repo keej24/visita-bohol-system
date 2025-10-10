@@ -7,8 +7,7 @@ import 'dart:io';
 
 class FeedbackSubmitScreen extends StatefulWidget {
   final String churchId;
-  const FeedbackSubmitScreen({Key? key, required this.churchId})
-      : super(key: key);
+  const FeedbackSubmitScreen({super.key, required this.churchId});
 
   @override
   State<FeedbackSubmitScreen> createState() => _FeedbackSubmitScreenState();
@@ -17,6 +16,7 @@ class FeedbackSubmitScreen extends StatefulWidget {
 class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
   final _commentCtl = TextEditingController();
   int _rating = 5;
+  FeedbackCategory _selectedCategory = FeedbackCategory.general;
   final _svc = FeedbackService();
   final List<File> _photos = [];
   final _picker = ImagePicker();
@@ -42,6 +42,7 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
       comment: _commentCtl.text,
       rating: _rating,
       photos: _photos.map((f) => f.path).toList(),
+      category: _selectedCategory,
     );
     await _svc.save(fb);
     if (!mounted) return;
@@ -125,6 +126,106 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
                       color: Color(0xFF1A1A1A),
                     ),
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            _SectionCard(
+              title: 'Select Category',
+              icon: Icons.category,
+              iconColor: const Color(0xFF059669),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'What aspect of your visit would you like to share about?',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF6B7280),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...FeedbackCategory.values.map((category) {
+                    final isSelected = _selectedCategory == category;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              setState(() => _selectedCategory = category),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF059669)
+                                      .withValues(alpha: 0.1)
+                                  : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF059669)
+                                    : Colors.grey.shade300,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFF059669)
+                                        : Colors.grey.shade400,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    _getCategoryIcon(category),
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        category.label,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: isSelected
+                                              ? const Color(0xFF059669)
+                                              : const Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                      Text(
+                                        category.description,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Color(0xFF059669),
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -266,6 +367,19 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
         return 'Excellent';
       default:
         return 'Rate it';
+    }
+  }
+
+  IconData _getCategoryIcon(FeedbackCategory category) {
+    switch (category) {
+      case FeedbackCategory.general:
+        return Icons.chat_bubble_outline;
+      case FeedbackCategory.accessibility:
+        return Icons.accessibility;
+      case FeedbackCategory.facilities:
+        return Icons.business;
+      case FeedbackCategory.experience:
+        return Icons.sentiment_very_satisfied;
     }
   }
 }

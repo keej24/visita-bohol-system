@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:/src/flutter/bin/flutter analyze)",
+      "Bash(git checkout:*)",
+      "Bash(C:/src/flutter/bin/flutter analyze lib/screens/church_detail_screen_enhanced.dart)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -215,6 +215,14 @@ class EnhancedChurchService extends ChangeNotifier {
         return 3;
       case HeritageClassification.icp:
         return 2;
+      case HeritageClassification.historicalShrine:
+        return 2;
+      case HeritageClassification.pilgrimageSite:
+        return 2;
+      case HeritageClassification.parishChurch:
+        return 1;
+      case HeritageClassification.nonHeritage:
+        return 1;
       case HeritageClassification.none:
         return 1;
     }

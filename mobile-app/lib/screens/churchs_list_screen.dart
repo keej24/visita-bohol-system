@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import '../models/church.dart';
 import '../services/local_data_service.dart';
 import 'church_detail_screen.dart';
+import '../widgets/optimized_image_widget.dart';
 
 class ChurchesListScreen extends StatefulWidget {
-  const ChurchesListScreen({Key? key}) : super(key: key);
+  const ChurchesListScreen({super.key});
   @override
   State<ChurchesListScreen> createState() => _ChurchesListScreenState();
 }
@@ -190,6 +191,7 @@ class _ChurchesListScreenState extends State<ChurchesListScreen> {
                           child: Row(
                             children: [
                               // Church Image/Icon
+                              // Church Image
                               Container(
                                 width: 80,
                                 height: 80,
@@ -199,20 +201,13 @@ class _ChurchesListScreenState extends State<ChurchesListScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: church.images.isNotEmpty
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.asset(
-                                          church.images.first,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                            return const Icon(
-                                              Icons.account_balance,
-                                              size: 40,
-                                              color: Color(0xFF432818),
-                                            );
-                                          },
-                                        ),
+                                    ? OptimizedChurchThumbnail(
+                                        imageUrl: church.images.first,
+                                        size: 80,
+                                        isNetworkImage: church.images.first
+                                                .startsWith('http://') ||
+                                            church.images.first
+                                                .startsWith('https://'),
                                       )
                                     : const Icon(
                                         Icons.account_balance,

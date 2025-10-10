@@ -190,11 +190,8 @@ class _EnhancedAnnouncementCard extends StatelessWidget {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(width: 8),
-                      _TagChip(
-                        text: announcement.diocese == 'Diocese of Tagbilaran'
-                            ? 'TAGBILARAN'
-                            : 'TALIBON',
-                        color: const Color(0xFF059669),
+                      _DioceseIndicator(
+                        diocese: announcement.diocese,
                       ),
                       const Spacer(),
                       _DatePill(date: formatDate(announcement.dateTime)),
@@ -323,6 +320,58 @@ class _DatePill extends StatelessWidget {
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
         ),
+      ),
+    );
+  }
+}
+
+class _DioceseIndicator extends StatelessWidget {
+  final String diocese;
+
+  const _DioceseIndicator({required this.diocese});
+
+  @override
+  Widget build(BuildContext context) {
+    final isTagbilaran = diocese.contains('Tagbilaran');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isTagbilaran
+              ? [const Color(0xFF2563EB), const Color(0xFF1D4ED8)] // Blue for Tagbilaran
+              : [const Color(0xFF7C3AED), const Color(0xFF6D28D9)], // Purple for Talibon
+        ),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: (isTagbilaran
+                ? const Color(0xFF2563EB)
+                : const Color(0xFF7C3AED)).withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.account_balance,
+            size: 11,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isTagbilaran ? 'TAGBILARAN' : 'TALIBON',
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }

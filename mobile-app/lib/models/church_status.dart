@@ -6,18 +6,26 @@ class ChurchStatus {
   /// Church approved by Chancery Office and visible to public
   static const String approved = 'approved';
 
-  /// Church needs revisions based on Chancery feedback
+  /// Church needs revisions based on Chancery feedback (admin uses 'needs_revision')
   static const String revisions = 'revisions';
+  static const String needsRevision = 'needs_revision'; // Admin dashboard format
 
-  /// Heritage church forwarded to Museum Researcher for validation
+  /// Church rejected by Chancery
+  static const String rejected = 'rejected';
+
+  /// Heritage church forwarded to Museum Researcher for validation (admin uses 'under_review')
   static const String heritageReview = 'heritage_review';
+  static const String underReview = 'under_review'; // Admin dashboard format
 
-  /// All possible status values
+  /// All possible status values (including admin dashboard variants)
   static const List<String> allStatuses = [
     pending,
     approved,
     revisions,
+    needsRevision,
+    rejected,
     heritageReview,
+    underReview,
   ];
 
   /// Status descriptions for UI display
@@ -25,7 +33,10 @@ class ChurchStatus {
     pending: 'Pending Chancery Review',
     approved: 'Approved & Public',
     revisions: 'Needs Revisions',
+    needsRevision: 'Needs Revisions',
+    rejected: 'Rejected',
     heritageReview: 'Heritage Review in Progress',
+    underReview: 'Heritage Review in Progress',
   };
 
   /// Status colors for UI display
@@ -33,7 +44,10 @@ class ChurchStatus {
     pending: 0xFFFFA726, // Orange
     approved: 0xFF4CAF50, // Green
     revisions: 0xFFF44336, // Red
+    needsRevision: 0xFFF44336, // Red
+    rejected: 0xFF9E9E9E, // Gray
     heritageReview: 0xFF2196F3, // Blue
+    underReview: 0xFF2196F3, // Blue
   };
 
   /// Check if status allows public visibility
@@ -43,11 +57,13 @@ class ChurchStatus {
 
   /// Check if status requires admin action
   static bool requiresAdminAction(String status) {
-    return status == pending || status == revisions;
+    return status == pending ||
+           status == revisions ||
+           status == needsRevision;
   }
 
   /// Check if status is under researcher review
   static bool isUnderResearcherReview(String status) {
-    return status == heritageReview;
+    return status == heritageReview || status == underReview;
   }
 }

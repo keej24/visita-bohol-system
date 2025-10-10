@@ -7,7 +7,7 @@ import '../models/church_status.dart';
 /// Debug widget to verify that only approved churches are being loaded
 /// This can be temporarily added to your home screen to verify the filtering
 class ChurchStatusVerificationWidget extends StatelessWidget {
-  const ChurchStatusVerificationWidget({Key? key}) : super(key: key);
+  const ChurchStatusVerificationWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -72,32 +72,28 @@ class ChurchStatusVerificationWidget extends StatelessWidget {
                           'Churches by Status:',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        ...churches
-                            .map((church) => Padding(
-                                  padding:
-                                      const EdgeInsets.only(left: 16, top: 4),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 12,
-                                        height: 12,
-                                        decoration: BoxDecoration(
-                                          color: Color(church.statusColor),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          '${church.name} (${church.status})',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ],
+                        ...churches.map((church) => Padding(
+                              padding: const EdgeInsets.only(left: 16, top: 4),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: Color(church.statusColor),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
                                   ),
-                                ))
-                            .toList(),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${church.name} (${church.status})',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
                         if (nonApprovedCount == 0) ...[
                           const SizedBox(height: 12),
                           Container(
@@ -131,7 +127,7 @@ class ChurchStatusVerificationWidget extends StatelessWidget {
 
 /// Simple status indicator for the app bar
 class StatusFilterIndicator extends StatelessWidget {
-  const StatusFilterIndicator({Key? key}) : super(key: key);
+  const StatusFilterIndicator({super.key});
 
   @override
   Widget build(BuildContext context) {

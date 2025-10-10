@@ -49,6 +49,10 @@ class Announcement {
     return 'Past';
   }
 
+  // Compatibility getters for church_detail_screen
+  String get message => description;
+  DateTime get date => dateTime;
+
   factory Announcement.fromJson(Map<String, dynamic> j) => Announcement(
         id: j['id'] ?? '',
         title: j['title'] ?? '',

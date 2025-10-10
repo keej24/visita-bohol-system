@@ -146,4 +146,12 @@ ios/firebase_app_id_file.json
 .firebase/
 *-debug.log
 firebase-debug.log
-firestore-debug.log
+firestore-debug.log# 🔒 Firebase Configuration Files - NEVER COMMIT THESE
+admin-dashboard/.env
+mobile-app/lib/firebase_options.dart
+mobile-app/android/app/google-services.json
+mobile-app/ios/GoogleService-Info.plist
+
+# 💾 Backup files
+*.backup
+*.backup.*

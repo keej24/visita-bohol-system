@@ -26,7 +26,8 @@ void main() {
     await tester.pump();
     expect(latestQuery, 'search term');
 
-    final tagbilaranChip = find.text(Diocese.tagbilaran.label);
+  // Filter chip renders short label 'Tagbilaran' in the current UI
+  final tagbilaranChip = find.text('Tagbilaran');
     expect(tagbilaranChip, findsOneWidget);
     await tester.tap(tagbilaranChip);
     await tester.pumpAndSettle();

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Modern clean UI palette - focused on white space and intuitive design
+  // Warm & Sacred palette - spiritually appropriate with modern appeal
   static const pureWhite = Color(0xFFFFFFFF); // primary background
   static const offWhite = Color(0xFFFAFAFA); // secondary background
   static const lightGray = Color(0xFFF5F5F5); // card backgrounds
@@ -9,12 +9,26 @@ class AppColors {
   static const textPrimary = Color(0xFF1A1A1A); // main text
   static const textSecondary = Color(0xFF6B6B6B); // secondary text
   static const textMuted = Color(0xFF9E9E9E); // muted text
-  static const accent = Color(0xFF2563EB); // modern blue accent
-  static const accentLight = Color(0xFFEBF2FF); // light accent background
+
+  // Primary: Deep Sacred Green (replaces blue)
+  static const primary = Color(0xFF2C5F2D); // deep green - sacred & natural
+  static const primaryLight = Color(0xFFE8F5E9); // light green background
+  static const primaryDark = Color(0xFF1B3A1C); // darker green
+
+  // Accent: Gold for heritage and special elements
+  static const gold = Color(0xFFD4AF37); // pure gold for badges and accents
+  static const goldLight = Color(0xFFFFF8E1); // light gold background
+  static const goldDark = Color(0xFFB8941F); // darker gold
+
+  // Legacy aliases for gradual migration
+  static const accent = primary; // maps to deep green
+  static const accentLight = primaryLight;
+  static const heritage = gold; // maps to gold
+
+  // Status colors
   static const success = Color(0xFF10B981); // modern green
   static const warning = Color(0xFFF59E0B); // modern amber
   static const error = Color(0xFFEF4444); // modern red
-  static const heritage = Color(0xFFD97706); // warm heritage accent
 }
 
 ThemeData buildAppTheme(Brightness brightness) {

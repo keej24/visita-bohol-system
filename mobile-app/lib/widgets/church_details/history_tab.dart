@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import '../../models/church.dart';
 import '../../models/enums.dart';
-import '../optimized_image_widget.dart';
+import '../../services/parish_document_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HistoryTab extends StatelessWidget {
   final Church church;
@@ -16,65 +17,6 @@ class HistoryTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Basic Information Card
-          buildCard(
-            icon: Icons.info_outline,
-            title: 'Basic Information',
-            child: Column(
-              children: [
-                if (church.fullName != null)
-                  buildInfoRow('Full Name', church.fullName!),
-                buildInfoRow('Location', church.location),
-                if (church.municipality != null)
-                  buildInfoRow('Municipality', church.municipality!),
-                buildInfoRow('Diocese', church.diocese),
-                if (church.foundingYear != null)
-                  buildInfoRow(
-                      'Founded', church.foundingYear!.toString()),
-              ],
-            ),
-          ),
-
-          // Colorful Info Cards Row (inspired by reference design)
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              // Founded Card (Purple)
-              if (church.foundingYear != null)
-                Flexible(
-                  child: buildColorfulInfoCard(
-                    icon: Icons.calendar_today,
-                    value: church.foundingYear!.toString(),
-                    label: 'Founded',
-                    backgroundColor: const Color(0xFF8B5CF6), // Purple
-                  ),
-                ),
-              if (church.foundingYear != null) const SizedBox(width: 12),
-              // Architecture Style Card (Orange)
-              Flexible(
-                flex: 2,
-                child: buildColorfulInfoCard(
-                  icon: Icons.architecture,
-                  value: church.architecturalStyle.label,
-                  label: 'Style',
-                  backgroundColor: const Color(0xFFF97316), // Orange
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // Location Card (Cyan - Full Width)
-          buildColorfulInfoCard(
-            icon: Icons.location_city,
-            value: church.municipality ?? church.location,
-            label: 'Location',
-            backgroundColor: const Color(0xFF06B6D4), // Cyan
-          ),
-
-          const SizedBox(height: 16),
-
           // Founders & Key Figures Card
           if (church.founders != null ||
               (church.keyFigures != null &&
@@ -158,22 +100,7 @@ class HistoryTab extends StatelessWidget {
               ),
             ),
 
-          // Description Card
-          if (church.description != null &&
-              church.description!.isNotEmpty)
-            buildCard(
-              icon: Icons.description,
-              title: 'Description',
-              child: Text(
-                church.description!,
-                style: const TextStyle(
-                  height: 1.6,
-                  color: Color(0xFF333333),
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.justify,
-              ),
-            ),
+          // Description removed as requested
 
           // Architectural Style Card
           buildCard(
@@ -190,102 +117,10 @@ class HistoryTab extends StatelessWidget {
             ),
           ),
 
-          // Heritage Information (for heritage sites)
-          if (church.heritageClassification !=
-              HeritageClassification.none)
-            buildCard(
-              icon: Icons.account_balance,
-              title: 'Heritage Information',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (church.culturalSignificance != null) ...[
-                    const Text(
-                      'Cultural Significance',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF8B5E3C),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      church.culturalSignificance!,
-                      style: const TextStyle(
-                        height: 1.6,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (church.preservationHistory != null) ...[
-                    const Text(
-                      'Preservation History',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF8B5E3C),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      church.preservationHistory!,
-                      style: const TextStyle(
-                        height: 1.6,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (church.restorationHistory != null) ...[
-                    const Text(
-                      'Restoration History',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF8B5E3C),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      church.restorationHistory!,
-                      style: const TextStyle(
-                        height: 1.6,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+          const SizedBox(height: 24),
 
-          // Photo Gallery
-          if (church.images.length > 1)
-            buildCard(
-              icon: Icons.photo_library,
-              title: 'Photo Gallery',
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemCount: church.images.length,
-                itemBuilder: (context, index) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: OptimizedChurchImage(
-                      imageUrl: church.images[index],
-                      fit: BoxFit.cover,
-                      isNetworkImage:
-                          church.images[index].startsWith('http'),
-                    ),
-                  );
-                },
-              ),
-            ),
+          // Parish Documents Section
+          ParishDocumentsButton(churchId: church.id),
         ],
       ),
     );
@@ -305,7 +140,7 @@ class HistoryTab extends StatelessWidget {
         border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -382,7 +217,7 @@ class HistoryTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -410,11 +245,253 @@ class HistoryTab extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class ParishDocumentsButton extends StatelessWidget {
+  final String churchId;
+
+  const ParishDocumentsButton({super.key, required this.churchId});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.folder_copy),
+        label: const Text('View Parish Documents'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF8B5E3C),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 2,
+        ),
+        onPressed: () {
+          _showDocumentsModal(context, churchId);
+        },
+      ),
+    );
+  }
+
+  void _showDocumentsModal(BuildContext context, String churchId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ParishDocumentsModal(churchId: churchId),
+    );
+  }
+}
+
+class ParishDocumentsModal extends StatelessWidget {
+  final String churchId;
+  final ParishDocumentService _service = ParishDocumentService();
+
+  ParishDocumentsModal({super.key, required this.churchId});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.folder_copy,
+                      color: Color(0xFF8B5E3C),
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Parish Documents',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Documents list
+              Expanded(
+                child: StreamBuilder(
+                  stream: _service.streamDocuments(churchId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF8B5E3C),
+                        ),
+                      );
+                    }
+                    final docs = snapshot.data ?? const [];
+                    if (docs.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.folder_open,
+                                size: 80,
+                                color: Colors.grey[300],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No documents available',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'The parish hasn\'t uploaded any documents yet.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: docs.length,
+                      separatorBuilder: (context, index) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final doc = docs[index];
+                        return _docTile(context, doc.name, doc.url, doc.uploadedAt);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _docTile(BuildContext context, String name, String url, DateTime? uploadedAt) {
+    final ext = name.toLowerCase();
+    IconData icon = Icons.insert_drive_file;
+    Color iconColor = const Color(0xFF8B5E3C);
+    
+    if (ext.endsWith('.pdf')) {
+      icon = Icons.picture_as_pdf;
+      iconColor = const Color(0xFFD32F2F);
+    } else if (ext.endsWith('.doc') || ext.endsWith('.docx')) {
+      icon = Icons.description;
+      iconColor = const Color(0xFF1976D2);
+    } else if (ext.endsWith('.xls') || ext.endsWith('.xlsx')) {
+      icon = Icons.grid_on;
+      iconColor = const Color(0xFF388E3C);
+    }
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: iconColor, size: 28),
+      ),
+      title: Text(
+        name,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 15,
+        ),
+      ),
+      subtitle: uploadedAt != null
+          ? Text(
+              'Uploaded ${_formatDate(uploadedAt)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            )
+          : null,
+      trailing: IconButton(
+        icon: const Icon(Icons.open_in_new),
+        color: const Color(0xFF8B5E3C),
+        tooltip: 'Open document',
+        onPressed: () async {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    
+    if (diff.inDays == 0) {
+      return 'today';
+    } else if (diff.inDays == 1) {
+      return 'yesterday';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays} days ago';
+    } else if (diff.inDays < 30) {
+      final weeks = (diff.inDays / 7).floor();
+      return weeks == 1 ? '1 week ago' : '$weeks weeks ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
   }
 }

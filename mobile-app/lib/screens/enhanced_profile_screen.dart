@@ -121,7 +121,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          profile.name,
+                          profile.displayName,
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
@@ -600,7 +600,7 @@ class _EnhancedProfileScreenState extends State<EnhancedProfileScreen>
   // Event handlers
   void _shareProgress(UserProfile profile) async {
     final text = await context.read<ProfileService>().shareProgress();
-    Share.share(text);
+    await Share.share(text);
   }
 
   void _showProgressDetails(UserProfile profile) {
@@ -1073,7 +1073,7 @@ class SettingsTile extends StatelessWidget {
           Switch.adaptive(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF2563EB),
+            activeTrackColor: const Color(0xFF2563EB),
           ),
         ],
       ),

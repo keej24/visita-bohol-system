@@ -12,11 +12,6 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, authService, child) {
-        assert(() {
-          debugPrint(
-              'AuthWrapper -> isLoading=${authService.isLoading}, isAuthenticated=${authService.isAuthenticated}, user=${authService.currentUser?.uid}');
-          return true;
-        }());
         // Show loading spinner while checking auth state
         if (authService.isLoading) {
           return const Scaffold(

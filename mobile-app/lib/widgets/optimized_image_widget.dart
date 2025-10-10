@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
@@ -97,6 +98,24 @@ class _OptimizedImageWidgetState extends State<OptimizedImageWidget> {
 
   /// Build network image with caching and progressive loading
   Widget _buildNetworkImage() {
+    // Use Image.network directly on web for better Firebase Storage compatibility
+    if (kIsWeb) {
+      return Image.network(
+        widget.imageUrl,
+        fit: widget.fit,
+        width: widget.width,
+        height: widget.height,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return widget.placeholder ?? _buildShimmerPlaceholder();
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return widget.errorWidget ?? _buildErrorWidget();
+        },
+      );
+    }
+
+    // Use CachedNetworkImage on mobile for better performance
     return CachedNetworkImage(
       imageUrl: widget.imageUrl,
       fit: widget.fit,

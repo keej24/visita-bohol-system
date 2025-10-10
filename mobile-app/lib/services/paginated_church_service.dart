@@ -67,7 +67,7 @@ class PaginatedChurchService extends ChangeNotifier {
       debugPrint('📄 [PAGINATED SERVICE] Loading first page');
 
       // Check cache first
-      final cacheKey = 'churches_page_0';
+      const cacheKey = 'churches_page_0';
       final cached = _cacheService.get<ChurchPage>(cacheKey);
 
       ChurchPage page;
@@ -204,7 +204,6 @@ class PaginatedChurchService extends ChangeNotifier {
     if (_currentFilter.architecturalStyles.isNotEmpty) {
       filtered = filtered
           .where((church) =>
-              church.architecturalStyle != null &&
               _currentFilter.architecturalStyles
                   .contains(church.architecturalStyle))
           .toList();
@@ -214,7 +213,6 @@ class PaginatedChurchService extends ChangeNotifier {
     if (_currentFilter.heritageClassifications.isNotEmpty) {
       filtered = filtered
           .where((church) =>
-              church.heritageClassification != null &&
               _currentFilter.heritageClassifications
                   .contains(church.heritageClassification))
           .toList();
@@ -222,9 +220,11 @@ class PaginatedChurchService extends ChangeNotifier {
 
     // Diocese filter
     if (_currentFilter.dioceses.isNotEmpty) {
-      filtered = filtered
-          .where((church) => _currentFilter.dioceses.contains(church.diocese))
-          .toList();
+      filtered = filtered.where((church) {
+        // Convert church.diocese (String) to enum for comparison
+        final churchDiocese = DioceseX.fromLabel(church.diocese);
+        return _currentFilter.dioceses.contains(churchDiocese);
+      }).toList();
     }
 
     // Founding year range filter

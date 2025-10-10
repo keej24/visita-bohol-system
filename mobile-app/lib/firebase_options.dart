@@ -41,46 +41,53 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyDCbl4Zr7nco51NJ7fRafyBOh23-2qtOD4',
+    appId: '1:490423265288:web:eee490e89f588ff9bfc9bd',
+    messagingSenderId: '490423265288',
+    projectId: 'visitaproject-5cd9f',
+    authDomain: 'visitaproject-5cd9f.firebaseapp.com',
+    databaseURL: 'https://visitaproject-5cd9f-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'visitaproject-5cd9f.firebasestorage.app',
+    measurementId: 'G-MNWKD0M7V9',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: 'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyAfenR2dQXnheuPWB2ED0kUNaBEyjsWjAE',
+    appId: '1:490423265288:android:f06cbfdb7e3e4810bfc9bd',
+    messagingSenderId: '490423265288',
+    projectId: 'visitaproject-5cd9f',
+    databaseURL: 'https://visitaproject-5cd9f-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'visitaproject-5cd9f.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_API_KEY',
-    appId: 'YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyD1bvuDlhVeoHCopVepdgx8huYw48Urr40',
+    appId: '1:490423265288:ios:cb5cdae624b4f3e7bfc9bd',
+    messagingSenderId: '490423265288',
+    projectId: 'visitaproject-5cd9f',
+    databaseURL: 'https://visitaproject-5cd9f-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'visitaproject-5cd9f.firebasestorage.app',
     iosBundleId: 'com.example.visitaMobile',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'YOUR_MACOS_API_KEY',
-    appId: 'YOUR_MACOS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyF1AtYzWsj7pH8zMs0eT2nO6qP1kH5yZ9B',
+    appId: '1:490423265288:ios:d4e5f6g7h8i9j0k1',
+    messagingSenderId: '490423265288',
+    projectId: 'visitaproject-5cd9f',
+    storageBucket: 'visitaproject-5cd9f.appspot.com',
     iosBundleId: 'com.example.visitaMobile',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'YOUR_WINDOWS_API_KEY',
-    appId: 'YOUR_WINDOWS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
+    apiKey: 'AIzaSyCVjwGfADBwbWsfQGDduS_q3qjugBYiCR0',
+    appId: '1:490423265288:web:1ce925cb908a3af7bfc9bd',
+    messagingSenderId: '490423265288',
+    projectId: 'visitaproject-5cd9f',
+    authDomain: 'visitaproject-5cd9f.firebaseapp.com',
+    databaseURL: 'https://visitaproject-5cd9f-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'visitaproject-5cd9f.firebasestorage.app',
+    measurementId: 'G-J7YX0VSMH3',
   );
+
 }

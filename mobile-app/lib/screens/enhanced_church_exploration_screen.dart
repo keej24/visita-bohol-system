@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/church.dart';
 import '../models/enhanced_filter.dart';
 import '../models/enums.dart';
-import '../services/enhanced_church_service.dart';
+import '../services/paginated_church_service.dart';
 import '../services/location_service.dart';
 import '../widgets/home/church_card.dart';
+import '../widgets/offline_indicator.dart';
+import 'church_detail_screen_enhanced.dart';
 
 class EnhancedChurchExplorationScreen extends StatefulWidget {
   const EnhancedChurchExplorationScreen({super.key});
@@ -19,20 +23,35 @@ class EnhancedChurchExplorationScreen extends StatefulWidget {
 class _EnhancedChurchExplorationScreenState
     extends State<EnhancedChurchExplorationScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   bool _isGridView = false;
   bool _showMap = false;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize pagination service
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<EnhancedChurchService>().initialize();
+      context.read<PaginatedChurchService>().initialize();
     });
+
+    // Add scroll listener for infinite scroll
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent * 0.8) {
+      // Load more when user scrolls to 80% of content
+      context.read<PaginatedChurchService>().loadNextPage();
+    }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -43,29 +62,31 @@ class _EnhancedChurchExplorationScreenState
           ? const Color(0xFF121212)
           : const Color(0xFFF8FAFC),
       appBar: _buildAppBar(),
-      body: Consumer<EnhancedChurchService>(
-        builder: (context, churchService, child) {
-          if (churchService.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: OfflineIndicator(
+        child: Consumer<PaginatedChurchService>(
+          builder: (context, churchService, _) {
+            if (churchService.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (churchService.errorMessage != null) {
-            return _buildErrorState(churchService.errorMessage!);
-          }
+            if (churchService.errorMessage != null) {
+              return _buildErrorState(churchService.errorMessage!);
+            }
 
-          return Column(
-            children: [
-              _buildSearchBar(churchService),
-              _buildFilterChips(churchService),
-              _buildViewToggle(),
-              Expanded(
-                child: _showMap
-                    ? _buildMapView(churchService)
-                    : _buildListView(churchService),
-              ),
-            ],
-          );
-        },
+            return Column(
+              children: [
+                _buildSearchBar(churchService),
+                _buildFilterChips(churchService),
+                _buildViewToggle(churchService),
+                Expanded(
+                  child: _showMap
+                      ? _buildMapView(churchService)
+                      : _buildListView(churchService),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       floatingActionButton: _buildFloatingActionButton(),
     );
@@ -79,6 +100,10 @@ class _EnhancedChurchExplorationScreenState
           : Colors.white,
       elevation: 0,
       actions: [
+        const ConnectivityStatusWidget(showDetails: false),
+        const SizedBox(width: 8),
+        const SyncStatusWidget(showLastSync: false),
+        const SizedBox(width: 8),
         IconButton(
           icon: Icon(_showMap ? Icons.list : Icons.map),
           onPressed: () => setState(() => _showMap = !_showMap),
@@ -91,7 +116,7 @@ class _EnhancedChurchExplorationScreenState
     );
   }
 
-  Widget _buildSearchBar(EnhancedChurchService churchService) {
+  Widget _buildSearchBar(PaginatedChurchService churchService) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: TextField(
@@ -122,7 +147,7 @@ class _EnhancedChurchExplorationScreenState
     );
   }
 
-  Widget _buildFilterChips(EnhancedChurchService churchService) {
+  Widget _buildFilterChips(PaginatedChurchService churchService) {
     final filter = churchService.currentFilter;
 
     if (!filter.hasActiveFilters) {
@@ -208,7 +233,7 @@ class _EnhancedChurchExplorationScreenState
     );
   }
 
-  Widget _buildViewToggle() {
+  Widget _buildViewToggle(PaginatedChurchService churchService) {
     if (_showMap) return const SizedBox.shrink();
 
     return Container(
@@ -216,18 +241,14 @@ class _EnhancedChurchExplorationScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Consumer<EnhancedChurchService>(
-            builder: (context, churchService, child) {
-              return Text(
-                '${churchService.filteredChurches.length} churches found',
-                style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white70
-                      : Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              );
-            },
+          Text(
+            '${churchService.filteredChurches.length} churches found',
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white70
+                  : Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
           ),
           Row(
             children: [
@@ -256,15 +277,16 @@ class _EnhancedChurchExplorationScreenState
     );
   }
 
-  Widget _buildListView(EnhancedChurchService churchService) {
+  Widget _buildListView(PaginatedChurchService churchService) {
     final churches = churchService.filteredChurches;
 
-    if (churches.isEmpty) {
+    if (churches.isEmpty && !churchService.isLoading) {
       return _buildEmptyState();
     }
 
     if (_isGridView) {
       return GridView.builder(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
@@ -272,15 +294,35 @@ class _EnhancedChurchExplorationScreenState
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
         ),
-        itemCount: churches.length,
-        itemBuilder: (context, index) => _buildChurchGridItem(churches[index]),
+        itemCount: churches.length + (churchService.hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= churches.length) {
+            return _buildLoadingIndicator();
+          }
+          return _buildChurchGridItem(churches[index]);
+        },
       );
     }
 
     return ListView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: churches.length,
-      itemBuilder: (context, index) => _buildChurchListItem(churches[index]),
+      itemCount: churches.length + (churchService.hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= churches.length) {
+          return _buildLoadingIndicator();
+        }
+        return _buildChurchListItem(churches[index]);
+      },
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 
@@ -289,6 +331,14 @@ class _EnhancedChurchExplorationScreenState
       margin: const EdgeInsets.only(bottom: 16),
       child: ChurchCard(
         church: church,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChurchDetailScreen(church: church),
+            ),
+          );
+        },
         showDistance: _shouldShowDistance(),
         distance: _getChurchDistance(church),
       ),
@@ -315,21 +365,34 @@ class _EnhancedChurchExplorationScreenState
         children: [
           Expanded(
             flex: 3,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(16)),
-                image: church.images.isNotEmpty
-                    ? DecorationImage(
-                        image: AssetImage(church.images.first),
-                        fit: BoxFit.cover,
-                      )
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChurchDetailScreen(church: church),
+                  ),
+                );
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(16)),
+                  image: church.images.isNotEmpty
+                      ? DecorationImage(
+                          image: (church.images.first.startsWith('http://') ||
+                                  church.images.first.startsWith('https://'))
+                              ? NetworkImage(church.images.first)
+                              : AssetImage(church.images.first) as ImageProvider,
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                  color: Colors.grey[300],
+                ),
+                child: church.images.isEmpty
+                    ? const Icon(Icons.church, size: 40, color: Colors.grey)
                     : null,
-                color: Colors.grey[300],
               ),
-              child: church.images.isEmpty
-                  ? const Icon(Icons.church, size: 40, color: Colors.grey)
-                  : null,
             ),
           ),
           Expanded(
@@ -379,43 +442,166 @@ class _EnhancedChurchExplorationScreenState
     );
   }
 
-  Widget _buildMapView(EnhancedChurchService churchService) {
+  Widget _buildMapView(PaginatedChurchService churchService) {
     final churches = churchService.filteredChurches;
     final currentPosition = context.read<LocationService>().currentPosition;
 
-    return GoogleMap(
-      initialCameraPosition: CameraPosition(
-        target: currentPosition != null
-            ? LatLng(currentPosition.latitude, currentPosition.longitude)
-            : const LatLng(9.6496, 124.1336), // Bohol center
-        zoom: 10,
+    final center = currentPosition != null
+        ? LatLng(currentPosition.latitude, currentPosition.longitude)
+        : LatLng(9.6496, 124.1336); // Bohol center
+
+    return FlutterMap(
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: 10,
+        maxZoom: 18,
+        minZoom: 8,
       ),
-      markers: _buildMapMarkers(churches),
-      myLocationEnabled: true,
-      myLocationButtonEnabled: true,
+      children: [
+        TileLayer(
+          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          subdomains: const ['a', 'b', 'c'],
+          maxZoom: 19,
+          userAgentPackageName: 'com.example.visitaMobile',
+        ),
+        // User location marker
+        if (currentPosition != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point:
+                    LatLng(currentPosition.latitude, currentPosition.longitude),
+                width: 60,
+                height: 60,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child:
+                      const Icon(Icons.person, color: Colors.white, size: 24),
+                ),
+              ),
+            ],
+          ),
+        // Church markers with clustering
+        MarkerClusterLayerWidget(
+          options: MarkerClusterLayerOptions(
+            maxClusterRadius: 60,
+            size: const Size(50, 50),
+            markers: _buildMapMarkers(churches),
+            builder: (context, cluster) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    cluster.length.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  Set<Marker> _buildMapMarkers(List<Church> churches) {
+  List<Marker> _buildMapMarkers(List<Church> churches) {
     return churches
         .where((church) => church.latitude != null && church.longitude != null)
-        .map((church) => Marker(
-              markerId: MarkerId(church.id),
-              position: LatLng(church.latitude!, church.longitude!),
-              infoWindow: InfoWindow(
-                title: church.name,
-                snippet: church.location,
+        .map((church) {
+      Color markerColor;
+      IconData markerIcon;
+
+      if (church.heritageClassification == HeritageClassification.nct) {
+        markerColor = const Color(0xFFFFD700); // Gold for NCT
+        markerIcon = Icons.auto_awesome;
+      } else if (church.heritageClassification == HeritageClassification.icp) {
+        markerColor = const Color(0xFF2196F3); // Blue for ICP
+        markerIcon = Icons.star;
+      } else {
+        markerColor = const Color(0xFFF44336); // Red for regular churches
+        markerIcon = Icons.church;
+      }
+
+      return Marker(
+        point: LatLng(church.latitude!, church.longitude!),
+        width: 50,
+        height: 50,
+        child: GestureDetector(
+          onTap: () {
+            // Show church info dialog or navigate to detail
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text(church.name),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(church.location),
+                    if (church.foundingYear != null)
+                      Text('Founded: ${church.foundingYear}'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
               ),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                church.heritageClassification == HeritageClassification.nct
-                    ? BitmapDescriptor.hueYellow
-                    : church.heritageClassification ==
-                            HeritageClassification.icp
-                        ? BitmapDescriptor.hueBlue
-                        : BitmapDescriptor.hueRed,
-              ),
-            ))
-        .toSet();
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: markerColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: markerColor.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              markerIcon,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildEmptyState() {
@@ -448,7 +634,7 @@ class _EnhancedChurchExplorationScreenState
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () =>
-                context.read<EnhancedChurchService>().resetFilters(),
+                context.read<PaginatedChurchService>().resetFilters(),
             child: const Text('Reset Filters'),
           ),
         ],
@@ -486,8 +672,7 @@ class _EnhancedChurchExplorationScreenState
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () =>
-                context.read<EnhancedChurchService>().loadChurches(),
+            onPressed: () => context.read<PaginatedChurchService>().refresh(),
             child: const Text('Retry'),
           ),
         ],
@@ -497,7 +682,7 @@ class _EnhancedChurchExplorationScreenState
 
   Widget _buildFloatingActionButton() {
     return Consumer<LocationService>(
-      builder: (context, locationService, child) {
+      builder: (context, locationService, _) {
         return FloatingActionButton(
           onPressed: () => _enableNearMeFilter(),
           child: locationService.isLoading
@@ -517,7 +702,7 @@ class _EnhancedChurchExplorationScreenState
 
   Future<void> _enableNearMeFilter() async {
     final locationService = context.read<LocationService>();
-    final churchService = context.read<EnhancedChurchService>();
+    final churchService = context.read<PaginatedChurchService>();
 
     if (locationService.errorMessage != null) {
       locationService.clearError();
@@ -563,12 +748,12 @@ class _EnhancedChurchExplorationScreenState
   }
 
   bool _shouldShowDistance() {
-    final filter = context.read<EnhancedChurchService>().currentFilter;
+    final filter = context.read<PaginatedChurchService>().currentFilter;
     return filter.userLatitude != null && filter.userLongitude != null;
   }
 
   double? _getChurchDistance(Church church) {
-    final filter = context.read<EnhancedChurchService>().currentFilter;
+    final filter = context.read<PaginatedChurchService>().currentFilter;
     if (filter.userLatitude == null || filter.userLongitude == null) {
       return null;
     }
@@ -591,7 +776,7 @@ class _EnhancedFilterBottomSheetState
   @override
   void initState() {
     super.initState();
-    final churchService = context.read<EnhancedChurchService>();
+    final churchService = context.read<PaginatedChurchService>();
     _tempFilter = churchService.currentFilter;
     _yearRange = churchService.getFoundingYearRange();
   }
@@ -966,7 +1151,9 @@ class _EnhancedFilterBottomSheetState
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                context.read<EnhancedChurchService>().updateFilter(_tempFilter);
+                context
+                    .read<PaginatedChurchService>()
+                    .updateFilter(_tempFilter);
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(

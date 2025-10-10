@@ -1,29 +1,41 @@
 class UserProfile {
   final String id;
-  final String name;
+  final String displayName;
   final String email;
   final String? profileImageUrl;
+  final String? phoneNumber;
+  final String? location;
+  final String? bio;
+  final String? nationality;
   final String parish;
   final String affiliation;
-  final DateTime joinDate;
+  final String accountType;
+  final DateTime createdAt;
   final List<String> visitedChurches;
   final List<String> favoriteChurches;
+  final List<String> forVisitChurches;
   final List<JournalEntry> journalEntries;
   final UserPreferences preferences;
 
   UserProfile({
     required this.id,
-    required this.name,
+    required this.displayName,
     required this.email,
     this.profileImageUrl,
-    required this.parish,
-    required this.affiliation,
-    required this.joinDate,
+    this.phoneNumber,
+    this.location,
+    this.bio,
+    this.nationality,
+    this.parish = 'Not specified',
+    this.affiliation = 'Public User',
+    this.accountType = 'public',
+    required this.createdAt,
     required this.visitedChurches,
     required this.favoriteChurches,
-    required this.journalEntries,
-    required this.preferences,
-  });
+    required this.forVisitChurches,
+    this.journalEntries = const [],
+    UserPreferences? preferences,
+  }) : preferences = preferences ?? UserPreferences.defaultPreferences();
 
   double get progressPercentage {
     const totalChurches = 25; // Total heritage churches in Bohol
@@ -52,12 +64,12 @@ class UserProfile {
   factory UserProfile.demo() {
     return UserProfile(
       id: 'demo_user_001',
-      name: 'Maria Santos',
+      displayName: 'Maria Santos',
       email: 'maria.santos@example.com',
       profileImageUrl: null,
       parish: 'Immaculate Conception Parish',
       affiliation: 'Diocese of Tagbilaran',
-      joinDate: DateTime.now().subtract(const Duration(days: 120)),
+      createdAt: DateTime.now().subtract(const Duration(days: 120)),
       visitedChurches: [
         'baclayon_church',
         'loboc_church',
@@ -69,6 +81,10 @@ class UserProfile {
         'baclayon_church',
         'buenavista_church',
         'talibon_church',
+      ],
+      forVisitChurches: [
+        'maribojoc_church',
+        'cortes_church',
       ],
       journalEntries: [
         JournalEntry(
@@ -92,38 +108,95 @@ class UserProfile {
           photos: [],
         ),
       ],
-      preferences: UserPreferences(
-        enableNotifications: true,
-        enableFeastDayReminders: true,
-        enableLocationReminders: true,
-        shareProgressPublically: false,
-        preferredLanguage: 'en',
-        darkMode: false,
-      ),
+      preferences: UserPreferences.defaultPreferences(),
     );
   }
 
+  // Factory from JSON for Firestore integration
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
+      id: json['id'] ?? '',
+      displayName: json['displayName'] ?? json['name'] ?? '',
+      email: json['email'] ?? '',
+      profileImageUrl: json['profileImageUrl'],
+      phoneNumber: json['phoneNumber'],
+      location: json['location'],
+      bio: json['bio'],
+      nationality: json['nationality'],
+      parish: json['parish'] ?? 'Not specified',
+      affiliation: json['affiliation'] ?? 'Public User',
+      accountType: json['accountType'] ?? 'public',
+      createdAt: json['createdAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['createdAt'])
+          : DateTime.now(),
+      visitedChurches: List<String>.from(json['visitedChurches'] ?? []),
+      favoriteChurches: List<String>.from(json['favoriteChurches'] ?? []),
+      forVisitChurches: List<String>.from(json['forVisitChurches'] ?? []),
+      journalEntries: (json['journalEntries'] as List<dynamic>?)
+          ?.map((e) => JournalEntry.fromJson(e))
+          .toList() ?? [],
+      preferences: json['preferences'] != null
+          ? UserPreferences.fromJson(json['preferences'])
+          : UserPreferences.defaultPreferences(),
+    );
+  }
+
+  // Convert to JSON for Firestore
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'displayName': displayName,
+      'email': email,
+      'profileImageUrl': profileImageUrl,
+      'phoneNumber': phoneNumber,
+      'location': location,
+      'bio': bio,
+      'nationality': nationality,
+      'parish': parish,
+      'affiliation': affiliation,
+      'accountType': accountType,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+      'visitedChurches': visitedChurches,
+      'favoriteChurches': favoriteChurches,
+      'forVisitChurches': forVisitChurches,
+      'journalEntries': journalEntries.map((e) => e.toJson()).toList(),
+      'preferences': preferences.toJson(),
+    };
+  }
+
   UserProfile copyWith({
-    String? name,
+    String? displayName,
     String? email,
     String? profileImageUrl,
+    String? phoneNumber,
+    String? location,
+    String? bio,
+    String? nationality,
     String? parish,
     String? affiliation,
+    String? accountType,
     List<String>? visitedChurches,
     List<String>? favoriteChurches,
+    List<String>? forVisitChurches,
     List<JournalEntry>? journalEntries,
     UserPreferences? preferences,
   }) {
     return UserProfile(
       id: id,
-      name: name ?? this.name,
+      displayName: displayName ?? this.displayName,
       email: email ?? this.email,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      location: location ?? this.location,
+      bio: bio ?? this.bio,
+      nationality: nationality ?? this.nationality,
       parish: parish ?? this.parish,
       affiliation: affiliation ?? this.affiliation,
-      joinDate: joinDate,
+      accountType: accountType ?? this.accountType,
+      createdAt: createdAt,
       visitedChurches: visitedChurches ?? this.visitedChurches,
       favoriteChurches: favoriteChurches ?? this.favoriteChurches,
+      forVisitChurches: forVisitChurches ?? this.forVisitChurches,
       journalEntries: journalEntries ?? this.journalEntries,
       preferences: preferences ?? this.preferences,
     );
@@ -148,6 +221,32 @@ class JournalEntry {
     required this.rating,
     required this.photos,
   });
+
+  factory JournalEntry.fromJson(Map<String, dynamic> json) {
+    return JournalEntry(
+      id: json['id'] ?? '',
+      churchId: json['churchId'] ?? '',
+      title: json['title'] ?? '',
+      content: json['content'] ?? '',
+      date: json['date'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['date'])
+          : DateTime.now(),
+      rating: json['rating'] ?? 0,
+      photos: List<String>.from(json['photos'] ?? []),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'churchId': churchId,
+      'title': title,
+      'content': content,
+      'date': date.millisecondsSinceEpoch,
+      'rating': rating,
+      'photos': photos,
+    };
+  }
 }
 
 class UserPreferences {
@@ -166,6 +265,39 @@ class UserPreferences {
     required this.preferredLanguage,
     required this.darkMode,
   });
+
+  factory UserPreferences.defaultPreferences() {
+    return UserPreferences(
+      enableNotifications: true,
+      enableFeastDayReminders: true,
+      enableLocationReminders: true,
+      shareProgressPublically: false,
+      preferredLanguage: 'en',
+      darkMode: false,
+    );
+  }
+
+  factory UserPreferences.fromJson(Map<String, dynamic> json) {
+    return UserPreferences(
+      enableNotifications: json['enableNotifications'] ?? true,
+      enableFeastDayReminders: json['enableFeastDayReminders'] ?? true,
+      enableLocationReminders: json['enableLocationReminders'] ?? true,
+      shareProgressPublically: json['shareProgressPublically'] ?? false,
+      preferredLanguage: json['preferredLanguage'] ?? 'en',
+      darkMode: json['darkMode'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'enableNotifications': enableNotifications,
+      'enableFeastDayReminders': enableFeastDayReminders,
+      'enableLocationReminders': enableLocationReminders,
+      'shareProgressPublically': shareProgressPublically,
+      'preferredLanguage': preferredLanguage,
+      'darkMode': darkMode,
+    };
+  }
 
   UserPreferences copyWith({
     bool? enableNotifications,

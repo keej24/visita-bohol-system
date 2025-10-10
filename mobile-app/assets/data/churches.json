@@ -1,58 +1,15 @@
 [
   {
-    "id": "st-michael",
-    "name": "St. Michael the Archangel Church",
+    "id": "demo_baclayon",
+    "name": "Baclayon Church",
+    "fullName": "Immaculate Conception of the Virgin Mary Parish Church",
     "location": "Baclayon, Bohol",
-    "foundingYear": 1596,
-    "architecturalStyle": "Spanish Colonial",
-    "history": "One of the oldest churches in Bohol.",
-    "images": ["assets/images/baclayon_placeholder.svg"],
-    "isHeritage": true,
-    "diocese": "Diocese of Tagbilaran",
-    "virtualTourUrl": "assets/360/baclayon_tour.html",
-    "latitude": 9.6264,
-    "longitude": 123.9034
-  },
-  {
-    "id": "loboc",
-    "name": "Loboc Church",
-    "location": "Loboc, Bohol",
-    "foundingYear": 1602,
-    "architecturalStyle": "Baroque",
-    "history": "Famous for its river and choir.",
-    "images": ["assets/images/loboc_placeholder.svg"],
-    "isHeritage": true,
-    "latitude": 9.641,
-    "longitude": 124.053,
-    "diocese": "Diocese of Tagbilaran",
-    "virtualTourUrl": "assets/360/loboc_tour.html"
-  },
-  {
-    "id": "st-joseph-talibon",
-    "name": "St. Joseph Cathedral",
-    "location": "Talibon, Bohol",
-    "foundingYear": 1875,
-    "architecturalStyle": "Neo-Gothic",
-    "history": "Cathedral church of the Diocese of Talibon.",
-    "images": ["assets/images/talibon_placeholder.svg"],
-    "isHeritage": false,
-    "latitude": 10.734,
-    "longitude": 124.317,
-    "diocese": "Diocese of Talibon",
-    "virtualTourUrl": "assets/360/talibon_tour.html"
-  },
-  {
-    "id": "san-isidro-talibon",
-    "name": "San Isidro Labrador Church",
-    "location": "Buenavista, Bohol",
-    "foundingYear": 1820,
-    "architecturalStyle": "Spanish Colonial",
-    "history": "Historic church in the Diocese of Talibon.",
-    "images": ["assets/images/buenavista_placeholder.svg"],
-    "isHeritage": true,
-    "latitude": 10.715,
-    "longitude": 124.299,
-    "diocese": "Diocese of Talibon",
-    "virtualTourUrl": "assets/360/buenavista_tour.html"
+    "imageUrl": "assets/images/baclayon.jpg",
+    "architecturalStyle": "baroque",
+    "heritageClassification": "national",
+    "diocese": "Tagbilaran",
+    "foundingYear": 1595,
+    "latitude": 9.6223,
+    "longitude": 123.9136
   }
 ]

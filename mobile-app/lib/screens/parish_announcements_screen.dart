@@ -7,8 +7,7 @@ import '../repositories/announcement_repository.dart';
 class ParishAnnouncementsScreen extends StatelessWidget {
   final Church church;
 
-  const ParishAnnouncementsScreen({Key? key, required this.church})
-      : super(key: key);
+  const ParishAnnouncementsScreen({super.key, required this.church});
 
   @override
   Widget build(BuildContext context) {

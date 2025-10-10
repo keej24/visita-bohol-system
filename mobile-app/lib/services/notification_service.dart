@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -90,8 +91,6 @@ class NotificationService {
       _convertToTZDateTime(scheduledDate),
       notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
       payload: payload,
     );
   }
@@ -109,10 +108,24 @@ class NotificationService {
   }
 
   // Convert DateTime to TZDateTime for scheduling
-  static _convertToTZDateTime(DateTime dateTime) {
-    // This is a simplified implementation
-    // In a real app, you'd use the timezone package properly
-    return dateTime;
+  static tz.TZDateTime _convertToTZDateTime(DateTime dateTime) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      dateTime.year,
+      dateTime.month,
+      dateTime.day,
+      dateTime.hour,
+      dateTime.minute,
+      dateTime.second,
+    );
+
+    // If scheduled date is in the past, schedule for next occurrence
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    return scheduledDate;
   }
 
   Future<void> showInstantNotification({

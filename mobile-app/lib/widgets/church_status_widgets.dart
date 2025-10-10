@@ -9,10 +9,10 @@ class ChurchStatusBadge extends StatelessWidget {
   final bool showDescription;
 
   const ChurchStatusBadge({
-    Key? key,
+    super.key,
     required this.church,
     this.showDescription = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -69,10 +69,10 @@ class StatusFilterChips extends StatelessWidget {
   final Function(String) onStatusToggle;
 
   const StatusFilterChips({
-    Key? key,
+    super.key,
     required this.selectedStatuses,
     required this.onStatusToggle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -101,10 +101,10 @@ class StatusSummaryCard extends StatelessWidget {
   final Function(String)? onStatusTap;
 
   const StatusSummaryCard({
-    Key? key,
+    super.key,
     required this.statusCounts,
     this.onStatusTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +148,7 @@ class StatusSummaryCard extends StatelessWidget {
                 ),
                 onTap: onStatusTap != null ? () => onStatusTap!(status) : null,
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../models/user_profile.dart';
+import '../models/church.dart';
 import '../services/profile_service.dart';
+import '../services/auth_service.dart';
+import '../repositories/church_repository.dart';
 import '../theme/header_palette.dart';
+import '../widgets/home/church_card.dart';
+import 'church_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,27 +17,10 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _progressController;
-  late Animation<double> _progressAnimation;
-
+class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _progressController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-
-    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _progressController, curve: Curves.easeOutCubic),
-    );
-
-    // Start animations
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _progressController.forward();
-    });
 
     // Load profile data
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -43,7 +30,6 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   void dispose() {
-    _progressController.dispose();
     super.dispose();
   }
 
@@ -58,6 +44,67 @@ class _ProfileScreenState extends State<ProfileScreen>
           final profile = profileService.userProfile;
           final isDark = Theme.of(context).brightness == Brightness.dark;
 
+          // Show loading indicator
+          if (profileService.isLoading) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: Color(0xFF8B5E3C),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading your profile...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF6B6B6B),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Show error message if any
+          if (profileService.errorMessage != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.red[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading profile',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    profileService.errorMessage!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.white70 : const Color(0xFF6B6B6B),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => profileService.loadUserProfile(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
           return CustomScrollView(
             slivers: [
               _buildSliverAppBar(profile, isDark),
@@ -69,13 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     children: [
                       _buildStatsSection(profile, isDark),
                       const SizedBox(height: 20),
-                      _buildProgressSection(profile, isDark),
-                      const SizedBox(height: 20),
-                      _buildHeritageExplorerSection(profile, isDark),
-                      const SizedBox(height: 20),
                       _buildToolsSection(profile, isDark),
-                      const SizedBox(height: 20),
-                      _buildSettingsSection(profile, isDark),
                     ],
                   ),
                 ),
@@ -122,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          profile.name,
+                          profile.displayName,
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
@@ -146,7 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Member since ${_formatJoinDate(profile.joinDate)}',
+                          'Member since ${_formatJoinDate(profile.createdAt)}',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark
@@ -172,13 +213,15 @@ class _ProfileScreenState extends State<ProfileScreen>
             color: isDark ? Colors.white : const Color(0xFF1A1A1A),
           ),
           onPressed: () => _showEditProfileDialog(profile),
+          tooltip: 'Edit Profile',
         ),
         IconButton(
           icon: Icon(
-            Icons.share_rounded,
+            Icons.logout_rounded,
             color: isDark ? Colors.white : const Color(0xFF1A1A1A),
           ),
-          onPressed: () => _shareProgress(profile),
+          onPressed: () => _showLogoutDialog(),
+          tooltip: 'Logout',
         ),
         const SizedBox(width: 8),
       ],
@@ -256,151 +299,314 @@ class _ProfileScreenState extends State<ProfileScreen>
             value: profile.visitedChurches.length.toString(),
             color: const Color(0xFF10B981),
             isDark: isDark,
+            onTap: () => _showVisitedChurches(profile),
           ),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: _StatCard(
-            icon: Icons.favorite_outline,
-            label: 'Favorites',
-            value: profile.favoriteChurches.length.toString(),
+            icon: Icons.bookmark_outline,
+            label: 'For Visit',
+            value: profile.forVisitChurches.length.toString(),
             color: const Color(0xFFD97706),
             isDark: isDark,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _StatCard(
-            icon: Icons.book_outlined,
-            label: 'Journal',
-            value: profile.journalEntries.length.toString(),
-            color: const Color(0xFF2563EB),
-            isDark: isDark,
+            onTap: () => _showForVisitChurches(profile),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildProgressSection(UserProfile profile, bool isDark) {
-    return AnimatedBuilder(
-      animation: _progressAnimation,
-      builder: (context, child) {
-        return _ProgressCard(
-          total: 25,
-          current: profile.visitedChurches.length,
-          progress: profile.progressPercentage * _progressAnimation.value,
-          isDark: isDark,
-        );
-      },
-    );
-  }
-
-  Widget _buildHeritageExplorerSection(UserProfile profile, bool isDark) {
-    return const _InsightsCard();
-  }
-
   Widget _buildToolsSection(UserProfile profile, bool isDark) {
     return const _TipsSection();
   }
 
-  Widget _buildSettingsSection(UserProfile profile, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB),
+  // Event handlers
+  void _showVisitedChurches(UserProfile profile) async {
+    if (profile.visitedChurches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'You haven\'t visited any churches yet. Start your journey!'),
+          backgroundColor: Color(0xFF10B981),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.settings_outlined,
-                color: isDark ? Colors.white70 : const Color(0xFF6B6B6B),
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Preferences',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _SettingsTile(
-            title: 'Notifications',
-            subtitle: 'Event reminders and updates',
-            icon: Icons.notifications_outlined,
-            value: profile.preferences.enableNotifications,
-            isDark: isDark,
-            onChanged: (value) => _updateNotificationSettings(profile, value),
-          ),
-          _SettingsTile(
-            title: 'Feast Day Reminders',
-            subtitle: 'Church feast day notifications',
-            icon: Icons.event_outlined,
-            value: profile.preferences.enableFeastDayReminders,
-            isDark: isDark,
-            onChanged: (value) => _updateFeastDaySettings(profile, value),
-          ),
-        ],
+      );
+      return;
+    }
+
+    // Get all churches and filter by visited IDs
+    final churchRepo = context.read<ChurchRepository>();
+    final allChurches = await churchRepo.getAll();
+    final visitedChurches = allChurches
+        .where((church) => profile.visitedChurches.contains(church.id))
+        .toList();
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _ChurchListScreen(
+          title: 'Visited Churches',
+          churches: visitedChurches,
+          emptyMessage: 'No visited churches found',
+          color: const Color(0xFF10B981),
+        ),
       ),
     );
   }
 
-  // Event handlers
-  void _shareProgress(UserProfile profile) async {
-    final service = context.read<ProfileService>();
-    final text = await service.shareProgress();
+  void _showForVisitChurches(UserProfile profile) async {
+    debugPrint('🔍 For Visit Churches IDs: ${profile.forVisitChurches}');
+    debugPrint(
+        '🔍 For Visit Churches count: ${profile.forVisitChurches.length}');
+
+    if (profile.forVisitChurches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Your wishlist is empty. Add churches you want to visit!'),
+          backgroundColor: Color(0xFFD97706),
+        ),
+      );
+      return;
+    }
+
+    // Get all churches and filter by for visit IDs
+    final churchRepo = context.read<ChurchRepository>();
+    final allChurches = await churchRepo.getAll();
+    debugPrint('🔍 Total churches from repo: ${allChurches.length}');
+
+    final forVisitChurches = allChurches
+        .where((church) => profile.forVisitChurches.contains(church.id))
+        .toList();
+
+    debugPrint('🔍 Filtered for visit churches: ${forVisitChurches.length}');
+
     if (!mounted) return;
-    Share.share(text);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _ChurchListScreen(
+          title: 'Churches to Visit',
+          churches: forVisitChurches,
+          emptyMessage: 'No churches in your wishlist',
+          color: const Color(0xFFD97706),
+          onRemove: (church) async {
+            // Remove from wishlist
+            final profileService = context.read<ProfileService>();
+            await profileService.toggleForVisitChurch(church.id);
+
+            // Show confirmation
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${church.name} removed from wishlist'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+              // Refresh the list by popping and showing again
+              Navigator.pop(context);
+              _showForVisitChurches(profileService.userProfile);
+            }
+          },
+        ),
+      ),
+    );
   }
 
   void _showEditProfileDialog(UserProfile profile) {
-    final nameController = TextEditingController(text: profile.name);
+    final nameController = TextEditingController(text: profile.displayName);
     final emailController = TextEditingController(text: profile.email);
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool showPasswordFields = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Profile'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
-              ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Profile'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 20),
+                InkWell(
+                  onTap: () =>
+                      setState(() => showPasswordFields = !showPasswordFields),
+                  child: Row(
+                    children: [
+                      Icon(
+                        showPasswordFields
+                            ? Icons.lock_open
+                            : Icons.lock_outline,
+                        size: 20,
+                        color: const Color(0xFF2563EB),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        showPasswordFields
+                            ? 'Hide Password Change'
+                            : 'Change Password',
+                        style: const TextStyle(
+                          color: Color(0xFF2563EB),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (showPasswordFields) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: currentPasswordController,
+                    decoration: const InputDecoration(
+                      labelText: 'Current Password',
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: newPasswordController,
+                    decoration: const InputDecoration(
+                      labelText: 'New Password',
+                      border: OutlineInputBorder(),
+                      helperText: 'At least 6 characters',
+                    ),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmPasswordController,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm New Password',
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.emailAddress,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Validate password change if fields are shown
+                if (showPasswordFields) {
+                  if (currentPasswordController.text.isEmpty ||
+                      newPasswordController.text.isEmpty ||
+                      confirmPasswordController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please fill in all password fields'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  if (newPasswordController.text !=
+                      confirmPasswordController.text) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('New passwords do not match'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  if (newPasswordController.text.length < 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Password must be at least 6 characters'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                }
+
+                final service = context.read<ProfileService>();
+                final authService = context.read<AuthService>();
+                final navigator = Navigator.of(context);
+
+                // Update profile
+                await service.updateProfile(
+                  displayName: nameController.text.trim(),
+                  email: emailController.text.trim(),
+                );
+
+                // Update password if requested
+                if (showPasswordFields) {
+                  try {
+                    await authService.updatePassword(
+                      currentPasswordController.text,
+                      newPasswordController.text,
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Password updated successfully'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Password update failed: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                }
+
+                if (!mounted) return;
+                navigator.pop();
+              },
+              child: const Text('Save'),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -408,32 +614,31 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
           ElevatedButton(
             onPressed: () async {
-              final service = context.read<ProfileService>();
+              final authService = context.read<AuthService>();
               final navigator = Navigator.of(context);
-              await service.updateProfile(
-                name: nameController.text.trim(),
-                email: emailController.text.trim(),
-              );
+
+              await authService.signOut();
+
               if (!mounted) return;
-              navigator.pop();
+              navigator.pop(); // Close dialog
+
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Logged out successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             },
-            child: const Text('Save'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Logout'),
           ),
         ],
       ),
     );
-  }
-
-  void _updateNotificationSettings(UserProfile profile, bool value) {
-    final updatedPreferences =
-        profile.preferences.copyWith(enableNotifications: value);
-    context.read<ProfileService>().updatePreferences(updatedPreferences);
-  }
-
-  void _updateFeastDaySettings(UserProfile profile, bool value) {
-    final updatedPreferences =
-        profile.preferences.copyWith(enableFeastDayReminders: value);
-    context.read<ProfileService>().updatePreferences(updatedPreferences);
   }
 
   String _formatJoinDate(DateTime date) {
@@ -462,6 +667,7 @@ class _StatCard extends StatelessWidget {
   final String value;
   final Color color;
   final bool isDark;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.icon,
@@ -469,307 +675,73 @@ class _StatCard extends StatelessWidget {
     required this.value,
     required this.color,
     required this.isDark,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.12),
-            color.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.2),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color.withValues(alpha: 0.8),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProgressCard extends StatelessWidget {
-  final int total;
-  final int current;
-  final double progress;
-  final bool isDark;
-
-  const _ProgressCard({
-    required this.total,
-    required this.current,
-    required this.progress,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(Icons.trending_up,
-                    color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Journey Progress',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    Text(
-                      'Keep exploring heritage churches',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color:
-                            isDark ? Colors.white70 : const Color(0xFF6B6B6B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${(progress * 100).round()}%',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF2563EB),
-                ),
-              ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              color.withValues(alpha: 0.12),
+              color.withValues(alpha: 0.05),
             ],
           ),
-          const SizedBox(height: 20),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: LinearProgressIndicator(
-              minHeight: 12,
-              value: progress,
-              backgroundColor: isDark
-                  ? const Color(0xFF2A2A2A)
-                  : const Color(0xFF2563EB).withValues(alpha: 0.1),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFF2563EB)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.1),
+              blurRadius: 15,
+              offset: const Offset(0, 6),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '$current of $total heritage churches explored',
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark ? Colors.white70 : const Color(0xFF6B6B6B),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SettingsTile extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool value;
-  final bool isDark;
-  final ValueChanged<bool> onChanged;
-
-  const _SettingsTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.value,
-    required this.isDark,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: isDark ? Colors.white70 : const Color(0xFF6B6B6B),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.white60 : const Color(0xFF8B8B8B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeColor: const Color(0xFF2563EB),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InsightsCard extends StatelessWidget {
-  const _InsightsCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFFD4AF37).withValues(alpha: 0.15),
-            const Color(0xFFD4AF37).withValues(alpha: 0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
-        border:
-            Border.all(color: const Color(0xFFD4AF37).withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD4AF37),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child:
-                const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Heritage Explorer',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFD4AF37),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Every church tells a story of faith and history',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDark ? Colors.white70 : const Color(0xFF6B6B6B),
-                  ),
-                ),
-              ],
+                ],
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -828,12 +800,6 @@ class _TipsSection extends StatelessWidget {
             isDark: isDark,
           ),
           _TipItem(
-            icon: Icons.location_on_outlined,
-            text: 'Visit churches on-site to unlock your progress milestone',
-            color: const Color(0xFF10B981),
-            isDark: isDark,
-          ),
-          _TipItem(
             icon: Icons.bookmark_add_outlined,
             text:
                 'Save interesting churches to your wishlist for future visits',
@@ -886,6 +852,118 @@ class _TipItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// Church List Screen for displaying visited or wishlist churches
+class _ChurchListScreen extends StatelessWidget {
+  final String title;
+  final List<Church> churches;
+  final String emptyMessage;
+  final Color color;
+  final Function(Church)? onRemove;
+
+  const _ChurchListScreen({
+    required this.title,
+    required this.churches,
+    required this.emptyMessage,
+    required this.color,
+    this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor:
+          isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+        foregroundColor: isDark ? Colors.white : const Color(0xFF1A1A1A),
+        elevation: 0,
+      ),
+      body: churches.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.church_outlined,
+                    size: 64,
+                    color: isDark ? Colors.white24 : const Color(0xFFE0E0E0),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    emptyMessage,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isDark ? Colors.white54 : const Color(0xFF6B6B6B),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: churches.length,
+              itemBuilder: (context, index) {
+                final church = churches[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Stack(
+                    children: [
+                      ChurchCard(
+                        church: church,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ChurchDetailScreen(church: church),
+                            ),
+                          );
+                        },
+                      ),
+                      if (onRemove != null)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => onRemove!(church),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../models/enums.dart';
-import '../../screens/enhanced_church_exploration_screen.dart';
 
 class FilterBar extends StatefulWidget {
   final String search;
@@ -9,7 +8,6 @@ class FilterBar extends StatefulWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<Diocese?> onDioceseChanged;
   final ValueChanged<bool> onHeritageOnlyChanged;
-  final VoidCallback? onAdvancedSearchTap;
 
   const FilterBar({
     super.key,
@@ -19,7 +17,6 @@ class FilterBar extends StatefulWidget {
     required this.onSearchChanged,
     required this.onDioceseChanged,
     required this.onHeritageOnlyChanged,
-    this.onAdvancedSearchTap,
   });
 
   @override
@@ -55,60 +52,60 @@ class _FilterBarState extends State<FilterBar> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _SearchField(
-                  controller: _controller, onChanged: widget.onSearchChanged),
-            ),
-            const SizedBox(width: 8),
-            _AdvancedSearchButton(
-              onTap: widget.onAdvancedSearchTap,
-            ),
-          ],
-        ),
+        _SearchField(
+            controller: _controller, onChanged: widget.onSearchChanged),
         const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
+              // Diocese Filters
               _ChipToggle(
                 label: 'All Dioceses',
                 selected: widget.diocese == null,
                 onTap: () => widget.onDioceseChanged(null),
+                icon: Icons.public,
               ),
               const SizedBox(width: 8),
               _ChipToggle(
-                label: Diocese.tagbilaran.label,
+                label: 'Tagbilaran',
                 selected: widget.diocese == Diocese.tagbilaran,
                 onTap: () => widget.onDioceseChanged(Diocese.tagbilaran),
+                icon: Icons.location_city,
               ),
               const SizedBox(width: 8),
               _ChipToggle(
-                label: Diocese.talibon.label,
+                label: 'Talibon',
                 selected: widget.diocese == Diocese.talibon,
                 onTap: () => widget.onDioceseChanged(Diocese.talibon),
+                icon: Icons.location_city,
               ),
               const SizedBox(width: 16),
+
+              // Heritage Filter
               _ChipToggle(
-                label: 'Heritage',
+                label: 'Heritage Sites',
                 selected: widget.heritageOnly,
                 onTap: () => widget.onHeritageOnlyChanged(!widget.heritageOnly),
-                icon: Icons.account_balance,
+                icon: Icons.star,
               ),
               const SizedBox(width: 8),
+
+              // Clear filters button
               if (widget.search.isNotEmpty ||
                   widget.diocese != null ||
                   widget.heritageOnly) ...[
-                TextButton(
-                  onPressed: () {
+                _ChipToggle(
+                  label: 'Clear',
+                  selected: false,
+                  onTap: () {
                     widget.onSearchChanged('');
                     widget.onDioceseChanged(null);
                     if (widget.heritageOnly) {
                       widget.onHeritageOnlyChanged(false);
                     }
                   },
-                  child: const Text('Reset'),
+                  icon: Icons.clear,
                 ),
               ],
             ],
@@ -215,53 +212,6 @@ class _ChipToggle extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AdvancedSearchButton extends StatelessWidget {
-  final VoidCallback? onTap;
-
-  const _AdvancedSearchButton({this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: ElevatedButton(
-        onPressed: onTap ??
-            () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const EnhancedChurchExplorationScreen(),
-                ),
-              );
-            },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2563EB),
-          foregroundColor: Colors.white,
-          elevation: 2,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.tune, size: 18),
-            SizedBox(width: 6),
-            Text(
-              'Advanced',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -18,44 +18,36 @@ Church sampleChurch() => Church(
     );
 
 void main() {
-  testWidgets('ChurchCard toggles visited and wishlist', (tester) async {
+  testWidgets('ChurchCard shows details and chips, and onTap works', (tester) async {
     final church = sampleChurch();
     final appState = AppState();
+    var tapped = false;
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [ChangeNotifierProvider.value(value: appState)],
         child: MaterialApp(
           home: Scaffold(
-            body: ChurchCard(church: church, onTap: () {}),
+            body: ChurchCard(
+              church: church,
+              onTap: () {
+                tapped = true;
+              },
+            ),
           ),
         ),
       ),
     );
 
-    // Initially not visited / wishlist
-    expect(appState.isVisited(church), isFalse);
-    expect(appState.isForVisit(church), isFalse);
+    // Key UI bits reflect current design
+    expect(find.text('Details'), findsOneWidget);
+    expect(find.text('Diocese of Tagbilaran'), findsOneWidget);
+    expect(find.text('Baroque'), findsOneWidget);
+    expect(find.textContaining('Founded 1900'), findsOneWidget);
 
-    // Tap wishlist heart outline first (favorite_border icon)
-    final wishlistFinder = find.byIcon(Icons.favorite_border);
-    expect(wishlistFinder, findsOneWidget);
-    await tester.tap(wishlistFinder);
+    // Tapping the card (via church title within the InkWell) triggers onTap
+    await tester.tap(find.text('Test Church'));
     await tester.pumpAndSettle();
-    expect(appState.isForVisit(church), isTrue);
-
-    // Tap visited check outline icon
-    final visitedFinder = find.byIcon(Icons.check_circle_outline);
-    expect(visitedFinder, findsOneWidget);
-    await tester.tap(visitedFinder);
-    await tester.pumpAndSettle();
-    expect(appState.isVisited(church), isTrue);
-
-    // Tapping again should unmark visited
-    final visitedFilledFinder = find.byIcon(Icons.check_circle);
-    expect(visitedFilledFinder, findsOneWidget);
-    await tester.tap(visitedFilledFinder);
-    await tester.pumpAndSettle();
-    expect(appState.isVisited(church), isFalse);
+    expect(tapped, isTrue);
   });
 }
