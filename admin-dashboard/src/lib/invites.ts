@@ -1,6 +1,6 @@
 import { db } from '@/lib/firebase';
 import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc, type Timestamp } from 'firebase/firestore';
-import type { Diocese } from '@/contexts/AuthContext';
+import type { Diocese } from '@/hooks/useAuth';
 
 export type InviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 

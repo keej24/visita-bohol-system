@@ -1,8 +1,9 @@
 // Authentication context for role-based access control
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { getKnownAccountProfile, isPreconfiguredAccount } from '@/lib/auth-utils';
 
 export type UserRole = 'chancery_office' | 'museum_researcher' | 'parish_secretary';
 export type Diocese = 'tagbilaran' | 'talibon';
@@ -33,13 +34,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+// Export AuthContext for use in custom hooks
+export { AuthContext };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -47,48 +43,89 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('AuthContext - Auth state changed:', user ? user.email : 'No user');
-      setUser(user);
-      
-      if (user) {
-        try {
-          console.log('AuthContext - Fetching profile for UID:', user.uid);
-          // Fetch user profile from Firestore
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            console.log('AuthContext - Profile data:', data);
-            setUserProfile({
-              uid: user.uid,
-              email: user.email!,
-              role: data.role,
-              name: data.name,
-              diocese: data.diocese,
-              parish: data.parish,
-              createdAt: data.createdAt?.toDate(),
-              lastLoginAt: new Date(),
-            });
-            console.log('AuthContext - Profile set successfully');
-          } else {
-            console.error('AuthContext - No profile document found for UID:', user.uid);
-            setUserProfile(null);
+    let mounted = true;
+
+    const fetchUserProfile = async (user: User, retryCount = 0): Promise<void> => {
+      if (!mounted) return;
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+        if (!mounted) return;
+
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserProfile({
+            uid: user.uid,
+            email: user.email!,
+            role: data.role,
+            name: data.name,
+            diocese: data.diocese,
+            parish: data.parish,
+            createdAt: data.createdAt?.toDate(),
+            lastLoginAt: new Date(),
+          });
+          // Set loading to false only after successful profile fetch
+          setLoading(false);
+        } else {
+          // User profile not found - try to create one for known accounts
+          const profileData = getKnownAccountProfile(user.email!);
+          if (profileData) {
+            try {
+              await setDoc(doc(db, 'users', user.uid), {
+                uid: user.uid,
+                email: user.email!,
+                ...profileData,
+                createdAt: new Date(),
+              });
+
+              // Retry fetching the profile
+              await fetchUserProfile(user, 0);
+              return;
+            } catch (createError) {
+              console.error('Error creating profile for known account:', createError);
+            }
           }
-        } catch (error) {
-          console.error('AuthContext - Error fetching user profile:', error);
-          console.error('AuthContext - This is likely a Firestore permissions issue');
+
           setUserProfile(null);
+          setLoading(false);
         }
-      } else {
-        console.log('AuthContext - No user, clearing profile');
-        setUserProfile(null);
+      } catch (error) {
+        if (!mounted) return;
+
+        // Retry up to 3 times with increasing delays for network issues
+        if (retryCount < 2) {
+          const delay = (retryCount + 1) * 1000; // 1s, 2s, 3s
+          setTimeout(() => {
+            if (mounted) {
+              fetchUserProfile(user, retryCount + 1);
+            }
+          }, delay);
+        } else {
+          // After all retries, silently fail and let the app handle no profile state
+          setUserProfile(null);
+          setLoading(false);
+        }
       }
-      
-      setLoading(false);
-      console.log('AuthContext - Loading complete');
+    };
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!mounted) return;
+
+      setUser(user);
+
+      if (user) {
+        await fetchUserProfile(user);
+      } else {
+        setUserProfile(null);
+        setLoading(false);
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {

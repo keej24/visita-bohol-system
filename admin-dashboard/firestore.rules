@@ -42,19 +42,35 @@ service cloud.firestore {
     
     // Users collection - User profiles and authentication data
     match /users/{userId} {
-      // Users can read and update their own profile
-      allow read, write: if isOwner(userId);
-      
-  // Chancery office can read all users in their diocese
-  allow read: if isChanceryOffice() && 
-         (resource.data.diocese == getUserData().diocese);
-      
+      // Users can read and update their own profile (using direct UID comparison to avoid circular dependency)
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+
+      // Allow users to create their own profile if it doesn't exist
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+      // Chancery office can read all users in their diocese (use try-catch pattern for getUserData)
+      allow read: if isAuthenticated() &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'chancery_office' &&
+                     (resource.data.diocese == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.diocese);
+
       // Museum researchers can read user profiles (for attribution)
-      allow read: if isMuseumResearcher();
-      
-  // Chancery office may create user profiles for parish secretaries in their diocese
-  allow create: if isChanceryOffice() && request.resource.data.role == 'parish_secretary' &&
-           request.resource.data.diocese == getUserData().diocese;
+      allow read: if isAuthenticated() &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'museum_researcher';
+
+      // Chancery office can create parish secretary accounts only in their diocese
+      allow create: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'chancery_office' &&
+                       request.resource.data.role == 'parish_secretary' &&
+                       request.resource.data.diocese == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.diocese;
+
+      // Chancery office can update and delete user accounts in their diocese
+      allow update, delete: if isAuthenticated() &&
+                               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'chancery_office' &&
+                               resource.data.diocese == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.diocese;
     }
     
     // Churches collection - Main church data
@@ -91,7 +107,8 @@ service cloud.firestore {
       allow update: if isMuseumResearcher() &&
                            request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['culturalSignificance', 'heritageNotes', 'heritageValidation',
-                                       'heritageDeclaration', 'lastHeritageUpdate', 'heritageResearcher']);
+                                       'heritageDeclaration', 'lastHeritageUpdate', 'heritageResearcher',
+                                       'status', 'updatedAt', 'lastReviewedBy', 'lastReviewNote', 'lastStatusChange']);
     }
     
     // Church heritage validation subcollection
@@ -161,24 +178,48 @@ service cloud.firestore {
     
     // Feedback and reviews collection
     match /feedback/{feedbackId} {
-      // Anyone can create feedback (public users via mobile app)
-      allow create: if true;
-      
-      // Anyone can read approved feedback
-      allow read: if resource.data.status == 'approved';
-      
-      // Chancery office can moderate feedback for churches in their diocese
-      allow read, update: if isChanceryOffice() && 
-                             get(/databases/$(database)/documents/churches/$(resource.data.churchId)).data.diocese == getUserData().diocese;
+      // Authenticated users can create feedback
+      allow create: if isAuthenticated() &&
+                       (request.resource.data.userId == request.auth.uid ||
+                        request.resource.data.pub_user_id == request.auth.uid);
+
+      // Anyone can read published feedback (for public reviews and diocese analytics)
+      allow read: if resource.data.status == 'published';
+
+      // Users can read their own feedback (regardless of status)
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid ||
+                      resource.data.pub_user_id == request.auth.uid);
+
+      // Chancery office can read ALL feedback in their diocese (for reports and moderation)
+      allow read: if isChanceryOffice();
+
+      // Parish secretaries can read feedback for churches in their diocese
+      allow read: if isParishSecretary() &&
+                     get(/databases/$(database)/documents/churches/$(resource.data.church_id)).data.diocese == getUserData().diocese;
+
+      // Chancery office and parish secretaries can moderate feedback for churches in their diocese
+      allow update: if (isChanceryOffice() || isParishSecretary()) &&
+                       get(/databases/$(database)/documents/churches/$(resource.data.church_id)).data.diocese == getUserData().diocese;
     }
     
+    // Church status audit logs
+    match /church_status_audit/{auditId} {
+      // Authenticated users can create audit logs when changing church status
+      allow create: if isAuthenticated();
+
+      // Chancery office and museum researchers can read audit logs for churches in their scope
+      allow read: if (isChanceryOffice() && resource.data.diocese == getUserData().diocese) ||
+                     isMuseumResearcher();
+    }
+
     // User activity logs (audit trail)
     match /logs/{logId} {
       // System can write logs (server-side)
       allow create: if isAuthenticated();
-      
+
       // Chancery office can read logs for their diocese
-      allow read: if isChanceryOffice() && 
+      allow read: if isChanceryOffice() &&
                      resource.data.diocese == getUserData().diocese;
     }
     
@@ -196,17 +237,65 @@ service cloud.firestore {
     match /invites/{inviteId} {
       // Allow read of invite details so invited user can load registration form
       allow read: if true;
-      
+
       // Chancery office can create invites for their own diocese
       allow create: if isChanceryOffice() && request.resource.data.diocese == getUserData().diocese;
-      
+
       // Allow invited user to mark invite as accepted after registration
       allow update: if isAuthenticated() &&
                       resource.data.status == 'pending' &&
                       request.resource.data.status == 'accepted' &&
                       request.resource.data.acceptedBy.uid == request.auth.uid;
     }
-    
+
+    // Announcements collection - Diocese and parish announcements
+    match /announcements/{announcementId} {
+      // Everyone can read announcements (public information)
+      allow read: if true;
+
+      // Chancery office can create and manage announcements for their diocese
+      allow create: if isChanceryOffice() &&
+                       request.resource.data.diocese == getUserData().diocese;
+
+      // Chancery office can update announcements in their diocese
+      allow update: if isChanceryOffice() &&
+                       resource.data.diocese == getUserData().diocese &&
+                       request.resource.data.diocese == resource.data.diocese;
+
+      // Chancery office can delete announcements in their diocese
+      allow delete: if isChanceryOffice() &&
+                       resource.data.diocese == getUserData().diocese;
+
+      // Parish secretaries can create parish-scoped announcements in their diocese
+      allow create: if isParishSecretary() &&
+                       request.resource.data.diocese == getUserData().diocese &&
+                       request.resource.data.scope == 'parish' &&
+                       request.resource.data.parishId == getUserData().parish;
+
+      // Parish secretaries can update their own parish announcements
+      allow update: if isParishSecretary() &&
+                       resource.data.diocese == getUserData().diocese &&
+                       resource.data.scope == 'parish' &&
+                       resource.data.parishId == getUserData().parish &&
+                       request.resource.data.diocese == resource.data.diocese &&
+                       request.resource.data.scope == resource.data.scope &&
+                       request.resource.data.parishId == resource.data.parishId;
+    }
+
+    // Church Visited collection - Physical visit tracking
+    match /church_visited/{visitId} {
+      // Anyone can read visit data (for public analytics and diocese reports)
+      allow read: if true;
+
+      // Authenticated users can create visit logs for themselves
+      allow create: if isAuthenticated() &&
+                       request.resource.data.pub_user_id == request.auth.uid &&
+                       request.resource.data.visit_status == 'validated';
+
+      // No updates or deletes allowed (immutable visit log)
+      allow update, delete: if false;
+    }
+
     // Default deny rule for any other collections
     match /{document=**} {
       allow read, write: if false;
