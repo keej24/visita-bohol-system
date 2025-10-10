@@ -12,7 +12,7 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 type NavItem = { title: string; url: string; icon: ComponentType<{ className?: string }> };
 

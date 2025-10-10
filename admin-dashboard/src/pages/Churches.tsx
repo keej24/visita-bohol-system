@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Plus, MapPin, Calendar, Users, ExternalLink, Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 import heroImage from "@/assets/baclayon-church-hero.jpg";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 const churchesData = [
   {

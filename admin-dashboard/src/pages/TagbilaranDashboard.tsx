@@ -6,7 +6,7 @@ import { RecentChurches } from "@/components/RecentChurches";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, FileText, AlertCircle, MapPin, Plus } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { getChurchesByDiocese, type Church } from "@/lib/churches";
 import { CreateParishAccountModal } from "@/components/CreateParishAccountModal";
