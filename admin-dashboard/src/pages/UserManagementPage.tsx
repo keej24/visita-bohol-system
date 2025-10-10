@@ -1,7 +1,7 @@
 import React from 'react';
 import { Layout } from '@/components/Layout';
 import { UserManagement } from '@/components/UserManagement';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle } from 'lucide-react';
 
@@ -39,4 +39,3 @@ const UserManagementPage: React.FC = () => {
 };
 
 export default UserManagementPage;
-

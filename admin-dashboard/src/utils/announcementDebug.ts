@@ -151,4 +151,3 @@ if (typeof window !== 'undefined') {
   (window as any).debugAnnouncements = debugAnnouncements;
   console.log('💡 Debug tool loaded! Run: debugAnnouncements()');
 }
-

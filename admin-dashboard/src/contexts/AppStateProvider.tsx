@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, ReactNode } from 'react';
 import { QueryClient } from '@tanstack/react-query';
 import { useAppStore, StoreUtils, User } from '@/lib/state/app-store';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRealtimeDashboard } from '@/lib/data-management/realtime';
 import { cacheUtils } from '@/lib/data-management/queryClient';
 

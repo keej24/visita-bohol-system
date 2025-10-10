@@ -33,8 +33,8 @@ import {
   EyeOff
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 import { FeedbackService, FeedbackItem as FeedbackServiceItem } from '@/services/feedbackService';
 
 interface ParishFeedbackProps {

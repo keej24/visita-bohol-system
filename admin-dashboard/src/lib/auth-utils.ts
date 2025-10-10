@@ -37,4 +37,3 @@ export function isPreconfiguredAccount(email: string): boolean {
   ];
   return preconfiguredEmails.includes(email);
 }
-

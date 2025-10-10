@@ -171,4 +171,3 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
 };
 
 export default PhotoUploader;
-

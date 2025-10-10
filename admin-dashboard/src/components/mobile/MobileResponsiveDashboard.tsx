@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react';
 import { Layout } from '@/components/Layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useChurchStats } from '@/hooks/useChurchStats';
 import type { Diocese } from '@/contexts/AuthContext';
 import {

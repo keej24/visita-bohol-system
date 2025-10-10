@@ -17,7 +17,7 @@ import {
   Key,
   X
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ParishAccountProps {
   onClose: () => void;

@@ -405,4 +405,3 @@ export class DioceseReportService {
     XLSX.writeFile(workbook, fileName);
   }
 }
-

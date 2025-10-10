@@ -15,9 +15,9 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { usePendingChurches, useUpdateChurchStatus } from '@/lib/optimized/queries';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { ButtonLoadingSpinner } from './MobileSkeletons';
-import type { Diocese } from '@/hooks/useAuth';
+import type { Diocese } from '@/contexts/AuthContext';
 import type { Church } from '@/lib/churches';
 
 interface MobileReviewListProps {
@@ -303,4 +303,3 @@ const MobileReviewList: React.FC<MobileReviewListProps> = ({ diocese }) => {
 };
 
 export default MobileReviewList;
-

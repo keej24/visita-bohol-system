@@ -19,7 +19,7 @@ import {
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getChurchesByDiocese, type Church } from '@/lib/churches';
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
 import { format } from 'date-fns';
 
@@ -253,4 +253,3 @@ const ApprovedChurches = () => {
 };
 
 export default ApprovedChurches;
-

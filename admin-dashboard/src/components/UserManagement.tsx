@@ -11,8 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
-import { useAuth, type Diocese } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth, type Diocese } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 import {
   Users,
   Plus,
