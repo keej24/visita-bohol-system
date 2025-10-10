@@ -1,6 +1,6 @@
 // Diocese-specific protected route component
 import { Navigate } from 'react-router-dom';
-import { useAuth, UserRole, Diocese } from '@/contexts/AuthContext';
+import { useAuth, UserRole, Diocese } from '@/hooks/useAuth';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface DioceseProtectedRouteProps {
