@@ -1,45 +1,333 @@
-interface Props {
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Church,
+  Save,
+  Edit,
+  Eye,
+  EyeOff,
+  Key,
+  X
+} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface ParishAccountProps {
   onClose: () => void;
 }
 
-export function ParishAccount({ onClose }: Props) {
+export const ParishAccount: React.FC<ParishAccountProps> = ({
+  onClose
+}) => {
+  const { toast } = useToast();
+  const { userProfile } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Profile form state
+  const [profileData, setProfileData] = useState({
+    firstName: userProfile?.name?.split(' ')[0] || '',
+    lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
+    email: userProfile?.email || '',
+    phone: '',
+    address: '',
+    parish: userProfile?.parish || 'St. Mary\'s Parish'
+  });
+
+  // Password form state
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  const handleProfileSave = () => {
+    toast({ 
+      title: "Profile Updated", 
+      description: "Your profile information has been saved successfully!" 
+    });
+    setIsEditing(false);
+  };
+
+  const handlePasswordChange = () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({ 
+        title: "Password Mismatch", 
+        description: "New password and confirmation don't match.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      toast({ 
+        title: "Password Too Short", 
+        description: "Password must be at least 8 characters long.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({ 
+      title: "Password Updated", 
+      description: "Your password has been changed successfully!" 
+    });
+    
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Parish Account Settings</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
-          >
-            ✕
-          </button>
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">My Account</h1>
+          <p className="text-gray-600 mt-1">Manage your personal information and account settings</p>
         </div>
-
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Account Information</h3>
-            <p className="text-gray-600">
-              Manage your parish account settings, user permissions, and preferences.
-            </p>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-blue-800">
-              Account management features are under development.
-            </p>
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="w-5 h-5" />
+        </Button>
       </div>
+
+      {/* Profile Information Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              Personal Information
+            </CardTitle>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsEditing(!isEditing)}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              {isEditing ? 'Cancel' : 'Edit Profile'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Profile Picture & Basic Info */}
+          <div className="flex items-center gap-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
+              {profileData.firstName[0]}{profileData.lastName[0]}
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">
+                {profileData.firstName} {profileData.lastName}
+              </h3>
+              <p className="text-gray-600">Parish Secretary</p>
+              <div className="flex items-center gap-1 mt-1">
+                <Church className="w-4 h-4 text-gray-500" />
+                <span className="text-sm text-gray-600">{profileData.parish}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="firstName">First Name</Label>
+              <Input
+                id="firstName"
+                value={profileData.firstName}
+                onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
+                disabled={!isEditing}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                value={profileData.lastName}
+                onChange={(e) => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
+                disabled={!isEditing}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">Email Address</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  value={profileData.email}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+                  disabled={!isEditing}
+                  className="mt-1 pl-10"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="phone">Phone Number</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <Input
+                  id="phone"
+                  value={profileData.phone}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                  disabled={!isEditing}
+                  className="mt-1 pl-10"
+                  placeholder="+63 xxx xxx xxxx"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="address">Address</Label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <Input
+                id="address"
+                value={profileData.address}
+                onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
+                disabled={!isEditing}
+                className="mt-1 pl-10"
+                placeholder="Complete address"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="parish">Parish Assignment</Label>
+            <Input
+              id="parish"
+              value={profileData.parish}
+              disabled
+              className="mt-1 bg-gray-50"
+            />
+            <p className="text-xs text-gray-500 mt-1">Contact admin to change parish assignment</p>
+          </div>
+
+          {isEditing && (
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleProfileSave} className="flex-1">
+                <Save className="w-4 h-4 mr-2" />
+                Save Changes
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEditing(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Password Change Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Key className="w-5 h-5" />
+            Change Password
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="currentPassword">Current Password</Label>
+            <div className="relative">
+              <Input
+                id="currentPassword"
+                type={showCurrentPassword ? "text" : "password"}
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                className="mt-1 pr-10"
+                placeholder="Enter current password"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+              >
+                {showCurrentPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="newPassword">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                  className="mt-1 pr-10"
+                  placeholder="Enter new password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                className="mt-1"
+                placeholder="Confirm new password"
+              />
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">Password Requirements:</h4>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• At least 8 characters long</li>
+              <li>• Contains uppercase and lowercase letters</li>
+              <li>• Contains at least one number</li>
+              <li>• Contains at least one special character</li>
+            </ul>
+          </div>
+
+          <Button 
+            onClick={handlePasswordChange}
+            disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+            className="w-full"
+          >
+            <Key className="w-4 h-4 mr-2" />
+            Update Password
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
-}
+};

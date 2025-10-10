@@ -1,0 +1,62 @@
+--- a/lib/screens/church_detail_screen.dart
++++ b/lib/screens/church_detail_screen.dart
+@@ -1,6 +1,7 @@
+ import 'package:flutter/material.dart';
+ import 'package:provider/provider.dart';
+ import 'package:url_launcher/url_launcher.dart';
++import 'package:flutter/foundation.dart' show kIsWeb;
+ import 'package:flutter_svg/flutter_svg.dart';
+ import 'dart:io';
+ import 'dart:math' show cos, sqrt, atan2, sin;
+@@ -1629,6 +1630,18 @@
+     });
+   }
+
++  Widget _buildReviewPhoto(String photoPath) {
++    if (kIsWeb) {
++      return Image.network(
++        photoPath,
++        width: 80,
++        height: 80,
++        fit: BoxFit.cover,
++        errorBuilder: (_, __, ___) => Container(
++          width: 80,
++          height: 80,
++          color: Colors.grey[300],
++          child: const Icon(Icons.broken_image, color: Colors.grey),
++        ),
++      );
++    } else {
++      return Image.file(
++        File(photoPath),
++        width: 80,
++        height: 80,
++        fit: BoxFit.cover,
++        errorBuilder: (_, __, ___) => Container(
++          width: 80,
++          height: 80,
++          color: Colors.grey[300],
++          child: const Icon(Icons.broken_image, color: Colors.grey),
++        ),
++      );
++    }
++  }
++
+   @override
+   Widget build(BuildContext context) {
+     return Column(
+@@ -1751,9 +1764,7 @@
+                               separatorBuilder: (_, __) =>
+                                   const SizedBox(width: 8),
+                               itemBuilder: (_, i) => ClipRRect(
+                                 borderRadius: BorderRadius.circular(8),
+-                                child: Image.file(
+-                                  File(feedback.photos[i]),
+-                                  width: 80,
+-                                  height: 80,
+-                                  fit: BoxFit.cover,
+-                                ),
++                                child: _buildReviewPhoto(feedback.photos[i]),
+                               ),
+                             ),
+                           ),

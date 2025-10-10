@@ -1,0 +1,144 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules for VISITA System
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function getUserDiocese() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.diocese;
+    }
+    
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidDocumentType() {
+      return request.resource.contentType.matches('(application/pdf|image/.*|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document)');
+    }
+    
+    function isChanceryOffice() {
+      return isAuthenticated() && getUserRole() == 'chancery_office';
+    }
+    
+    function isMuseumResearcher() {
+      return isAuthenticated() && getUserRole() == 'museum_researcher';
+    }
+    
+    function isParishSecretary() {
+      return isAuthenticated() && getUserRole() == 'parish_secretary';
+    }
+    
+    // Church images - publicly readable, restricted write
+    match /churches/{churchId}/images/{imageId} {
+      // Public read access for church images
+      allow read: if true;
+      
+      // Parish secretaries and chancery can upload images for churches in their diocese
+      allow write: if (isParishSecretary() || isChanceryOffice()) &&
+                      isValidImageType() &&
+                      request.resource.size < 10 * 1024 * 1024 && // 10MB limit
+                      firestore.get(/databases/(default)/documents/churches/$(churchId)).data.diocese == getUserDiocese();
+      
+      // Museum researchers can upload heritage documentation images
+      allow write: if isMuseumResearcher() &&
+                      isValidImageType() &&
+                      request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // 360-degree images for virtual tours
+    match /churches/{churchId}/360tours/{imageId} {
+      // Public read access for virtual tours
+      allow read: if true;
+      
+      // Parish secretaries and chancery can upload 360 images
+      allow write: if (isParishSecretary() || isChanceryOffice()) &&
+                      isValidImageType() &&
+                      request.resource.size < 50 * 1024 * 1024 && // 50MB limit for 360 images
+                      firestore.get(/databases/(default)/documents/churches/$(churchId)).data.diocese == getUserDiocese();
+    }
+    
+    // Heritage documents - restricted access
+    match /heritage/{churchId}/documents/{documentId} {
+      // Museum researchers and chancery office can read heritage documents
+      allow read: if isMuseumResearcher() || 
+                     (isChanceryOffice() && 
+                      firestore.get(/databases/(default)/documents/churches/$(churchId)).data.diocese == getUserDiocese());
+      
+      // Museum researchers can upload heritage documents
+      allow write: if isMuseumResearcher() &&
+                      isValidDocumentType() &&
+                      request.resource.size < 100 * 1024 * 1024; // 100MB limit for documents
+      
+      // Chancery office can upload heritage documents for their diocese
+      allow write: if isChanceryOffice() &&
+                      isValidDocumentType() &&
+                      request.resource.size < 100 * 1024 * 1024 &&
+                      firestore.get(/databases/(default)/documents/churches/$(churchId)).data.diocese == getUserDiocese();
+    }
+    
+    // User profile images
+    match /users/{userId}/profile/{imageId} {
+      // Users can read and write their own profile images
+      allow read, write: if isAuthenticated() && 
+                            request.auth.uid == userId &&
+                            isValidImageType() &&
+                            request.resource.size < 5 * 1024 * 1024; // 5MB limit
+    }
+    
+    // Feedback images uploaded by public users
+    match /feedback/{feedbackId}/images/{imageId} {
+      // Anyone can read feedback images (for approved feedback)
+      allow read: if true;
+      
+      // Authenticated users can upload feedback images
+      allow write: if isAuthenticated() &&
+                      isValidImageType() &&
+                      request.resource.size < 10 * 1024 * 1024 && // 10MB limit
+                      firestore.get(/databases/(default)/documents/feedback/$(feedbackId)).data.userId == request.auth.uid;
+    }
+    
+    // Announcement images
+    match /announcements/{announcementId}/images/{imageId} {
+      // Public read access for announcement images
+      allow read: if true;
+      
+      // Parish secretaries and chancery can upload announcement images
+      allow write: if (isParishSecretary() || isChanceryOffice()) &&
+                      isValidImageType() &&
+                      request.resource.size < 10 * 1024 * 1024 && // 10MB limit
+                      firestore.get(/databases/(default)/documents/announcements/$(announcementId)).data.diocese == getUserDiocese();
+    }
+    
+    // Report exports (PDF/Excel files)
+    match /reports/{dioceseId}/exports/{reportId} {
+      // Only chancery office can read/write reports for their diocese
+      allow read, write: if isChanceryOffice() && 
+                            getUserDiocese() == dioceseId &&
+                            request.resource.size < 50 * 1024 * 1024; // 50MB limit
+    }
+    
+    // Temporary uploads (for processing)
+    match /temp/{userId}/{fileId} {
+      // Users can manage their own temporary uploads
+      allow read, write: if isAuthenticated() && 
+                            request.auth.uid == userId &&
+                            request.resource.size < 100 * 1024 * 1024; // 100MB limit
+      
+      // Auto-delete after 24 hours (handled by Cloud Functions)
+    }
+    
+    // Default deny rule
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

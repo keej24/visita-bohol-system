@@ -1,39 +1,39 @@
-// Auth utility functions for preconfigured accounts
+import { UserRole, Diocese } from '@/contexts/AuthContext';
 
-export interface KnownAccount {
-  email: string;
-  role: 'chancery' | 'parish' | 'museum_researcher';
-  diocese: 'tagbilaran' | 'talibon';
-  displayName: string;
-  parish?: string;
+interface KnownAccountProfile {
+  name: string;
+  role: UserRole;
+  diocese: Diocese;
 }
 
-// Preconfigured test/demo accounts
-const KNOWN_ACCOUNTS: Record<string, KnownAccount> = {
-  'chancery.tagbilaran@visita.com': {
-    email: 'chancery.tagbilaran@visita.com',
-    role: 'chancery',
-    diocese: 'tagbilaran',
-    displayName: 'Chancery Office - Tagbilaran'
-  },
-  'chancery.talibon@visita.com': {
-    email: 'chancery.talibon@visita.com',
-    role: 'chancery',
-    diocese: 'talibon',
-    displayName: 'Chancery Office - Talibon'
-  },
-  'museum@visita.com': {
-    email: 'museum@visita.com',
-    role: 'museum_researcher',
-    diocese: 'tagbilaran',
-    displayName: 'Museum Researcher'
-  }
-};
+export function getKnownAccountProfile(email: string): KnownAccountProfile | null {
+  const knownAccounts: Record<string, KnownAccountProfile> = {
+    'dioceseoftagbilaran@gmail.com': {
+      name: 'Tagbilaran Chancery Office',
+      role: 'chancery_office',
+      diocese: 'tagbilaran'
+    },
+    'talibonchancery@gmail.com': {
+      name: 'Talibon Chancery Office',
+      role: 'chancery_office',
+      diocese: 'talibon'
+    },
+    'researcher.heritage@museum.ph': {
+      name: 'Museum Researcher',
+      role: 'museum_researcher',
+      diocese: 'tagbilaran'
+    }
+  };
 
-export function getKnownAccountProfile(email: string): KnownAccount | null {
-  return KNOWN_ACCOUNTS[email.toLowerCase()] || null;
+  return knownAccounts[email] || null;
 }
 
+// Helper function to check if an account is preconfigured (system account)
 export function isPreconfiguredAccount(email: string): boolean {
-  return email.toLowerCase() in KNOWN_ACCOUNTS;
+  const preconfiguredEmails = [
+    'dioceseoftagbilaran@gmail.com',
+    'talibonchancery@gmail.com',
+    'researcher.heritage@museum.ph'
+  ];
+  return preconfiguredEmails.includes(email);
 }

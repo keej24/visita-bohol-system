@@ -1,58 +1,113 @@
-// Heritage detection logic for automatic workflow routing
-export type HeritageClassification = 'ICP' | 'NCT' | 'non-heritage' | 'unknown';
+import type { ChurchInfo } from '@/components/parish/types';
+import type { Church } from '@/lib/churches';
 
-export interface HeritageCheckContext {
-  classification?: HeritageClassification;
-  foundedYear?: number;
-  hasHistoricalDocuments?: boolean;
-  architecturalSignificance?: boolean;
+export interface HeritageIndicator {
+  name: string;
+  present: boolean;
+  weight: number; // 1-3 scale, 3 being highest importance
+  description: string;
+}
+
+export interface HeritageAssessment {
+  shouldRequireReview: boolean;
+  confidence: 'low' | 'medium' | 'high';
+  indicators: HeritageIndicator[];
+  recommendation: 'auto_approve' | 'heritage_review' | 'detailed_review';
+  reasoning: string;
 }
 
 /**
- * Determines if a church submission should be routed to heritage review
- * based on classification and other factors
+ * Analyzes church data to determine if heritage review is required
+ * Simplified to only check for ICP or NCT classification
  */
-export function shouldRequireHeritageReview(context: HeritageCheckContext): boolean {
-  // If already classified as heritage (ICP or NCT), require review
-  if (context.classification === 'ICP' || context.classification === 'NCT') {
-    return true;
+export function assessHeritageSignificance(
+  church: ChurchInfo | Church | Partial<ChurchInfo>
+): HeritageAssessment {
+  const indicators: HeritageIndicator[] = [];
+
+  // Only check for explicit Heritage Classification (ICP or NCT)
+  const heritageClass = church.historicalDetails?.heritageClassification || church.classification;
+
+  let shouldRequireReview = false;
+  let confidence: 'low' | 'medium' | 'high' = 'low';
+  let recommendation: 'auto_approve' | 'heritage_review' | 'detailed_review' = 'auto_approve';
+
+  if (heritageClass === 'National Cultural Treasures') {
+    indicators.push({
+      name: 'declared_nct',
+      present: true,
+      weight: 3,
+      description: 'Classified as National Cultural Treasure (NCT) - requires heritage review'
+    });
+    shouldRequireReview = true;
+    confidence = 'high';
+    recommendation = 'heritage_review';
+  } else if (heritageClass === 'Important Cultural Properties') {
+    indicators.push({
+      name: 'declared_icp',
+      present: true,
+      weight: 3,
+      description: 'Classified as Important Cultural Property (ICP) - requires heritage review'
+    });
+    shouldRequireReview = true;
+    confidence = 'high';
+    recommendation = 'heritage_review';
+  } else {
+    indicators.push({
+      name: 'no_heritage_classification',
+      present: false,
+      weight: 0,
+      description: 'No ICP or NCT classification - standard approval process'
+    });
+    shouldRequireReview = false;
+    confidence = 'low';
+    recommendation = 'auto_approve';
   }
-  
-  // If founded before 1900, might be heritage
-  if (context.foundedYear && context.foundedYear < 1900) {
-    return true;
+
+  const reasoning = generateReasoning(indicators, confidence);
+
+  return {
+    shouldRequireReview,
+    confidence,
+    indicators,
+    recommendation,
+    reasoning
+  };
+}
+
+function generateReasoning(indicators: HeritageIndicator[], confidence: string): string {
+  const presentIndicators = indicators.filter(i => i.present);
+
+  if (presentIndicators.length > 0 && confidence === 'high') {
+    const heritageType = presentIndicators[0]?.name === 'declared_nct' ? 'National Cultural Treasure (NCT)' : 'Important Cultural Property (ICP)';
+    return `Church is classified as ${heritageType}. Must be forwarded to Museum Researcher for heritage validation.`;
+  } else {
+    return `No heritage classification (ICP or NCT) found. Standard Chancery approval process applies.`;
   }
-  
-  // If has significant historical documents
-  if (context.hasHistoricalDocuments) {
-    return true;
-  }
-  
-  // If marked as architecturally significant
-  if (context.architecturalSignificance) {
-    return true;
-  }
-  
-  return false;
 }
 
 /**
- * Suggests heritage classification based on context
+ * Helper function specifically for the existing workflow
+ * Returns true if church should be automatically sent to heritage review
  */
-export function suggestHeritageClassification(context: HeritageCheckContext): HeritageClassification {
-  if (context.classification && context.classification !== 'unknown') {
-    return context.classification;
-  }
-  
-  // Churches founded before 1800 are likely heritage
-  if (context.foundedYear && context.foundedYear < 1800) {
-    return 'ICP'; // Suggest Important Cultural Property
-  }
-  
-  // Churches founded between 1800-1900 might be heritage
-  if (context.foundedYear && context.foundedYear < 1900) {
-    return 'ICP';
-  }
-  
-  return 'non-heritage';
+export function shouldRequireHeritageReview(church: ChurchInfo | Church | Partial<ChurchInfo>): boolean {
+  const assessment = assessHeritageSignificance(church);
+  return assessment.shouldRequireReview;
+}
+
+/**
+ * Get user-friendly explanation for heritage assessment
+ */
+export function getHeritageExplanation(church: ChurchInfo | Church | Partial<ChurchInfo>): string {
+  const assessment = assessHeritageSignificance(church);
+  return assessment.reasoning;
+}
+
+/**
+ * Get detailed heritage assessment for admin review
+ */
+export function getDetailedHeritageAssessment(
+  church: ChurchInfo | Church | Partial<ChurchInfo>
+): HeritageAssessment {
+  return assessHeritageSignificance(church);
 }

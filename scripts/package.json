@@ -1,0 +1,15 @@
+{
+  "name": "visita-scripts",
+  "version": "1.0.0",
+  "description": "Utility scripts for VISITA system",
+  "main": "index.js",
+  "scripts": {
+    "seed": "node seed-data.js",
+    "setup-dev": "node setup-dev.js",
+    "update-email": "node update-chancery-email.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  },
+  "type": "commonjs"
+}

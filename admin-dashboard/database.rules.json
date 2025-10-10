@@ -1,0 +1,57 @@
+{
+  "rules": {
+    "churches": {
+      ".read": true,
+      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary' || auth.token.role == 'museum_researcher')"
+    },
+    "announcements": {
+      ".read": true,
+      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary')"
+    },
+    "heritage_validations": {
+      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary' || auth.token.role == 'museum_researcher')",
+      ".write": "auth != null && auth.token.role == 'museum_researcher'"
+    },
+    "heritage_churches": {
+      ".read": true,
+      ".write": "auth != null && auth.token.role == 'museum_researcher'"
+    },
+    "feedback": {
+      ".read": "auth != null",
+      "$feedbackId": {
+        ".write": "auth != null && (!data.exists() || auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary')",
+        "userId": {
+          ".validate": "auth != null && newData.val() == auth.uid"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        },
+        "rating": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 5"
+        },
+        "comment": {
+          ".validate": "newData.isString() && newData.val().length <= 1000"
+        },
+        "churchId": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    "users": {
+      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'museum_researcher')",
+      ".write": "auth != null && auth.token.role == 'chancery_office'"
+    },
+    "reports": {
+      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary' || auth.token.role == 'museum_researcher')",
+      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary')"
+    },
+    "analytics": {
+      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary' || auth.token.role == 'museum_researcher')",
+      ".write": "auth != null && auth.token.role == 'chancery_office'"
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
