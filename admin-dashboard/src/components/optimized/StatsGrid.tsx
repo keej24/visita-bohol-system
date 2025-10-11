@@ -47,13 +47,13 @@ const StatCard = React.memo<StatCardProps>(({ label, value, icon: Icon, isLoadin
 StatCard.displayName = 'StatCard';
 
 export const StatsGrid = React.memo<StatsGridProps>(({ diocese, stats }) => {
-  const { totalParishes, heritageCount, pendingCount, isLoading } = stats;
+  const { totalChurches, heritageCount, pendingCount, isLoading } = stats;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <StatCard
-        label="Total Parishes"
-        value={totalParishes}
+        label="Total Churches"
+        value={totalChurches}
         icon={FileText}
         isLoading={isLoading}
       />

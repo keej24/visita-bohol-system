@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getChurchesByDiocese, type Church, type ChurchStatus, updateChurchStatusWithValidation } from "@/lib/churches";
 import { shouldRequireHeritageReview, assessHeritageSignificance } from "@/lib/heritage-detection";
 import { workflowStateMachine, getStatusBadgeColor } from "@/lib/workflow-state-machine";
@@ -20,6 +20,7 @@ interface Props {
 export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Props) {
   const { userProfile } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const statuses: ChurchStatus[] = ["pending", "heritage_review"];
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<Church[]>({
@@ -97,8 +98,10 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
           note
         );
 
-        // Refresh the list
+        // Refresh the list and invalidate stats cache to update counts
         refetch();
+        // Invalidate all church queries for this diocese to update the dashboard stats
+        queryClient.invalidateQueries({ queryKey: ['churches', diocese] });
       } else {
         toast({
           title: "Error",

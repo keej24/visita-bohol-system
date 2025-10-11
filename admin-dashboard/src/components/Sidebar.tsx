@@ -80,10 +80,10 @@ const getNavigationItems = (role?: string, setActiveTab?: (tab: string) => void,
   if (role === 'chancery_office') {
     return [
       { title: 'Dashboard Overview', url: '/', icon: Home },
-      { title: 'Manage Church', url: '/churches', icon: Building, badge: '12' },
+      { title: 'Manage Church', url: '/churches', icon: Building },
       { title: 'User Management', url: '/user-management', icon: Users },
       { title: 'Announcements', url: '/announcements', icon: Megaphone },
-      { title: 'Feedback Reports', url: '/feedback', icon: MessageSquare, badge: '8' },
+      { title: 'Feedback Reports', url: '/feedback', icon: MessageSquare },
       { title: 'Generate Reports', url: '/reports', icon: FileBarChart },
       { title: 'Account Settings', url: '/settings', icon: Settings },
     ];
