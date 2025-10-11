@@ -1,154 +1,292 @@
 // Museum Researcher Dashboard for heritage validation and cultural content
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { 
-  BookOpen, 
-  Award, 
-  Clock, 
-  CheckCircle, 
-  AlertTriangle,
+import { useToast } from "@/components/ui/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  BookOpen,
+  Award,
+  Clock,
+  CheckCircle,
   Eye,
   Edit,
-  FileText,
-  Camera,
-  MapPin,
-  Calendar,
-  Users,
-  Star,
-  Archive
+  AlertTriangle,
+  Loader2,
+  ArrowRight
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
+import { getChurchesByDiocese, updateChurchStatusWithValidation, type Church, type ChurchStatus } from '@/lib/churches';
+import { ChurchDetailModal } from '@/components/ChurchDetailModal';
+import { ChurchService } from '@/services/churchService';
+import { ChurchInfo } from '@/components/parish/types';
+import { notifyChurchStatusChange } from '@/lib/notifications';
+import type { ArchitecturalStyle, ChurchClassification } from '@/types/church';
 
-// Mock data for heritage churches
-const heritageChurches = [
-  {
-    id: 1,
-    name: "Baclayon Church",
-    diocese: "tagbilaran",
-    parish: "Baclayon Parish",
-    classification: "ICP", // Important Cultural Property
-    status: "pending_validation",
-    culturalScore: 85,
-    historicalAccuracy: 92,
-    submittedBy: "Baclayon Parish Secretary",
-    submissionDate: "2024-01-15",
-    priority: "high",
-    feedback: "Needs verification of 1595 founding date documents",
-    images: 12,
-    documents: 8
-  },
-  {
-    id: 2,
-    name: "Loboc Church",
-    diocese: "tagbilaran",
-    parish: "Loboc Parish", 
-    classification: "NCT", // National Cultural Treasure
-    status: "requires_revision",
-    culturalScore: 78,
-    historicalAccuracy: 87,
-    submittedBy: "Loboc Parish Secretary",
-    submissionDate: "2024-01-12",
-    priority: "high",
-    feedback: "Missing archaeological findings documentation",
-    images: 8,
-    documents: 5
-  },
-  {
-    id: 3,
-    name: "Dauis Church",
-    diocese: "tagbilaran",
-    parish: "Dauis Parish",
-    classification: "ICP",
-    status: "validated",
-    culturalScore: 94,
-    historicalAccuracy: 96,
-    submittedBy: "Dauis Parish Secretary",
-    submissionDate: "2024-01-10",
-    priority: "completed",
-    feedback: "Excellent documentation and cultural context",
-    images: 15,
-    documents: 12
-  },
-  {
-    id: 4,
-    name: "Inabanga Church",
-    diocese: "talibon",
-    parish: "Inabanga Parish",
-    classification: "ICP",
-    status: "pending_validation",
-    culturalScore: 72,
-    historicalAccuracy: 82,
-    submittedBy: "Inabanga Parish Secretary",
-    submissionDate: "2024-01-08",
-    priority: "medium",
-    feedback: "Architectural style verification needed",
-    images: 6,
-    documents: 4
-  }
-];
 
-const researchTasks = [
-  {
-    id: 1,
-    title: "Spanish Colonial Architecture Documentation",
-    churches: ["Baclayon Church", "Loboc Church"],
-    deadline: "2024-02-15",
-    status: "in_progress",
-    completion: 65
-  },
-  {
-    id: 2,
-    title: "Jesuit Mission History Validation",
-    churches: ["Dauis Church"],
-    deadline: "2024-01-30",
-    status: "completed",
-    completion: 100
-  },
-  {
-    id: 3,
-    title: "Indigenous Cultural Integration Study",
-    churches: ["Inabanga Church"],
-    deadline: "2024-02-28",
-    status: "pending",
-    completion: 25
-  }
-];
 
 const MuseumResearcherDashboard = () => {
   const { userProfile } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'validated': return 'bg-success text-success-foreground';
-      case 'pending_validation': return 'bg-warning text-warning-foreground';
-      case 'requires_revision': return 'bg-destructive text-destructive-foreground';
-      default: return 'bg-secondary text-secondary-foreground';
+  // Church modal state
+  const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
+  const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+  // Fetch heritage review churches from both dioceses
+  const { data: tagbilaranChurches, isLoading: tagbilaranLoading } = useQuery<Church[]>({
+    queryKey: ['churches', 'tagbilaran', 'heritage_review'],
+    queryFn: () => getChurchesByDiocese('tagbilaran', ['heritage_review']),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  const { data: talibonChurches, isLoading: talibonLoading } = useQuery<Church[]>({
+    queryKey: ['churches', 'talibon', 'heritage_review'],
+    queryFn: () => getChurchesByDiocese('talibon', ['heritage_review']),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  // Fetch approved heritage churches for the count
+  const { data: tagbilaranApproved, isLoading: tagbilaranApprovedLoading } = useQuery<Church[]>({
+    queryKey: ['churches', 'tagbilaran', 'approved'],
+    queryFn: () => getChurchesByDiocese('tagbilaran', ['approved']),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  const { data: talibonApproved, isLoading: talibonApprovedLoading } = useQuery<Church[]>({
+    queryKey: ['churches', 'talibon', 'approved'],
+    queryFn: () => getChurchesByDiocese('talibon', ['approved']),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+
+  // Combine churches from both dioceses
+  const heritageReviewChurches = [
+    ...(tagbilaranChurches || []),
+    ...(talibonChurches || [])
+  ];
+
+  // Filter approved churches for heritage classifications (ICP/NCT only)
+  const approvedHeritageChurches = [
+    ...(tagbilaranApproved || []).filter(church => church.classification === 'ICP' || church.classification === 'NCT'),
+    ...(talibonApproved || []).filter(church => church.classification === 'ICP' || church.classification === 'NCT')
+  ];
+
+  const isLoading = tagbilaranLoading || talibonLoading;
+  const isApprovedLoading = tagbilaranApprovedLoading || talibonApprovedLoading;
+
+  // Church handlers
+  const handleViewChurch = (church: Church) => {
+    setSelectedChurch(church);
+    setModalMode('view');
+    setIsModalOpen(true);
+  };
+
+  const handleEditChurch = (church: Church) => {
+    setSelectedChurch(church);
+    setModalMode('edit');
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedChurch(null);
+  };
+
+  const handleSaveChurch = async (data: ChurchInfo) => {
+    if (!selectedChurch || !userProfile) return;
+
+    try {
+      // Convert ChurchInfo to ChurchFormData format and update
+      const formData = convertChurchInfoToFormData(data);
+      await ChurchService.updateChurch(
+        selectedChurch.id,
+        formData,
+        selectedChurch.diocese, // Use the church's diocese instead of user's
+        userProfile.uid
+      );
+
+      toast({
+        title: "Success",
+        description: "Church information saved successfully!"
+      });
+    } catch (error) {
+      console.error('Error saving church:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save church information",
+        variant: "destructive"
+      });
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'validated': return <CheckCircle className="w-4 h-4" />;
-      case 'pending_validation': return <Clock className="w-4 h-4" />;
-      case 'requires_revision': return <AlertTriangle className="w-4 h-4" />;
-      default: return <FileText className="w-4 h-4" />;
+  const handleSubmitChurch = async (data: ChurchInfo) => {
+    if (!selectedChurch || !userProfile) return;
+
+    setIsSubmitting(true);
+    try {
+      const formData = convertChurchInfoToFormData(data);
+      await ChurchService.updateChurch(
+        selectedChurch.id,
+        formData,
+        selectedChurch.diocese, // Use the church's diocese instead of user's
+        userProfile.uid
+      );
+
+      toast({
+        title: "Success",
+        description: "Church information updated successfully!"
+      });
+
+      setIsModalOpen(false);
+      setSelectedChurch(null);
+      // Refresh data to show updates
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating church:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update church information",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'text-destructive';
-      case 'medium': return 'text-warning';
-      case 'low': return 'text-muted-foreground';
-      case 'completed': return 'text-success';
-      default: return 'text-muted-foreground';
+  // Helper function to safely convert string to ArchitecturalStyle
+  const toArchitecturalStyle = (style: string): ArchitecturalStyle => {
+    const validStyles: ArchitecturalStyle[] = ['baroque', 'gothic', 'romanesque', 'neoclassical', 'modern', 'mixed', 'other'];
+    const normalizedStyle = style.toLowerCase().trim();
+    
+    // Direct match
+    if (validStyles.includes(normalizedStyle as ArchitecturalStyle)) {
+      return normalizedStyle as ArchitecturalStyle;
     }
+    
+    // Fuzzy matching for common variations
+    if (normalizedStyle.includes('baroque') || normalizedStyle.includes('spanish')) return 'baroque';
+    if (normalizedStyle.includes('gothic') || normalizedStyle.includes('neo-gothic')) return 'gothic';
+    if (normalizedStyle.includes('romanesque')) return 'romanesque';
+    if (normalizedStyle.includes('neoclassical') || normalizedStyle.includes('classical')) return 'neoclassical';
+    if (normalizedStyle.includes('modern') || normalizedStyle.includes('contemporary')) return 'modern';
+    if (normalizedStyle.includes('mixed') || normalizedStyle.includes('combination')) return 'mixed';
+    
+    // Default fallback
+    return 'other';
+  };
+
+  // Helper function to safely convert string to ChurchClassification
+  const toChurchClassification = (classification: string): ChurchClassification => {
+    if (classification === 'National Cultural Treasures') return 'NCT';
+    if (classification === 'Important Cultural Properties') return 'ICP';
+    return 'non_heritage';
+  };
+
+  // Helper function to convert ChurchInfo to ChurchFormData
+  const convertChurchInfoToFormData = (data: ChurchInfo) => {
+    return {
+      name: data.churchName || '',
+      fullName: data.parishName || data.churchName || '',
+      location: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, ''),
+      municipality: data.locationDetails.municipality || '',
+      foundingYear: parseInt(data.historicalDetails.foundingYear) || new Date().getFullYear(),
+      founders: data.historicalDetails.founders || '',
+      keyFigures: [],
+      architecturalStyle: toArchitecturalStyle(data.historicalDetails.architecturalStyle || 'other'),
+      historicalBackground: data.historicalDetails.historicalBackground || '',
+      description: data.historicalDetails.historicalBackground || '',
+      classification: toChurchClassification(data.historicalDetails.heritageClassification),
+      assignedPriest: data.currentParishPriest || '',
+      massSchedules: (data.massSchedules || []).map(schedule => ({
+        day: schedule.day || '',
+        time: schedule.endTime ? `${schedule.time} - ${schedule.endTime}` : schedule.time,
+        type: schedule.isFbLive ? `${schedule.language || 'Filipino'} (FB Live)` : (schedule.language || 'Filipino')
+      })),
+      coordinates: data.coordinates && (data.coordinates.lat !== 0 || data.coordinates.lng !== 0) ? {
+        latitude: data.coordinates.lat,
+        longitude: data.coordinates.lng
+      } : undefined,
+      contactInfo: {
+        phone: data.contactInfo?.phone || '',
+        email: data.contactInfo?.email || '',
+        address: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '')
+      },
+      images: (data.photos || []).map(photo => photo.url || '').filter(url => url !== ''),
+      documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+      virtualTour360: (data.virtual360Images || []).map(img => img.url).filter(url => url !== ''),
+      culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
+      preservationHistory: '',
+      restorationHistory: '',
+      tags: [],
+      category: 'parish_church'
+    };
+  };
+
+  const handleValidateChurch = async (church: Church) => {
+    if (!userProfile) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await updateChurchStatusWithValidation(
+        church.id,
+        'approved',
+        userProfile,
+        'Heritage validation completed by Museum Researcher'
+      );
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `${church.name} has been validated and approved.`,
+        });
+
+        // Send notification to parish about approval
+        await notifyChurchStatusChange(
+          church.id,
+          church.name,
+          church.status,
+          'approved',
+          userProfile,
+          'Heritage validation completed. Your church is now published and visible to the public.'
+        );
+
+        // Invalidate and refetch all church queries to update both sections
+        await queryClient.invalidateQueries({ queryKey: ['churches'] });
+
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to validate church",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error validating church:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getStatusBadgeColor = (status: ChurchStatus) => {
+    const colors = {
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      heritage_review: 'bg-orange-100 text-orange-800 border-orange-300',
+      approved: 'bg-green-100 text-green-800 border-green-300'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const getClassificationBadge = (classification: string) => {
@@ -173,336 +311,180 @@ const MuseumResearcherDashboard = () => {
                 Museum Researcher - Heritage Validation Dashboard
               </h1>
               <p className="text-muted-foreground">
-                Validate heritage churches (ICP/NCT) and enhance cultural content across Bohol dioceses
+                Securely review and verify heritage church entries (ICP/NCT), validate historical content, and enhance cultural documentation across both dioceses
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="outline" className="text-xs">
                   {userProfile?.name}
-                </Badge>
-                <Badge variant="secondary" className="text-xs">
-                  HERITAGE SPECIALIST
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  Cross-Diocese Access
                 </Badge>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Heritage Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="stats-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+        {/* Simple Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Clock className="w-6 h-6 text-orange-600" />
                 <div>
-                  <p className="stats-label">Heritage Churches</p>
-                  <p className="stats-value">14</p>
+                  <p className="text-sm text-muted-foreground">Pending Review</p>
+                  <p className="text-xl font-bold text-orange-600">
+                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : heritageReviewChurches.length}
+                  </p>
                 </div>
-                <Award className="w-8 h-8 text-accent" />
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                8 ICP • 6 NCT
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="stats-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="stats-label">Pending Validation</p>
-                  <p className="stats-value text-warning">6</p>
-                </div>
-                <Clock className="w-8 h-8 text-warning" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="stats-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-6 h-6 text-green-600" />
                 <div>
-                  <p className="stats-label">Validated</p>
-                  <p className="stats-value text-success">5</p>
+                  <p className="text-sm text-muted-foreground">Approved Heritage</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {isApprovedLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : approvedHeritageChurches.length}
+                  </p>
                 </div>
-                <CheckCircle className="w-8 h-8 text-success" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="stats-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Award className="w-6 h-6 text-blue-600" />
                 <div>
-                  <p className="stats-label">Needs Revision</p>
-                  <p className="stats-value text-destructive">3</p>
+                  <p className="text-sm text-muted-foreground">Both Dioceses</p>
+                  <p className="text-xl font-bold text-blue-600">Cross-Access</p>
                 </div>
-                <AlertTriangle className="w-8 h-8 text-destructive" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="heritage-validation" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="heritage-validation">Heritage Validation</TabsTrigger>
-            <TabsTrigger value="cultural-content">Cultural Content</TabsTrigger>
-            <TabsTrigger value="research-tasks">Research Tasks</TabsTrigger>
-          </TabsList>
+        {/* Main Content - Heritage Validation */}
 
-          {/* Heritage Validation Tab */}
-          <TabsContent value="heritage-validation" className="space-y-6">
-            <Card className="heritage-card">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
-                  <Award className="w-5 h-5" />
-                  Heritage Churches Validation Queue
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {heritageChurches.map((church) => (
-                  <div key={church.id} className="border rounded-lg p-4 hover:bg-secondary/20 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-foreground">{church.name}</h3>
-                        <Badge className={`text-xs ${getClassificationBadge(church.classification)}`}>
-                          {church.classification}
-                        </Badge>
-                        <Badge className={`text-xs ${getStatusColor(church.status)}`}>
-                          {getStatusIcon(church.status)}
-                          <span className="ml-1 capitalize">{church.status.replace('_', ' ')}</span>
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {church.diocese}
-                        </Badge>
+        {/* Heritage Review Queue */}
+        <Card className="heritage-card">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-primary">
+              Heritage Review Queue {isLoading && <Loader2 className="inline h-4 w-4 ml-2 animate-spin" />}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Loading heritage reviews...</p>
+                </div>
+              </div>
+            ) : heritageReviewChurches.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No heritage churches awaiting validation.</div>
+            ) : (
+              <TooltipProvider>
+                {heritageReviewChurches.map((church) => (
+                  <div key={church.id} className="p-3 rounded-lg bg-secondary/30">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-sm truncate">{church.name}</div>
+                          {church.classification && (
+                            <Badge className={getClassificationBadge(church.classification)}>
+                              {church.classification}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="capitalize">{church.diocese}</span> • {church.municipality ?? "Unknown"}
+                          {church.foundedYear && ` • Founded ${church.foundedYear}`}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-4 h-4 mr-1" />
-                          Review
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="w-4 h-4 mr-1" />
-                          Validate
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-3">
-                      <div>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-muted-foreground">Cultural Score</span>
-                          <span className="font-medium">{church.culturalScore}%</span>
-                        </div>
-                        <Progress value={church.culturalScore} className="h-2" />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-muted-foreground">Historical Accuracy</span>
-                          <span className="font-medium">{church.historicalAccuracy}%</span>
-                        </div>
-                        <Progress value={church.historicalAccuracy} className="h-2" />
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                      <span>Submitted: {church.submissionDate} by {church.submittedBy}</span>
-                      <div className="flex items-center gap-4">
-                        <span className="flex items-center gap-1">
-                          <Camera className="w-3 h-3" />
-                          {church.images} images
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FileText className="w-3 h-3" />
-                          {church.documents} docs
-                        </span>
-                        <span className={`flex items-center gap-1 ${getPriorityColor(church.priority)}`}>
-                          <Star className="w-3 h-3" />
-                          {church.priority}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {church.feedback && (
-                      <div className="bg-warning/10 border border-warning/20 rounded p-2 text-sm">
-                        <p className="text-warning-foreground font-medium">Validation Notes:</p>
-                        <p className="text-warning-foreground">{church.feedback}</p>
-                      </div>
-                    )}
+                        <Badge
+                          variant="outline"
+                          className={`text-xs capitalize ${getStatusBadgeColor(church.status)}`}
+                        >
+                          {church.status.replace("_", " ")}
+                        </Badge>
 
-                    {/* Heritage declaration editor scaffold */}
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="decl-type-" >Declaration Type</Label>
-                        <select id="decl-type-" aria-labelledby="decl-type-" className="input w-full rounded-md border bg-background p-2 text-sm">
-                          <option>ICP</option>
-                          <option>NCT</option>
-                        </select>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <div className="flex items-center text-xs text-muted-foreground">
+                              <Clock className="w-3 h-3 mr-1" />
+                              1 action
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-xs">
+                              <div className="font-medium">Available Actions:</div>
+                              <div>• Validate and approve heritage church</div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
-                      <div className="space-y-1">
-                        <Label>Reference No.</Label>
-                        <Input placeholder="e.g., NM-2024-001" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Issued By</Label>
-                        <Input placeholder="e.g., NCCA, NHCP, National Museum" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Date Issued</Label>
-                        <Input type="date" />
-                      </div>
-                      <div className="space-y-1 md:col-span-4">
-                        <Label>Heritage Notes</Label>
-                        <Input placeholder="Add validation notes or requirements" />
-                      </div>
-                      <div className="md:col-span-4 flex gap-2 justify-end">
-                        <Button variant="outline" size="sm">Request Parish Revision</Button>
-                        <Button variant="heritage" size="sm">Mark Validated</Button>
-                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 justify-end">
+                      {/* View Church Details Button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewChurch(church)}
+                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                      >
+                        <Eye className="w-4 h-4 mr-1" /> View
+                      </Button>
+
+                      {/* Edit Church Button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditChurch(church)}
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                      >
+                        <Edit className="w-4 h-4 mr-1" /> Edit
+                      </Button>
+
+                      {/* Approve & Publish Button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleValidateChurch(church)}
+                        disabled={isSubmitting}
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                        )}
+                        Approve & Publish
+                      </Button>
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Cultural Content Tab */}
-          <TabsContent value="cultural-content" className="space-y-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <Card className="heritage-card">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
-                    <BookOpen className="w-5 h-5" />
-                    Content Enhancement Queue
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="p-3 rounded-lg bg-secondary/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-sm">Spanish Colonial Architecture</h4>
-                      <Badge variant="outline" className="text-xs">High Priority</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Enhance architectural descriptions for 6 churches</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Progress value={75} className="flex-1 h-2" />
-                      <span className="text-xs">75%</span>
-                    </div>
-                  </div>
-                  
-                  <div className="p-3 rounded-lg bg-secondary/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-sm">Indigenous Cultural Elements</h4>
-                      <Badge variant="outline" className="text-xs">Medium</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Document pre-colonial influences</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Progress value={45} className="flex-1 h-2" />
-                      <span className="text-xs">45%</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-secondary/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-sm">Historical Timeline Verification</h4>
-                      <Badge variant="outline" className="text-xs">Low</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Cross-reference historical dates</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Progress value={20} className="flex-1 h-2" />
-                      <span className="text-xs">20%</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="heritage-card">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
-                    <Archive className="w-5 h-5" />
-                    Recently Completed
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="p-3 rounded-lg bg-success/10 border border-success/20">
-                    <h4 className="font-medium text-sm text-success-foreground">Baclayon Church Documentation</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Complete heritage documentation validated</p>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-success-foreground">
-                      <CheckCircle className="w-3 h-3" />
-                      <span>Completed Jan 15, 2024</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-success/10 border border-success/20">
-                    <h4 className="font-medium text-sm text-success-foreground">Jesuit Mission Archives</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Historical context enhancement for 3 churches</p>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-success-foreground">
-                      <CheckCircle className="w-3 h-3" />
-                      <span>Completed Jan 12, 2024</span>
-                    </div>
-                  </div>
-
-                  <Button variant="outline" size="sm" className="w-full">
-                    View All Completed Work
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Research Tasks Tab */}
-          <TabsContent value="research-tasks" className="space-y-6">
-            <Card className="heritage-card">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Active Research Projects
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {researchTasks.map((task) => (
-                  <div key={task.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-foreground">{task.title}</h3>
-                      <Badge variant={task.status === 'completed' ? 'default' : 'outline'}>
-                        {task.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Progress</span>
-                        <span className="font-medium">{task.completion}%</span>
-                      </div>
-                      <Progress value={task.completion} className="h-2" />
-                      
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-3 h-3" />
-                          <span>Due: {task.deadline}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3 h-3" />
-                          <span>{task.churches.length} churches</span>
-                        </div>
-                      </div>
-                      
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Churches: </span>
-                        <span>{task.churches.join(', ')}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </TooltipProvider>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Church Detail Modal */}
+      <ChurchDetailModal
+        church={selectedChurch}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        mode={modalMode}
+        onSave={handleSaveChurch} // Museum researcher can save edits
+        onSubmit={handleSubmitChurch} // Museum researcher can submit edits
+        isSubmitting={isSubmitting}
+      />
     </Layout>
   );
 };
 
 export default MuseumResearcherDashboard;
-

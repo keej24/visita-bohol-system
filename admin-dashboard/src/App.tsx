@@ -30,6 +30,7 @@ import AccountSetup from "./pages/AccountSetup";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 import Register from "./pages/Register";
+import { MuseumResearcherSetup } from "./pages/MuseumResearcherSetup";
 
 // Loading fallback component
 const PageLoadingFallback = () => (
@@ -69,6 +70,7 @@ const App = () => (
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/setup" element={<AccountSetup />} />
+            <Route path="/museum-setup" element={<MuseumResearcherSetup />} />
             <Route path="/register" element={<Register />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             

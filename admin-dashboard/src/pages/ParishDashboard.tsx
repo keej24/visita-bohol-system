@@ -1,599 +1,1053 @@
-// Parish Secretary Dashboard for managing church entries
-import { Layout } from "@/components/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { createChurch, getChurchesByParish, submitChurchForReview, updateChurch, type Church, type ChurchUpdate } from "@/lib/churches";
-import { 
-  Upload, 
-  Church as ChurchIcon, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  Plus,
+import { useState, useEffect, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  Church as ChurchIcon,
   Edit,
-  Eye,
-  FileText,
-  Calendar,
-  MapPin 
-} from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import type { Timestamp } from "firebase/firestore";
+  MapPin,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Phone,
+  Mail,
+  Globe,
+  Loader2,
+  Building
+} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Layout } from '@/components/Layout';
+import { ChurchInfo } from '@/components/parish/types';
+import { ChurchProfileForm } from '@/components/parish/ChurchProfileForm';
+import { ParishReports } from '@/components/parish/ParishReports';
+import { ParishAccount } from '@/components/parish/ParishAccount';
+import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
+import { ParishFeedback } from '@/components/parish/ParishFeedback';
+import { ChurchService } from '@/services/churchService';
+import type { ArchitecturalStyle, ChurchClassification, Church } from '@/types/church';
+import VirtualTour360 from '@/components/360/VirtualTour360';
 
-// simple derived completeness placeholder until form is implemented
-const computeCompleteness = (c: Partial<Church>) => {
-  let score = 0;
-  if (c.name) score += 40;
-  if (c.municipality) score += 20;
-  if (c.foundedYear) score += 20;
-  if (c.classification) score += 20;
-  return score;
-};
-
-const recentAnnouncements = [
-  {
-    id: 1,
-    title: "Sunday Mass Schedule Change",
-    status: "published",
-    date: "2024-01-15"
-  },
-  {
-    id: 2,
-    title: "Parish Feast Day Celebration",
-    status: "pending_approval",
-    date: "2024-01-12"
-  }
-];
-
+// Simplified Parish Dashboard - Shows form on first access, then Parish Profile after approval
 const ParishDashboard = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const { toast } = useToast();
   const { userProfile } = useAuth();
-  const parishId = userProfile?.parish;
-  const diocese = userProfile?.diocese;
-  const queryClient = useQueryClient();
-  const { data: churches, isLoading } = useQuery<Church[]>({
-    queryKey: ["churches", "parish", parishId],
-    queryFn: () => getChurchesByParish(parishId!),
-    enabled: !!parishId,
-  });
-  const hasChurch = (churches?.length ?? 0) > 0;
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [showReports, setShowReports] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [churchId, setChurchId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [existingChurch, setExistingChurch] = useState<Church | null>(null);
 
-  const createMutation = useMutation({
-    mutationFn: async (payload: { name: string; municipality?: string; foundedYear?: number }) => {
-      if (!parishId || !diocese) throw new Error('Missing parish/diocese on profile');
-      if (hasChurch) throw new Error('A church already exists for this parish');
-      const id = await createChurch({
-        name: payload.name,
-        municipality: payload.municipality,
-        foundedYear: payload.foundedYear,
-        parishId,
-        diocese,
-        status: 'pending',
-      });
-      return id;
+  // Core church data
+  const [churchInfo, setChurchInfo] = useState<ChurchInfo>(() => ({
+    churchName: userProfile?.parish || '',
+    parishName: '',
+    locationDetails: {
+      streetAddress: '',
+      barangay: '',
+      municipality: '',
+      province: 'Bohol'
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["churches", "parish", parishId] });
-    }
-  });
+    coordinates: { lat: 0, lng: 0 },
+    historicalDetails: {
+      foundingYear: '',
+      founders: '',
+      architecturalStyle: '',
+      historicalBackground: '',
+      majorHistoricalEvents: '',
+      heritageClassification: 'None',
+      religiousClassification: 'None',
+      supportingDocuments: []
+    },
+    currentParishPriest: '',
+    massSchedules: [],
+    contactInfo: {
+      phone: '',
+      email: '',
+      website: '',
+      facebookPage: ''
+    },
+    photos: [],
+    documents: [],
+    virtual360Images: [],
+    
+    // Legacy fields for compatibility
+    name: userProfile?.parish || '',
+    location: '',
+    priest: '',
+    founded: '',
+    classification: 'Parish Church',
+    description: '',
+    status: 'draft',
+    capacity: 0,
+    architecturalStyle: '',
+    patronSaint: '',
+    diocese: userProfile?.diocese || 'tagbilaran'
+  }));
 
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', municipality: '', foundedYear: '' });
-  const [editOpen, setEditOpen] = useState(false);
-  const [editing, setEditing] = useState<Church | null>(null);
-  const [editForm, setEditForm] = useState({
-    name: '', municipality: '', foundedYear: '', address: '', latitude: '', longitude: '',
-    architecturalStyle: '', historicalBackground: '', massSchedules: '', assignedPriest: '', classification: 'unknown'
-  });
-  const [errors, setErrors] = useState<{ address?: string; latitude?: string; longitude?: string; assignedPriest?: string }>({});
+  // Convert Church from Firebase to ChurchInfo format
+  const convertChurchToInfo = useCallback((church: Church): ChurchInfo => {
+    return {
+      churchName: church.name || '',
+      parishName: church.fullName || '',
+      locationDetails: {
+        streetAddress: church.contactInfo?.address?.split(',')[0]?.trim() || '',
+        barangay: church.contactInfo?.address?.split(',')[1]?.trim() || '',
+        municipality: church.municipality || '',
+        province: 'Bohol'
+      },
+      coordinates: church.coordinates ? {
+        lat: church.coordinates.latitude || 0,
+        lng: church.coordinates.longitude || 0
+      } : { lat: 0, lng: 0 },
+      historicalDetails: {
+        foundingYear: church.foundingYear?.toString() || '',
+        founders: church.founders || '',
+        architecturalStyle: church.architecturalStyle || '',
+        historicalBackground: church.historicalBackground || church.description || '',
+        majorHistoricalEvents: church.culturalSignificance || '',
+        heritageClassification: church.classification === 'NCT' ? 'National Cultural Treasures' :
+                               church.classification === 'ICP' ? 'Important Cultural Properties' : 'None',
+        religiousClassification: 'None',
+        supportingDocuments: []
+      },
+      currentParishPriest: church.assignedPriest || '',
+      massSchedules: (church.massSchedules || []).map(schedule => ({
+        day: schedule.day || '',
+        time: schedule.time?.split(' - ')[0] || '',
+        endTime: schedule.time?.split(' - ')[1] || '',
+        language: schedule.type?.replace(' (FB Live)', '') || 'Filipino',
+        isFbLive: schedule.type?.includes('(FB Live)') || false
+      })),
+      contactInfo: {
+        phone: church.contactInfo?.phone || '',
+        email: church.contactInfo?.email || '',
+        website: '',
+        facebookPage: ''
+      },
+      photos: (church.images || []).map((url, index) => ({
+        id: `photo-${index}`,
+        name: `Photo ${index + 1}`,
+        type: 'photo' as const,
+        url: url,
+        uploadDate: new Date().toISOString(),
+        status: 'approved' as const
+      })),
+      documents: (church.documents || []).map((url, index) => ({
+        id: `doc-${index}`,
+        name: `Document ${index + 1}`,
+        type: 'document' as const,
+        url: url,
+        uploadDate: new Date().toISOString(),
+        status: 'approved' as const
+      })),
+      virtual360Images: (church.virtualTour360 || []).map((url, index) => ({
+        id: `360-${index}`,
+        url: url,
+        name: `360 Image ${index + 1}`,
+        uploadDate: new Date().toISOString(),
+        status: 'approved' as const,
+        category: 'interior' as const
+      })),
 
-  // Reset errors when opening/closing the edit dialog or switching item
-  useEffect(() => {
-    if (editOpen) {
-      setErrors({});
-    }
-  }, [editOpen, editing?.id]);
-
-  const toClassification = (v: string): NonNullable<Church['classification']> =>
-    (v === 'ICP' || v === 'NCT' || v === 'non-heritage' || v === 'unknown') ? v : 'unknown';
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-success text-success-foreground';
-      case 'pending': return 'bg-warning text-warning-foreground';
-      case 'needs_revision': return 'bg-destructive/10 text-destructive';
-      case 'heritage_review': return 'bg-accent/20 text-accent-foreground';
-      default: return 'bg-secondary text-secondary-foreground';
-    }
-  };
-
-  const formatUpdatedAt = (value?: Timestamp | string | number | Date): string => {
-    if (!value) return '—';
-    if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as Timestamp).toDate === 'function') {
-      return (value as Timestamp).toDate().toLocaleDateString();
-    }
-    const d = new Date(value as string | number | Date);
-    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="w-4 h-4" />;
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'needs_revision': return <AlertCircle className="w-4 h-4" />;
-      case 'heritage_review': return <Clock className="w-4 h-4" />;
-      default: return <Edit className="w-4 h-4" />;
-    }
-  };
-
-  const approvedCount = (churches ?? []).filter(c => c.status === 'approved').length;
-  const pendingCount = (churches ?? []).filter(c => c.status === 'pending' || c.status === 'heritage_review').length;
-  const needsRevisionCount = (churches ?? []).filter(c => c.status === 'needs_revision').length;
-
-  const submitMutation = useMutation({
-    mutationFn: async (id: string) => submitChurchForReview(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["churches", "parish", parishId] });
-    }
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: ChurchUpdate }) => updateChurch(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["churches", "parish", parishId] });
-      setEditOpen(false);
-      setEditing(null);
-    }
-  });
-
-  // Field-level validators
-  const validateLatitude = (value: string): string | undefined => {
-    if (!value) return undefined; // optional unless longitude is present
-    const num = Number(value);
-    if (Number.isNaN(num)) return 'Latitude must be a number';
-    if (num < -90 || num > 90) return 'Latitude must be between -90 and 90';
-    return undefined;
-  };
-  const validateLongitude = (value: string): string | undefined => {
-    if (!value) return undefined; // optional unless latitude is present
-    const num = Number(value);
-    if (Number.isNaN(num)) return 'Longitude must be a number';
-    if (num < -180 || num > 180) return 'Longitude must be between -180 and 180';
-    return undefined;
-  };
-  const validateAddress = (value: string): string | undefined => {
-    if (!value) return undefined; // optional
-    if (value.length < 3) return 'Address is too short';
-    if (value.length > 200) return 'Address is too long (max 200 chars)';
-    return undefined;
-  };
-  const validatePriest = (value: string): string | undefined => {
-    if (!value) return undefined; // optional
-    const trimmed = value.trim();
-    if (trimmed.length < 2) return 'Name is too short';
-    if (trimmed.length > 100) return 'Name is too long (max 100 chars)';
-    // Allow letters, spaces, dots, apostrophes, and hyphens
-    if (!/^[A-Za-zÀ-ÖØ-öø-ÿ .'-]+$/.test(trimmed)) return 'Only letters, spaces, period, apostrophe, and hyphen allowed';
-    return undefined;
-  };
-
-  const runAllValidation = () => {
-    const latErr = validateLatitude(editForm.latitude);
-    const lngErr = validateLongitude(editForm.longitude);
-    const addrErr = validateAddress(editForm.address);
-    const priestErr = validatePriest(editForm.assignedPriest);
-    const pairErrLat = !latErr && !lngErr && ((!!editForm.latitude && !editForm.longitude) ? 'Longitude is required when latitude is provided' : undefined);
-    const pairErrLng = !latErr && !lngErr && ((!editForm.latitude && !!editForm.longitude) ? 'Latitude is required when longitude is provided' : undefined);
-    const finalErrors = {
-      latitude: latErr || pairErrLat,
-      longitude: lngErr || pairErrLng,
-      address: addrErr,
-      assignedPriest: priestErr,
+      // Legacy fields
+      name: church.name || '',
+      location: church.location || '',
+      priest: church.assignedPriest || '',
+      founded: church.foundingYear?.toString() || '',
+      classification: church.classification || '',
+      description: church.description || '',
+      status: church.status === 'under_review' ? 'pending' :
+              church.status === 'needs_revision' ? 'pending' :
+              church.status || 'pending',
+      capacity: 0,
+      architecturalStyle: church.architecturalStyle || '',
+      patronSaint: '',
+      diocese: church.diocese || userProfile?.diocese || 'tagbilaran'
     };
-    setErrors(finalErrors);
-    // Return whether form is valid
-    return Object.values(finalErrors).every((v) => !v);
+  }, [userProfile?.diocese]);
+
+  // Load existing church data from Firebase
+  useEffect(() => {
+    if (userProfile && userProfile.parish) {
+      setIsLoading(true);
+
+      // Try to load existing church data using parish name as document ID
+      ChurchService.getChurch(userProfile.parish)
+        .then((church) => {
+          if (church) {
+            // Church exists in Firebase - load the data
+            setExistingChurch(church);
+            setChurchId(church.id);
+            setChurchInfo(convertChurchToInfo(church));
+
+            // Show form only if status is pending or needs revision
+            if (church.status === 'pending' || church.status === 'needs_revision') {
+              setShowProfileForm(true);
+            } else {
+              setShowProfileForm(false);
+            }
+          } else {
+            // No existing church - initialize with default data
+            setChurchInfo(prev => ({
+              ...prev,
+              churchName: userProfile.parish,
+              name: userProfile.parish,
+              diocese: userProfile.diocese
+            }));
+            setShowProfileForm(true);
+          }
+        })
+        .catch((error) => {
+          console.error('Error loading church data:', error);
+          // Fallback to default initialization
+          setChurchInfo(prev => ({
+            ...prev,
+            churchName: userProfile.parish,
+            name: userProfile.parish,
+            diocese: userProfile.diocese
+          }));
+          setShowProfileForm(true);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [userProfile, convertChurchToInfo]);
+
+  // Set up real-time listener for church updates
+  useEffect(() => {
+    if (!userProfile?.parish) return;
+
+    let previousStatus: string | null = null;
+
+    const unsubscribe = ChurchService.subscribeToChurches(
+      (churches) => {
+        // Find our parish's church in the results
+        const parishChurch = churches.find(church => church.id === userProfile.parish);
+        if (parishChurch) {
+          // Check if status changed to show notification
+          if (previousStatus && previousStatus !== parishChurch.status) {
+            const statusMessages = {
+              'approved': 'Your church profile has been approved!',
+              'needs_revision': 'Chancery office has requested revisions to your church profile.',
+              'heritage_review': 'Your church has been forwarded for heritage review.',
+              'pending': 'Your church profile is now under review.',
+              'rejected': 'Your church profile submission needs attention.'
+            };
+
+            const message = statusMessages[parishChurch.status as keyof typeof statusMessages] ||
+                           `Church status updated to: ${parishChurch.status}`;
+
+            toast({
+              title: "Church Profile Updated",
+              description: message,
+              variant: parishChurch.status === 'approved' ? 'default' :
+                      parishChurch.status === 'needs_revision' ? 'destructive' : 'default'
+            });
+          }
+
+          previousStatus = parishChurch.status;
+          setExistingChurch(parishChurch);
+          setChurchInfo(convertChurchToInfo(parishChurch));
+        }
+      },
+      {
+        diocese: userProfile.diocese,
+        // No status filter to get church regardless of status
+      }
+    );
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [userProfile, toast, convertChurchToInfo]);
+
+  // Mark dashboard as visited
+  const markDashboardVisited = () => {
+    const visitKey = `parish_dashboard_visited_${userProfile?.email || 'user'}`;
+    localStorage.setItem(visitKey, 'true');
   };
 
-  return (
-    <Layout>
-      <div className="space-y-6">
-        {/* Parish Header */}
-        <div className="heritage-card-accent p-6 bg-gradient-to-r from-primary/5 to-accent/5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center">
-                <ChurchIcon className="w-6 h-6 text-accent-foreground" />
+  // Show profile form immediately on first visit
+  useEffect(() => {
+    const visitKey = `parish_dashboard_visited_${userProfile?.email || 'user'}`;
+    const isFirstVisit = !localStorage.getItem(visitKey);
+    
+    // Show form immediately on first visit OR if profile status is pending/incomplete
+    if (isFirstVisit || churchInfo.status === 'pending' || !churchInfo.churchName) {
+      setShowProfileForm(true);
+    }
+  }, [churchInfo.status, churchInfo.churchName, userProfile?.email]);
+
+  // Handle activeTab changes from sidebar
+  useEffect(() => {
+    if (activeTab === 'reports') {
+      if (churchInfo.status === 'approved') {
+        setShowReports(true);
+        setShowProfileForm(false);
+        setShowAccount(false);
+        setShowAnnouncements(false);
+        setShowFeedback(false);
+      } else {
+        toast({
+          title: "Profile Not Approved",
+          description: "Reports are only available after your church profile is approved.",
+          variant: "destructive"
+        });
+        setActiveTab('overview');
+      }
+    } else if (activeTab === 'announcements') {
+      if (churchInfo.status === 'approved') {
+        setShowAnnouncements(true);
+        setShowProfileForm(false);
+        setShowAccount(false);
+        setShowReports(false);
+        setShowFeedback(false);
+      } else {
+        toast({
+          title: "Profile Not Approved",
+          description: "Announcements management is only available after your church profile is approved.",
+          variant: "destructive"
+        });
+        setActiveTab('overview');
+      }
+    } else if (activeTab === 'feedback') {
+      if (churchInfo.status === 'approved') {
+        setShowFeedback(true);
+        setShowProfileForm(false);
+        setShowAccount(false);
+        setShowReports(false);
+        setShowAnnouncements(false);
+      } else {
+        toast({
+          title: "Profile Not Approved",
+          description: "Feedback management is only available after your church profile is approved.",
+          variant: "destructive"
+        });
+        setActiveTab('overview');
+      }
+    } else if (activeTab === 'account') {
+      setShowAccount(true);
+      setShowReports(false);
+      setShowProfileForm(false);
+      setShowAnnouncements(false);
+      setShowFeedback(false);
+    } else if (activeTab === 'overview') {
+      setShowReports(false);
+      setShowAccount(false);
+      setShowProfileForm(false);
+      setShowAnnouncements(false);
+      setShowFeedback(false);
+    } else {
+      setShowReports(false);
+      setShowAccount(false);
+      setShowAnnouncements(false);
+      setShowFeedback(false);
+    }
+  }, [activeTab, churchInfo.status, toast, setActiveTab]);
+
+  // Convert ChurchInfo to ChurchFormData format
+  const convertToFormData = (data: ChurchInfo) => {
+    // Helper function to safely convert founding year to number
+    const parseFoundingYear = (year: string): number => {
+      if (!year) return new Date().getFullYear();
+      const parsed = parseInt(year, 10);
+      return isNaN(parsed) ? new Date().getFullYear() : parsed;
+    };
+
+    // Helper function to convert coordinates format
+    const convertCoordinates = (coords: typeof data.coordinates) => {
+      if (!coords || (coords.lat === 0 && coords.lng === 0)) return undefined;
+      return {
+        latitude: coords.lat,
+        longitude: coords.lng
+      };
+    };
+
+    // Helper function to convert mass schedules
+    const convertMassSchedules = (schedules: typeof data.massSchedules) => {
+      if (!schedules) return [];
+      return schedules.map(schedule => ({
+        day: schedule.day,
+        time: schedule.endTime ? `${schedule.time} - ${schedule.endTime}` : schedule.time,
+        type: schedule.isFbLive ? `${schedule.language || 'Filipino'} (FB Live)` : (schedule.language || 'Filipino')
+      }));
+    };
+
+    // Helper function to map heritage classification
+    const mapHeritageClassification = (classification: string) => {
+      switch (classification) {
+        case 'National Cultural Treasures': return 'NCT';
+        case 'Important Cultural Properties': return 'ICP';
+        default: return 'non_heritage';
+      }
+    };
+
+    // Helper function to map architectural style
+    const mapArchitecturalStyle = (style: string) => {
+      const styleMap: Record<string, string> = {
+        'Spanish Colonial': 'baroque',
+        'Baroque': 'baroque',
+        'Neo-Gothic': 'gothic',
+        'Gothic': 'gothic',
+        'Byzantine': 'romanesque',
+        'Modern': 'modern',
+        'Mixed': 'mixed'
+      };
+      return styleMap[style] || 'other';
+    };
+
+    return {
+      name: data.churchName || '',
+      fullName: data.parishName || data.churchName || '',
+      location: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, ''),
+      municipality: data.locationDetails.municipality || '',
+      foundingYear: parseFoundingYear(data.historicalDetails.foundingYear),
+      founders: data.historicalDetails.founders || '',
+      keyFigures: [],
+      architecturalStyle: mapArchitecturalStyle(data.historicalDetails.architecturalStyle || 'other') as ArchitecturalStyle,
+      historicalBackground: data.historicalDetails.historicalBackground || '',
+      description: data.historicalDetails.historicalBackground || '',
+      classification: mapHeritageClassification(data.historicalDetails.heritageClassification) as ChurchClassification,
+      assignedPriest: data.currentParishPriest || '',
+      massSchedules: convertMassSchedules(data.massSchedules || []),
+      coordinates: convertCoordinates(data.coordinates),
+      contactInfo: {
+        phone: data.contactInfo?.phone || '',
+        email: data.contactInfo?.email || '',
+        address: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '')
+      },
+      images: (data.photos || []).map(photo =>
+        typeof photo === 'string' ? photo : (photo?.url || '')
+      ).filter(Boolean),
+      documents: (data.documents || []).map(doc =>
+        typeof doc === 'string' ? doc : (doc?.url || '')
+      ).filter(Boolean),
+      virtualTour360: (data.virtual360Images || []).map(img =>
+        typeof img === 'string' ? img : (img?.url || '')
+      ).filter(Boolean),
+      culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
+      preservationHistory: '',
+      restorationHistory: '',
+      tags: [],
+      category: 'parish_church'
+    };
+  };
+
+  // Form submission handlers
+  const handleProfileFormSave = (data: ChurchInfo) => {
+    setChurchInfo({ ...data, status: churchInfo.status || 'draft' });
+    toast({ title: "Success", description: "Church profile saved as draft!" });
+  };
+
+  const handleProfileFormSubmit = async (data: ChurchInfo) => {
+    if (!userProfile) {
+      toast({
+        title: "Error",
+        description: "User profile not available.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    markDashboardVisited();
+
+    try {
+      const formData = convertToFormData(data);
+      const isInitialSubmission = !existingChurch;
+
+      if (isInitialSubmission) {
+        // Create new church in Firebase using parish ID as document ID
+        const newChurchId = await ChurchService.createChurch(
+          formData,
+          userProfile.diocese,
+          userProfile.uid,
+          userProfile.parish // Use parish name as document ID
+        );
+
+        setChurchId(newChurchId);
+        setChurchInfo({ ...data, status: 'pending' });
+        setShowProfileForm(false);
+
+        toast({
+          title: "Success",
+          description: "Church profile submitted for review!"
+        });
+      } else {
+        // Update existing church in Firebase
+        await ChurchService.updateChurch(
+          existingChurch.id,
+          formData,
+          userProfile.diocese,
+          userProfile.uid
+        );
+
+        // Status will be updated through real-time listener
+        setShowProfileForm(false);
+
+        const currentStatus = existingChurch.status;
+        const statusText = currentStatus === 'approved' ? 'updated' : 'resubmitted for review';
+
+        toast({
+          title: "Success",
+          description: `Church profile ${statusText} successfully!`
+        });
+      }
+    } catch (error) {
+      console.error('Church submission error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit church profile. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getStatusBadge = () => {
+    switch (churchInfo.status) {
+      case 'approved':
+        return (
+          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Approved & Live
+          </Badge>
+        );
+      case 'pending':
+        return (
+          <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+            <Clock className="w-3 h-3 mr-1" />
+            Under Review
+          </Badge>
+        );
+      case 'rejected':
+        return (
+          <Badge className="bg-red-50 text-red-700 border-red-200">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Needs Revision
+          </Badge>
+        );
+      default:
+        return (
+          <Badge className="bg-slate-50 text-slate-700 border-slate-200">
+            <Edit className="w-3 h-3 mr-1" />
+            Draft
+          </Badge>
+        );
+    }
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  // Helper function to convert time to sortable format
+  const timeToMinutes = (timeStr: string): number => {
+    if (!timeStr) return 0;
+
+    // Handle both 24-hour format (08:30) and 12-hour format (8:30 AM)
+    if (timeStr.includes(' ')) {
+      // 12-hour format with AM/PM
+      const [time, period] = timeStr.split(' ');
+      const [hours, minutes] = time.split(':').map(Number);
+      let totalMinutes = hours * 60 + minutes;
+
+      if (period === 'PM' && hours !== 12) {
+        totalMinutes += 12 * 60;
+      } else if (period === 'AM' && hours === 12) {
+        totalMinutes -= 12 * 60;
+      }
+
+      return totalMinutes;
+    } else {
+      // 24-hour format
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 60 + (minutes || 0);
+    }
+  };
+
+  const formatTime = (time: string) => {
+    if (!time) return '';
+
+    try {
+      // Convert 24-hour format to 12-hour format with AM/PM
+      const [hours, minutes] = time.split(':').map(Number);
+
+      // Validate hours and minutes
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        return time; // Return original if invalid
+      }
+
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+
+      if (hours === 12 && minutes === 0) {
+        return '12:00 NN';
+      }
+
+      return `${displayHours}:${displayMinutes} ${period}`;
+    } catch (error) {
+      console.warn('Invalid time format:', time);
+      return time; // Return original if parsing fails
+    }
+  };
+
+  const renderGroupedMassSchedulesDisplay = () => {
+    if (!churchInfo.massSchedules || churchInfo.massSchedules.length === 0) {
+      return (
+        <div className="text-gray-500 text-center py-4">
+          No mass schedules available.
+        </div>
+      );
+    }
+
+    const groupedSchedules = {
+      weekdays: churchInfo.massSchedules.filter(s => s && ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(s.day)),
+      saturday: churchInfo.massSchedules.filter(s => s && s.day === 'Saturday'),
+      sunday: churchInfo.massSchedules.filter(s => s && s.day === 'Sunday')
+    };
+
+    // Get unique weekday schedules (assuming they're the same for all weekdays)
+    const uniqueWeekdaySchedules = groupedSchedules.weekdays.reduce((unique, schedule) => {
+      const key = `${schedule.time}-${schedule.endTime}-${schedule.language}-${schedule.isFbLive}`;
+      if (!unique.find(s => `${s.time}-${s.endTime}-${s.language}-${s.isFbLive}` === key)) {
+        unique.push(schedule);
+      }
+      return unique;
+    }, [] as typeof churchInfo.massSchedules);
+
+    // Sort schedules by time
+    const sortByTime = (schedules: typeof churchInfo.massSchedules) => {
+      return schedules.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+    };
+
+    const renderScheduleItem = (schedule: typeof churchInfo.massSchedules[0], index: number) => {
+      // Build the additional info (language and FB Live)
+      const additionalInfo = [];
+
+      if (schedule.language && schedule.language !== 'Filipino') {
+        additionalInfo.push(schedule.language);
+      }
+
+      if (schedule.isFbLive) {
+        if (schedule.language && schedule.language !== 'Filipino') {
+          additionalInfo.push('also via FB Live');
+        } else {
+          additionalInfo.push('FB Live');
+        }
+      }
+
+      const infoText = additionalInfo.length > 0 ? ` (${additionalInfo.join(', ')})` : '';
+
+      return (
+        <div key={index} className="text-gray-700 leading-relaxed">
+          <span className="text-gray-600">- </span>
+          <span className="font-medium">
+            {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
+          </span>
+          {infoText && (
+            <span className="text-gray-600">{infoText}</span>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <div className="space-y-5 bg-gray-50 p-5 rounded-lg">
+        {/* Daily Masses (Monday–Friday) */}
+        {uniqueWeekdaySchedules.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-3 text-base">
+              Daily Masses (Monday–Friday)
+            </h4>
+            <div className="space-y-1 ml-0">
+              {sortByTime(uniqueWeekdaySchedules).map((schedule, index) =>
+                renderScheduleItem(schedule, index)
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Saturday */}
+        {groupedSchedules.saturday.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-3 text-base">
+              📅 Saturday
+            </h4>
+            <div className="space-y-1 ml-0">
+              {sortByTime(groupedSchedules.saturday).map((schedule, index) =>
+                renderScheduleItem(schedule, index)
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Sunday */}
+        {groupedSchedules.sunday.length > 0 && (
+          <div>
+            <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+              🌞 Sunday
+            </h4>
+            <div className="space-y-1 pl-4 border-l-2 border-gray-200">
+              {sortByTime(groupedSchedules.sunday).map((schedule, index) =>
+                renderScheduleItem(schedule, index)
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Simple Parish Profile View for approved profiles
+  const renderParishProfile = () => (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
+              <ChurchIcon className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                {getGreeting()}! 👋
+              </h1>
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                {churchInfo.churchName || churchInfo.name || "Your Parish"}
+              </h2>
+              <div className="flex items-center gap-3">
+                {getStatusBadge()}
+                {churchInfo.locationDetails?.municipality && (
+                  <Badge variant="outline" className="text-gray-600">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {churchInfo.locationDetails.municipality}, {churchInfo.locationDetails.province}
+                  </Badge>
+                )}
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-primary mb-1">
-                  {userProfile?.parish || 'Parish Name'} - Secretary Dashboard
-                </h1>
-                <p className="text-muted-foreground">
-                  Manage church profiles and announcements for your parish
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="outline" className="text-xs">
-                    {userProfile?.name}
-                  </Badge>
-                  <Badge variant="secondary" className="text-xs">
-                    Diocese of {userProfile?.diocese}
-                  </Badge>
+            </div>
+          </div>
+          
+          <Button 
+            onClick={() => setShowProfileForm(true)}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            <Edit className="w-4 h-4 mr-2" />
+            Edit Profile
+          </Button>
+        </div>
+      </div>
+
+      {/* Parish Profile Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChurchIcon className="w-5 h-5 text-purple-600" />
+            Parish Profile
+          </CardTitle>
+          <CardDescription>
+            Your church information as displayed to visitors
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Basic Information</h3>
+              <div className="space-y-2">
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Church Name:</span>
+                  <p className="text-gray-900">{churchInfo.churchName || 'Not specified'}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Parish Name:</span>
+                  <p className="text-gray-900">{churchInfo.parishName || 'Not specified'}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Parish Priest:</span>
+                  <p className="text-gray-900">{churchInfo.currentParishPriest || 'Not specified'}</p>
                 </div>
               </div>
             </div>
-            {!hasChurch && (
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button className="btn-heritage">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add New Church
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Church</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Church Name</Label>
-                      <Input id="name" value={form.name} onChange={(e) => setForm(f => ({...f, name: e.target.value}))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="municipality">Municipality</Label>
-                      <Input id="municipality" value={form.municipality} onChange={(e) => setForm(f => ({...f, municipality: e.target.value}))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="founded">Founded Year</Label>
-                      <Input id="founded" type="number" value={form.foundedYear} onChange={(e) => setForm(f => ({...f, foundedYear: e.target.value}))} />
-                    </div>
-                    <Button
-                      className="btn-heritage w-full"
-                      disabled={createMutation.isPending || !form.name}
-                      onClick={async () => {
-                        if (hasChurch) return; // guard
-                        await createMutation.mutateAsync({
-                          name: form.name.trim(),
-                          municipality: form.municipality.trim() || undefined,
-                          foundedYear: form.foundedYear ? Number(form.foundedYear) : undefined,
-                        });
-                        setOpen(false);
-                        setForm({ name: '', municipality: '', foundedYear: '' });
-                      }}
-                    >
-                      {createMutation.isPending ? 'Saving…' : 'Save Church'}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
+            
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
+              <div className="space-y-2">
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Address:</span>
+                  <p className="text-gray-900">{churchInfo.locationDetails?.streetAddress || 'Not specified'}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Municipality:</span>
+                  <p className="text-gray-900">{churchInfo.locationDetails?.municipality || 'Not specified'}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Province:</span>
+                  <p className="text-gray-900">{churchInfo.locationDetails?.province || 'Bohol'}</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-  {/* Quick Stats */}
-  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="stats-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="stats-label">Total Churches</p>
-      <p className="stats-value">{(churches ?? []).length}</p>
-                </div>
-                <ChurchIcon className="w-8 h-8 text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="stats-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="stats-label">Approved</p>
-      <p className="stats-value text-success">{approvedCount}</p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-success" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="stats-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="stats-label">Pending Review</p>
-      <p className="stats-value text-warning">{pendingCount}</p>
-                </div>
-                <Clock className="w-8 h-8 text-warning" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="stats-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-      <p className="stats-label">Needs Revision</p>
-      <p className="stats-value text-muted-foreground">{needsRevisionCount}</p>
-                </div>
-                <Edit className="w-8 h-8 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Church Entries */}
-          <div className="xl:col-span-2" id="churches">
-            <Card className="heritage-card">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
-                  <Upload className="w-5 h-5" />
-                  {hasChurch ? 'Church Profile' : 'Church Profile Setup'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {hasChurch ? (churches ?? []).slice(0, 1).map((church) => (
-                  <div key={church.id} className="border rounded-lg p-4 hover:bg-secondary/20 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-foreground">{church.name}</h3>
-                        <Badge className={`text-xs ${getStatusColor(church.status)}`}>
-                          {getStatusIcon(church.status)}
-                          <span className="ml-1 capitalize">{church.status.replace('_', ' ')}</span>
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => {
-                          setEditing(church);
-                          setEditForm({
-                            name: church.name || '',
-                            municipality: church.municipality || '',
-                            foundedYear: church.foundedYear?.toString() || '',
-                            address: church.address || '',
-                            latitude: church.latitude !== undefined ? String(church.latitude) : '',
-                            longitude: church.longitude !== undefined ? String(church.longitude) : '',
-                            architecturalStyle: church.architecturalStyle || '',
-                            historicalBackground: church.historicalBackground || '',
-                            massSchedules: church.massSchedules || '',
-                            assignedPriest: church.assignedPriest || '',
-                            classification: church.classification || 'unknown',
-                          });
-                          setEditOpen(true);
-                        }}>
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
-                        {church.status === 'needs_revision' && (
-                          <Button size="sm" onClick={() => submitMutation.mutate(church.id!)}>
-                            <Upload className="w-4 h-4 mr-1" />
-                            Resubmit for Review
-                          </Button>
-                        )}
-                        {church.status === 'pending' && (
-                          <Button size="sm" variant="secondary" disabled>
-                            <Clock className="w-4 h-4 mr-1" /> In Review
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Completeness</span>
-                        <span className="font-medium">{computeCompleteness(church)}%</span>
-                      </div>
-                      <Progress value={computeCompleteness(church)} className="h-2" />
-                      
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Last updated: {formatUpdatedAt(church.updatedAt as unknown as Timestamp | string | number | Date)}</span>
-                        <span>{/* images count placeholder */}images: —</span>
-                      </div>
-                      
-                      {/* feedback placeholder: add when feedback feature is implemented */}
-                    </div>
-                  </div>
-                )) : (
-                  <div className="border rounded-lg p-6 text-center text-muted-foreground">
-                    <p className="mb-4">No church profile yet. Create your parish church profile to get started.</p>
-                    <Button className="btn-heritage" onClick={() => setOpen(true)}>
-                      <Plus className="w-4 h-4 mr-2" /> Create Church Profile
-                    </Button>
+          {/* Contact Information */}
+          {(churchInfo.contactInfo?.phone || churchInfo.contactInfo?.email || churchInfo.contactInfo?.website) && (
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Contact Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {churchInfo.contactInfo?.phone && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Phone className="w-4 h-4" />
+                    <span>{churchInfo.contactInfo.phone}</span>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6" id="announcements">
-            {/* Recent Announcements */}
-            <Card className="heritage-card">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  Announcements
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {recentAnnouncements.map((announcement) => (
-                  <div key={announcement.id} className="p-3 rounded-lg bg-secondary/30">
-                    <p className="font-medium text-sm">{announcement.title}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-muted-foreground">{announcement.date}</span>
-                      <Badge 
-                        variant={announcement.status === 'published' ? 'default' : 'secondary'}
-                        className="text-xs"
-                      >
-                        {announcement.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
+                {churchInfo.contactInfo?.email && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Mail className="w-4 h-4" />
+                    <span>{churchInfo.contactInfo.email}</span>
                   </div>
-                ))}
-                <Button variant="outline" size="sm" className="w-full">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Announcement
-                </Button>
-              </CardContent>
-            </Card>
+                )}
+                {churchInfo.contactInfo?.website && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Globe className="w-4 h-4" />
+                    <span>{churchInfo.contactInfo.website}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-            {/* Quick Actions */}
-            <Card className="heritage-card" id="feedback">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-primary">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
-                  <FileText className="w-4 h-4 mr-2" />
-                  View Guidelines
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  Upload Images
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Clock className="w-4 h-4 mr-2" />
-                  Review History
-                </Button>
-              </CardContent>
-       </Card>
+          {/* Historical Information */}
+          {(churchInfo.historicalDetails?.foundingYear || 
+            churchInfo.historicalDetails?.architecturalStyle || 
+            churchInfo.historicalDetails?.heritageClassification !== 'None' || 
+            churchInfo.historicalDetails?.religiousClassification !== 'None' ||
+            churchInfo.historicalDetails?.historicalBackground) && (
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Historical Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  {churchInfo.historicalDetails?.foundingYear && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Founding Year:</span>
+                      <p className="text-gray-900">{churchInfo.historicalDetails.foundingYear}</p>
+                    </div>
+                  )}
+                  {churchInfo.historicalDetails?.architecturalStyle && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Architectural Style:</span>
+                      <p className="text-gray-900">{churchInfo.historicalDetails.architecturalStyle}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {churchInfo.historicalDetails?.heritageClassification !== 'None' && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Heritage Classification:</span>
+                      <p className="text-gray-900">{churchInfo.historicalDetails.heritageClassification}</p>
+                    </div>
+                  )}
+                  {churchInfo.historicalDetails?.religiousClassification !== 'None' && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Religious Classification:</span>
+                      <p className="text-gray-900">{churchInfo.historicalDetails.religiousClassification}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {churchInfo.historicalDetails?.historicalBackground && (
+                <div className="mt-4">
+                  <span className="text-sm font-medium text-gray-500">Historical Background:</span>
+                  <p className="text-gray-900 mt-1 leading-relaxed">{churchInfo.historicalDetails.historicalBackground}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 360° Virtual Tour */}
+          {churchInfo.virtual360Images && churchInfo.virtual360Images.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <span>🌐 360° Virtual Tour</span>
+                <Badge variant="secondary" className="text-xs">
+                  {churchInfo.virtual360Images.length} view{churchInfo.virtual360Images.length === 1 ? '' : 's'}
+                </Badge>
+              </h3>
+              <div className="space-y-4">
+                {churchInfo.virtual360Images
+                  .filter(img => img.isValid && img.status !== 'rejected')
+                  .map((image, index) => (
+                    <div key={image.id} className="space-y-2">
+                      {image.description && (
+                        <p className="text-sm font-medium text-gray-700">{image.description}</p>
+                      )}
+                      <VirtualTour360
+                        imageUrl={image.url}
+                        title={`Virtual Tour ${index + 1}`}
+                        description={image.description}
+                        height="350px"
+                        showControls={true}
+                      />
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mass Schedules */}
+          {churchInfo.massSchedules && churchInfo.massSchedules.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-4">Mass Schedules</h3>
+              {renderGroupedMassSchedulesDisplay()}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  // Show loading state while fetching church data
+  if (isLoading) {
+    return (
+      <Layout
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        churchApproved={false}
+      >
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Church Data</h3>
+            <p className="text-gray-600">Syncing your church information...</p>
           </div>
         </div>
-      </div>
-     {/* Invisible anchor for settings section future-proofing */}
-     <div id="settings" className="h-0 w-0 overflow-hidden" />
-      {/* Edit Church Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Church</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Name</Label>
-            <Input value={editForm.name} onChange={e => setEditForm(f => ({...f, name: e.target.value}))} />
-          </div>
-          <div className="space-y-2">
-            <Label>Municipality</Label>
-            <Input value={editForm.municipality} onChange={e => setEditForm(f => ({...f, municipality: e.target.value}))} />
-          </div>
-          <div className="space-y-2">
-            <Label>Founded Year</Label>
-            <Input type="number" value={editForm.foundedYear} onChange={e => setEditForm(f => ({...f, foundedYear: e.target.value}))} />
-          </div>
-          <div className="space-y-2">
-            <Label>Address</Label>
-            <Input value={editForm.address} onChange={e => {
-              const v = e.target.value;
-              setEditForm(f => ({...f, address: v}));
-              setErrors(err => ({...err, address: validateAddress(v)}));
-            }} />
-            {errors.address && <p className="text-xs text-destructive mt-1">{errors.address}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label>Latitude</Label>
-            <Input type="number" step="any" value={editForm.latitude} onChange={e => {
-              const v = e.target.value;
-              setEditForm(f => ({...f, latitude: v}));
-              const latErr = validateLatitude(v);
-              // Pair error when one present without the other
-              const pairErr = (!latErr && !!v && !editForm.longitude) ? 'Longitude is required when latitude is provided' : undefined;
-              setErrors(err => ({...err, latitude: latErr || pairErr, longitude: err.longitude && !editForm.longitude ? err.longitude : err.longitude }));
-            }} />
-            <p className="text-xs text-muted-foreground">Valid range -90 to 90</p>
-            {errors.latitude && <p className="text-xs text-destructive mt-1">{errors.latitude}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label>Longitude</Label>
-            <Input type="number" step="any" value={editForm.longitude} onChange={e => {
-              const v = e.target.value;
-              setEditForm(f => ({...f, longitude: v}));
-              const lngErr = validateLongitude(v);
-              const pairErr = (!lngErr && !!v && !editForm.latitude) ? 'Latitude is required when longitude is provided' : undefined;
-              setErrors(err => ({...err, longitude: lngErr || pairErr, latitude: err.latitude && !editForm.latitude ? err.latitude : err.latitude }));
-            }} />
-            <p className="text-xs text-muted-foreground">Valid range -180 to 180</p>
-            {errors.longitude && <p className="text-xs text-destructive mt-1">{errors.longitude}</p>}
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Architectural Style</Label>
-            <Input value={editForm.architecturalStyle} onChange={e => setEditForm(f => ({...f, architecturalStyle: e.target.value}))} />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Historical Background</Label>
-            <Input value={editForm.historicalBackground} onChange={e => setEditForm(f => ({...f, historicalBackground: e.target.value}))} />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Mass Schedules</Label>
-            <Input value={editForm.massSchedules} onChange={e => setEditForm(f => ({...f, massSchedules: e.target.value}))} />
-          </div>
-          <div className="space-y-2">
-            <Label>Assigned Priest</Label>
-            <Input value={editForm.assignedPriest} onChange={e => {
-              const v = e.target.value;
-              setEditForm(f => ({...f, assignedPriest: v}));
-              setErrors(err => ({...err, assignedPriest: validatePriest(v)}));
-            }} />
-            {errors.assignedPriest && <p className="text-xs text-destructive mt-1">{errors.assignedPriest}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label>Classification</Label>
-            <Select value={editForm.classification} onValueChange={(v) => setEditForm(f => ({...f, classification: v }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select classification" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unknown">Unknown</SelectItem>
-                <SelectItem value="non-heritage">Non-heritage</SelectItem>
-                <SelectItem value="ICP">ICP</SelectItem>
-                <SelectItem value="NCT">NCT</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          </div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Button variant="outline" onClick={() => {
-              if (!editing) return;
-              if (!runAllValidation()) return;
-              submitMutation.mutate(editing.id!);
-            }} disabled={!editing || submitMutation.isPending}>
-              {submitMutation.isPending ? 'Submitting…' : 'Submit for Review'}
-            </Button>
-            <Button className="btn-heritage" disabled={!editing || updateMutation.isPending} onClick={() => {
-              if (!editing) return;
-              // Run validation and block save if invalid
-              if (!runAllValidation()) return;
-              updateMutation.mutate({ id: editing.id!, data: {
-                name: editForm.name || undefined,
-                municipality: editForm.municipality || undefined,
-                foundedYear: editForm.foundedYear ? Number(editForm.foundedYear) : undefined,
-                address: editForm.address || undefined,
-                latitude: editForm.latitude ? Number(editForm.latitude) : undefined,
-                longitude: editForm.longitude ? Number(editForm.longitude) : undefined,
-                architecturalStyle: editForm.architecturalStyle || undefined,
-                historicalBackground: editForm.historicalBackground || undefined,
-                massSchedules: editForm.massSchedules || undefined,
-                assignedPriest: editForm.assignedPriest || undefined,
-                classification: toClassification(editForm.classification),
-              }});
-            }}>
-              {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      churchApproved={churchInfo.status === 'approved'}
+    >
+      {/* Real-time Status Updates */}
+      {existingChurch && (
+        <div className="mb-4">
+          {existingChurch.status === 'approved' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <div>
+                <span className="font-medium text-green-900">Church Profile Approved!</span>
+                <p className="text-sm text-green-700">Your church information is now published and visible to visitors.</p>
+              </div>
+            </div>
+          )}
+          {(existingChurch.status === 'under_review' || existingChurch.status === 'pending') && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-orange-600" />
+              <div>
+                <span className="font-medium text-orange-900">Revision Requested</span>
+                <p className="text-sm text-orange-700">The chancery office has requested changes to your submission. Please review and resubmit.</p>
+                <button
+                  onClick={() => setShowProfileForm(true)}
+                  className="text-sm text-orange-800 underline hover:text-orange-900 mt-1"
+                >
+                  Update Church Profile →
+                </button>
+              </div>
+            </div>
+          )}
+          {existingChurch.status === 'under_review' && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center gap-2">
+              <Building className="w-5 h-5 text-purple-600" />
+              <div>
+                <span className="font-medium text-purple-900">Heritage Review in Progress</span>
+                <p className="text-sm text-purple-700">Your church has been forwarded to the Museum Researcher for heritage validation.</p>
+              </div>
+            </div>
+          )}
+          {existingChurch.status === 'pending' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-blue-600" />
+              <div>
+                <span className="font-medium text-blue-900">Review in Progress</span>
+                <p className="text-sm text-blue-700">Your church profile is being reviewed by the chancery office.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showAccount ? (
+        <ParishAccount
+          onClose={() => {
+            setShowAccount(false);
+            setActiveTab('overview');
+          }}
+        />
+      ) : showReports ? (
+        <ParishReports
+          churchInfo={churchInfo}
+          onClose={() => {
+            setShowReports(false);
+            setActiveTab('overview');
+          }}
+        />
+      ) : showAnnouncements ? (
+        <ParishAnnouncements
+          churchId={userProfile?.parish || ''}
+          onClose={() => {
+            setShowAnnouncements(false);
+            setActiveTab('overview');
+          }}
+        />
+      ) : showFeedback ? (
+        <ParishFeedback
+          churchName={churchInfo.churchName || churchInfo.name || 'Your Parish'}
+          churchId={userProfile?.parish || ''}
+          onClose={() => {
+            setShowFeedback(false);
+            setActiveTab('overview');
+          }}
+        />
+      ) : showProfileForm ? (
+        <ChurchProfileForm
+          initialData={churchInfo}
+          onSave={handleProfileFormSave}
+          onSubmit={handleProfileFormSubmit}
+          onCancel={() => {
+            const visitKey = `parish_dashboard_visited_${userProfile?.email || 'user'}`;
+            const hasVisitedBefore = localStorage.getItem(visitKey);
+
+            if (hasVisitedBefore || churchInfo.status === 'approved') {
+              setShowProfileForm(false);
+            } else {
+              markDashboardVisited();
+              setShowProfileForm(false);
+            }
+          }}
+          currentStatus={churchInfo.status}
+          isSubmitting={isSubmitting}
+        />
+      ) : (
+        renderParishProfile()
+      )}
     </Layout>
   );
 };
 
 export default ParishDashboard;
-

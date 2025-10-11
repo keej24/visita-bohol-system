@@ -1,92 +1,117 @@
 // Diocese selection and routing component
-import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from 'react';
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState, Suspense } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import TagbilaranDashboard from "./TagbilaranDashboard";
-import TalibonDashboard from "./TalibonDashboard";
-import ParishDashboard from "./ParishDashboard";
-import MuseumResearcherDashboard from "./MuseumResearcherDashboard";
+import {
+  LazyTagbilaranDashboard,
+  LazyTalibonDashboard,
+  LazyParishDashboard,
+  LazyMuseumResearcherDashboard
+} from "@/components/LazyComponents";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Users, Church } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
+const PageLoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-[400px]">
+    <div className="flex flex-col items-center space-y-4">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+    </div>
+  </div>
+);
+
 const DioceseRouter = () => {
   const { userProfile, loading, user } = useAuth();
-  const [retrying, setRetrying] = useState(false);
+  const [profileLoadTimeout, setProfileLoadTimeout] = useState(false);
 
-  // If user is authenticated but profile missing, attempt one silent refetch
+  // Set a timeout to show error only after reasonable wait time
   useEffect(() => {
-    (async () => {
-      if (!loading && user && !userProfile && !retrying) {
-        try {
-          setRetrying(true);
-          console.log('DioceseRouter - Attempting profile refetch');
-          const docSnap = await getDoc(doc(db, 'users', user.uid));
-          if (!docSnap.exists()) {
-            console.warn('DioceseRouter - Profile still missing after refetch');
-          } else {
-            console.log('DioceseRouter - Profile became available after refetch');
-          }
-        } catch (e) {
-          console.error('DioceseRouter - Refetch failed (likely rules).');
-        }
-      }
-    })();
-  }, [loading, user, userProfile, retrying]);
+    if (user && !userProfile && !loading) {
+      const timer = setTimeout(() => {
+        setProfileLoadTimeout(true);
+      }, 5000); // Wait 5 seconds before showing error
 
-  // Debug logging
-  console.log('DioceseRouter - Loading:', loading);
-  console.log('DioceseRouter - UserProfile:', userProfile);
+      return () => clearTimeout(timer);
+    } else {
+      setProfileLoadTimeout(false);
+    }
+  }, [user, userProfile, loading]);
 
-  if (loading) {
+  // Show loading while authenticating or fetching profile
+  if (loading || (user && !userProfile && !profileLoadTimeout)) {
     return <LoadingSpinner />;
   }
 
-  if (!userProfile) {
-    if (user && !retrying) {
-      // Show spinner while we try once to refetch profile
-      return <LoadingSpinner />;
-    }
-    if (user && retrying) {
-      console.error('DioceseRouter - Authenticated but no profile. Possible Firestore rules issue.');
-  return <div className="p-6 text-center text-sm text-red-600">Authenticated but profile not accessible. Verify Firestore rule: match /users/(userId) allow read if request.auth.uid == userId.</div>;
-    }
-    console.log('DioceseRouter - No user, redirecting');
+  // If no user, redirect to login
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  console.log('DioceseRouter - Routing decision for:', {
-    role: userProfile.role,
-    diocese: userProfile.diocese,
-    email: userProfile.email
-  });
+  // If user but no profile after timeout, show error
+  if (!userProfile && profileLoadTimeout) {
+    return (
+      <div className="p-8 text-center">
+        <div className="max-w-md mx-auto">
+          <div className="text-red-600 mb-4">
+            <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold mb-2">Profile Access Issue</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Your account is authenticated but we couldn't load your profile information.
+            This may be a temporary issue.
+          </p>
+          <div className="space-y-2">
+            <Button
+              onClick={() => window.location.reload()}
+              className="w-full"
+            >
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Parish secretaries get their own dashboard
   if (userProfile.role === 'parish_secretary') {
-    console.log('DioceseRouter - Routing to ParishDashboard');
-    return <ParishDashboard />;
+    return (
+      <Suspense fallback={<PageLoadingFallback />}>
+        <LazyParishDashboard />
+      </Suspense>
+    );
   }
 
   // Museum researchers get their heritage-focused dashboard
   if (userProfile.role === 'museum_researcher') {
-    console.log('DioceseRouter - Routing to MuseumResearcherDashboard');
-    return <MuseumResearcherDashboard />;
+    return (
+      <Suspense fallback={<PageLoadingFallback />}>
+        <LazyMuseumResearcherDashboard />
+      </Suspense>
+    );
   }
 
   // Route based on user's diocese for chancery office
-  console.log('DioceseRouter - Checking diocese for chancery office:', userProfile.diocese);
   switch (userProfile.diocese) {
     case 'tagbilaran':
-      console.log('DioceseRouter - Routing to TagbilaranDashboard');
-      return <TagbilaranDashboard />;
+      return (
+        <Suspense fallback={<PageLoadingFallback />}>
+          <LazyTagbilaranDashboard />
+        </Suspense>
+      );
     case 'talibon':
-      console.log('DioceseRouter - Routing to TalibonDashboard');
-      return <TalibonDashboard />;
+      return (
+        <Suspense fallback={<PageLoadingFallback />}>
+          <LazyTalibonDashboard />
+        </Suspense>
+      );
     default:
-      console.log('DioceseRouter - No specific diocese, showing DioceseSelection');
       // Users without specific diocese assignment
       return <DioceseSelection />;
   }
@@ -206,4 +231,3 @@ const DioceseSelection = () => {
 };
 
 export default DioceseRouter;
-
