@@ -34,6 +34,7 @@ interface AnnouncementListProps {
   onAutoArchive?: () => void;
   showScope?: boolean; // Show scope badge (diocese/parish)
   showHeader?: boolean; // Show header with title and "New Announcement" button
+  isArchivedView?: boolean; // Whether this is showing archived announcements
 }
 
 export const AnnouncementList: React.FC<AnnouncementListProps> = ({
@@ -47,6 +48,7 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
   onAutoArchive,
   showScope = true,
   showHeader = true,
+  isArchivedView = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<AnnouncementFilters>({
@@ -60,15 +62,14 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
       const matchesSearch = !searchQuery ||
         announcement.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         announcement.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        announcement.venue.toLowerCase().includes(searchQuery.toLowerCase());
+        (announcement.venue && announcement.venue.toLowerCase().includes(searchQuery.toLowerCase()));
 
       // Category filter
       const matchesCategory = !filters.category || announcement.category === filters.category;
 
-      // Archive filter
-      const matchesArchived = filters.isArchived === announcement.isArchived;
-
-      return matchesSearch && matchesCategory && matchesArchived;
+      // Don't filter by archive status here - the parent component already passes
+      // the correct announcements (active or archived) based on the tab
+      return matchesSearch && matchesCategory;
     });
   }, [announcements, searchQuery, filters]);
 
@@ -144,7 +145,7 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Search</label>
               <div className="relative">
@@ -157,7 +158,7 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="text-sm font-medium mb-2 block">Category</label>
               <Select
@@ -174,22 +175,6 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                       {category}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-2 block">Status</label>
-              <Select 
-                value={filters.isArchived ? 'archived' : 'active'} 
-                onValueChange={(value) => setFilters(prev => ({ ...prev, isArchived: value === 'archived' }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -255,14 +240,27 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
-                    {!announcement.isArchived && (
+                    {isArchivedView ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onArchive(announcement.id)}
+                        title="Restore announcement to active list"
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                      >
+                        <Archive className="w-4 h-4" />
+                        <span className="ml-1">Unarchive</span>
+                      </Button>
+                    ) : (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onArchive(announcement.id)}
                         title="Archive announcement"
+                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
                       >
                         <Archive className="w-4 h-4" />
+                        <span className="ml-1">Archive</span>
                       </Button>
                     )}
                     <AlertDialog>
@@ -270,7 +268,8 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                         <Button
                           variant="outline"
                           size="sm"
-                          title="Delete announcement"
+                          title="Delete announcement permanently"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

@@ -189,6 +189,20 @@ export class AnnouncementService {
     }
   }
 
+  // Unarchive announcement (restore)
+  static async unarchiveAnnouncement(id: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, ANNOUNCEMENTS_COLLECTION, id), {
+        isArchived: false,
+        archivedAt: null,
+        updatedAt: Timestamp.now(),
+      });
+    } catch (error) {
+      console.error('Error unarchiving announcement:', error);
+      throw new Error('Failed to unarchive announcement');
+    }
+  }
+
   // Delete announcement
   static async deleteAnnouncement(id: string): Promise<void> {
     try {
@@ -205,6 +219,9 @@ export class AnnouncementService {
     filters?: AnnouncementFilters
   ): Promise<Announcement[]> {
     try {
+      console.log('📢 Fetching announcements for diocese:', diocese);
+      console.log('🔍 Filters:', filters);
+
       let q = query(
         collection(db, ANNOUNCEMENTS_COLLECTION),
         where('diocese', '==', diocese),
@@ -225,9 +242,18 @@ export class AnnouncementService {
       }
 
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(convertToAnnouncement);
+      console.log('📊 Found', snapshot.docs.length, 'announcements');
+      
+      if (snapshot.docs.length > 0) {
+        console.log('📄 First announcement sample:', snapshot.docs[0].data());
+      }
+
+      const announcements = snapshot.docs.map(convertToAnnouncement);
+      console.log('✅ Converted announcements:', announcements);
+      
+      return announcements;
     } catch (error) {
-      console.error('Error fetching announcements:', error);
+      console.error('❌ Error fetching announcements:', error);
       throw new Error('Failed to fetch announcements');
     }
   }

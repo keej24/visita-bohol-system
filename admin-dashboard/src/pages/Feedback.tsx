@@ -330,7 +330,6 @@ const FeedbackReports = () => {
                     <SelectContent>
                       <SelectItem value="all">All Feedback</SelectItem>
                       <SelectItem value="published">Published</SelectItem>
-                      <SelectItem value="pending">Pending Review</SelectItem>
                       <SelectItem value="hidden">Hidden</SelectItem>
                     </SelectContent>
                   </Select>

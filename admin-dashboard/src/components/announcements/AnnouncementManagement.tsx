@@ -5,6 +5,7 @@ import { AnnouncementService } from '@/services/announcementService';
 import { AnnouncementList } from './AnnouncementList';
 import { AnnouncementForm } from './AnnouncementForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import type { Announcement, AnnouncementFormData } from '@/types/announcement';
 import type { Diocese } from '@/contexts/AuthContext';
@@ -17,12 +18,15 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [archivedAnnouncements, setArchivedAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingArchived, setIsLoadingArchived] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load announcements
+  // Load active announcements
   const loadAnnouncements = React.useCallback(async () => {
     try {
       setIsLoading(true);
@@ -53,9 +57,34 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     }
   }, [diocese, toast]);
 
+  // Load archived announcements
+  const loadArchivedAnnouncements = React.useCallback(async () => {
+    try {
+      setIsLoadingArchived(true);
+      const data = await AnnouncementService.getAnnouncements(diocese, { isArchived: true });
+      setArchivedAnnouncements(data);
+    } catch (error) {
+      console.error('Error loading archived announcements:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load archived announcements",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingArchived(false);
+    }
+  }, [diocese, toast]);
+
   useEffect(() => {
     loadAnnouncements();
   }, [loadAnnouncements]);
+
+  // Load archived announcements when tab is switched
+  useEffect(() => {
+    if (activeTab === 'archived' && archivedAnnouncements.length === 0) {
+      loadArchivedAnnouncements();
+    }
+  }, [activeTab, archivedAnnouncements.length, loadArchivedAnnouncements]);
 
   const handleCreateAnnouncement = () => {
     setSelectedAnnouncement(null);
@@ -136,10 +165,12 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     try {
       await AnnouncementService.archiveAnnouncement(id);
       toast({
-        title: "Success",
-        description: "Announcement archived successfully"
+        title: "Archived",
+        description: "Announcement moved to archive"
       });
+      // Refresh both lists to keep them in sync
       await loadAnnouncements();
+      await loadArchivedAnnouncements();
     } catch (error) {
       console.error('Error archiving announcement:', error);
       toast({
@@ -150,14 +181,35 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     }
   };
 
+  const handleUnarchiveAnnouncement = async (id: string) => {
+    try {
+      await AnnouncementService.unarchiveAnnouncement(id);
+      toast({
+        title: "Restored",
+        description: "Announcement moved to active list"
+      });
+      await loadAnnouncements();
+      await loadArchivedAnnouncements();
+    } catch (error) {
+      console.error('Error unarchiving announcement:', error);
+      toast({
+        title: "Error",
+        description: "Failed to restore announcement",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleDeleteAnnouncement = async (id: string) => {
     try {
       await AnnouncementService.deleteAnnouncement(id);
       toast({
-        title: "Success",
-        description: "Announcement deleted successfully"
+        title: "Deleted",
+        description: "Announcement permanently deleted"
       });
+      // Refresh both lists to keep them in sync
       await loadAnnouncements();
+      await loadArchivedAnnouncements();
     } catch (error) {
       console.error('Error deleting announcement:', error);
       toast({
@@ -173,43 +225,59 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     setSelectedAnnouncement(null);
   };
 
-  const handleAutoArchive = async () => {
-    try {
-      const archivedCount = await AnnouncementService.autoArchivePastEvents(diocese);
-      if (archivedCount > 0) {
-        toast({
-          title: "Success",
-          description: `${archivedCount} past event${archivedCount > 1 ? 's' : ''} archived successfully`,
-        });
-        await loadAnnouncements();
-      } else {
-        toast({
-          title: "Info",
-          description: "No past events found to archive",
-        });
-      }
-    } catch (error) {
-      console.error('Error auto-archiving:', error);
-      toast({
-        title: "Error",
-        description: "Failed to archive past events",
-        variant: "destructive"
-      });
-    }
-  };
-
   return (
     <div className="space-y-6">
-      <AnnouncementList
-        announcements={announcements}
-        diocese={diocese}
-        isLoading={isLoading}
-        onEdit={handleEditAnnouncement}
-        onArchive={handleArchiveAnnouncement}
-        onDelete={handleDeleteAnnouncement}
-        onCreate={handleCreateAnnouncement}
-        onAutoArchive={handleAutoArchive}
-      />
+      {/* Page Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Announcements</h2>
+          {diocese && (
+            <p className="text-muted-foreground">
+              Manage announcements for the {diocese === 'tagbilaran' ? 'Diocese of Tagbilaran' : 'Diocese of Talibon'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs for Active vs Archived */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'archived')} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="active">
+            Active {announcements.length > 0 && `(${announcements.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="archived">
+            Archived {archivedAnnouncements.length > 0 && `(${archivedAnnouncements.length})`}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Active Announcements Tab */}
+        <TabsContent value="active" className="space-y-4">
+          <AnnouncementList
+            announcements={announcements}
+            diocese={diocese}
+            isLoading={isLoading}
+            onEdit={handleEditAnnouncement}
+            onArchive={handleArchiveAnnouncement}
+            onDelete={handleDeleteAnnouncement}
+            onCreate={handleCreateAnnouncement}
+            showHeader={false}
+          />
+        </TabsContent>
+
+        {/* Archived Announcements Tab */}
+        <TabsContent value="archived" className="space-y-4">
+          <AnnouncementList
+            announcements={archivedAnnouncements}
+            diocese={diocese}
+            isLoading={isLoadingArchived}
+            onEdit={handleEditAnnouncement}
+            onArchive={handleUnarchiveAnnouncement}
+            onDelete={handleDeleteAnnouncement}
+            showHeader={false}
+            isArchivedView={true}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
