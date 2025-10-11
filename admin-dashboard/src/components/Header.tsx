@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
@@ -108,20 +109,8 @@ export function Header({ setActiveTab }: HeaderProps) {
 
         {/* Right side - Notifications and Profile */}
         <div className="flex items-center gap-4">
-          {/* Notifications */}
-          {!isParish && (
-            <div className="relative">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-2 -right-2 w-5 h-5 p-0 flex items-center justify-center text-xs"
-                >
-                  3
-                </Badge>
-              </Button>
-            </div>
-          )}
+          {/* Notifications - Dynamic Dropdown */}
+          {!isParish && <NotificationDropdown />}
 
           {/* Profile Menu */}
           <DropdownMenu>

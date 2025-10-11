@@ -6,7 +6,8 @@ import {
   type Church, 
   type ChurchStatus 
 } from '@/lib/churches';
-import type { Diocese } from '@/contexts/AuthContext';
+import type { Diocese, UserProfile } from '@/contexts/AuthContext';
+import { notificationService, type Notification } from '@/lib/notifications';
 
 // Query Keys Factory
 export const churchKeys = {
@@ -138,4 +139,63 @@ export const usePrefetchChurches = () => {
   };
   
   return { prefetchDiocese, prefetchPending };
+};
+
+// Notification Query Keys Factory
+export const notificationKeys = {
+  all: ['notifications'] as const,
+  user: (userId: string) => [...notificationKeys.all, 'user', userId] as const,
+  unread: (userId: string) => [...notificationKeys.all, 'unread', userId] as const,
+} as const;
+
+// Notification Queries
+export const useUserNotifications = (userProfile: UserProfile | null, enabled = true) => {
+  return useQuery({
+    queryKey: userProfile ? notificationKeys.user(userProfile.uid) : ['notifications', 'none'],
+    queryFn: () => {
+      if (!userProfile) return [];
+      return notificationService.getUserNotifications(userProfile, 20, false);
+    },
+    enabled: enabled && !!userProfile,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30 * 1000, // Refresh every 30 seconds for new notifications
+  });
+};
+
+export const useUnreadNotificationCount = (userProfile: UserProfile | null, enabled = true) => {
+  return useQuery({
+    queryKey: userProfile ? notificationKeys.unread(userProfile.uid) : ['notifications', 'unread', 'none'],
+    queryFn: async () => {
+      if (!userProfile) return 0;
+      return notificationService.getUnreadCount(userProfile);
+    },
+    enabled: enabled && !!userProfile,
+    staleTime: 30 * 1000, // 30 seconds - fresh for badge
+    gcTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
+  });
+};
+
+// Notification Mutations
+export const useMarkNotificationAsRead = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ 
+      notificationId, 
+      userId 
+    }: {
+      notificationId: string;
+      userId: string;
+    }) => notificationService.markAsRead(notificationId, userId),
+    
+    onSuccess: (_, { userId }) => {
+      // Invalidate both notification list and unread count
+      queryClient.invalidateQueries({ queryKey: notificationKeys.user(userId) });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unread(userId) });
+    },
+  });
 };
