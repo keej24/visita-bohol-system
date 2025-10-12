@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Calendar, Bell, ArrowLeft } from 'lucide-react';
 import type { Announcement, AnnouncementFormData } from '@/types/announcement';
@@ -23,7 +24,10 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [archivedAnnouncements, setArchivedAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingArchived, setIsLoadingArchived] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,9 +73,47 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
     }
   }, [userProfile?.diocese, churchId, toast]);
 
+  // Load archived parish announcements
+  const loadArchivedAnnouncements = React.useCallback(async () => {
+    if (!userProfile?.diocese) return;
+
+    try {
+      setIsLoadingArchived(true);
+
+      // Load archived parish announcements
+      const data = await AnnouncementService.getAnnouncements(userProfile.diocese, {
+        isArchived: true,
+        scope: 'parish'
+      });
+
+      // Filter to only this parish's announcements
+      const parishAnnouncements = data.filter(announcement =>
+        announcement.parishId === churchId
+      );
+
+      setArchivedAnnouncements(parishAnnouncements);
+    } catch (error) {
+      console.error('Error loading archived parish announcements:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load archived announcements",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingArchived(false);
+    }
+  }, [userProfile?.diocese, churchId, toast]);
+
   useEffect(() => {
     loadAnnouncements();
   }, [loadAnnouncements]);
+
+  // Load archived announcements when tab is switched
+  useEffect(() => {
+    if (activeTab === 'archived' && archivedAnnouncements.length === 0) {
+      loadArchivedAnnouncements();
+    }
+  }, [activeTab, archivedAnnouncements.length, loadArchivedAnnouncements]);
 
   // Handle form submission
   const handleSubmit = async (formData: AnnouncementFormData) => {
@@ -142,12 +184,35 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
         title: "Success",
         description: "Announcement archived successfully"
       });
+      // Refresh both lists to keep them in sync
       await loadAnnouncements();
+      await loadArchivedAnnouncements();
     } catch (error) {
       console.error('Error archiving announcement:', error);
       toast({
         title: "Error",
         description: "Failed to archive announcement",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle unarchive
+  const handleUnarchive = async (announcementId: string) => {
+    try {
+      await AnnouncementService.unarchiveAnnouncement(announcementId);
+      toast({
+        title: "Success",
+        description: "Announcement restored successfully"
+      });
+      // Refresh both lists to keep them in sync
+      await loadAnnouncements();
+      await loadArchivedAnnouncements();
+    } catch (error) {
+      console.error('Error restoring announcement:', error);
+      toast({
+        title: "Error",
+        description: "Failed to restore announcement",
         variant: "destructive"
       });
     }
@@ -217,36 +282,69 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Scope</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Archived</CardTitle>
           </CardHeader>
           <CardContent>
-            <Badge variant="outline" className="text-purple-700 border-purple-200 bg-purple-50">
-              <Calendar className="w-3 h-3 mr-1" />
-              Parish Events
-            </Badge>
-            <p className="text-xs text-gray-500 mt-1">Your parish only</p>
+            <div className="text-2xl font-bold text-gray-600">{archivedAnnouncements.length}</div>
+            <p className="text-xs text-gray-500">Past events</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Announcements List */}
-      <Card>
-        <CardContent className="pt-6">
-          <AnnouncementList
-            announcements={announcements}
-            isLoading={isLoading}
-            onEdit={(announcement) => {
-              setSelectedAnnouncement(announcement);
-              setIsFormOpen(true);
-            }}
-            onDelete={handleDelete}
-            onArchive={handleArchive}
-            onCreate={() => setIsFormOpen(true)} // For "Create First Announcement" button
-            showScope={false} // Don't show scope since these are all parish
-            showHeader={false} // Don't show header since we have our own
-          />
-        </CardContent>
-      </Card>
+      {/* Tabs for Active vs Archived */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'archived')} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="active">
+            Active {announcements.length > 0 && `(${announcements.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="archived">
+            Archived {archivedAnnouncements.length > 0 && `(${archivedAnnouncements.length})`}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Active Announcements Tab */}
+        <TabsContent value="active" className="space-y-4">
+          <Card>
+            <CardContent className="pt-6">
+              <AnnouncementList
+                announcements={announcements}
+                isLoading={isLoading}
+                onEdit={(announcement) => {
+                  setSelectedAnnouncement(announcement);
+                  setIsFormOpen(true);
+                }}
+                onDelete={handleDelete}
+                onArchive={handleArchive}
+                onCreate={() => setIsFormOpen(true)}
+                showScope={false}
+                showHeader={false}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Archived Announcements Tab */}
+        <TabsContent value="archived" className="space-y-4">
+          <Card>
+            <CardContent className="pt-6">
+              <AnnouncementList
+                announcements={archivedAnnouncements}
+                isLoading={isLoadingArchived}
+                onEdit={(announcement) => {
+                  setSelectedAnnouncement(announcement);
+                  setIsFormOpen(true);
+                }}
+                onDelete={handleDelete}
+                onArchive={handleUnarchive}
+                onCreate={() => setIsFormOpen(true)}
+                showScope={false}
+                showHeader={false}
+                isArchivedView={true}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Form Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>

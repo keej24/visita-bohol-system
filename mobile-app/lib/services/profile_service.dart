@@ -79,7 +79,8 @@ class ProfileService extends ChangeNotifier {
 
       // Try to load from Firestore first
       if (_firestore == null) {
-        debugPrint('⚠️ [PROFILE SERVICE] Firestore unavailable (not initialized)');
+        debugPrint(
+            '⚠️ [PROFILE SERVICE] Firestore unavailable (not initialized)');
         _setError('Please log in (Firestore unavailable)');
         _setLoading(false);
         notifyListeners();
@@ -498,7 +499,7 @@ class ProfileService extends ChangeNotifier {
 
   Future<String> shareProgress() async {
     final visited = _userProfile.visitedChurches.length;
-    final total = 25; // Total heritage churches
+    const total = 25; // Total heritage churches
     final percentage = (visited / total * 100).round();
 
     return '''
@@ -530,7 +531,7 @@ Download VISITA app and start your spiritual journey.
   /// Sync with latest Firebase data
   Future<void> syncWithFirebase() async {
     try {
-  final currentUser = _auth?.currentUser;
+      final currentUser = _auth?.currentUser;
       if (currentUser != null) {
         await loadUserProfile();
       } else {

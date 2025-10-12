@@ -46,7 +46,7 @@ class _ChurchCardState extends State<ChurchCard> {
         onTap: widget.onTap,
         borderRadius: AppRadius.largeRadius,
         child: Container(
-          margin: EdgeInsets.only(bottom: AppSpacing.cardMargin),
+          margin: const EdgeInsets.only(bottom: AppSpacing.cardMargin),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: AppRadius.largeRadius,
@@ -62,7 +62,7 @@ class _ChurchCardState extends State<ChurchCard> {
               borderRadius: AppRadius.largeRadius,
               onTap: widget.onTap,
               child: Padding(
-                padding: EdgeInsets.all(AppSpacing.cardPadding),
+                padding: const EdgeInsets.all(AppSpacing.cardPadding),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -382,7 +382,7 @@ class _ViewDetailsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm - 2,
       ),

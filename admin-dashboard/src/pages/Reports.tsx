@@ -14,7 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { format, subMonths } from 'date-fns';
-import BoholChurchHeatmap from '../components/BoholChurchHeatmap';
+import { HybridHeatmap } from '../components/heatmap/HybridHeatmap';
 import { DioceseAnalyticsService, type DioceseAnalytics, type EngagementMetrics, type ChurchSummaryData } from '@/services/dioceseAnalyticsService';
 import { PDFExportService } from '@/services/pdfExportService';
 import { ExcelExportService } from '@/services/excelExportService';
@@ -579,7 +579,7 @@ const Reports = () => {
                         <Calendar
                           mode="single"
                           selected={startDate}
-                          onSelect={setStartDate}
+                          onSelect={(date) => date && setStartDate(date)}
                           initialFocus
                         />
                       </PopoverContent>
@@ -605,7 +605,7 @@ const Reports = () => {
                         <Calendar
                           mode="single"
                           selected={endDate}
-                          onSelect={setEndDate}
+                          onSelect={(date) => date && setEndDate(date)}
                           initialFocus
                         />
                       </PopoverContent>
@@ -755,29 +755,10 @@ const Reports = () => {
             </Card>
 
             {/* Geographic Heatmap - Most Visited Churches */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Map className="w-5 h-5" />
-                  Geographic Heatmap - Most Visited Churches
-                </CardTitle>
-                <CardDescription>
-                  Interactive map highlighting visitor engagement patterns across the diocese
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <BoholChurchHeatmap
-                  diocese={currentDiocese as 'tagbilaran' | 'talibon'}
-                  churches={churchSummaryData || []}
-                  onExport={(data) => {
-                    toast({
-                      title: "Export Complete",
-                      description: "Geographic heatmap data exported successfully"
-                    });
-                  }}
-                />
-              </CardContent>
-            </Card>
+            <HybridHeatmap
+              diocese={currentDiocese as 'tagbilaran' | 'talibon'}
+              churches={churchSummaryData || []}
+            />
 
             {/* Church Comparison (Chancery Only) */}
             {!isParishSecretary && (

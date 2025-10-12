@@ -419,7 +419,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+            <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value)}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -611,7 +611,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
               </div>
               <div>
                 <Label htmlFor="editStatus">Status</Label>
-                <Select value={selectedUser.status} onValueChange={(value: any) => setSelectedUser(prev => prev ? ({ ...prev, status: value }) : null)}>
+                <Select value={selectedUser.status} onValueChange={(value: string) => setSelectedUser(prev => prev ? ({ ...prev, status: value }) : null)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

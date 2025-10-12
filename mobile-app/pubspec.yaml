@@ -32,11 +32,13 @@ dependencies:
   # Geolocator updated (ensure platform impl uses v2 embedding)
   geolocator: ^11.1.0
   image_picker: ^0.8.7+5
+  file_picker: ^8.0.0
   carousel_slider: ^5.0.0
   # Enhanced announcements features
   intl: ^0.18.1
   # Upgraded to address Android compile ambiguity (bigLargeIcon overload)
   flutter_local_notifications: ^17.1.0
+  timezone: ^0.9.2
   # Enhanced profile features
   share_plus: ^7.2.2
   cached_network_image: ^3.3.0

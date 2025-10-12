@@ -35,7 +35,7 @@ const sampleData = {
     {
       uid: 'museum_researcher_001',
       email: 'researcher@museum.gov.ph',
-      name: 'Dr. Maria Santos',
+      name: 'Dr. Heritage Researcher',
       role: 'museum_researcher',
       diocese: 'tagbilaran', // Default assignment
       isActive: true,

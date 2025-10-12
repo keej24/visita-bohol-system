@@ -339,15 +339,22 @@ class _DioceseIndicator extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isTagbilaran
-              ? [const Color(0xFF2563EB), const Color(0xFF1D4ED8)] // Blue for Tagbilaran
-              : [const Color(0xFF7C3AED), const Color(0xFF6D28D9)], // Purple for Talibon
+              ? [
+                  const Color(0xFF2563EB),
+                  const Color(0xFF1D4ED8)
+                ] // Blue for Tagbilaran
+              : [
+                  const Color(0xFF7C3AED),
+                  const Color(0xFF6D28D9)
+                ], // Purple for Talibon
         ),
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
             color: (isTagbilaran
-                ? const Color(0xFF2563EB)
-                : const Color(0xFF7C3AED)).withValues(alpha: 0.3),
+                    ? const Color(0xFF2563EB)
+                    : const Color(0xFF7C3AED))
+                .withValues(alpha: 0.3),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -356,7 +363,7 @@ class _DioceseIndicator extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.account_balance,
             size: 11,
             color: Colors.white,

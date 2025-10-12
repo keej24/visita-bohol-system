@@ -64,8 +64,8 @@ class UserProfile {
   factory UserProfile.demo() {
     return UserProfile(
       id: 'demo_user_001',
-      displayName: 'Maria Santos',
-      email: 'maria.santos@example.com',
+      displayName: 'Guest User',
+      email: 'guest@example.com',
       profileImageUrl: null,
       parish: 'Immaculate Conception Parish',
       affiliation: 'Diocese of Tagbilaran',
@@ -133,8 +133,9 @@ class UserProfile {
       favoriteChurches: List<String>.from(json['favoriteChurches'] ?? []),
       forVisitChurches: List<String>.from(json['forVisitChurches'] ?? []),
       journalEntries: (json['journalEntries'] as List<dynamic>?)
-          ?.map((e) => JournalEntry.fromJson(e))
-          .toList() ?? [],
+              ?.map((e) => JournalEntry.fromJson(e))
+              .toList() ??
+          [],
       preferences: json['preferences'] != null
           ? UserPreferences.fromJson(json['preferences'])
           : UserPreferences.defaultPreferences(),

@@ -70,7 +70,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
                   controller: _reviewController,
                   maxLines: 4,
                   decoration: InputDecoration(
-                    hintText: 'Share your experience...', 
+                    hintText: 'Share your experience...',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(color: Colors.grey[300]!),
@@ -175,7 +175,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
 
           // Sample Review 1
           buildSampleReviewCard(
-            name: 'Maria Santos',
+            name: 'Anonymous Visitor',
             rating: 5,
             date: 'September 15, 2025',
             review:

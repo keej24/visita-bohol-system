@@ -5,45 +5,45 @@ class StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Row(
         children: [
           Expanded(
             child: _StatCard(
               icon: Icons.church,
               title: 'Churches',
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [Color(0xFF2563EB), Color(0xFF1E40AF)],
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: _StatCard(
               icon: Icons.auto_awesome,
               title: 'Heritage Sites',
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [Color(0xFFD4AF37), Color(0xFFB8941F)],
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: _StatCard(
               icon: Icons.location_city,
               title: 'Municipalities',
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [Color(0xFF10B981), Color(0xFF059669)],
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: _StatCard(
               icon: Icons.account_balance_wallet,
               title: 'Dioceses',
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [Color(0xFFDC2626), Color(0xFFB91C1C)],
               ),
             ),

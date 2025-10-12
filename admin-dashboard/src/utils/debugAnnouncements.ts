@@ -91,7 +91,13 @@ export async function debugAnnouncements() {
 }
 
 // Make it available globally for easy debugging
+declare global {
+  interface Window {
+    debugAnnouncements: typeof debugAnnouncements;
+  }
+}
+
 if (typeof window !== 'undefined') {
-  (window as any).debugAnnouncements = debugAnnouncements;
+  window.debugAnnouncements = debugAnnouncements;
   console.log('💡 Debug tool loaded! Run: debugAnnouncements()');
 }

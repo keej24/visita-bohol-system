@@ -84,7 +84,7 @@ async function seedData() {
     await db.collection('users').doc('museum-researcher').set({
       uid: 'museum-researcher',
       email: 'researcher@museum.gov.ph',
-      displayName: 'Dr. Maria Santos',
+      displayName: 'Dr. Heritage Researcher',
       role: 'museum_researcher',
       department: 'National Museum of the Philippines - Bohol',
       specialization: 'Heritage Churches and Cultural Sites',
@@ -249,7 +249,7 @@ async function seedData() {
         heritageValidation: {
           validatedBy: 'museum-researcher',
           validatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          validatorName: 'Dr. Maria Santos',
+          validatorName: 'Dr. Heritage Researcher',
           heritageNotes: 'Verified as authentic 16th-century religious architecture. Coral stone construction shows excellent preservation.',
           declaration: 'National Cultural Treasure (NCT) - NHCP Resolution No. 2010-001'
         },

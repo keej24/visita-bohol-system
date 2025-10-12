@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
-import 'screens/home_screen.dart';
 import 'screens/auth_wrapper.dart';
 import 'models/app_state.dart';
 import 'repositories/church_repository.dart';
@@ -16,6 +15,10 @@ import 'services/profile_service.dart';
 import 'services/location_service.dart';
 import 'services/enhanced_church_service.dart';
 import 'services/local_data_service.dart';
+import 'services/connectivity_service.dart';
+import 'services/offline_sync_service.dart';
+import 'services/paginated_church_service.dart';
+import 'repositories/paginated_church_repository.dart';
 import 'theme/app_theme.dart';
 
 const bool kUseFirestoreBackend = true; // Enable Firebase
@@ -63,6 +66,24 @@ class VisitaApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocationService()),
         Provider(create: (_) => LocalDataService()),
         Provider(create: (_) => MassScheduleRepository()),
+
+        // Mobile-only offline services
+        ChangeNotifierProvider(create: (_) => ConnectivityService()),
+        ChangeNotifierProvider(create: (_) => OfflineSyncService()),
+        Provider(create: (_) => PaginatedChurchRepository()),
+        ChangeNotifierProxyProvider<LocationService, PaginatedChurchService>(
+          create: (context) => PaginatedChurchService(
+            context.read<PaginatedChurchRepository>(),
+            context.read<LocationService>(),
+          ),
+          update: (context, locationService, previous) =>
+              previous ??
+              PaginatedChurchService(
+                context.read<PaginatedChurchRepository>(),
+                locationService,
+              ),
+        ),
+
         // Data repositories - Firebase or local based on flag
         Provider<ChurchRepository>(
           create: (_) => kUseFirestoreBackend

@@ -67,7 +67,7 @@ class PaginatedChurchService extends ChangeNotifier {
       debugPrint('📄 [PAGINATED SERVICE] Loading first page');
 
       // Check cache first
-      final cacheKey = 'churches_page_0';
+      const cacheKey = 'churches_page_0';
       final cached = _cacheService.get<ChurchPage>(cacheKey);
 
       ChurchPage page;
@@ -203,20 +203,16 @@ class PaginatedChurchService extends ChangeNotifier {
     // Architectural style filter
     if (_currentFilter.architecturalStyles.isNotEmpty) {
       filtered = filtered
-          .where((church) =>
-              church.architecturalStyle != null &&
-              _currentFilter.architecturalStyles
-                  .contains(church.architecturalStyle))
+          .where((church) => _currentFilter.architecturalStyles
+              .contains(church.architecturalStyle))
           .toList();
     }
 
     // Heritage classification filter
     if (_currentFilter.heritageClassifications.isNotEmpty) {
       filtered = filtered
-          .where((church) =>
-              church.heritageClassification != null &&
-              _currentFilter.heritageClassifications
-                  .contains(church.heritageClassification))
+          .where((church) => _currentFilter.heritageClassifications
+              .contains(church.heritageClassification))
           .toList();
     }
 

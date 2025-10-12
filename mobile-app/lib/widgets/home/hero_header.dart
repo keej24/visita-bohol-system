@@ -89,23 +89,25 @@ class HeroHeader extends StatelessWidget {
                 children: [
                   // App name with sacred green gradient
                   ShaderMask(
-                    shaderCallback: (bounds) => AppGradients.sacredGreen.createShader(bounds),
+                    shaderCallback: (bounds) =>
+                        AppGradients.sacredGreen.createShader(bounds),
                     child: Text(
                       'VISITA',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                            fontSize: 42,
-                            letterSpacing: 4.0,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            height: 1.0,
-                            shadows: [
-                              Shadow(
-                                color: const Color(0xFF2C5F2D).withValues(alpha: 0.1),
-                                offset: const Offset(0, 4),
-                                blurRadius: 8,
-                              ),
-                            ],
+                        fontSize: 42,
+                        letterSpacing: 4.0,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        height: 1.0,
+                        shadows: [
+                          Shadow(
+                            color:
+                                const Color(0xFF2C5F2D).withValues(alpha: 0.1),
+                            offset: const Offset(0, 4),
+                            blurRadius: 8,
                           ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -122,7 +124,7 @@ class HeroHeader extends StatelessWidget {
                   const SizedBox(height: 12),
                   // Enhanced tagline with gold accent
                   Container(
-                    padding: EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.lg,
                       vertical: AppSpacing.sm + 2,
                     ),
@@ -154,11 +156,12 @@ class HeroHeader extends StatelessWidget {
                         Flexible(
                           child: Text(
                             'Explore, Learn, and Preserve Bohol\'s Churches',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: const Color(0xFF2C5F2D),
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.3,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: const Color(0xFF2C5F2D),
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.3,
+                                    ),
                             textAlign: TextAlign.center,
                           ),
                         ),

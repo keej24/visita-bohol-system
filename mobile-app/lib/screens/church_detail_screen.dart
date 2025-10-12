@@ -1,1 +1,1 @@
-export 'church_detail_screen_enhanced.dart';
+export 'church_detail_screen_modern.dart';

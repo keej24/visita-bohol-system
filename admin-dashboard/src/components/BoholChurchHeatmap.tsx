@@ -137,6 +137,90 @@ const createChurchIcon = (classification: string, intensity: number, isSelected 
   });
 };
 
+// Map content component to avoid context issues
+const MapContent: React.FC<{
+  boholBoundaries: GeoJSON.FeatureCollection | null;
+  boundaryStyle: () => any;
+  filteredChurches: Church[];
+  calculateIntensity: (church: Church) => number;
+  selectedChurch: Church | null;
+  createChurchIcon: (classification: string, intensity: number, isSelected: boolean) => L.DivIcon;
+  handleChurchClick: (church: Church) => void;
+  getClassificationColor: (classification: string) => string;
+}> = ({
+  boholBoundaries,
+  boundaryStyle,
+  filteredChurches,
+  calculateIntensity,
+  selectedChurch,
+  createChurchIcon,
+  handleChurchClick,
+  getClassificationColor
+}) => {
+  return (
+    <>
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {boholBoundaries && (
+        <GeoJSON data={boholBoundaries} style={boundaryStyle} />
+      )}
+      {filteredChurches.map((church) => {
+        const intensity = calculateIntensity(church);
+        const isSelected = selectedChurch?.id === church.id;
+        return (
+          <Marker
+            key={church.id}
+            position={church.coordinates}
+            icon={createChurchIcon(church.classification, intensity, isSelected)}
+            eventHandlers={{ click: () => handleChurchClick(church) }}
+          >
+            <Popup>
+              <div className="p-2 min-w-64">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold text-lg">{church.name}</h3>
+                  <Badge className={getClassificationColor(church.classification)}>
+                    {church.classification}
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">{church.municipality}</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    <span>{church.visitorCount.toLocaleString()} visitors</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span>{church.avgRating} ({church.feedbackCount} reviews)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4" />
+                    <span>{church.heritageStatus}</span>
+                  </div>
+                  {church.foundingYear && (
+                    <div className="text-xs text-gray-500 mt-2">
+                      Founded: {church.foundingYear} • {church.architecturalStyle}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  className="w-full mt-3"
+                  onClick={() => handleChurchClick(church)}
+                >
+                  <ZoomIn className="w-4 h-4 mr-1" />
+                  View Details
+                </Button>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+    </>
+  );
+};
+
 const BoholChurchHeatmap: React.FC<BoholChurchHeatmapProps> = ({ diocese, churches, onExport }) => {
   const [heatmapLayer, setHeatmapLayer] = useState<HeatmapLayer>('visitors');
   const [showHeritageOnly, setShowHeritageOnly] = useState(false);
@@ -256,14 +340,14 @@ const BoholChurchHeatmap: React.FC<BoholChurchHeatmapProps> = ({ diocese, church
     onExport?.(exportData);
   };
 
-  // GeoJSON style for boundaries
-  const boundaryStyle = {
+  // GeoJSON style function for boundaries
+  const boundaryStyle = () => ({
     fillColor: 'rgba(59, 130, 246, 0.1)',
     weight: 2,
     opacity: 0.8,
     color: '#3b82f6',
     fillOpacity: 0.1
-  };
+  });
 
   return (
     <div className="space-y-6">
@@ -356,85 +440,17 @@ const BoholChurchHeatmap: React.FC<BoholChurchHeatmapProps> = ({ diocese, church
         </CardHeader>
         <CardContent>
           <div className="h-96 rounded-lg overflow-hidden border">
-            <MapContainer
-              center={[9.8, 124.0]}
-              zoom={10}
-              style={{ height: '100%', width: '100%' }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            <MapContainer center={[9.8, 124.0]} zoom={10} style={{ height: '100%', width: '100%' }}>
+              <MapContent
+                boholBoundaries={boholBoundaries}
+                boundaryStyle={boundaryStyle}
+                filteredChurches={filteredChurches}
+                calculateIntensity={calculateIntensity}
+                selectedChurch={selectedChurch}
+                createChurchIcon={createChurchIcon}
+                handleChurchClick={handleChurchClick}
+                getClassificationColor={getClassificationColor}
               />
-              
-              {/* Bohol Boundaries */}
-              {boholBoundaries && (
-                <GeoJSON
-                  data={boholBoundaries}
-                  style={boundaryStyle}
-                />
-              )}
-
-              {/* Church Markers */}
-              {filteredChurches.map((church) => {
-                const intensity = calculateIntensity(church);
-                const isSelected = selectedChurch?.id === church.id;
-                
-                return (
-                  <Marker
-                    key={church.id}
-                    position={church.coordinates}
-                    icon={createChurchIcon(church.classification, intensity, isSelected)}
-                    eventHandlers={{
-                      click: () => handleChurchClick(church)
-                    }}
-                  >
-                    <Popup>
-                      <div className="p-2 min-w-64">
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 className="font-semibold text-lg">{church.name}</h3>
-                          <Badge className={getClassificationColor(church.classification)}>
-                            {church.classification}
-                          </Badge>
-                        </div>
-                        
-                        <p className="text-sm text-gray-600 mb-3">{church.municipality}</p>
-                        
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4" />
-                            <span>{church.visitorCount.toLocaleString()} visitors</span>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            <span>{church.avgRating} ({church.feedbackCount} reviews)</span>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <Award className="w-4 h-4" />
-                            <span>{church.heritageStatus}</span>
-                          </div>
-                          
-                          {church.foundingYear && (
-                            <div className="text-xs text-gray-500 mt-2">
-                              Founded: {church.foundingYear} • {church.architecturalStyle}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <Button 
-                          size="sm" 
-                          className="w-full mt-3"
-                          onClick={() => handleChurchClick(church)}
-                        >
-                          <ZoomIn className="w-4 h-4 mr-1" />
-                          View Details
-                        </Button>
-                      </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
             </MapContainer>
           </div>
 

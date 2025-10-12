@@ -239,8 +239,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
-        initialCenter: center,
-        initialZoom: 11.5,
+        center: center,
+        zoom: 11.5,
         maxZoom: 18,
         minZoom: 8,
         onTap: (_, __) => setState(() => _selectedChurch = null),
@@ -309,7 +309,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         point: LatLng(church.latitude!, church.longitude!),
         width: isSelected ? 70 : 50,
         height: isSelected ? 70 : 50,
-        child: GestureDetector(
+        builder: (context) => GestureDetector(
           onTap: () => setState(() => _selectedChurch = church),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -849,9 +849,7 @@ class _EnhancedChurchDetailSheet extends StatelessWidget {
                           try {
                             final position =
                                 await Geolocator.getCurrentPosition(
-                              locationSettings: const LocationSettings(
-                                accuracy: LocationAccuracy.high,
-                              ),
+                              desiredAccuracy: LocationAccuracy.high,
                             );
 
                             final result = await appState

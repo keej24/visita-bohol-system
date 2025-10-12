@@ -99,6 +99,40 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Update user password with re-authentication
+  Future<void> updatePassword(String currentPassword, String newPassword) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null || user.email == null) {
+        throw Exception('No user logged in');
+      }
+
+      // Re-authenticate user with current password
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+
+      // Update to new password
+      await user.updatePassword(newPassword);
+
+      notifyListeners();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw Exception('Current password is incorrect');
+      } else if (e.code == 'weak-password') {
+        throw Exception('New password is too weak');
+      } else {
+        throw Exception(e.message ?? 'Failed to update password');
+      }
+    } catch (e) {
+      debugPrint('Password update error: $e');
+      rethrow;
+    }
+  }
+
   Future<bool> deleteAccount() async {
     try {
       await _auth.currentUser?.delete();
