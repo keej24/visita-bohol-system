@@ -3,6 +3,17 @@ import 'package:flutter/foundation.dart';
 import '../models/feedback.dart';
 
 class FeedbackService {
+  /// Delete feedback by id
+  Future<void> delete(String feedbackId) async {
+    try {
+      await _firestore.collection('feedback').doc(feedbackId).delete();
+      debugPrint('🗑️ [FEEDBACK SERVICE] Deleted feedback $feedbackId');
+    } catch (e) {
+      debugPrint('💥 [FEEDBACK SERVICE] Error deleting feedback: $e');
+      rethrow;
+    }
+  }
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// Load all feedback/reviews from Firestore
@@ -15,22 +26,28 @@ class FeedbackService {
           .orderBy('date_submitted', descending: true)
           .get();
 
-      debugPrint('📊 [FEEDBACK SERVICE] Found ${snapshot.docs.length} feedback items');
+      debugPrint(
+          '📊 [FEEDBACK SERVICE] Found ${snapshot.docs.length} feedback items');
 
-      final feedbacks = snapshot.docs.map((doc) {
-        try {
-          final data = doc.data();
-          return FeedbackModel.fromJson({
-            'id': doc.id,
-            ...data,
-          });
-        } catch (e) {
-          debugPrint('💥 [FEEDBACK SERVICE] Failed to parse feedback ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<FeedbackModel>().toList();
+      final feedbacks = snapshot.docs
+          .map((doc) {
+            try {
+              final data = doc.data();
+              return FeedbackModel.fromJson({
+                'id': doc.id,
+                ...data,
+              });
+            } catch (e) {
+              debugPrint(
+                  '💥 [FEEDBACK SERVICE] Failed to parse feedback ${doc.id}: $e');
+              return null;
+            }
+          })
+          .whereType<FeedbackModel>()
+          .toList();
 
-      debugPrint('✅ [FEEDBACK SERVICE] Successfully loaded ${feedbacks.length} feedback items');
+      debugPrint(
+          '✅ [FEEDBACK SERVICE] Successfully loaded ${feedbacks.length} feedback items');
       return feedbacks;
     } catch (e) {
       debugPrint('💥 [FEEDBACK SERVICE] Error loading feedback: $e');
@@ -41,7 +58,8 @@ class FeedbackService {
   /// Load feedback for a specific church
   Future<List<FeedbackModel>> loadForChurch(String churchId) async {
     try {
-      debugPrint('🔍 [FEEDBACK SERVICE] Loading feedback for church: $churchId');
+      debugPrint(
+          '🔍 [FEEDBACK SERVICE] Loading feedback for church: $churchId');
 
       final snapshot = await _firestore
           .collection('feedback')
@@ -50,22 +68,28 @@ class FeedbackService {
           .orderBy('date_submitted', descending: true)
           .get();
 
-      debugPrint('📊 [FEEDBACK SERVICE] Found ${snapshot.docs.length} feedback items for $churchId');
+      debugPrint(
+          '📊 [FEEDBACK SERVICE] Found ${snapshot.docs.length} feedback items for $churchId');
 
-      final feedbacks = snapshot.docs.map((doc) {
-        try {
-          final data = doc.data();
-          return FeedbackModel.fromJson({
-            'id': doc.id,
-            ...data,
-          });
-        } catch (e) {
-          debugPrint('💥 [FEEDBACK SERVICE] Failed to parse feedback ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<FeedbackModel>().toList();
+      final feedbacks = snapshot.docs
+          .map((doc) {
+            try {
+              final data = doc.data();
+              return FeedbackModel.fromJson({
+                'id': doc.id,
+                ...data,
+              });
+            } catch (e) {
+              debugPrint(
+                  '💥 [FEEDBACK SERVICE] Failed to parse feedback ${doc.id}: $e');
+              return null;
+            }
+          })
+          .whereType<FeedbackModel>()
+          .toList();
 
-      debugPrint('✅ [FEEDBACK SERVICE] Successfully loaded ${feedbacks.length} feedback items');
+      debugPrint(
+          '✅ [FEEDBACK SERVICE] Successfully loaded ${feedbacks.length} feedback items');
       return feedbacks;
     } catch (e) {
       debugPrint('💥 [FEEDBACK SERVICE] Error loading feedback: $e');
@@ -76,7 +100,8 @@ class FeedbackService {
   /// Save new feedback/review to Firestore
   Future<void> save(FeedbackModel fb) async {
     try {
-      debugPrint('💾 [FEEDBACK SERVICE] Saving feedback for church: ${fb.churchId}');
+      debugPrint(
+          '💾 [FEEDBACK SERVICE] Saving feedback for church: ${fb.churchId}');
       debugPrint('   - User: ${fb.userName} (${fb.userId})');
       debugPrint('   - Rating: ${fb.rating}/5');
       debugPrint('   - Category: ${fb.category.label}');

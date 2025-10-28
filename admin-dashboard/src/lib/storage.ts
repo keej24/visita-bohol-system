@@ -133,14 +133,32 @@ export async function uploadGalleryImages(
 
 /**
  * Delete file from storage
+ * Accepts either a full Firebase Storage URL or a storage path
  */
-export async function deleteFile(fileUrl: string): Promise<void> {
+export async function deleteFile(fileUrlOrPath: string): Promise<void> {
   try {
-    const fileRef = ref(storage, fileUrl);
+    let filePath = fileUrlOrPath;
+
+    // If it's a full Firebase Storage URL, extract the path
+    if (fileUrlOrPath.includes('firebasestorage.googleapis.com')) {
+      // URL format: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?alt=media&token={token}
+      // Extract the path from the URL
+      const urlMatch = fileUrlOrPath.match(/\/o\/(.+?)\?/);
+      if (urlMatch && urlMatch[1]) {
+        // Decode the URL-encoded path
+        filePath = decodeURIComponent(urlMatch[1]);
+      } else {
+        throw new Error('Invalid Firebase Storage URL format');
+      }
+    }
+
+    console.log(`Deleting file from path: ${filePath}`);
+    const fileRef = ref(storage, filePath);
     await deleteObject(fileRef);
+    console.log(`Successfully deleted file: ${filePath}`);
   } catch (error) {
     console.error('Error deleting file:', error);
-    throw new Error('Failed to delete file');
+    throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

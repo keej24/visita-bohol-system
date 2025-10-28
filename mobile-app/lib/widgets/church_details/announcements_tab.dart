@@ -154,8 +154,8 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                 // Category
                 Row(
                   children: [
-                    Icon(Icons.category,
-                        size: 16, color: const Color(0xFF8B5E3C)),
+                    const Icon(Icons.category,
+                        size: 16, color: Color(0xFF8B5E3C)),
                     const SizedBox(width: 4),
                     Text(
                       announcement.category,

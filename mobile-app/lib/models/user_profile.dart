@@ -60,58 +60,6 @@ class UserProfile {
     return visitedChurches.isNotEmpty ? visitedChurches.last : null;
   }
 
-  // Factory for demo data
-  factory UserProfile.demo() {
-    return UserProfile(
-      id: 'demo_user_001',
-      displayName: 'Guest User',
-      email: 'guest@example.com',
-      profileImageUrl: null,
-      parish: 'Immaculate Conception Parish',
-      affiliation: 'Diocese of Tagbilaran',
-      createdAt: DateTime.now().subtract(const Duration(days: 120)),
-      visitedChurches: [
-        'baclayon_church',
-        'loboc_church',
-        'dauis_church',
-        'panglao_church',
-        'alburquerque_church',
-      ],
-      favoriteChurches: [
-        'baclayon_church',
-        'buenavista_church',
-        'talibon_church',
-      ],
-      forVisitChurches: [
-        'maribojoc_church',
-        'cortes_church',
-      ],
-      journalEntries: [
-        JournalEntry(
-          id: 'entry_001',
-          churchId: 'baclayon_church',
-          title: 'Amazing Architecture',
-          content:
-              'The Baclayon Church is truly a masterpiece of colonial architecture. The intricate details and the peaceful atmosphere made my visit unforgettable.',
-          date: DateTime.now().subtract(const Duration(days: 7)),
-          rating: 5,
-          photos: [],
-        ),
-        JournalEntry(
-          id: 'entry_002',
-          churchId: 'loboc_church',
-          title: 'River View Beauty',
-          content:
-              'Located by the beautiful Loboc River, this church offers both spiritual peace and natural beauty.',
-          date: DateTime.now().subtract(const Duration(days: 14)),
-          rating: 4,
-          photos: [],
-        ),
-      ],
-      preferences: UserPreferences.defaultPreferences(),
-    );
-  }
-
   // Factory from JSON for Firestore integration
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(

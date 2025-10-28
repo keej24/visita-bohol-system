@@ -26,7 +26,6 @@ import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
 import { ParishFeedback } from '@/components/parish/ParishFeedback';
 import { ChurchService } from '@/services/churchService';
 import type { ArchitecturalStyle, ChurchClassification, Church } from '@/types/church';
-import VirtualTour360 from '@/components/360/VirtualTour360';
 
 // Simplified Parish Dashboard - Shows form on first access, then Parish Profile after approval
 const ParishDashboard = () => {
@@ -146,14 +145,22 @@ const ParishDashboard = () => {
         uploadDate: new Date().toISOString(),
         status: 'approved' as const
       })),
-      virtual360Images: (church.virtualTour360 || []).map((url, index) => ({
-        id: `360-${index}`,
-        url: url,
-        name: `360 Image ${index + 1}`,
-        uploadDate: new Date().toISOString(),
-        status: 'approved' as const,
-        category: 'interior' as const
-      })),
+      virtual360Images: (church.virtualTour360 || [])
+        .map((url, index) => {
+          // Validate URL and aspect ratio (basic check)
+          const isValidUrl = typeof url === 'string' && url.trim() && url.startsWith('http');
+          // Optionally, add more checks for file extension or known panorama formats
+          return {
+            id: `360-${index}`,
+            url: url,
+            name: `360 Image ${index + 1}`,
+            uploadDate: new Date().toISOString(),
+            status: isValidUrl ? 'approved' : 'rejected',
+            isValid: isValidUrl,
+            category: 'interior' as const
+          };
+        })
+        .filter(img => img.isValid),
 
       // Legacy fields
       name: church.name || '',
@@ -878,31 +885,19 @@ const ParishDashboard = () => {
           )}
 
           {/* 360° Virtual Tour */}
-          {churchInfo.virtual360Images && churchInfo.virtual360Images.length > 0 && (
+          {existingChurch?.virtualTour && existingChurch.virtualTour.scenes && existingChurch.virtualTour.scenes.length > 0 && (
             <div>
               <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <span>🌐 360° Virtual Tour</span>
                 <Badge variant="secondary" className="text-xs">
-                  {churchInfo.virtual360Images.length} view{churchInfo.virtual360Images.length === 1 ? '' : 's'}
+                  {existingChurch.virtualTour.scenes.length} scene{existingChurch.virtualTour.scenes.length === 1 ? '' : 's'}
                 </Badge>
               </h3>
-              <div className="space-y-4">
-                {churchInfo.virtual360Images
-                  .filter(img => img.isValid && img.status !== 'rejected')
-                  .map((image, index) => (
-                    <div key={image.id} className="space-y-2">
-                      {image.description && (
-                        <p className="text-sm font-medium text-gray-700">{image.description}</p>
-                      )}
-                      <VirtualTour360
-                        imageUrl={image.url}
-                        title={`Virtual Tour ${index + 1}`}
-                        description={image.description}
-                        height="350px"
-                        showControls={true}
-                      />
-                    </div>
-                  ))}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Virtual tour is configured with {existingChurch.virtualTour.scenes.length} scenes.
+                  Click "Edit Profile" to manage the virtual tour.
+                </p>
               </div>
             </div>
           )}
@@ -1042,6 +1037,7 @@ const ParishDashboard = () => {
           }}
           currentStatus={churchInfo.status}
           isSubmitting={isSubmitting}
+          churchId={churchId || undefined}
         />
       ) : (
         renderParishProfile()

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'enums.dart';
 import 'church_status.dart';
+import 'virtual_tour.dart';
 
 class Church {
   final String id;
@@ -20,13 +21,13 @@ class Church {
   final String? description; // Church description
   final String? assignedPriest; // Current priest
   final List<Map<String, String>>? massSchedules; // Mass schedule
-  final Map<String, String>? contactInfo; // Contact information (phone, email, address)
+  final Map<String, String>?
+      contactInfo; // Contact information (phone, email, address)
   final List<String> images;
   final List<String>? documents; // PDF documents
   final bool isHeritage;
   final String diocese; // Diocese of Tagbilaran or Diocese of Talibon
-  final String? virtualTourUrl; // 360° virtual tour URL
-  final List<Map<String, dynamic>>? virtual360Images; // 360° panoramic images
+  final VirtualTour? virtualTour; // 360° virtual tour with scenes and hotspots
   final String status; // Status: pending, approved, revisions, heritage_review
 
   // Heritage specific fields
@@ -61,8 +62,7 @@ class Church {
     this.documents,
     this.isHeritage = false,
     this.diocese = 'Diocese of Tagbilaran', // Default to Diocese of Tagbilaran
-    this.virtualTourUrl,
-    this.virtual360Images,
+    this.virtualTour,
     this.status = 'approved', // Default to approved for backward compatibility
     this.heritageDeclaration,
     this.culturalSignificance,
@@ -82,22 +82,28 @@ class Church {
         foundingYear:
             j['foundingYear'] != null ? j['foundingYear'] as int : null,
         founders: j['founders'],
-        keyFigures: j['keyFigures'] != null ? List<String>.from(j['keyFigures']) : null,
+        keyFigures:
+            j['keyFigures'] != null ? List<String>.from(j['keyFigures']) : null,
         architecturalStyle:
             ArchitecturalStyleX.fromLabel(j['architecturalStyle']),
         heritageClassification: (() {
           // Admin dashboard saves to 'classification' field, but some may use 'heritageClassification'
-          final classificationValue = j['heritageClassification'] ?? j['classification'];
-          debugPrint('🏛️ [${j['name']}] Raw heritageClassification: "${j['heritageClassification']}"');
-          debugPrint('🏛️ [${j['name']}] Raw classification: "${j['classification']}"');
+          final classificationValue =
+              j['heritageClassification'] ?? j['classification'];
+          debugPrint(
+              '🏛️ [${j['name']}] Raw heritageClassification: "${j['heritageClassification']}"');
+          debugPrint(
+              '🏛️ [${j['name']}] Raw classification: "${j['classification']}"');
           debugPrint('🏛️ [${j['name']}] Using value: "$classificationValue"');
 
           if (classificationValue != null) {
-            final result = HeritageClassificationX.fromLabel(classificationValue);
+            final result =
+                HeritageClassificationX.fromLabel(classificationValue);
             debugPrint('🏛️ [${j['name']}] Parsed to: $result');
             return result;
           }
-          debugPrint('🏛️ [${j['name']}] No classification found, isHeritage: ${j['isHeritage']}');
+          debugPrint(
+              '🏛️ [${j['name']}] No classification found, isHeritage: ${j['isHeritage']}');
           return j['isHeritage'] == true
               ? HeritageClassification.icp
               : HeritageClassification.none;
@@ -106,7 +112,9 @@ class Church {
         description: j['description'],
         assignedPriest: j['assignedPriest'],
         massSchedules: _parseMassSchedules(j['massSchedules']),
-        contactInfo: j['contactInfo'] != null ? Map<String, String>.from(j['contactInfo']) : null,
+        contactInfo: j['contactInfo'] != null
+            ? Map<String, String>.from(j['contactInfo'])
+            : null,
         images: (() {
           debugPrint('📸 [${j['name']}] Raw images field: ${j['images']}');
           debugPrint('📸 [${j['name']}] Raw photos field: ${j['photos']}');
@@ -123,7 +131,8 @@ class Church {
           return imgs;
         })(),
         documents: (() {
-          debugPrint('📄 [${j['name']}] Raw documents field: ${j['documents']}');
+          debugPrint(
+              '📄 [${j['name']}] Raw documents field: ${j['documents']}');
           if (j['documents'] == null) return null;
 
           final docs = _parseDocuments(j['documents']);
@@ -146,23 +155,44 @@ class Church {
                 : null),
         // Convert diocese format: admin stores lowercase, mobile needs full name
         diocese: _convertDiocese(j['diocese']),
-        virtualTourUrl: (() {
-          final url = j['virtualTourUrl'] ??
-              (j['virtualTour360'] is List && (j['virtualTour360'] as List).isNotEmpty
-                ? (j['virtualTour360'] as List).first
-                : null);
-          if (url != null) {
-            debugPrint('🌐 [${j['name']}] virtualTourUrl: $url');
+        virtualTour: (() {
+          final tourData = j['virtualTour'];
+          if (tourData != null && tourData is Map<String, dynamic>) {
+            try {
+              final tour = VirtualTour.fromMap(tourData);
+              debugPrint(
+                  '🌐 [${j['name']}] virtualTour loaded: ${tour.scenes.length} scenes');
+
+              // Log hotspot statistics
+              int totalHotspots = 0;
+              int navigationHotspots = 0;
+              int infoHotspots = 0;
+              for (final scene in tour.scenes) {
+                totalHotspots += scene.hotspots.length;
+                navigationHotspots +=
+                    scene.hotspots.where((h) => h.isNavigation).length;
+                infoHotspots += scene.hotspots.where((h) => h.isInfo).length;
+              }
+              debugPrint(
+                  '   📍 Total hotspots: $totalHotspots ($navigationHotspots navigation, $infoHotspots info)');
+
+              // Validate tour
+              final errors = tour.validate();
+              if (errors.isNotEmpty) {
+                debugPrint('⚠️ [${j['name']}] Tour validation errors:');
+                for (final error in errors) {
+                  debugPrint('   - $error');
+                }
+              }
+
+              return tour;
+            } catch (e, stackTrace) {
+              debugPrint('❌ [${j['name']}] Failed to parse virtualTour: $e');
+              debugPrint('   Stack trace: $stackTrace');
+              return null;
+            }
           }
-          return url;
-        })(),
-        virtual360Images: (() {
-          final images = _parseVirtual360Images(j['virtual360Images'] ?? j['virtualTour360']);
-          debugPrint('🌐 [${j['name']}] virtual360Images count: ${images?.length ?? 0}');
-          if (images != null && images.isNotEmpty) {
-            debugPrint('🌐 [${j['name']}] First 360° image: ${images.first}');
-          }
-          return images;
+          return null;
         })(),
         status: j['status'] ??
             'approved', // Default to approved for backward compatibility
@@ -196,8 +226,7 @@ class Church {
         'latitude': latitude,
         'longitude': longitude,
         'diocese': diocese,
-        'virtualTourUrl': virtualTourUrl,
-        'virtual360Images': virtual360Images,
+        'virtualTour': virtualTour?.toMap(),
         'status': status,
         'heritageDeclaration': heritageDeclaration,
         'culturalSignificance': culturalSignificance,
@@ -266,6 +295,16 @@ class Church {
   /// Get status color for UI display
   int get statusColor => ChurchStatus.statusColors[status] ?? 0xFF9E9E9E;
 
+  /// Check if this church has a virtual tour
+  bool get hasVirtualTour {
+    return virtualTour != null && virtualTour!.hasScenes;
+  }
+
+  /// Get total number of scenes in virtual tour
+  int get virtualTourSceneCount {
+    return virtualTour?.scenes.length ?? 0;
+  }
+
   // Helper method to parse images field which might be nested arrays
   static List<String> _parseImages(dynamic imagesData) {
     if (imagesData == null) return [];
@@ -329,9 +368,23 @@ class Church {
       final List<Map<String, String>> result = [];
       for (var item in schedulesData) {
         if (item is Map) {
-          result.add(Map<String, String>.from(item.map(
-            (key, value) => MapEntry(key.toString(), value.toString()),
-          )));
+          final parsed = <String, String>{};
+          item.forEach((key, value) {
+            if (key == 'isFbLive') {
+              // Accept both bool and string
+              if (value is bool) {
+                parsed['isFbLive'] = value ? 'true' : 'false';
+              } else if (value is String) {
+                parsed['isFbLive'] =
+                    (value.toLowerCase() == 'true') ? 'true' : 'false';
+              }
+            } else if (key == 'language') {
+              parsed['language'] = value?.toString() ?? '';
+            } else {
+              parsed[key.toString()] = value?.toString() ?? '';
+            }
+          });
+          result.add(parsed);
         }
       }
       return result.isEmpty ? null : result;
@@ -341,23 +394,4 @@ class Church {
   }
 
   // Helper method to parse virtual360Images field
-  static List<Map<String, dynamic>>? _parseVirtual360Images(
-      dynamic virtual360Data) {
-    if (virtual360Data == null) return null;
-
-    if (virtual360Data is List) {
-      final List<Map<String, dynamic>> result = [];
-      for (var item in virtual360Data) {
-        if (item is Map<String, dynamic>) {
-          result.add(item);
-        } else if (item is Map) {
-          // Convert Map<dynamic, dynamic> to Map<String, dynamic>
-          result.add(Map<String, dynamic>.from(item));
-        }
-      }
-      return result.isEmpty ? null : result;
-    }
-
-    return null;
-  }
 }

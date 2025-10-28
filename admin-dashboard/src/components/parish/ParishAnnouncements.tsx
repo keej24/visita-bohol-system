@@ -129,7 +129,7 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
       };
 
       if (selectedAnnouncement) {
-        await AnnouncementService.updateAnnouncement(selectedAnnouncement.id, parishFormData);
+        await AnnouncementService.updateAnnouncement(selectedAnnouncement.id, parishFormData, userProfile.diocese, userProfile.uid);
         toast({
           title: "Success",
           description: "Announcement updated successfully"

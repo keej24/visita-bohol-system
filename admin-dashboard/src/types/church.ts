@@ -41,7 +41,7 @@ export interface Church {
   // Media
   images: string[];
   documents: string[];
-  virtualTour360?: string[];
+  virtualTour?: import('@/types/virtualTour').VirtualTour; // 360° virtual tour with scenes and hotspots
 
   // Heritage specific
   heritageDeclaration?: string; // Museum declaration document URL

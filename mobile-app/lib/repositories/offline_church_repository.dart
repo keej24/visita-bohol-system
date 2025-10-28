@@ -204,8 +204,7 @@ class OfflineChurchRepository extends ChangeNotifier {
           : const [],
       isHeritage: offline.heritageClassification != 'none',
       diocese: offline.diocese,
-      virtualTourUrl: null, // TODO: Add field if needed
-      virtual360Images: null, // TODO: Add field if needed
+      virtualTour: null, // Virtual tours not supported in offline mode yet
       status: offline.status,
     );
   }

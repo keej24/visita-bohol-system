@@ -34,11 +34,11 @@ import {
   Loader2
 } from 'lucide-react';
 import { ChurchInfo, MassSchedule } from './types';
-import Virtual360Uploader from '../360/Virtual360Uploader';
+import { VirtualTourManager } from '../360/VirtualTourManager';
 import PhotoUploader from './PhotoUploader';
 import DocumentUploader from './DocumentUploader';
 import { assessHeritageSignificance, type HeritageAssessment } from '@/lib/heritage-detection';
-import { upload360Image, uploadChurchImage, uploadDocument } from '@/lib/storage';
+import { upload360Image, uploadChurchImage, uploadDocument, deleteFile } from '@/lib/storage';
 
 interface ChurchProfileFormProps {
   initialData?: Partial<ChurchInfo>;
@@ -50,6 +50,7 @@ interface ChurchProfileFormProps {
   showCancelButton?: boolean;
   isModal?: boolean;
   isChanceryEdit?: boolean; // New prop to determine if chancery/museum is editing
+  churchId?: string; // Church ID for hotspot editing
 }
 
 export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
@@ -61,12 +62,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   isSubmitting = false,
   showCancelButton = false,
   isModal = false,
-  isChanceryEdit = false
+  isChanceryEdit = false,
+  churchId
 }) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('basic');
   const [heritageAssessment, setHeritageAssessment] = useState<HeritageAssessment | null>(null);
   const [uploading, setUploading] = useState(false);
+  // NOTE: Virtual tour now managed by VirtualTourManager component
 
   // Form state with cleaner structure
   const [formData, setFormData] = useState<ChurchInfo>({
@@ -112,8 +115,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     // Media Collections
     photos: initialData?.photos || [],
     documents: initialData?.documents || [],
-    virtual360Images: initialData?.virtual360Images || [],
-    
+
     // Legacy compatibility fields
     name: initialData?.name || '',
     location: initialData?.location || '',
@@ -405,19 +407,28 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   };
 
   // Form submission handlers
-  const handleSave = () => {
-    const updatedData = {
-      ...formData,
-      name: formData.churchName,
-      location: `${formData.locationDetails.streetAddress}, ${formData.locationDetails.barangay}, ${formData.locationDetails.municipality}`,
-      priest: formData.currentParishPriest,
-      founded: formData.historicalDetails.foundingYear,
-      classification: formData.historicalDetails.heritageClassification,
-      description: formData.historicalDetails.historicalBackground
-    };
-    
-    onSave(updatedData);
-    toast({ title: "Saved", description: "Church profile saved as draft!" });
+  const handleSave = async () => {
+    try {
+      const updatedData = {
+        ...formData,
+        name: formData.churchName,
+        location: `${formData.locationDetails.streetAddress}, ${formData.locationDetails.barangay}, ${formData.locationDetails.municipality}`,
+        priest: formData.currentParishPriest,
+        founded: formData.historicalDetails.foundingYear,
+        classification: formData.historicalDetails.heritageClassification,
+        description: formData.historicalDetails.historicalBackground
+      };
+
+      onSave(updatedData);
+      toast({ title: "Saved", description: "Church profile saved as draft!" });
+    } catch (error) {
+      console.error('Error during save:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save changes. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSubmit = async () => {
@@ -435,32 +446,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     try {
       setUploading(true);
 
-      // Upload 360° images to Firebase Storage
-      const uploaded360URLs: string[] = [];
-      for (const image of formData.virtual360Images) {
-        if (image.file && image.isValid) {
-          try {
-            const url = await upload360Image(
-              formData.churchName || 'temp',
-              image.file,
-              image.description || image.name
-            );
-            uploaded360URLs.push(url);
-          } catch (error) {
-            console.error('Failed to upload 360° image:', error);
-            toast({
-              title: "Upload Error",
-              description: `Failed to upload ${image.name}. Please try again.`,
-              variant: "destructive"
-            });
-          }
-        } else if (image.url && !image.file) {
-          // Image already uploaded (has URL but no file)
-          uploaded360URLs.push(image.url);
-        }
-      }
-
       // Upload regular photos to Firebase Storage
+      // NOTE: Virtual tour is now managed separately by VirtualTourManager component
       const uploadedPhotoURLs: string[] = [];
       for (const photo of formData.photos) {
         // FileUpload only has url property, so just use existing URLs
@@ -487,17 +474,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         classification: formData.historicalDetails.heritageClassification,
         description: formData.historicalDetails.historicalBackground,
         status: isApprovedProfile ? 'approved' as const : 'pending' as const,
-        // Add uploaded URLs
-        virtual360Images: uploaded360URLs.map((url, index) => ({
-          id: `360-${Date.now()}-${index}`,
-          url,
-          name: formData.virtual360Images[index]?.name || `360-image-${index}`,
-          description: formData.virtual360Images[index]?.description,
-          uploadDate: new Date().toISOString(),
-          status: 'pending' as const,
-          isValid: true,
-          category: formData.virtual360Images[index]?.category || 'interior' as const
-        })),
+        // NOTE: virtualTour is managed separately by VirtualTourManager component
         photos: uploadedPhotoURLs.map((url, index) => ({
           id: `photo-${Date.now()}-${index}`,
           url,
@@ -1205,45 +1182,43 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
               {/* Media Tab */}
               <TabsContent value="media" className="p-6 space-y-8">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Image className="w-6 h-6 text-blue-600" />
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900">Photos & Documents</h2>
-                      <p className="text-gray-600">Share visual content of your church (Optional)</p>
-                    </div>
-                  </div>
-
+                <div className="space-y-8">
                   {/* 360° Virtual Tour Section */}
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3">
-                      <RotateCcw className="w-6 h-6 text-blue-600" />
+                  <div className="space-y-4">
+                    {churchId ? (
+                      <VirtualTourManager
+                        churchId={churchId}
+                        churchName={formData.churchName}
+                      />
+                    ) : (
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">360° Virtual Tour</h3>
-                        <p className="text-gray-600">Upload immersive 360° photos for virtual church exploration</p>
+                        <div className="flex items-center gap-3 mb-4">
+                          <RotateCcw className="w-6 h-6 text-blue-600" />
+                          <div>
+                            <h2 className="text-xl font-semibold text-gray-900">360° Virtual Tour</h2>
+                            <p className="text-gray-600">Upload panoramic images and add navigation hotspots</p>
+                          </div>
+                        </div>
+                        <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            Please save the church profile first to enable virtual tour management.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-
-                    <Virtual360Uploader
-                      images={formData.virtual360Images}
-                      onImagesChange={(images) => setFormData(prev => ({
-                        ...prev,
-                        virtual360Images: images.map(img => ({
-                          ...img,
-                          uploadDate: new Date().toISOString(),
-                          status: 'pending' as const,
-                          category: 'interior' as const
-                        }))
-                      }))}
-                      maxImages={5}
-                      disabled={false}
-                    />
+                    )}
                   </div>
 
                   <Separator />
 
                   {/* Regular Photos Section */}
-                  <div>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Image className="w-6 h-6 text-blue-600" />
+                      <div>
+                        <h2 className="text-xl font-semibold text-gray-900">Church Photos</h2>
+                        <p className="text-gray-600">Share regular photos of your church (Optional)</p>
+                      </div>
+                    </div>
                     <PhotoUploader
                       photos={formData.photos}
                       onPhotosChange={(photos) => setFormData(prev => ({
@@ -1263,7 +1238,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   <Separator />
 
                   {/* Historical Documents Section */}
-                  <div>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Building className="w-6 h-6 text-blue-600" />
+                      <div>
+                        <h2 className="text-xl font-semibold text-gray-900">Historical Documents</h2>
+                        <p className="text-gray-600">Upload heritage and historical documentation (Optional)</p>
+                      </div>
+                    </div>
                     <DocumentUploader
                       documents={formData.documents}
                       onDocumentsChange={(documents) => setFormData(prev => ({

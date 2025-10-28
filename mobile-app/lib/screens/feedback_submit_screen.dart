@@ -4,6 +4,7 @@ import '../services/feedback_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class FeedbackSubmitScreen extends StatefulWidget {
   final String churchId;
@@ -35,13 +36,37 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
   }
 
   void _submit() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    final storage = FirebaseStorage.instance;
+    final List<String> photoUrls = [];
+    for (final file in _photos) {
+      try {
+        final fileName =
+            '${widget.churchId}/${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
+        final ref = storage.ref().child('feedback_photos/$fileName');
+        final uploadTask = await ref.putFile(file);
+        final url = await ref.getDownloadURL();
+        photoUrls.add(url);
+      } catch (e) {
+        debugPrint('❌ Error uploading photo: $e');
+      }
+    }
+
     final fb = FeedbackModel(
       id: const Uuid().v4(),
       userId: 'local-user',
       churchId: widget.churchId,
       comment: _commentCtl.text,
       rating: _rating,
-      photos: _photos.map((f) => f.path).toList(),
+      photos: photoUrls,
       category: _selectedCategory,
     );
     await _svc.save(fb);

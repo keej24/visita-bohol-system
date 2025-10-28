@@ -15,8 +15,7 @@ class MassScheduleTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Contact Information Card
-          if (church.contactInfo != null &&
-              church.contactInfo!.isNotEmpty)
+          if (church.contactInfo != null && church.contactInfo!.isNotEmpty)
             buildCard(
               icon: Icons.contact_phone,
               title: 'Contact Information',
@@ -35,8 +34,7 @@ class MassScheduleTab extends StatelessWidget {
                       icon: Icons.email,
                       label: 'Email',
                       value: church.contactInfo!['email']!,
-                      onTap: () =>
-                          _sendEmail(church.contactInfo!['email']!),
+                      onTap: () => _sendEmail(church.contactInfo!['email']!),
                     ),
                   if (church.contactInfo!['website'] != null)
                     buildContactRow(
@@ -117,38 +115,72 @@ class MassScheduleTab extends StatelessWidget {
             ),
 
           // Mass Schedules Card
-          if (church.massSchedules != null &&
-              church.massSchedules!.isNotEmpty)
+          if (church.massSchedules != null && church.massSchedules!.isNotEmpty)
             buildCard(
               icon: Icons.access_time,
               title: 'Mass Schedules',
               child: Column(
                 children: church.massSchedules!.map((schedule) {
+                  final language = schedule['language'] ?? '';
+                  final isFbLive = schedule['isFbLive'] == 'true' ||
+                      schedule['isFbLive'] == true ||
+                      (schedule['type']?.contains('FB Live') ?? false);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          width: 100,
-                          child: Text(
-                            schedule['day'] ?? '',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF666666),
-                              fontSize: 14,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 100,
+                              child: Text(
+                                schedule['day'] ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF666666),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                schedule['time'] ?? '',
+                                style: const TextStyle(
+                                  color: Color(0xFF333333),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (language.isNotEmpty || isFbLive)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 100, top: 2),
+                            child: Row(
+                              children: [
+                                if (language.isNotEmpty) ...[
+                                  const Icon(Icons.language,
+                                      size: 16, color: Color(0xFF2C5F2D)),
+                                  const SizedBox(width: 4),
+                                  Text(language,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF2C5F2D))),
+                                ],
+                                if (isFbLive) ...[
+                                  const SizedBox(width: 12),
+                                  const Icon(Icons.live_tv,
+                                      size: 16, color: Colors.red),
+                                  const SizedBox(width: 4),
+                                  Text('FB Live',
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.red)),
+                                ],
+                              ],
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            schedule['time'] ?? '',
-                            style: const TextStyle(
-                              color: Color(0xFF333333),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   );
@@ -177,14 +209,13 @@ class MassScheduleTab extends StatelessWidget {
                     church.latitude != null &&
                     church.longitude != null)
                   const SizedBox(width: 12),
-                if (church.latitude != null &&
-                    church.longitude != null)
+                if (church.latitude != null && church.longitude != null)
                   Expanded(
                     child: buildActionButton(
                       icon: Icons.directions,
                       label: 'Directions',
-                      onTap: () => _openMaps(
-                          church.latitude!, church.longitude!),
+                      onTap: () =>
+                          _openMaps(church.latitude!, church.longitude!),
                     ),
                   ),
               ],
@@ -192,11 +223,9 @@ class MassScheduleTab extends StatelessWidget {
           ),
 
           // Empty State
-          if ((church.contactInfo == null ||
-                  church.contactInfo!.isEmpty) &&
+          if ((church.contactInfo == null || church.contactInfo!.isEmpty) &&
               church.assignedPriest == null &&
-              (church.massSchedules == null ||
-                  church.massSchedules!.isEmpty))
+              (church.massSchedules == null || church.massSchedules!.isEmpty))
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),

@@ -7,6 +7,7 @@ class MassSchedule {
   final String? language; // English, Filipino, Latin, etc.
   final String? notes; // Special instructions or notes
   final bool isActive; // Whether this schedule is currently active
+  final bool isFbLive; // Whether this mass is FB Live
 
   MassSchedule({
     required this.id,
@@ -17,6 +18,7 @@ class MassSchedule {
     this.language,
     this.notes,
     this.isActive = true,
+    this.isFbLive = false,
   });
 
   factory MassSchedule.fromJson(Map<String, dynamic> j) => MassSchedule(
@@ -28,6 +30,11 @@ class MassSchedule {
         language: j['language'],
         notes: j['notes'],
         isActive: j['isActive'] ?? true,
+        isFbLive: (j['isFbLive'] is bool)
+            ? j['isFbLive']
+            : (j['isFbLive'] is String)
+                ? j['isFbLive'].toLowerCase() == 'true'
+                : (j['type']?.toString().contains('FB Live') ?? false),
       );
 
   Map<String, dynamic> toJson() => {
@@ -39,6 +46,7 @@ class MassSchedule {
         'language': language,
         'notes': notes,
         'isActive': isActive,
+        'isFbLive': isFbLive,
       };
 
   // Helper getter for sorting

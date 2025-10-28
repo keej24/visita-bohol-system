@@ -718,9 +718,9 @@ class _AdvancedFilterBottomSheet extends StatefulWidget {
 class _AdvancedFilterBottomSheetState
     extends State<_AdvancedFilterBottomSheet> {
   RangeValues? _yearRange;
-  Set<ArchitecturalStyle> _architecturalStyles = {};
-  Set<HeritageClassification> _heritageClassifications = {};
-  Set<Diocese> _dioceses = {};
+  final Set<ArchitecturalStyle> _architecturalStyles = {};
+  final Set<HeritageClassification> _heritageClassifications = {};
+  final Set<Diocese> _dioceses = {};
   late RangeValues _availableYearRange;
 
   @override
@@ -1051,6 +1051,17 @@ class _ProfileAvatarButton extends StatelessWidget {
     return Consumer<ProfileService>(
       builder: (context, profileService, child) {
         final userProfile = profileService.userProfile;
+        if (userProfile == null) {
+          // Show loading indicator while profile is loading
+          return Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            child: const CircularProgressIndicator(strokeWidth: 2),
+          );
+        }
+        final displayName = userProfile.displayName;
+        final profileImageUrl = userProfile.profileImageUrl;
 
         return GestureDetector(
           onTap: () {
@@ -1074,7 +1085,7 @@ class _ProfileAvatarButton extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                  color: const Color(0xFF2563EB).withOpacity(0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -1084,20 +1095,18 @@ class _ProfileAvatarButton extends StatelessWidget {
                 width: 2,
               ),
             ),
-            child: userProfile.profileImageUrl != null &&
-                    userProfile.profileImageUrl!.isNotEmpty
+            child: profileImageUrl != null && profileImageUrl.isNotEmpty
                 ? ClipOval(
                     child: OptimizedImageWidget(
-                      imageUrl: userProfile.profileImageUrl!,
+                      imageUrl: profileImageUrl,
                       width: 60,
                       height: 60,
                       fit: BoxFit.cover,
                       isNetworkImage: true,
-                      errorWidget:
-                          _buildInitialsAvatar(userProfile.displayName),
+                      errorWidget: _buildInitialsAvatar(displayName),
                     ),
                   )
-                : _buildInitialsAvatar(userProfile.displayName),
+                : _buildInitialsAvatar(displayName),
           ),
         );
       },
@@ -1135,6 +1144,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadLastTab();
+    // Trigger profile loading on home screen startup
+    Future.microtask(() {
+      final profileService =
+          Provider.of<ProfileService>(context, listen: false);
+      if (profileService.userProfile == null && !profileService.isLoading) {
+        profileService.loadUserProfile();
+      }
+    });
   }
 
   Future<void> _loadLastTab() async {

@@ -7,7 +7,7 @@ import 'dart:convert';
 import '../models/user_profile.dart';
 
 class ProfileService extends ChangeNotifier {
-  UserProfile _userProfile = UserProfile.demo();
+  UserProfile? _userProfile;
   final ImagePicker _imagePicker = ImagePicker();
   // Make Firebase dependencies optional/lazy so tests can run without Firebase initialization
   FirebaseFirestore? _firestore;
@@ -36,7 +36,7 @@ class ProfileService extends ChangeNotifier {
     }
   }
 
-  UserProfile get userProfile => _userProfile;
+  UserProfile? get userProfile => _userProfile;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -57,16 +57,16 @@ class ProfileService extends ChangeNotifier {
             '🔍 [PROFILE SERVICE] User displayName: ${currentUser?.displayName}');
       } catch (e) {
         debugPrint('⚠️ [PROFILE SERVICE] Error accessing Firebase Auth: $e');
-        _userProfile = UserProfile.demo();
+        _userProfile = null;
         _setLoading(false);
         notifyListeners();
         return;
       }
 
       if (currentUser == null) {
-        debugPrint(
-            '⚠️ [PROFILE SERVICE] No authenticated user found - NOT using demo data');
+        debugPrint('⚠️ [PROFILE SERVICE] No authenticated user found');
         debugPrint('⚠️ [PROFILE SERVICE] User needs to log in first!');
+        _userProfile = null;
         _setError('Please log in to view your profile');
         _setLoading(false);
         notifyListeners();
@@ -81,6 +81,7 @@ class ProfileService extends ChangeNotifier {
       if (_firestore == null) {
         debugPrint(
             '⚠️ [PROFILE SERVICE] Firestore unavailable (not initialized)');
+        _userProfile = null;
         _setError('Please log in (Firestore unavailable)');
         _setLoading(false);
         notifyListeners();
@@ -95,14 +96,14 @@ class ProfileService extends ChangeNotifier {
         userData['id'] = currentUser.uid; // Ensure ID is set
         _userProfile = UserProfile.fromJson(userData);
         debugPrint(
-            '✅ [PROFILE SERVICE] Loaded profile: ${_userProfile.displayName} (${_userProfile.email})');
+            '✅ [PROFILE SERVICE] Loaded profile: ${_userProfile?.displayName ?? ""} (${_userProfile?.email ?? ""})');
       } else {
         debugPrint(
             '🆕 [PROFILE SERVICE] Creating new user profile from Firebase Auth data');
         // Create a new profile from Firebase Auth data
         _userProfile = await _createProfileFromAuthUser(currentUser);
         debugPrint(
-            '🆕 [PROFILE SERVICE] Created profile: ${_userProfile.displayName} (${_userProfile.email})');
+            '🆕 [PROFILE SERVICE] Created profile: ${_userProfile?.displayName ?? ""} (${_userProfile?.email ?? ""})');
         // Save the new profile to Firestore
         await _saveProfileToFirestore();
         debugPrint('💾 [PROFILE SERVICE] Saved new profile to Firestore');
@@ -113,7 +114,7 @@ class ProfileService extends ChangeNotifier {
 
       debugPrint('✅ [PROFILE SERVICE] Profile load complete!');
       debugPrint(
-          '✅ [PROFILE SERVICE] Final profile: ${_userProfile.id} - ${_userProfile.displayName}');
+          '✅ [PROFILE SERVICE] Final profile: ${_userProfile?.id ?? ""} - ${_userProfile?.displayName ?? ""}');
     } catch (e) {
       debugPrint('❌ [PROFILE SERVICE] Error loading profile: $e');
       _setError('Failed to load profile: $e');
@@ -148,26 +149,29 @@ class ProfileService extends ChangeNotifier {
   Future<void> _loadFromSharedPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final profileJson = prefs.getString('user_profile_${_userProfile.id}');
+      final profileJson =
+          prefs.getString('user_profile_${_userProfile?.id ?? ""}');
 
       if (profileJson != null) {
         final Map<String, dynamic> localData = jsonDecode(profileJson);
         // Merge local data with Firestore data (local data takes precedence for certain fields)
-        _userProfile = _userProfile.copyWith(
-          visitedChurches: List<String>.from(
-              localData['visitedChurches'] ?? _userProfile.visitedChurches),
-          favoriteChurches: List<String>.from(
-              localData['favoriteChurches'] ?? _userProfile.favoriteChurches),
-          forVisitChurches: List<String>.from(
-              localData['forVisitChurches'] ?? _userProfile.forVisitChurches),
-          journalEntries: (localData['journalEntries'] as List<dynamic>?)
-                  ?.map((e) => JournalEntry.fromJson(e))
-                  .toList() ??
-              _userProfile.journalEntries,
-          preferences: localData['preferences'] != null
-              ? UserPreferences.fromJson(localData['preferences'])
-              : _userProfile.preferences,
-        );
+        if (_userProfile != null) {
+          _userProfile = _userProfile!.copyWith(
+            visitedChurches: List<String>.from(
+                localData['visitedChurches'] ?? _userProfile!.visitedChurches),
+            favoriteChurches: List<String>.from(localData['favoriteChurches'] ??
+                _userProfile!.favoriteChurches),
+            forVisitChurches: List<String>.from(localData['forVisitChurches'] ??
+                _userProfile!.forVisitChurches),
+            journalEntries: (localData['journalEntries'] as List<dynamic>?)
+                    ?.map((e) => JournalEntry.fromJson(e))
+                    .toList() ??
+                _userProfile!.journalEntries,
+            preferences: localData['preferences'] != null
+                ? UserPreferences.fromJson(localData['preferences'])
+                : _userProfile!.preferences,
+          );
+        }
         debugPrint('📱 Merged local profile data with Firestore data');
       }
     } catch (e) {
@@ -199,16 +203,18 @@ class ProfileService extends ChangeNotifier {
     _setError(null);
 
     try {
-      _userProfile = _userProfile.copyWith(
-        displayName: displayName,
-        email: email,
-        parish: parish,
-        affiliation: affiliation,
-        phoneNumber: phoneNumber,
-        location: location,
-        bio: bio,
-        nationality: nationality,
-      );
+      if (_userProfile != null) {
+        _userProfile = _userProfile!.copyWith(
+          displayName: displayName,
+          email: email,
+          parish: parish,
+          affiliation: affiliation,
+          phoneNumber: phoneNumber,
+          location: location,
+          bio: bio,
+          nationality: nationality,
+        );
+      }
 
       // Save to both Firestore and SharedPreferences
       await _saveProfileToFirestore();
@@ -249,12 +255,14 @@ class ProfileService extends ChangeNotifier {
         debugPrint('⚠️ Firestore not available, skipping save');
         return;
       }
-      final profileData = _userProfile.toJson();
-      await _firestore!.collection('users').doc(currentUser.uid).set(
-            profileData,
-            SetOptions(merge: true), // Merge with existing data
-          );
-      debugPrint('✅ Profile saved to Firestore');
+      if (_userProfile != null) {
+        final profileData = _userProfile!.toJson();
+        await _firestore!.collection('users').doc(currentUser.uid).set(
+              profileData,
+              SetOptions(merge: true), // Merge with existing data
+            );
+        debugPrint('✅ Profile saved to Firestore');
+      }
     } catch (e) {
       debugPrint('❌ Error saving to Firestore: $e');
       rethrow;
@@ -276,9 +284,11 @@ class ProfileService extends ChangeNotifier {
       if (image != null) {
         // TODO: In a production app, upload to Firebase Storage
         // For now, we'll store the local path
-        _userProfile = _userProfile.copyWith(
-          profileImageUrl: image.path,
-        );
+        if (_userProfile != null) {
+          _userProfile = _userProfile!.copyWith(
+            profileImageUrl: image.path,
+          );
+        }
 
         await _saveProfileToFirestore();
         await _saveProfile();
@@ -298,11 +308,12 @@ class ProfileService extends ChangeNotifier {
     _setError(null);
 
     try {
-      final updatedEntries =
-          List<JournalEntry>.from(_userProfile.journalEntries);
-      updatedEntries.add(entry);
-
-      _userProfile = _userProfile.copyWith(journalEntries: updatedEntries);
+      if (_userProfile != null) {
+        final updatedEntries =
+            List<JournalEntry>.from(_userProfile!.journalEntries);
+        updatedEntries.add(entry);
+        _userProfile = _userProfile!.copyWith(journalEntries: updatedEntries);
+      }
       await _saveProfileToFirestore();
       await _saveProfile();
       debugPrint('✅ Journal entry added');
@@ -317,15 +328,19 @@ class ProfileService extends ChangeNotifier {
 
   Future<void> toggleFavoriteChurch(String churchId) async {
     try {
-      final updatedFavorites = List<String>.from(_userProfile.favoriteChurches);
+      if (_userProfile != null) {
+        final updatedFavorites =
+            List<String>.from(_userProfile!.favoriteChurches);
 
-      if (updatedFavorites.contains(churchId)) {
-        updatedFavorites.remove(churchId);
-      } else {
-        updatedFavorites.add(churchId);
+        if (updatedFavorites.contains(churchId)) {
+          updatedFavorites.remove(churchId);
+        } else {
+          updatedFavorites.add(churchId);
+        }
+
+        _userProfile =
+            _userProfile!.copyWith(favoriteChurches: updatedFavorites);
       }
-
-      _userProfile = _userProfile.copyWith(favoriteChurches: updatedFavorites);
       await _saveProfileToFirestore();
       await _saveProfile();
       debugPrint('✅ Favorite church toggled for: $churchId');
@@ -339,21 +354,24 @@ class ProfileService extends ChangeNotifier {
 
   Future<void> markChurchAsVisited(String churchId) async {
     try {
-      final updatedVisited = List<String>.from(_userProfile.visitedChurches);
-      final updatedForVisit = List<String>.from(_userProfile.forVisitChurches);
+      if (_userProfile != null) {
+        final updatedVisited = List<String>.from(_userProfile!.visitedChurches);
+        final updatedForVisit =
+            List<String>.from(_userProfile!.forVisitChurches);
 
-      if (!updatedVisited.contains(churchId)) {
-        updatedVisited.add(churchId);
-        // Remove from for visit list if it was there
-        updatedForVisit.remove(churchId);
+        if (!updatedVisited.contains(churchId)) {
+          updatedVisited.add(churchId);
+          // Remove from for visit list if it was there
+          updatedForVisit.remove(churchId);
 
-        _userProfile = _userProfile.copyWith(
-          visitedChurches: updatedVisited,
-          forVisitChurches: updatedForVisit,
-        );
-        await _saveProfileToFirestore();
-        await _saveProfile();
-        debugPrint('✅ Church marked as visited: $churchId');
+          _userProfile = _userProfile!.copyWith(
+            visitedChurches: updatedVisited,
+            forVisitChurches: updatedForVisit,
+          );
+          await _saveProfileToFirestore();
+          await _saveProfile();
+          debugPrint('✅ Church marked as visited: $churchId');
+        }
       }
     } catch (e) {
       debugPrint('❌ Error marking church as visited: $e');
@@ -365,15 +383,19 @@ class ProfileService extends ChangeNotifier {
 
   Future<void> toggleForVisitChurch(String churchId) async {
     try {
-      final updatedForVisit = List<String>.from(_userProfile.forVisitChurches);
+      if (_userProfile != null) {
+        final updatedForVisit =
+            List<String>.from(_userProfile!.forVisitChurches);
 
-      if (updatedForVisit.contains(churchId)) {
-        updatedForVisit.remove(churchId);
-      } else {
-        updatedForVisit.add(churchId);
+        if (updatedForVisit.contains(churchId)) {
+          updatedForVisit.remove(churchId);
+        } else {
+          updatedForVisit.add(churchId);
+        }
+
+        _userProfile =
+            _userProfile!.copyWith(forVisitChurches: updatedForVisit);
       }
-
-      _userProfile = _userProfile.copyWith(forVisitChurches: updatedForVisit);
       await _saveProfileToFirestore();
       await _saveProfile();
       debugPrint('✅ Church toggled for visit: $churchId');
@@ -387,7 +409,9 @@ class ProfileService extends ChangeNotifier {
 
   Future<void> updatePreferences(UserPreferences preferences) async {
     try {
-      _userProfile = _userProfile.copyWith(preferences: preferences);
+      if (_userProfile != null) {
+        _userProfile = _userProfile!.copyWith(preferences: preferences);
+      }
       await _saveProfileToFirestore();
       await _saveProfile();
       debugPrint('✅ Preferences updated');
@@ -461,9 +485,11 @@ class ProfileService extends ChangeNotifier {
   Future<void> _saveProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final profileJson = jsonEncode(_userProfile.toJson());
-      await prefs.setString('user_profile_${_userProfile.id}', profileJson);
-      debugPrint('✅ Profile saved to SharedPreferences');
+      if (_userProfile != null) {
+        final profileJson = jsonEncode(_userProfile!.toJson());
+        await prefs.setString('user_profile_${_userProfile!.id}', profileJson);
+        debugPrint('✅ Profile saved to SharedPreferences');
+      }
     } catch (e) {
       debugPrint('⚠️ Error saving to SharedPreferences: $e');
       // Don't throw error for SharedPreferences failure
@@ -482,8 +508,9 @@ class ProfileService extends ChangeNotifier {
     ];
 
     for (final church in unvisitedChurches) {
-      if (!_userProfile.visitedChurches
-          .contains(church.toLowerCase().replaceAll(' ', '_'))) {
+      if (_userProfile == null ||
+          !_userProfile!.visitedChurches
+              .contains(church.toLowerCase().replaceAll(' ', '_'))) {
         return church;
       }
     }
@@ -494,24 +521,24 @@ class ProfileService extends ChangeNotifier {
   List<String> getVisitHistory() {
     // Return a list of visited churches with dates
     // For demo purposes, return the visited churches list
-    return _userProfile.visitedChurches;
+    return _userProfile?.visitedChurches ?? [];
   }
 
   Future<String> shareProgress() async {
-    final visited = _userProfile.visitedChurches.length;
+    final visited = _userProfile?.visitedChurches.length ?? 0;
     const total = 25; // Total heritage churches
-    final percentage = (visited / total * 100).round();
+    final percentage = total > 0 ? (visited / total * 100).round() : 0;
 
     return '''
 🏛️ My VISITA Bohol Heritage Journey 🏛️
 
-👤 ${_userProfile.displayName}
+👤 ${_userProfile?.displayName ?? "VISITA User"}
 🌟 Progress: $visited/$total churches visited ($percentage%)
-❤️ Favorites: ${_userProfile.favoriteChurches.length} churches
-📔 Journal entries: ${_userProfile.journalEntries.length}
-⛪ Parish: ${_userProfile.parish}
+❤️ Favorites: ${_userProfile?.favoriteChurches.length ?? 0} churches
+📔 Journal entries: ${_userProfile?.journalEntries.length ?? 0}
+⛪ Parish: ${_userProfile?.parish ?? "Not specified"}
 
-${_userProfile.motivationalMessage}
+${_userProfile?.motivationalMessage ?? "Let's explore Bohol's heritage together!"}
 
 Join me in exploring Bohol's beautiful heritage churches! 
 Download VISITA app and start your spiritual journey.
@@ -522,7 +549,7 @@ Download VISITA app and start your spiritual journey.
 
   /// Clear profile data (for sign out)
   void clearProfile() {
-    _userProfile = UserProfile.demo();
+    _userProfile = null;
     _isLoading = false;
     _errorMessage = null;
     notifyListeners();

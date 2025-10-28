@@ -11,6 +11,7 @@ import '../models/app_state.dart';
 import 'package:provider/provider.dart';
 import '../theme/header_palette.dart';
 import 'church_detail_screen.dart';
+import 'virtual_tour_screen.dart';
 
 class MapScreen extends StatefulWidget {
   final Church? selectedChurch; // Church to focus on when opening map
@@ -952,17 +953,21 @@ class _EnhancedChurchDetailSheet extends StatelessWidget {
                   ],
                 ),
 
-                if (c.virtualTourUrl != null) ...[
+                if (c.hasVirtualTour) ...[
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final uri = Uri.parse(c.virtualTourUrl!);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri,
-                              mode: LaunchMode.inAppBrowserView);
-                        }
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => VirtualTourScreen(
+                              tour: c.virtualTour!,
+                              churchName: c.name,
+                            ),
+                          ),
+                        );
                       },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFFE5E7EB)),

@@ -147,11 +147,10 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
     try {
       debugPrint('🔍 Fetching announcements for parish: $parishId');
 
-      // Query without orderBy first to avoid index requirement issues
+      // Query all announcements for parish, regardless of archived status
       final QuerySnapshot snapshot = await _firestore
           .collection(_announcementsCollection)
           .where('parishId', isEqualTo: parishId)
-          .where('isArchived', isEqualTo: false)
           .get();
 
       debugPrint(

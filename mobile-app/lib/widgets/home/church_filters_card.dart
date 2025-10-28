@@ -121,7 +121,8 @@ class _ChurchFiltersCardState extends State<ChurchFiltersCard> {
                       labelText: 'Location',
                       border: OutlineInputBorder(),
                     ),
-                    initialValue: widget.location.isEmpty ? null : widget.location,
+                    initialValue:
+                        widget.location.isEmpty ? null : widget.location,
                     items: const [
                       DropdownMenuItem(value: '', child: Text('All Locations')),
                       DropdownMenuItem(

@@ -15,6 +15,8 @@ class Announcement {
   final List<String> tags;
   final String? locationUrl; // Google Maps URL
 
+  final bool isArchived;
+
   Announcement({
     required this.id,
     required this.title,
@@ -31,6 +33,7 @@ class Announcement {
     this.isRecurring = false,
     this.tags = const [],
     this.locationUrl,
+    this.isArchived = false,
   });
 
   // Helper getters for status
@@ -71,6 +74,7 @@ class Announcement {
         isRecurring: j['isRecurring'] ?? false,
         tags: List<String>.from(j['tags'] ?? []),
         locationUrl: j['locationUrl'],
+        isArchived: j['isArchived'] == true,
       );
 
   Map<String, dynamic> toJson() => {
@@ -89,5 +93,6 @@ class Announcement {
         'isRecurring': isRecurring,
         'tags': tags,
         'locationUrl': locationUrl,
+        'isArchived': isArchived,
       };
 }

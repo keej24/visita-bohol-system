@@ -27,7 +27,7 @@ import type { ChurchStatus, ChurchClassification } from "@/types/church";
 
 const Churches = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ChurchStatus | 'heritage_review' | 'all'>('approved'); // Default to approved for chancery office
+  const [statusFilter, setStatusFilter] = useState<ChurchStatus | 'all'>('approved'); // Default to approved for chancery office
   const [classificationFilter, setClassificationFilter] = useState<ChurchClassification | 'all'>('all');
 
   const { userProfile } = useAuth();
@@ -141,7 +141,7 @@ const Churches = () => {
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ChurchStatus | 'heritage_review' | 'all')}>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ChurchStatus | 'all')}>
                 <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>

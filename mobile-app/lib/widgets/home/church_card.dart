@@ -3,8 +3,8 @@ import '../../models/church.dart';
 import '../../models/enums.dart';
 import '../../utils/design_system.dart';
 import '../../utils/animations.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../optimized_image_widget.dart';
+import '../../screens/virtual_tour_screen.dart';
 
 class ChurchCard extends StatefulWidget {
   final Church church;
@@ -184,8 +184,8 @@ class _ChurchCardState extends State<ChurchCard> {
                                             fontWeight: FontWeight.w600)),
                               ],
                               const Spacer(),
-                              if (widget.church.virtualTourUrl != null)
-                                _TourButton(url: widget.church.virtualTourUrl!),
+                              if (widget.church.hasVirtualTour)
+                                _TourButton(church: widget.church),
                               const SizedBox(width: 8),
                               const _ViewDetailsButton(),
                             ],
@@ -346,8 +346,8 @@ class _HeritageChip extends StatelessWidget {
 }
 
 class _TourButton extends StatelessWidget {
-  final String url;
-  const _TourButton({required this.url});
+  final Church church;
+  const _TourButton({required this.church});
 
   @override
   Widget build(BuildContext context) {
@@ -359,11 +359,16 @@ class _TourButton extends StatelessWidget {
         side: BorderSide(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      onPressed: () async {
-        final uri = Uri.parse(url);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-        }
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VirtualTourScreen(
+              tour: church.virtualTour!,
+              churchName: church.name,
+            ),
+          ),
+        );
       },
       icon:
           const Icon(Icons.threed_rotation, size: 14, color: Color(0xFF2563EB)),

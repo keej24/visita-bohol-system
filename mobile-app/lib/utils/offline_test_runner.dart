@@ -314,10 +314,10 @@ class OfflineTestRunner {
       debugPrint('🔍 Running quick health check...');
 
       // Check if services are responsive
-      final connectivityOk = true; // _connectivity.status is non-nullable
-      final syncOk = true; // _syncService.status is non-nullable
+      const connectivityOk = true; // _connectivity.status is non-nullable
+      const syncOk = true; // _syncService.status is non-nullable
       final cacheOk = _imageCache.isInitialized;
-      final repoOk = true; // _churchRepo.churches is non-nullable
+      const repoOk = true; // _churchRepo.churches is non-nullable
 
       final allOk = connectivityOk && syncOk && cacheOk && repoOk;
 

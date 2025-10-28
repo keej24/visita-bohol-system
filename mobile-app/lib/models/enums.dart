@@ -1,11 +1,19 @@
 /// Domain enums & helpers
-import 'package:flutter/foundation.dart';
+library;
 
 enum Diocese { tagbilaran, talibon }
 
 enum AnnouncementScope { diocese, parish }
 
-enum HeritageClassification { none, icp, nct, nonHeritage, parishChurch, pilgrimageSite, historicalShrine }
+enum HeritageClassification {
+  none,
+  icp,
+  nct,
+  nonHeritage,
+  parishChurch,
+  pilgrimageSite,
+  historicalShrine
+}
 
 enum ArchitecturalStyle {
   baroque,
@@ -92,19 +100,12 @@ extension HeritageClassificationX on HeritageClassification {
   }
 
   static HeritageClassification fromLabel(String? value) {
-    final normalized = value?.toLowerCase();
-    debugPrint('🔍 HeritageClassification.fromLabel: "$value" -> "$normalized"');
-
-    switch (normalized) {
+    switch (value?.toLowerCase()) {
       case 'icp':
       case 'important cultural property':
-      case 'important cultural properties':
-        debugPrint('✅ Matched ICP');
         return HeritageClassification.icp;
       case 'nct':
       case 'national cultural treasure':
-      case 'national cultural treasures':
-        debugPrint('✅ Matched NCT');
         return HeritageClassification.nct;
       case 'non_heritage':
       case 'non-heritage':
@@ -119,7 +120,6 @@ extension HeritageClassificationX on HeritageClassification {
       case 'historical shrine':
         return HeritageClassification.historicalShrine;
       default:
-        debugPrint('⚠️ No match, returning none');
         return HeritageClassification.none;
     }
   }

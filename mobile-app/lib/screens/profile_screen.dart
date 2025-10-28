@@ -41,7 +41,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           : const Color(0xFFF8FAFC),
       body: Consumer<ProfileService>(
         builder: (context, profileService, child) {
-          final profile = profileService.userProfile;
+          final profile = profileService.userProfile ??
+              UserProfile(
+                id: '',
+                displayName: 'VISITA User',
+                email: '',
+                profileImageUrl: null,
+                phoneNumber: null,
+                parish: 'Not specified',
+                affiliation: 'Public User',
+                accountType: 'public',
+                createdAt: DateTime.now(),
+                visitedChurches: [],
+                favoriteChurches: [],
+                forVisitChurches: [],
+                journalEntries: [],
+                preferences: UserPreferences.defaultPreferences(),
+              );
           final isDark = Theme.of(context).brightness == Brightness.dark;
 
           // Show loading indicator
@@ -362,13 +378,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         '🔍 For Visit Churches count: ${profile.forVisitChurches.length}');
 
     if (profile.forVisitChurches.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('Your wishlist is empty. Add churches you want to visit!'),
-          backgroundColor: Color(0xFFD97706),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Your wishlist is empty. Add churches you want to visit!'),
+            backgroundColor: Color(0xFFD97706),
+          ),
+        );
+      }
       return;
     }
 
@@ -399,7 +417,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             await profileService.toggleForVisitChurch(church.id);
 
             // Show confirmation
-            if (context.mounted) {
+            if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('${church.name} removed from wishlist'),
@@ -409,7 +427,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
               // Refresh the list by popping and showing again
               Navigator.pop(context);
-              _showForVisitChurches(profileService.userProfile);
+              if (profileService.userProfile != null) {
+                _showForVisitChurches(profileService.userProfile!);
+              }
             }
           },
         ),

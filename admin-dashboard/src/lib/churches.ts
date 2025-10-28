@@ -4,7 +4,7 @@ import type { Diocese, UserProfile } from '@/contexts/AuthContext';
 import { workflowStateMachine, type WorkflowContext } from '@/lib/workflow-state-machine';
 import { shouldRequireHeritageReview } from '@/lib/heritage-detection';
 
-export type ChurchStatus = 'pending' | 'approved' | 'heritage_review';
+export type ChurchStatus = 'pending' | 'approved' | 'rejected' | 'under_review' | 'needs_revision' | 'heritage_review';
 
 export interface Church {
   id: string;
