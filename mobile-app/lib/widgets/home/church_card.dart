@@ -158,36 +158,42 @@ class _ChurchCardState extends State<ChurchCard> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              const Icon(Icons.schedule_outlined,
-                                  size: 14, color: Color(0xFF6B7280)),
-                              const SizedBox(width: 4),
-                              Text('Founded ${widget.church.foundingYear}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                          color: const Color(0xFF6B7280),
-                                          fontWeight: FontWeight.w500)),
-                              if (widget.showDistance &&
-                                  widget.distance != null) ...[
-                                const SizedBox(width: 12),
-                                const Icon(Icons.location_on,
-                                    size: 14, color: Color(0xFF2563EB)),
-                                const SizedBox(width: 4),
-                                Text(
-                                    '${widget.distance!.toStringAsFixed(1)} km',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                            color: const Color(0xFF2563EB),
-                                            fontWeight: FontWeight.w600)),
-                              ],
-                              const Spacer(),
-                              if (widget.church.hasVirtualTour)
-                                _TourButton(church: widget.church),
-                              const SizedBox(width: 8),
-                              const _ViewDetailsButton(),
+                              Expanded(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.schedule_outlined,
+                                        size: 14, color: Color(0xFF6B7280)),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                          'Founded ${widget.church.foundingYear}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                  color: const Color(0xFF6B7280),
+                                                  fontWeight: FontWeight.w500),
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                    if (widget.showDistance &&
+                                        widget.distance != null) ...[
+                                      const SizedBox(width: 12),
+                                      const Icon(Icons.location_on,
+                                          size: 14, color: Color(0xFF2563EB)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                          '${widget.distance!.toStringAsFixed(1)} km',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                  color: const Color(0xFF2563EB),
+                                                  fontWeight: FontWeight.w600)),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ],

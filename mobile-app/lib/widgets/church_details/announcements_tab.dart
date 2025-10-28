@@ -40,10 +40,13 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
           );
         }
 
-        // Filter parish announcements for this church
+        // Filter parish announcements for this church (exclude archived and past)
         final parishAnnouncements = snapshot.data
                 ?.where((ann) =>
-                    ann.scope == 'parish' && ann.churchId == widget.churchId)
+                    ann.scope == 'parish' &&
+                    ann.churchId == widget.churchId &&
+                    ann.isArchived != true &&
+                    ann.status.toLowerCase() != 'past')
                 .toList() ??
             [];
 
