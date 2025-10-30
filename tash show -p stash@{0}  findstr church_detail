@@ -1,0 +1,3 @@
+stash@{0}: On main: Current work before restoring stash 1
+stash@{1}: On main: Current non-working state backup
+stash@{2}: WIP on main: b5a9d27 feat: Add shared directory structure and documentation

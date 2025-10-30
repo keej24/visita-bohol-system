@@ -94,7 +94,7 @@ service firebase.storage {
                             request.resource.size < 5 * 1024 * 1024; // 5MB limit
     }
     
-    // Feedback images uploaded by public users
+    // Feedback images uploaded by public users (old path structure)
     match /feedback/{feedbackId}/images/{imageId} {
       // Anyone can read feedback images (for approved feedback)
       allow read: if true;
@@ -104,6 +104,16 @@ service firebase.storage {
                       isValidImageType() &&
                       request.resource.size < 10 * 1024 * 1024 && // 10MB limit
                       firestore.get(/databases/(default)/documents/feedback/$(feedbackId)).data.userId == request.auth.uid;
+    }
+    
+    // Feedback photos (new path structure used by mobile app)
+    match /feedback_photos/{churchId}/{imageId} {
+      // Anyone can read feedback photos (public access)
+      allow read: if true;
+      
+      // Anyone can upload feedback photos (for public reviews)
+      allow write: if isValidImageType() &&
+                      request.resource.size < 10 * 1024 * 1024; // 10MB limit
     }
     
     // Announcement images

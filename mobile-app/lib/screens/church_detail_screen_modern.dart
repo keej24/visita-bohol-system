@@ -127,8 +127,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                   ),
                   label: const Text(
                     'For Visit',
-                    style: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                   onPressed: () async {
                     final profileService = context.read<ProfileService>();
@@ -1002,7 +1001,6 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
     }
   }
 }
-
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget _child;

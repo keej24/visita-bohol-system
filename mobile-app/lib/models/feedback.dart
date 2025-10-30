@@ -83,7 +83,7 @@ class FeedbackModel {
     } else if (j['images'] != null) {
       photosList = List<String>.from(j['images']);
     }
-    
+
     return FeedbackModel(
       id: j['id'] ?? '',
       userId: j['userId'] ?? j['pub_user_id'] ?? '',
@@ -92,14 +92,12 @@ class FeedbackModel {
       comment: j['comment'] ?? j['message'] ?? '',
       rating: j['rating'] ?? 0,
       photos: photosList,
-      createdAt:
-          j['createdAt'] != null ? DateTime.parse(j['createdAt']) : null,
+      createdAt: j['createdAt'] != null ? DateTime.parse(j['createdAt']) : null,
       category: FeedbackCategoryX.fromLabel(j['category']),
       hasResponse: j['hasResponse'] ?? false,
       response: j['response'],
-      responseDate: j['responseDate'] != null
-          ? DateTime.parse(j['responseDate'])
-          : null,
+      responseDate:
+          j['responseDate'] != null ? DateTime.parse(j['responseDate']) : null,
     );
   }
 
@@ -113,7 +111,8 @@ class FeedbackModel {
         'churchId': churchId,
         'comment': comment,
         'message': comment, // Admin dashboard compatibility
-        'subject': '${category.label} Review', // Add subject for admin dashboard
+        'subject':
+            '${category.label} Review', // Add subject for admin dashboard
         'rating': rating,
         'photos': photos,
         'images': photos, // Admin dashboard compatibility

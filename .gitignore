@@ -155,3 +155,61 @@ mobile-app/ios/GoogleService-Info.plist
 # 💾 Backup files
 *.backup
 *.backup.*
+*.patch
+
+# 📝 Temporary Development Documentation
+*_FIX.md
+*_FIXES.md
+*_DEBUG.md
+*_COMPLETE.md
+*_SUMMARY.md
+*_PROGRESS.md
+*_STATUS.md
+*_REPORT.md
+*_VERIFICATION.md
+*_IMPLEMENTATION.md
+*_IMPROVEMENTS.md
+*_COMPARISON.md
+*_GUIDE.md
+*_ANALYSIS.md
+CHURCH_DETAIL_*.md
+ERROR_*.md
+BUG_FIXES_*.md
+ISSUES_*.md
+DUPLICATE_*.md
+
+# 🗑️ Temporary/Artifact Files
+temp_*.txt
+temp-*.txt
+NUL
+nul
+*.tmp
+.history/
+
+# 🔧 Test Files (not in test/ directory)
+test-*.html
+test-*.js
+test-*.bat
+*-test.html
+chrome-run.log
+
+# 📦 CORS Configuration (keep only storage-cors.json)
+cors.json
+cors2.json
+cors3.json
+
+# 🛠️ Build Scripts (temporary)
+clear-ide-cache.bat
+fix-and-run.bat
+fix-and-run.ps1
+fix_ide_cache.bat
+test-build.bat
+
+# 📱 Android Gradle
+android/.gradle/
+android/captures/
+android/local.properties
+
+# 🎨 IDE History
+.history/
+*.iml

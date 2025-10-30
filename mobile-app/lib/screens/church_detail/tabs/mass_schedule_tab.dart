@@ -203,11 +203,13 @@ class MassScheduleTab extends StatelessWidget {
   Widget _buildGroupedMassSchedules() {
     // Debug: Log all mass schedules to see the actual data
     debugPrint('🕐 [MASS SCHEDULE] Church: ${church.name}');
-    debugPrint('🕐 [MASS SCHEDULE] Total schedules: ${church.massSchedules!.length}');
+    debugPrint(
+        '🕐 [MASS SCHEDULE] Total schedules: ${church.massSchedules!.length}');
     for (var schedule in church.massSchedules!) {
-      debugPrint('   - Day: ${schedule['day']}, Time: ${schedule['time']}, Language: "${schedule['language']}", isFbLive: ${schedule['isFbLive']}');
+      debugPrint(
+          '   - Day: ${schedule['day']}, Time: ${schedule['time']}, Language: "${schedule['language']}", isFbLive: ${schedule['isFbLive']}');
     }
-    
+
     // Group schedules by day
     final Map<String, List<Map<String, dynamic>>> groupedSchedules = {};
 
@@ -333,7 +335,9 @@ class MassScheduleTab extends StatelessWidget {
                                 color: Color(0xFF1F2937),
                               ),
                             ),
-                            if (language.isNotEmpty && language.toLowerCase() != 'filipino' || isFbLive)
+                            if (language.isNotEmpty &&
+                                    language.toLowerCase() != 'filipino' ||
+                                isFbLive)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Wrap(
@@ -341,7 +345,8 @@ class MassScheduleTab extends StatelessWidget {
                                   runSpacing: 4,
                                   children: [
                                     // Only show language badge for English masses
-                                    if (language.isNotEmpty && language.toLowerCase() != 'filipino')
+                                    if (language.isNotEmpty &&
+                                        language.toLowerCase() != 'filipino')
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 8,

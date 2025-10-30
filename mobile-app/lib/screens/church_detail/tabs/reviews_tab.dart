@@ -484,13 +484,13 @@ class _ReviewsTabState extends State<ReviewsTab> {
                   itemBuilder: (context, index) {
                     final imageUrl = review.photos[index];
                     debugPrint('🖼️ Loading review image $index: $imageUrl');
-                    
+
                     // Check if URL is valid
                     if (imageUrl.isEmpty) {
                       debugPrint('⚠️ Empty image URL at index $index');
                       return const SizedBox.shrink();
                     }
-                    
+
                     return GestureDetector(
                       onTap: () {
                         // Show full screen image
@@ -525,8 +525,10 @@ class _ReviewsTabState extends State<ReviewsTab> {
                                   top: 10,
                                   right: 10,
                                   child: IconButton(
-                                    icon: const Icon(Icons.close, color: Colors.white),
-                                    onPressed: () => Navigator.of(context).pop(),
+                                    icon: const Icon(Icons.close,
+                                        color: Colors.white),
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
                                   ),
                                 ),
                               ],
