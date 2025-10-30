@@ -104,19 +104,17 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
           Expanded(
             child: Consumer<AppState>(
               builder: (context, state, _) {
-                final forVisit = state.isForVisit(widget.church);
+                final isInVisitList = state.isForVisit(widget.church);
                 return OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         vertical: 12, horizontal: 16),
                     backgroundColor:
-                        forVisit ? const Color(0xFF2C5F2D) : Colors.white,
+                        isInVisitList ? const Color(0xFF2C5F2D) : Colors.white,
                     foregroundColor:
-                        forVisit ? Colors.white : const Color(0xFF1F2937),
+                        isInVisitList ? Colors.white : const Color(0xFF2C5F2D),
                     side: BorderSide(
-                      color: forVisit
-                          ? const Color(0xFF2C5F2D)
-                          : const Color(0xFFE5E7EB),
+                      color: const Color(0xFF2C5F2D),
                       width: 1.5,
                     ),
                     shape: RoundedRectangleBorder(
@@ -124,18 +122,19 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                     ),
                   ),
                   icon: Icon(
-                    forVisit ? Icons.bookmark : Icons.bookmark_outline,
+                    isInVisitList ? Icons.bookmark : Icons.bookmark_outline,
                     size: 20,
                   ),
-                  label: Text(
-                    forVisit ? 'For Visit' : 'Add to Visit',
-                    style: const TextStyle(
+                  label: const Text(
+                    'For Visit',
+                    style: TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                   onPressed: () async {
                     final profileService = context.read<ProfileService>();
 
-                    if (forVisit) {
+                    if (isInVisitList) {
+                      // Already in list - remove it
                       state.unmarkForVisit(widget.church);
                       await profileService
                           .toggleForVisitChurch(widget.church.id);
@@ -162,6 +161,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                         );
                       }
                     } else {
+                      // Not in list - add it
                       state.markForVisit(widget.church);
                       await profileService
                           .toggleForVisitChurch(widget.church.id);
@@ -759,36 +759,17 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.broken_image,
+                  Icons.account_balance,
                   size: 80,
-                  color: const Color(0xFFEF4444).withOpacity(0.7),
+                  color: const Color(0xFF2C5F2D).withValues(alpha: 0.5),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Failed to load image.\n$url',
-                  style: const TextStyle(
+                const Text(
+                  'Image not available',
+                  style: TextStyle(
                     color: Color(0xFF6B7280),
                     fontSize: 12,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Retry'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2C5F2D),
-                    foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () {
-                    // Force reload by rebuilding the widget
-                    setState(() {});
-                  },
                 ),
               ],
             ),
@@ -853,30 +834,17 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
 
   /// Open 360° tour viewer
   void _open360Tour(BuildContext context, Church church) {
-    if (church.virtualTour == null) {
-      debugPrint('❌ [360 TOUR] No virtual tour available for ${church.name}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('360° tour not available for this church'),
-          backgroundColor: Colors.red,
+    if (church.virtualTour != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VirtualTourScreen(
+            tour: church.virtualTour!,
+            churchName: church.name,
+          ),
         ),
       );
-      return;
     }
-
-    debugPrint('🎬 [360 TOUR] Opening tour for: ${church.name}');
-    debugPrint('   - Scenes: ${church.virtualTour!.scenes.length}');
-    debugPrint('   - Start scene: ${church.virtualTour!.startScene.title}');
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VirtualTourScreen(
-          tour: church.virtualTour!,
-          churchName: church.name,
-        ),
-      ),
-    );
   }
 
   Future<void> _handleMarkAsVisited(
@@ -1034,6 +1002,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
     }
   }
 }
+
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   final Widget _child;

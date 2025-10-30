@@ -75,23 +75,33 @@ class FeedbackModel {
     this.responseDate,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  factory FeedbackModel.fromJson(Map<String, dynamic> j) => FeedbackModel(
-        id: j['id'] ?? '',
-        userId: j['userId'] ?? j['pub_user_id'] ?? '',
-        userName: j['userName'] ?? j['pub_user_name'] ?? 'Anonymous',
-        churchId: j['churchId'] ?? j['church_id'] ?? '',
-        comment: j['comment'] ?? '',
-        rating: j['rating'] ?? 0,
-        photos: List<String>.from(j['photos'] ?? []),
-        createdAt:
-            j['createdAt'] != null ? DateTime.parse(j['createdAt']) : null,
-        category: FeedbackCategoryX.fromLabel(j['category']),
-        hasResponse: j['hasResponse'] ?? false,
-        response: j['response'],
-        responseDate: j['responseDate'] != null
-            ? DateTime.parse(j['responseDate'])
-            : null,
-      );
+  factory FeedbackModel.fromJson(Map<String, dynamic> j) {
+    // Try to get photos from multiple possible field names
+    List<String> photosList = [];
+    if (j['photos'] != null) {
+      photosList = List<String>.from(j['photos']);
+    } else if (j['images'] != null) {
+      photosList = List<String>.from(j['images']);
+    }
+    
+    return FeedbackModel(
+      id: j['id'] ?? '',
+      userId: j['userId'] ?? j['pub_user_id'] ?? '',
+      userName: j['userName'] ?? j['pub_user_name'] ?? 'Anonymous',
+      churchId: j['churchId'] ?? j['church_id'] ?? '',
+      comment: j['comment'] ?? j['message'] ?? '',
+      rating: j['rating'] ?? 0,
+      photos: photosList,
+      createdAt:
+          j['createdAt'] != null ? DateTime.parse(j['createdAt']) : null,
+      category: FeedbackCategoryX.fromLabel(j['category']),
+      hasResponse: j['hasResponse'] ?? false,
+      response: j['response'],
+      responseDate: j['responseDate'] != null
+          ? DateTime.parse(j['responseDate'])
+          : null,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
