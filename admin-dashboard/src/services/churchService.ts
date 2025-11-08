@@ -1,21 +1,81 @@
-// Firebase service for church management
+/**
+ * FILE PURPOSE: Church Service - Business Logic Layer for Church Management
+ *
+ * This service layer encapsulates all church-related business logic and database
+ * operations for the VISITA system. It acts as an intermediary between UI components
+ * and Firebase Firestore database.
+ *
+ * KEY RESPONSIBILITIES:
+ * - CRUD operations for church documents (Create, Read, Update, Delete)
+ * - Church submission and review workflow management
+ * - Data transformation between UI and database formats
+ * - Query building with filters (diocese, status, classification, etc.)
+ * - Real-time subscriptions for live data updates
+ * - Statistics and analytics aggregation
+ * - Visitor tracking and engagement metrics
+ *
+ * INTEGRATION POINTS:
+ * - Uses Firebase Firestore for database operations
+ * - Consumed by React components and pages
+ * - Works with ChurchProfileForm for submissions
+ * - Integrates with review workflows (Chancery, Museum)
+ * - Provides data to dashboards and reports
+ *
+ * TECHNICAL CONCEPTS:
+ * - Service Layer Pattern: Separates business logic from UI
+ * - Data Access Object (DAO): Abstracts database operations
+ * - Static Methods: No instance needed, just import and use
+ * - TypeScript Generics: Type-safe database operations
+ * - Promise-based API: All operations are asynchronous
+ * - Firestore Queries: Server-side filtering and sorting
+ * - Real-time Listeners: Subscribe to live data changes
+ *
+ * DATABASE SCHEMA:
+ * Collection: 'churches'
+ * Document Structure:
+ * {
+ *   name: string,
+ *   diocese: 'tagbilaran' | 'talibon',
+ *   status: 'pending' | 'approved' | 'rejected' | 'under_review' | 'needs_revision',
+ *   classification: string,
+ *   coordinates: { lat: number, lng: number },
+ *   massSchedules: array,
+ *   images: array,
+ *   virtualTour: object,
+ *   createdBy: string (user ID),
+ *   createdAt: timestamp,
+ *   updatedAt: timestamp,
+ *   ... and more fields
+ * }
+ *
+ * WHY IMPORTANT:
+ * - Centralized Logic: All church operations in one place
+ * - Consistent API: Uniform interface for all components
+ * - Error Handling: Centralized error management
+ * - Testability: Easy to mock for unit tests
+ * - Maintainability: Changes to database logic in one file
+ */
+
+// Firebase Firestore imports for database operations
 import {
-  collection,
-  doc,
-  addDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  getDoc,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  Timestamp,
-  increment
+  collection,     // Get reference to a collection
+  doc,           // Get reference to a specific document
+  addDoc,        // Add new document with auto-generated ID
+  setDoc,        // Set document with specific ID
+  updateDoc,     // Update existing document
+  deleteDoc,     // Delete document (not used, we use soft delete)
+  getDocs,       // Fetch multiple documents
+  getDoc,        // Fetch single document
+  query,         // Build complex queries
+  where,         // Filter query results
+  orderBy,       // Sort query results
+  onSnapshot,    // Subscribe to real-time updates
+  Timestamp,     // Firebase timestamp type
+  increment      // Atomic increment operation
 } from 'firebase/firestore';
+// Firebase database instance
 import { db } from '@/lib/firebase';
+// TypeScript type definitions
 import type {
   Church,
   ChurchFormData,
@@ -26,6 +86,7 @@ import type {
 } from '@/types/church';
 import type { Diocese } from '@/contexts/AuthContext';
 
+// Firestore collection name (consistent naming prevents typos)
 const CHURCHES_COLLECTION = 'churches';
 
 // Convert Firestore document to Church with proper typing

@@ -4,8 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,11 +38,6 @@ const AccountSettings = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
-  });
-
-  const [securitySettings, setSecuritySettings] = useState({
-    twoFactorEnabled: false,
-    loginAlerts: true
   });
 
   const handleProfileUpdate = async () => {
@@ -471,52 +464,6 @@ const AccountSettings = () => {
                   <Key className="w-4 h-4 mr-2" />
                   {isLoading ? 'Updating...' : 'Update Password'}
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Security Settings Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-                <CardDescription>
-                  Configure additional security options for your account
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-base font-medium">Two-Factor Authentication</div>
-                    <div className="text-sm text-muted-foreground">
-                      Add an extra layer of security to your account
-                    </div>
-                  </div>
-                  <Switch
-                    checked={securitySettings.twoFactorEnabled}
-                    onCheckedChange={(checked) => 
-                      setSecuritySettings(prev => ({ ...prev, twoFactorEnabled: checked }))
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-base font-medium">Login Alerts</div>
-                    <div className="text-sm text-muted-foreground">
-                      Get notified when someone logs into your account
-                    </div>
-                  </div>
-                  <Switch
-                    checked={securitySettings.loginAlerts}
-                    onCheckedChange={(checked) => 
-                      setSecuritySettings(prev => ({ ...prev, loginAlerts: checked }))
-                    }
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button disabled={isLoading}>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Security Settings
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>

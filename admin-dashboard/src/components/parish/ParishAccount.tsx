@@ -34,12 +34,10 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
 
   // Profile form state
   const [profileData, setProfileData] = useState({
-    firstName: userProfile?.name?.split(' ')[0] || '',
-    lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
+    parishName: userProfile?.parish || userProfile?.name || 'St. Mary\'s Parish',
     email: userProfile?.email || '',
     phone: '',
-    address: '',
-    parish: userProfile?.parish || 'St. Mary\'s Parish'
+    diocese: 'Diocese of Tagbilaran'
   });
 
   // Password form state
@@ -93,8 +91,8 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Account</h1>
-          <p className="text-gray-600 mt-1">Manage your personal information and account settings</p>
+          <h1 className="text-2xl font-bold text-gray-900">Parish Account</h1>
+          <p className="text-gray-600 mt-1">Manage parish information and account settings</p>
         </div>
         <Button variant="ghost" size="icon" onClick={onClose}>
           <X className="w-5 h-5" />
@@ -106,11 +104,11 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Personal Information
+              <Church className="w-5 h-5" />
+              Parish Account Information
             </CardTitle>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsEditing(!isEditing)}
             >
               <Edit className="w-4 h-4 mr-2" />
@@ -121,45 +119,35 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
         <CardContent className="space-y-6">
           {/* Profile Picture & Basic Info */}
           <div className="flex items-center gap-6">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
-              {profileData.firstName[0]}{profileData.lastName[0]}
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+              {profileData.parishName.substring(0, 2).toUpperCase()}
             </div>
             <div>
               <h3 className="text-lg font-semibold">
-                {profileData.firstName} {profileData.lastName}
+                {profileData.parishName}
               </h3>
-              <p className="text-gray-600">Parish Secretary</p>
+              <p className="text-gray-600">Parish Account</p>
               <div className="flex items-center gap-1 mt-1">
                 <Church className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-600">{profileData.parish}</span>
+                <span className="text-sm text-gray-600">{profileData.diocese}</span>
               </div>
             </div>
           </div>
 
           {/* Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="firstName">First Name</Label>
+            <div className="md:col-span-2">
+              <Label htmlFor="parishName">Parish Name</Label>
               <Input
-                id="firstName"
-                value={profileData.firstName}
-                onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
-                disabled={!isEditing}
-                className="mt-1"
+                id="parishName"
+                value={profileData.parishName}
+                disabled
+                className="mt-1 bg-gray-50"
               />
+              <p className="text-xs text-gray-500 mt-1">Contact admin to change parish name</p>
             </div>
             <div>
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                value={profileData.lastName}
-                onChange={(e) => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
-                disabled={!isEditing}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Parish Email Address</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <Input
@@ -169,11 +157,12 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                   onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
                   disabled={!isEditing}
                   className="mt-1 pl-10"
+                  placeholder="parish@example.com"
                 />
               </div>
             </div>
             <div>
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">Parish Contact Number</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <Input
@@ -189,29 +178,14 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="address">Address</Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-              <Input
-                id="address"
-                value={profileData.address}
-                onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-                disabled={!isEditing}
-                className="mt-1 pl-10"
-                placeholder="Complete address"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="parish">Parish Assignment</Label>
+            <Label htmlFor="diocese">Diocese</Label>
             <Input
-              id="parish"
-              value={profileData.parish}
+              id="diocese"
+              value={profileData.diocese}
               disabled
               className="mt-1 bg-gray-50"
             />
-            <p className="text-xs text-gray-500 mt-1">Contact admin to change parish assignment</p>
+            <p className="text-xs text-gray-500 mt-1">Contact admin to change diocese assignment</p>
           </div>
 
           {isEditing && (

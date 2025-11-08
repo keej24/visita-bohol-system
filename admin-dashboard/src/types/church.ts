@@ -17,7 +17,10 @@ export interface ContactInfo {
 export interface MassSchedule {
   day: string;
   time: string;
+  endTime?: string;
   type?: string; // Sunday Mass, Daily Mass, etc.
+  language?: string; // Language of the mass (Filipino, English, Cebuano, etc.)
+  isFbLive?: boolean; // Whether the mass is live-streamed on Facebook
 }
 
 export interface Church {

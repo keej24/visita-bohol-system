@@ -128,14 +128,13 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     status: initialData?.status || 'draft'
   });
 
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [scheduleCategory, setScheduleCategory] = useState<'Sunday' | 'Saturday' | 'Daily'>('Sunday');
   const [pendingSchedules, setPendingSchedules] = useState<MassSchedule[]>([]);
   const [scheduleForm, setScheduleForm] = useState({
     time: '',
     endTime: '',
-    language: 'Filipino',
-    isFbLive: false
+    isEnglish: false,
+    isFbLive: false,
+    selectedDays: [] as string[]
   });
 
   // Form validation and completion tracking
@@ -241,29 +240,31 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       return;
     }
 
-    // Determine days based on category
-    const daysForCategory = scheduleCategory === 'Sunday'
-      ? ['Sunday']
-      : scheduleCategory === 'Saturday'
-      ? ['Saturday']
-      : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    if (!scheduleForm.selectedDays || scheduleForm.selectedDays.length === 0) {
+      toast({
+        title: "No Days Selected",
+        description: "Please select at least one day for this mass schedule.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const newSchedules = daysForCategory.map(day => ({
+    const newSchedules = scheduleForm.selectedDays.map(day => ({
       day,
       time: scheduleForm.time,
       endTime: scheduleForm.endTime,
-      language: scheduleForm.language,
+      language: scheduleForm.isEnglish ? 'English' : 'Filipino',
       isFbLive: scheduleForm.isFbLive
     }));
 
     setPendingSchedules(prev => [...prev, ...newSchedules]);
 
-    // Reset only time fields, keep language and FB Live
-    setScheduleForm(prev => ({ ...prev, time: '', endTime: '' }));
+    // Reset time fields and selected days, keep English and FB Live checkboxes
+    setScheduleForm(prev => ({ ...prev, time: '', endTime: '', selectedDays: [] }));
 
     toast({
       title: "Added to List",
-      description: `${scheduleCategory} mass schedule added to pending list. Add more or click "Save All Schedules".`,
+      description: `Mass schedule added to pending list for ${scheduleForm.selectedDays.length} day(s). Add more or click "Save All Schedules".`,
     });
   };
 
@@ -284,7 +285,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     }));
 
     setPendingSchedules([]);
-    setScheduleForm({ time: '', endTime: '', language: 'Filipino', isFbLive: false });
+    setScheduleForm({ time: '', endTime: '', isEnglish: false, isFbLive: false });
 
     toast({
       title: "Success",
@@ -340,8 +341,15 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     });
   };
 
-  // Helper function to convert time to sortable format
+  // Helper function to convert time to sortable format (handles both 24-hour and 12-hour formats)
   const timeToMinutes = (timeStr: string): number => {
+    // Handle 24-hour format (HH:MM)
+    if (!timeStr.includes(' ')) {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 60 + minutes;
+    }
+
+    // Handle 12-hour format (HH:MM AM/PM)
     const [time, period] = timeStr.split(' ');
     const [hours, minutes] = time.split(':').map(Number);
     let totalMinutes = hours * 60 + minutes;
@@ -353,6 +361,26 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     }
 
     return totalMinutes;
+  };
+
+  // Sort schedules by time
+  const sortByTime = (schedules: typeof formData.massSchedules) => {
+    return schedules.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  };
+
+  // Format time from 24-hour to 12-hour format with AM/PM
+  const formatTime = (time: string) => {
+    // Convert 24-hour format to 12-hour format with AM/PM
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+
+    if (hours === 12 && minutes === 0) {
+      return '12:00 NN';
+    }
+
+    return `${displayHours}:${displayMinutes} ${period}`;
   };
 
   const renderGroupedMassSchedules = () => {
@@ -1092,7 +1120,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     {/* Pending Schedules Preview */}
                     {pendingSchedules.length > 0 && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-4">
                           <h4 className="font-medium text-gray-900">Pending Schedules ({pendingSchedules.length})</h4>
                           <Button
                             onClick={saveAllPendingSchedules}
@@ -1103,33 +1131,173 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             Save All Schedules
                           </Button>
                         </div>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                          {pendingSchedules.map((schedule, index) => (
-                            <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-yellow-300">
-                              <div className="flex items-center gap-3">
-                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                                  {schedule.day}
-                                </Badge>
-                                <span className="text-sm font-medium text-gray-800">
-                                  {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
-                                </span>
-                                {schedule.language && (
-                                  <span className="text-xs text-gray-600">({schedule.language})</span>
+                        <div className="space-y-4 max-h-80 overflow-y-auto">
+                          {/* Group pending schedules */}
+                          {(() => {
+                            const grouped = {
+                              sunday: pendingSchedules.filter(s => s.day === 'Sunday'),
+                              saturday: pendingSchedules.filter(s => s.day === 'Saturday'),
+                              weekdays: pendingSchedules.filter(s => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(s.day))
+                            };
+
+                            // Get unique weekday schedules
+                            const uniqueWeekdays = grouped.weekdays.reduce((unique, schedule) => {
+                              const key = `${schedule.time}-${schedule.endTime}-${schedule.language}-${schedule.isFbLive}`;
+                              if (!unique.find(s => `${s.time}-${s.endTime}-${s.language}-${s.isFbLive}` === key)) {
+                                unique.push(schedule);
+                              }
+                              return unique;
+                            }, [] as typeof pendingSchedules);
+
+                            return (
+                              <>
+                                {/* Sunday */}
+                                {grouped.sunday.length > 0 && (
+                                  <div>
+                                    <h5 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                                      ☀️ Sunday ({grouped.sunday.length})
+                                    </h5>
+                                    <div className="space-y-1 pl-4">
+                                      {sortByTime(grouped.sunday).map((schedule, index) => (
+                                        <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-yellow-300">
+                                          <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-gray-800">
+                                              {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
+                                            </span>
+                                            {schedule.language && schedule.language !== 'Filipino' && (
+                                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
+                                                🌐 {schedule.language}
+                                              </Badge>
+                                            )}
+                                            {schedule.isFbLive && (
+                                              <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">📺 FB Live</Badge>
+                                            )}
+                                          </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removePendingSchedule(pendingSchedules.indexOf(schedule))}
+                                            className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
                                 )}
-                                {schedule.isFbLive && (
-                                  <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">FB Live</Badge>
+
+                                {/* Weekdays (Mon-Fri) */}
+                                {uniqueWeekdays.length > 0 && (
+                                  <div>
+                                    <h5 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                                      📅 Weekdays ({grouped.weekdays.length} schedules)
+                                    </h5>
+                                    <div className="space-y-1 pl-4">
+                                      {sortByTime(uniqueWeekdays).map((schedule, index) => {
+                                        // Find all days that have this exact schedule
+                                        const daysWithThisSchedule = grouped.weekdays
+                                          .filter(s =>
+                                            s.time === schedule.time &&
+                                            s.endTime === schedule.endTime &&
+                                            s.language === schedule.language &&
+                                            s.isFbLive === schedule.isFbLive
+                                          )
+                                          .map(s => s.day);
+
+                                        const dayAbbreviations = daysWithThisSchedule.map(day =>
+                                          day === 'Monday' ? 'Mon' :
+                                          day === 'Tuesday' ? 'Tue' :
+                                          day === 'Wednesday' ? 'Wed' :
+                                          day === 'Thursday' ? 'Thu' :
+                                          day === 'Friday' ? 'Fri' : day
+                                        ).join(', ');
+
+                                        return (
+                                          <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-yellow-300">
+                                            <div className="flex items-center gap-3">
+                                              <span className="text-sm font-medium text-gray-800">
+                                                {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
+                                              </span>
+                                              <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                                                {dayAbbreviations}
+                                              </span>
+                                              {schedule.language && schedule.language !== 'Filipino' && (
+                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
+                                                  🌐 {schedule.language}
+                                                </Badge>
+                                              )}
+                                              {schedule.isFbLive && (
+                                                <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">📺 FB Live</Badge>
+                                              )}
+                                            </div>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => {
+                                                // Remove all matching weekday schedules
+                                                const matchingIndices = pendingSchedules
+                                                  .map((s, i) => ({ schedule: s, index: i }))
+                                                  .filter(({ schedule: s }) =>
+                                                    s.time === schedule.time &&
+                                                    s.endTime === schedule.endTime &&
+                                                    s.language === schedule.language &&
+                                                    s.isFbLive === schedule.isFbLive &&
+                                                    ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(s.day)
+                                                  )
+                                                  .map(({ index }) => index);
+
+                                                setPendingSchedules(prev => prev.filter((_, i) => !matchingIndices.includes(i)));
+                                              }}
+                                              className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
                                 )}
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removePendingSchedule(index)}
-                                className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
+
+                                {/* Saturday */}
+                                {grouped.saturday.length > 0 && (
+                                  <div>
+                                    <h5 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                                      🌙 Saturday ({grouped.saturday.length})
+                                    </h5>
+                                    <div className="space-y-1 pl-4">
+                                      {sortByTime(grouped.saturday).map((schedule, index) => (
+                                        <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-yellow-300">
+                                          <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-gray-800">
+                                              {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
+                                            </span>
+                                            {schedule.language && schedule.language !== 'Filipino' && (
+                                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
+                                                🌐 {schedule.language}
+                                              </Badge>
+                                            )}
+                                            {schedule.isFbLive && (
+                                              <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">📺 FB Live</Badge>
+                                            )}
+                                          </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removePendingSchedule(pendingSchedules.indexOf(schedule))}
+                                            className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}
@@ -1138,33 +1306,43 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     <div className="bg-blue-50 rounded-lg p-6">
                       <h4 className="font-medium text-gray-900 mb-6">Add Mass Schedule</h4>
 
-                      {/* Category Selection */}
+                      {/* Day Selection */}
                       <div className="mb-6">
                         <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                          Select Category
+                          Select Days (check all that apply)
                         </Label>
-                        <div className="grid grid-cols-3 gap-3">
-                          {(['Sunday', 'Daily', 'Saturday'] as const).map((category) => (
-                            <button
-                              key={category}
-                              type="button"
-                              onClick={() => setScheduleCategory(category)}
-                              className={`p-4 rounded-lg border-2 transition-all ${
-                                scheduleCategory === category
+                        <div className="flex flex-wrap gap-3">
+                          {[
+                            { day: 'Sunday', emoji: '☀️' },
+                            { day: 'Monday', emoji: '📅' },
+                            { day: 'Tuesday', emoji: '📅' },
+                            { day: 'Wednesday', emoji: '📅' },
+                            { day: 'Thursday', emoji: '📅' },
+                            { day: 'Friday', emoji: '📅' },
+                            { day: 'Saturday', emoji: '🌙' }
+                          ].map(({ day, emoji }) => (
+                            <label
+                              key={day}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 cursor-pointer transition-all ${
+                                (scheduleForm.selectedDays || []).includes(day)
                                   ? 'border-blue-600 bg-blue-100 text-blue-900'
                                   : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
                               }`}
                             >
-                              <div className="text-center">
-                                <div className="text-2xl mb-1">
-                                  {category === 'Sunday' ? '☀️' : category === 'Daily' ? '📅' : '🌙'}
-                                </div>
-                                <div className="font-semibold">{category}</div>
-                                <div className="text-xs mt-1 text-gray-600">
-                                  {category === 'Daily' ? 'Mon-Fri' : category}
-                                </div>
-                              </div>
-                            </button>
+                              <Checkbox
+                                checked={(scheduleForm.selectedDays || []).includes(day)}
+                                onCheckedChange={(checked) => {
+                                  setScheduleForm(prev => ({
+                                    ...prev,
+                                    selectedDays: checked
+                                      ? [...(prev.selectedDays || []), day]
+                                      : (prev.selectedDays || []).filter(d => d !== day)
+                                  }));
+                                }}
+                              />
+                              <span className="text-lg">{emoji}</span>
+                              <span className="font-medium">{day}</span>
+                            </label>
                           ))}
                         </div>
                       </div>
@@ -1177,7 +1355,10 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             type="time"
                             value={scheduleForm.time}
                             onChange={(e) => setScheduleForm(prev => ({ ...prev, time: e.target.value }))}
-                            className="h-10"
+                            className="h-10 cursor-pointer"
+                            step="300"
+                            title="Click to select time"
+                            placeholder="--:--"
                           />
                         </div>
 
@@ -1187,45 +1368,42 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             type="time"
                             value={scheduleForm.endTime}
                             onChange={(e) => setScheduleForm(prev => ({ ...prev, endTime: e.target.value }))}
-                            className="h-10"
+                            className="h-10 cursor-pointer"
+                            step="300"
+                            title="Click to select time"
+                            placeholder="--:--"
                           />
                         </div>
 
                         <div>
-                          <Label className="text-sm font-medium text-gray-700 mb-2 block">Language</Label>
-                          <Select
-                            value={scheduleForm.language}
-                            onValueChange={(value) => setScheduleForm(prev => ({ ...prev, language: value }))}
-                          >
-                            <SelectTrigger className="h-10">
-                              <SelectValue placeholder="Language" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Filipino">Filipino</SelectItem>
-                              <SelectItem value="English">English</SelectItem>
-                              <SelectItem value="Cebuano">Cebuano</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700 mb-2 block">Options</Label>
-                          <div className="flex items-center space-x-2 h-10">
-                            <Checkbox
-                              id="schedule-fb-live"
-                              checked={scheduleForm.isFbLive}
-                              onCheckedChange={(checked) => setScheduleForm(prev => ({ ...prev, isFbLive: !!checked }))}
-                            />
-                            <Label htmlFor="schedule-fb-live" className="text-sm">FB Live</Label>
+                          <Label className="text-sm font-medium text-gray-700 mb-2 block">Language & Options</Label>
+                          <div className="flex items-center gap-4 h-10">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="schedule-english"
+                                checked={scheduleForm.isEnglish}
+                                onCheckedChange={(checked) => setScheduleForm(prev => ({ ...prev, isEnglish: !!checked }))}
+                              />
+                              <Label htmlFor="schedule-english" className="text-sm cursor-pointer">English</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="schedule-fb-live"
+                                checked={scheduleForm.isFbLive}
+                                onCheckedChange={(checked) => setScheduleForm(prev => ({ ...prev, isFbLive: !!checked }))}
+                              />
+                              <Label htmlFor="schedule-fb-live" className="text-sm cursor-pointer">FB Live</Label>
+                            </div>
                           </div>
+                          <p className="text-xs text-gray-500 mt-1">Default: Filipino</p>
                         </div>
 
-                        <div>
+                        <div className="md:col-span-2">
                           <Label className="text-sm font-medium text-gray-700 mb-2 block">&nbsp;</Label>
                           <Button
                             onClick={addToPendingSchedules}
                             className="flex items-center gap-2 h-10 w-full"
-                            disabled={!scheduleForm.time || !scheduleForm.endTime}
+                            disabled={!scheduleForm.time || !scheduleForm.endTime || (scheduleForm.selectedDays || []).length === 0}
                           >
                             <Plus className="w-4 h-4" />
                             Add to List

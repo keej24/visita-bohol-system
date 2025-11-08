@@ -1,9 +1,67 @@
-import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+/**
+ * FILE PURPOSE: Church Data Model
+ *
+ * This file defines the Church class, which represents a church entity in the
+ * VISITA mobile application. It serves as the core data structure for all
+ * church-related information displayed to users.
+ *
+ * KEY RESPONSIBILITIES:
+ * - Define church data structure with all properties
+ * - Provide JSON serialization (toJson/fromJson)
+ * - Calculate distance from user's location
+ * - Parse complex nested data (mass schedules, virtual tours, images)
+ * - Handle data format differences between admin and mobile
+ * - Provide helper methods for common operations
+ *
+ * INTEGRATION POINTS:
+ * - Used by Firestore repository to deserialize database docs
+ * - Displayed in ChurchCard widgets throughout the app
+ * - Powers church detail screen with full information
+ * - Enables map markers with coordinates
+ * - Drives filtering and search functionality
+ *
+ * TECHNICAL CONCEPTS:
+ * - Data Model: Plain Old Dart Object (PODO) representing business entity
+ * - Factory Constructor: fromJson creates Church from JSON
+ * - Computed Properties: Derive values from existing data (hasVirtualTour, etc.)
+ * - Haversine Formula: Geographic distance calculation
+ * - Enum Parsing: Convert string values to type-safe enums
+ * - Null Safety: Dart's null-safe type system (? and ?? operators)
+ *
+ * DATA SOURCES:
+ * - Primary: Firebase Firestore 'churches' collection
+ * - Created by: Admin dashboard parish secretaries
+ * - Reviewed by: Chancery Office and Museum Researchers
+ * - Consumed by: Mobile app public users
+ *
+ * WHY IMPORTANT:
+ * - Single source of truth for church data structure
+ * - Type safety prevents runtime errors
+ * - Consistent data handling across app
+ * - Easy to extend with new fields
+ * - Supports both online and offline modes
+ */
+
+import 'dart:math' as math;  // Math library for distance calculations
+import 'package:flutter/foundation.dart';  // Flutter utilities (debugPrint)
+// Enum definitions for architectural styles, heritage classifications
 import 'enums.dart';
+// Church status helper functions
 import 'church_status.dart';
+// Virtual tour data model
 import 'virtual_tour.dart';
 
+/**
+ * Church Class - Core Data Model
+ *
+ * Represents a church with complete information including:
+ * - Basic info (name, location, description)
+ * - Historical data (founding year, heritage status)
+ * - Operational info (mass schedules, assigned priest)
+ * - Media (images, documents, virtual tours)
+ * - Geolocation (coordinates for mapping)
+ * - Administrative (status, diocese, approval workflow)
+ */
 class Church {
   final String id;
   final String name;
@@ -80,6 +138,31 @@ class Church {
     this.category,
   });
 
+  /**
+   * =============================================================================
+   * FACTORY CONSTRUCTOR - fromJson
+   * =============================================================================
+   *
+   * Creates a Church object from JSON data (typically from Firestore).
+   *
+   * WHY FACTORY CONSTRUCTOR:
+   * - Can return existing instance (caching)
+   * - Can perform validation before construction
+   * - Can call named constructors conditionally
+   *
+   * DATA PARSING CHALLENGES:
+   * - Admin dashboard and mobile use slightly different field names
+   * - Need to handle both 'location' and 'municipality' fields
+   * - Images can be strings or objects with 'url' property
+   * - Coordinates can be at root or nested in 'coordinates' object
+   * - Diocese names need format conversion (lowercase vs full name)
+   *
+   * DEFENSIVE PROGRAMMING:
+   * - Uses null coalescing (??) to provide fallback values
+   * - Validates data types before casting
+   * - Logs parsing errors for debugging
+   * - Handles missing or malformed data gracefully
+   */
   factory Church.fromJson(Map<String, dynamic> j) => Church(
         id: j['id'] ?? '',
         name: j['name'] ?? '',
@@ -270,11 +353,36 @@ class Church {
         'category': category,
       };
 
-  // Calculate distance from a given location
+  /**
+   * =============================================================================
+   * DISTANCE CALCULATION METHOD
+   * =============================================================================
+   *
+   * Calculates distance between this church and a given location in kilometers.
+   *
+   * ALGORITHM: Haversine Formula
+   * - Standard algorithm for calculating great-circle distance
+   * - Accounts for Earth's curvature (not just straight line)
+   * - Returns distance in kilometers
+   *
+   * USAGE:
+   * - "Churches near me" feature
+   * - Sort churches by distance
+   * - Show "X km away" on church cards
+   *
+   * PARAMETERS:
+   * - lat: User's current latitude
+   * - lng: User's current longitude
+   *
+   * RETURNS:
+   * - double: Distance in kilometers
+   * - null: If church has no coordinates
+   */
   double? distanceFrom(double lat, double lng) {
     if (latitude == null || longitude == null) return null;
 
     // Using Haversine formula for distance calculation
+    // Earth radius in kilometers (mean radius)
     const double earthRadius = 6371; // km
 
     final double dLat = _toRadians(latitude! - lat);
@@ -398,22 +506,32 @@ class Church {
   static List<Map<String, String>>? _parseMassSchedules(dynamic schedulesData) {
     if (schedulesData == null) return null;
 
+    debugPrint('🔍 [PARSE MASS] Raw schedulesData type: ${schedulesData.runtimeType}');
+    debugPrint('🔍 [PARSE MASS] Raw schedulesData: $schedulesData');
+
     if (schedulesData is List) {
       final List<Map<String, String>> result = [];
       for (var item in schedulesData) {
+        debugPrint('🔍 [PARSE MASS] Processing item: $item');
         if (item is Map) {
           final parsed = <String, String>{};
           item.forEach((key, value) {
+            debugPrint('   - Field: $key = $value (type: ${value.runtimeType})');
             if (key == 'isFbLive') {
               // Accept both bool and string
               if (value is bool) {
                 parsed['isFbLive'] = value ? 'true' : 'false';
+                debugPrint('   ✓ Parsed isFbLive (bool): ${parsed['isFbLive']}');
               } else if (value is String) {
                 parsed['isFbLive'] =
                     (value.toLowerCase() == 'true') ? 'true' : 'false';
+                debugPrint('   ✓ Parsed isFbLive (string): ${parsed['isFbLive']}');
+              } else {
+                debugPrint('   ⚠️ isFbLive has unexpected type: ${value.runtimeType}');
               }
             } else if (key == 'language') {
               parsed['language'] = value?.toString() ?? '';
+              debugPrint('   ✓ Parsed language: "${parsed['language']}"');
             } else {
               parsed[key.toString()] = value?.toString() ?? '';
             }

@@ -62,7 +62,8 @@
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/screens/church_detail/tabs/history_tab.dart lib/models/church.dart --no-fatal-infos)",
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/models/church.dart lib/models/enums.dart --no-fatal-infos)",
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze --no-fatal-infos)",
-      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/widgets/home/church_card.dart --no-fatal-infos)"
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/widgets/home/church_card.dart --no-fatal-infos)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,24 +1,118 @@
-// Authentication context for role-based access control
+/**
+ * FILE PURPOSE: Authentication Context and Role-Based Access Control
+ *
+ * This file implements the authentication system for the VISITA admin dashboard,
+ * managing user sessions and role-based permissions for different user types.
+ *
+ * KEY RESPONSIBILITIES:
+ * - Manage user authentication state (logged in/out)
+ * - Load and cache user profile data from Firestore
+ * - Provide role-based access control functions
+ * - Handle login/logout operations
+ * - Manage diocese and parish-level access permissions
+ *
+ * INTEGRATION POINTS:
+ * - Uses Firebase Authentication for login sessions
+ * - Reads user profiles from Firestore 'users' collection
+ * - Provides context to entire app via React Context API
+ * - Works with preconfigured accounts for Chancery/Museum users
+ *
+ * TECHNICAL CONCEPTS:
+ * - React Context API: Provides global state without prop drilling
+ * - Context Provider Pattern: Wraps app to give all components access to auth
+ * - Firebase Authentication: Manages user sessions and tokens
+ * - Role-Based Access Control (RBAC): Different permissions per user role
+ * - TypeScript Interfaces: Strong typing for user data and roles
+ *
+ * USER ROLES IN VISITA:
+ * 1. chancery_office: Diocese administrators (Tagbilaran or Talibon)
+ *    - Full control over their diocese
+ *    - Can create parish accounts
+ *    - Review and approve submissions
+ *
+ * 2. museum_researcher: National Museum researchers
+ *    - Review heritage churches (ICP/NCT)
+ *    - Upload heritage declarations
+ *    - Cross-diocese read access
+ *
+ * 3. parish_secretary: Parish staff
+ *    - Manage their own church profile
+ *    - Create announcements
+ *    - Limited to their parish only
+ *
+ * WHY IMPORTANT:
+ * - Security: Prevents unauthorized access to sensitive operations
+ * - Data Integrity: Ensures users only modify their own data
+ * - Workflow Management: Routes submissions to correct reviewers
+ * - Audit Trail: Tracks who made what changes
+ */
+
+// React Context API for global authentication state
 import { createContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getKnownAccountProfile, isPreconfiguredAccount } from '@/lib/auth-utils';
 
+/**
+ * Type Definitions for User Roles and Profile
+ *
+ * These TypeScript types ensure type safety throughout the authentication system.
+ */
+
+// Three distinct user roles in the VISITA system
 export type UserRole = 'chancery_office' | 'museum_researcher' | 'parish_secretary';
+
+// Two dioceses in Bohol province
 export type Diocese = 'tagbilaran' | 'talibon';
 
+/**
+ * User Profile Interface
+ *
+ * Represents the complete user profile stored in Firestore.
+ * This is the authoritative source of user information and permissions.
+ *
+ * Fields explained:
+ * - uid: Firebase Authentication user ID (unique identifier)
+ * - email: User's email address (used for login)
+ * - role: Determines what actions user can perform
+ * - name: Full name for display purposes
+ * - diocese: Which diocese the user belongs to (access control)
+ * - parish: Specific parish (only for parish_secretary role)
+ * - createdAt: Account creation timestamp (audit trail)
+ * - lastLoginAt: Last successful login (security monitoring)
+ */
 export interface UserProfile {
   uid: string;
   email: string;
   role: UserRole;
   name: string;
   diocese: Diocese;
-  parish?: string;
+  parish?: string;  // Optional: only parish_secretary has this
   createdAt: Date;
   lastLoginAt: Date;
 }
 
+/**
+ * Authentication Context Interface
+ *
+ * Defines all authentication-related data and functions available to components.
+ * Components access these via the useAuth() hook.
+ *
+ * Properties:
+ * - user: Firebase auth user object (null if logged out)
+ * - userProfile: Full profile from Firestore (null if no profile found)
+ * - loading: True while checking auth state or loading profile
+ *
+ * Methods:
+ * - login: Authenticate user with email/password
+ * - logout: Sign out and clear session
+ * - hasRole: Check if user has specific role
+ * - hasAnyRole: Check if user has any role from a list
+ * - hasAccess: Verify permission for specific diocese/parish
+ * - isChanceryAdmin: Quick check if user is chancery office
+ * - isDioceseAdmin: Check if user is admin of specific diocese
+ */
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
@@ -42,9 +136,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * =============================================================================
+   * AUTHENTICATION STATE LISTENER
+   * =============================================================================
+   *
+   * This useEffect sets up a listener for Firebase auth state changes.
+   *
+   * WHY IMPORTANT:
+   * - Automatically detects login/logout
+   * - Loads user profile when user logs in
+   * - Handles page refreshes (maintains session)
+   * - Cleans up properly on component unmount
+   *
+   * HOW IT WORKS:
+   * 1. Firebase triggers callback when auth state changes
+   * 2. If user logged in: fetch profile from Firestore
+   * 3. If user logged out: clear profile state
+   * 4. Implements retry logic for network errors
+   * 5. Uses mounted flag to prevent state updates after unmount
+   *
+   * TECHNICAL CONCEPTS:
+   * - Firebase Auth Persistence: Maintains session across page refreshes
+   * - Async/Await: Handle asynchronous Firestore queries
+   * - Error Handling: Retry failed requests with exponential backoff
+   * - Memory Leak Prevention: Cleanup function prevents updates to unmounted components
+   */
   useEffect(() => {
-    let mounted = true;
+    let mounted = true;  // Track if component is still mounted
 
+    /**
+     * Fetch User Profile from Firestore
+     *
+     * Retrieves full user profile data and handles edge cases:
+     * - Profile exists: Load and set state
+     * - Profile missing but known account: Create profile automatically
+     * - Network error: Retry with exponential backoff
+     * - Unknown account: Clear profile state
+     */
     const fetchUserProfile = async (user: User, retryCount = 0): Promise<void> => {
       if (!mounted) return;
 
@@ -144,14 +273,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return userProfile ? roles.includes(userProfile.role) : false;
   };
 
+  /**
+   * ACCESS CONTROL FUNCTION
+   *
+   * Determines if current user has permission to access specific resources.
+   *
+   * PERMISSION RULES:
+   *
+   * Chancery Office:
+   * - Can only access their own diocese
+   * - Diocese of Tagbilaran cannot modify Talibon churches
+   * - Full admin rights within their diocese
+   *
+   * Parish Secretary:
+   * - Can only access their assigned parish
+   * - Cannot view or modify other parishes
+   * - Limited to their diocese
+   *
+   * Museum Researcher:
+   * - Read access across all dioceses
+   * - Can review any heritage church
+   * - Special permissions for heritage validation
+   *
+   * USAGE EXAMPLES:
+   * - hasAccess('tagbilaran') - Can user access Tagbilaran diocese?
+   * - hasAccess('talibon', 'Sacred Heart Parish') - Can user access this specific parish?
+   * - hasAccess() - Does user have any access? (always true if logged in)
+   */
   const hasAccess = (targetDiocese?: Diocese, targetParish?: string): boolean => {
     if (!userProfile) return false;
-    
+
     // Chancery office users can only access their own diocese
     if (userProfile.role === 'chancery_office') {
       return targetDiocese ? userProfile.diocese === targetDiocese : true;
     }
-    
+
     // Parish secretaries can only access their own parish
     if (userProfile.role === 'parish_secretary') {
       if (targetParish) {
@@ -162,12 +318,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       return true;
     }
-    
+
     // Museum researchers have read access across both dioceses
     if (userProfile.role === 'museum_researcher') {
       return true;
     }
-    
+
     return false;
   };
 

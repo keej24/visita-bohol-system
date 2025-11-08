@@ -1,20 +1,83 @@
+/**
+ * FILE PURPOSE: Home Screen - Main User Interface
+ *
+ * This is the primary screen users see when they open the VISITA mobile app.
+ * It provides a comprehensive browsing experience for discovering Bohol's churches.
+ *
+ * KEY RESPONSIBILITIES:
+ * - Display list of approved churches
+ * - Show diocese-wide announcements in carousel
+ * - Provide search and filtering capabilities
+ * - Support both list and grid view layouts
+ * - Calculate and display distance to churches
+ * - Handle pull-to-refresh for data updates
+ * - Manage advanced filter bottom sheet
+ * - Navigate to church detail screens
+ *
+ * INTEGRATION POINTS:
+ * - Fetches churches from ChurchRepository
+ * - Fetches announcements from AnnouncementRepository
+ * - Uses LocationService for distance calculations
+ * - Integrates with ProfileService for user avatar
+ * - Connects to FilterState for filter persistence
+ * - Uses PaginatedChurchService for advanced filters
+ *
+ * TECHNICAL CONCEPTS:
+ * - StatefulWidget: Screen with mutable state
+ * - CustomScrollView: Advanced scrolling with slivers
+ * - SliverAppBar: Collapsible header with parallax effect
+ * - Provider Pattern: Access services via context
+ * - Debouncing: Delay search to reduce queries
+ * - Pull-to-Refresh: User-initiated data reload
+ * - Bottom Sheet: Modal filter interface
+ * - Grid/List Toggle: Different view modes
+ *
+ * USER EXPERIENCE:
+ * - Hero header with branding
+ * - Announcement carousel for important updates
+ * - Quick filters (search, diocese, heritage)
+ * - Advanced filters (year range, styles, classifications)
+ * - Distance-based sorting (when location enabled)
+ * - Smooth animations and transitions
+ *
+ * PERFORMANCE OPTIMIZATIONS:
+ * - Search debouncing (300ms delay)
+ * - Filter state persistence (SharedPreferences)
+ * - Cached network images
+ * - Lazy loading (only render visible items)
+ *
+ * WHY IMPORTANT:
+ * - Primary user interaction point
+ * - First impression of the app
+ * - Drives discovery and engagement
+ * - Gateway to all churches
+ */
+
 import 'package:flutter/material.dart';
+// Other screens for navigation
 import 'map_screen.dart';
 import 'profile_screen.dart';
 import 'announcements_screen.dart';
+// Data models
 import '../models/announcement.dart';
 import '../models/church.dart';
 import '../models/church_filter.dart';
 import '../models/enums.dart';
+// Data access
 import '../repositories/church_repository.dart';
 import '../repositories/announcement_repository.dart';
+// Services for business logic
 import '../services/paginated_church_service.dart';
 import '../services/profile_service.dart';
 import '../services/location_service.dart';
+// Persistence
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+// Navigation
 import 'church_detail_screen.dart';
+// Async utilities
 import 'dart:async';
+// Reusable widgets
 import '../widgets/async_content.dart';
 import '../widgets/home/hero_header.dart';
 import '../widgets/home/filter_bar.dart';
@@ -22,10 +85,32 @@ import '../widgets/home/announcement_carousel.dart';
 import '../widgets/home/church_card.dart';
 import '../models/filter_state.dart';
 import '../theme/header_palette.dart';
+// State management
 import 'package:provider/provider.dart';
+// Image caching
 import 'package:cached_network_image/cached_network_image.dart';
 
-// Top-level widget for announcements tab
+/**
+ * =============================================================================
+ * HOME ANNOUNCEMENTS TAB - Main Content Tab
+ * =============================================================================
+ *
+ * This is the first tab in the bottom navigation, showing the main home screen
+ * with announcements carousel and church listings.
+ *
+ * STATE MANAGEMENT:
+ * - _filterState: Persistent filter configuration
+ * - _allChurches: Complete list of churches (unfiltered)
+ * - _filteredChurches: Churches matching current filters
+ * - _searchDebounce: Timer for search input delay
+ * - _useEnhancedSearch: Whether to use advanced filter results
+ * - _isGridView: Toggle between list and grid layout
+ *
+ * LIFECYCLE:
+ * 1. initState: Load filter state, fetch churches
+ * 2. User interaction: Update filters, refresh data
+ * 3. dispose: Clean up resources (timers, listeners)
+ */
 class HomeAnnouncementsTab extends StatefulWidget {
   const HomeAnnouncementsTab({super.key});
 
@@ -34,20 +119,38 @@ class HomeAnnouncementsTab extends StatefulWidget {
 }
 
 class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
-  late final FilterState _filterState;
-  List<Church> _allChurches = [];
-  List<Church> _filteredChurches = [];
-  Timer? _searchDebounce;
-  bool _useEnhancedSearch = false;
-  bool _isGridView = false;
-  final ScrollController _scrollController = ScrollController();
+  late final FilterState _filterState;  // Manages filter state
+  List<Church> _allChurches = [];  // All churches from database
+  List<Church> _filteredChurches = [];  // Filtered subset to display
+  Timer? _searchDebounce;  // Prevents excessive search queries
+  bool _useEnhancedSearch = false;  // Use advanced vs basic filters
+  bool _isGridView = false;  // List (false) or grid (true) layout
+  final ScrollController _scrollController = ScrollController();  // For scroll events
 
+  /**
+   * =============================================================================
+   * INITIALIZATION
+   * =============================================================================
+   *
+   * Sets up the screen when it first loads.
+   *
+   * STEPS:
+   * 1. Create FilterState instance for managing filters
+   * 2. Add listener to rebuild UI when filters change
+   * 3. Load saved filter preferences from storage
+   * 4. Fetch churches from repository
+   *
+   * WHY LISTENER:
+   * - Automatically updates UI when user changes filters
+   * - Keeps display in sync with filter state
+   * - Avoids manual setState calls throughout code
+   */
   @override
   void initState() {
     super.initState();
-    _filterState = FilterState();
-    _filterState.addListener(_onFilterChanged);
-    _filterState.load().then((_) => _loadChurches());
+    _filterState = FilterState();  // Initialize filter state
+    _filterState.addListener(_onFilterChanged);  // Listen for changes
+    _filterState.load().then((_) => _loadChurches());  // Load saved filters, then churches
 
     // Initialize enhanced church service - DISABLED: using Firestore instead
     // WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,22 +163,44 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
     _applyFilter();
   }
 
+  /**
+   * =============================================================================
+   * LOAD CHURCHES FROM REPOSITORY
+   * =============================================================================
+   *
+   * Fetches all approved churches from the data source.
+   *
+   * PROCESS:
+   * 1. Get ChurchRepository from Provider
+   * 2. Call getAll() to fetch approved churches
+   * 3. Update state with churches
+   * 4. Apply current filters to show relevant subset
+   *
+   * ERROR HANDLING:
+   * - Catches network/database errors
+   * - Logs error but doesn't crash
+   * - User sees empty list if error occurs
+   *
+   * MOUNTED CHECK:
+   * - Prevents setState on unmounted widget
+   * - Common issue with async operations
+   */
   void _loadChurches() async {
     try {
       assert(() {
         debugPrint('🏠 HomeScreen loading churches...');
         return true;
       }());
-      final churchRepo = context.read<ChurchRepository>();
-      final churches = await churchRepo.getAll();
+      final churchRepo = context.read<ChurchRepository>();  // Get repository
+      final churches = await churchRepo.getAll();  // Fetch data
       assert(() {
         debugPrint('🏠 HomeScreen received ${churches.length} churches');
         return true;
       }());
-      if (!mounted) return;
+      if (!mounted) return;  // Don't update if widget destroyed
       setState(() {
-        _allChurches = churches;
-        _applyFilter();
+        _allChurches = churches;  // Store all churches
+        _applyFilter();  // Filter and display
       });
     } catch (e) {
       debugPrint('Error loading churches: $e');

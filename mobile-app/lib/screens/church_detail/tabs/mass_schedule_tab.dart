@@ -347,29 +347,29 @@ class MassScheduleTab extends StatelessWidget {
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 8,
-                                          vertical: 2,
+                                          vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF2C5F2D)
-                                              .withValues(alpha: 0.1),
+                                              .withValues(alpha: 0.15),
                                           borderRadius:
-                                              BorderRadius.circular(4),
+                                              BorderRadius.circular(6),
                                         ),
-                                        child: Row(
+                                        child: const Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            const Icon(
+                                            Icon(
                                               Icons.language,
                                               size: 14,
                                               color: Color(0xFF2C5F2D),
                                             ),
-                                            const SizedBox(width: 4),
-                                            const Text(
+                                            SizedBox(width: 4),
+                                            Text(
                                               'English',
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 color: Color(0xFF2C5F2D),
-                                                fontWeight: FontWeight.w500,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ],
@@ -380,27 +380,27 @@ class MassScheduleTab extends StatelessWidget {
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 8,
-                                          vertical: 2,
+                                          vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.red.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(4),
+                                          color: Colors.red.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(6),
                                         ),
-                                        child: Row(
+                                        child: const Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            const Icon(
+                                            Icon(
                                               Icons.live_tv,
                                               size: 14,
                                               color: Colors.red,
                                             ),
-                                            const SizedBox(width: 4),
-                                            const Text(
+                                            SizedBox(width: 4),
+                                            Text(
                                               'FB Live',
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.red,
-                                                fontWeight: FontWeight.w500,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ],
