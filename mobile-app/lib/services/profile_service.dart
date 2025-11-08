@@ -3,7 +3,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:convert';
+import 'dart:io';
 import '../models/user_profile.dart';
 
 class ProfileService extends ChangeNotifier {
@@ -276,27 +278,92 @@ class ProfileService extends ChangeNotifier {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 300,
-        maxHeight: 300,
-        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
       );
 
-      if (image != null) {
-        // TODO: In a production app, upload to Firebase Storage
-        // For now, we'll store the local path
-        if (_userProfile != null) {
-          _userProfile = _userProfile!.copyWith(
-            profileImageUrl: image.path,
-          );
-        }
+      if (image != null && _userProfile != null) {
+        debugPrint('📤 Uploading profile image to Firebase Storage...');
+
+        // Upload to Firebase Storage
+        final storage = FirebaseStorage.instance;
+        final userId = _userProfile!.id;
+        final fileName = 'profile_$userId.jpg';
+        final ref = storage.ref().child('profile_images/$fileName');
+
+        // Upload file with metadata
+        final metadata = SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl: 'public, max-age=31536000',
+          customMetadata: {
+            'uploadedBy': 'mobile-app',
+            'userId': userId,
+          },
+        );
+
+        final uploadTask = await ref.putFile(File(image.path), metadata);
+        debugPrint('✅ Upload complete, getting download URL...');
+
+        // Get download URL
+        final downloadUrl = await uploadTask.ref.getDownloadURL();
+        debugPrint('✅ Download URL obtained: $downloadUrl');
+
+        // Update profile with new image URL
+        _userProfile = _userProfile!.copyWith(
+          profileImageUrl: downloadUrl,
+        );
 
         await _saveProfileToFirestore();
         await _saveProfile();
-        debugPrint('✅ Profile image updated');
+        debugPrint('✅ Profile image updated successfully');
       }
     } catch (e) {
-      debugPrint('❌ Error picking image: $e');
+      debugPrint('❌ Error updating profile image: $e');
       _setError('Failed to update profile image: $e');
+    }
+
+    _setLoading(false);
+    notifyListeners();
+  }
+
+  /// Delete profile image and revert to initials
+  Future<void> deleteProfileImage() async {
+    if (_userProfile == null || _userProfile!.profileImageUrl == null) {
+      return;
+    }
+
+    _setLoading(true);
+    _setError(null);
+
+    try {
+      debugPrint('🗑️ Deleting profile image...');
+
+      // Try to delete from Firebase Storage
+      final imageUrl = _userProfile!.profileImageUrl!;
+      if (imageUrl.contains('firebase')) {
+        try {
+          final storage = FirebaseStorage.instance;
+          final ref = storage.refFromURL(imageUrl);
+          await ref.delete();
+          debugPrint('✅ Image deleted from Firebase Storage');
+        } catch (e) {
+          debugPrint('⚠️ Could not delete image from storage: $e');
+          // Continue anyway to remove the URL from profile
+        }
+      }
+
+      // Update profile to remove image URL
+      _userProfile = _userProfile!.copyWith(
+        profileImageUrl: null,
+      );
+
+      await _saveProfileToFirestore();
+      await _saveProfile();
+      debugPrint('✅ Profile image removed successfully');
+    } catch (e) {
+      debugPrint('❌ Error deleting profile image: $e');
+      _setError('Failed to delete profile image: $e');
     }
 
     _setLoading(false);

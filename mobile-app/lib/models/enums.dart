@@ -9,10 +9,7 @@ enum HeritageClassification {
   none,
   icp,
   nct,
-  nonHeritage,
-  parishChurch,
-  pilgrimageSite,
-  historicalShrine
+  nonHeritage
 }
 
 enum ArchitecturalStyle {
@@ -26,6 +23,13 @@ enum ArchitecturalStyle {
   neoGothic,
   modernContemporary,
   other
+}
+
+enum ReligiousClassification {
+  none,
+  diocesanShrine,
+  jubileeChurch,
+  papalBasilicaAffinity
 }
 
 extension DioceseX on Diocese {
@@ -71,12 +75,6 @@ extension HeritageClassificationX on HeritageClassification {
         return 'National Cultural Treasure (NCT)';
       case HeritageClassification.nonHeritage:
         return 'Non-Heritage';
-      case HeritageClassification.parishChurch:
-        return 'Parish Church';
-      case HeritageClassification.pilgrimageSite:
-        return 'Pilgrimage Site';
-      case HeritageClassification.historicalShrine:
-        return 'Historical Shrine';
     }
   }
 
@@ -90,12 +88,6 @@ extension HeritageClassificationX on HeritageClassification {
         return 'NCT';
       case HeritageClassification.nonHeritage:
         return 'Non-Heritage';
-      case HeritageClassification.parishChurch:
-        return 'Parish';
-      case HeritageClassification.pilgrimageSite:
-        return 'Pilgrimage';
-      case HeritageClassification.historicalShrine:
-        return 'Shrine';
     }
   }
 
@@ -110,15 +102,14 @@ extension HeritageClassificationX on HeritageClassification {
       case 'non_heritage':
       case 'non-heritage':
         return HeritageClassification.nonHeritage;
+      // Handle legacy values for backward compatibility
       case 'parish_church':
       case 'parish church':
-        return HeritageClassification.parishChurch;
       case 'pilgrimage_site':
       case 'pilgrimage site':
-        return HeritageClassification.pilgrimageSite;
       case 'historical_shrine':
       case 'historical shrine':
-        return HeritageClassification.historicalShrine;
+        return HeritageClassification.none; // Map to none for legacy data
       default:
         return HeritageClassification.none;
     }
@@ -174,6 +165,38 @@ extension ArchitecturalStyleX on ArchitecturalStyle {
         return ArchitecturalStyle.modernContemporary;
       default:
         return ArchitecturalStyle.other;
+    }
+  }
+}
+
+extension ReligiousClassificationX on ReligiousClassification {
+  String get label {
+    switch (this) {
+      case ReligiousClassification.none:
+        return 'None';
+      case ReligiousClassification.diocesanShrine:
+        return 'Diocesan Shrine';
+      case ReligiousClassification.jubileeChurch:
+        return 'Jubilee Church';
+      case ReligiousClassification.papalBasilicaAffinity:
+        return 'Papal Basilica Affinity';
+    }
+  }
+
+  static ReligiousClassification fromLabel(String? value) {
+    switch (value?.toLowerCase()) {
+      case 'diocesan_shrine':
+      case 'diocesan shrine':
+        return ReligiousClassification.diocesanShrine;
+      case 'jubilee_church':
+      case 'jubilee church':
+        return ReligiousClassification.jubileeChurch;
+      case 'papal_basilica_affinity':
+      case 'papal basilica affinity':
+        return ReligiousClassification.papalBasilicaAffinity;
+      case 'none':
+      default:
+        return ReligiousClassification.none;
     }
   }
 }

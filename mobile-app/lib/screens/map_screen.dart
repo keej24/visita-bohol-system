@@ -41,6 +41,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   bool _showFilterPanel = false;
 
+  // Churches data
+  late Future<List<Church>> _churchesFuture;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +64,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
 
     _getCurrentLocation();
+    _loadChurches();
 
     // If a church was passed, select it and center on it
     if (widget.selectedChurch != null) {
@@ -68,6 +72,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         _selectChurch(widget.selectedChurch!);
       });
     }
+  }
+
+  void _loadChurches() {
+    final repo = context.read<ChurchRepository>();
+    _churchesFuture = repo.getAll();
+  }
+
+  Future<void> _refreshChurches() async {
+    setState(() {
+      _loadChurches();
+    });
   }
 
   @override
@@ -161,11 +176,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final repo = context.read<ChurchRepository>();
     final appState = context.watch<AppState>();
 
     return FutureBuilder<List<Church>>(
-      future: repo.getAll(),
+      future: _churchesFuture,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
           return Scaffold(
@@ -212,6 +226,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       backgroundColor: HeaderColors.map,
       elevation: 0,
       actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _refreshChurches,
+          tooltip: 'Refresh',
+        ),
         IconButton(
           icon: AnimatedRotation(
             turns: _showFilterPanel ? 0.5 : 0,
@@ -676,7 +695,6 @@ class _EnhancedChurchDetailSheet extends StatelessWidget {
 
     final appState = context.watch<AppState>();
     final isVisited = appState.isVisited(c);
-    final isFavorite = appState.isForVisit(c);
 
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
@@ -929,25 +947,6 @@ class _EnhancedChurchDetailSheet extends StatelessWidget {
                       label: Text(
                         isVisited ? 'Visited' : 'Mark Visited',
                         style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () {
-                        isFavorite
-                            ? appState.unmarkForVisit(c)
-                            : appState.markForVisit(c);
-                      },
-                      style: IconButton.styleFrom(
-                        backgroundColor: isFavorite
-                            ? const Color(0xFFDC2626).withValues(alpha: 0.1)
-                            : const Color(0xFFF3F4F6),
-                      ),
-                      icon: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_outline,
-                        color: isFavorite
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFF6B7280),
                       ),
                     ),
                   ],

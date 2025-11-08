@@ -61,7 +61,7 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{id: string, action: 'hide' | 'unhide'} | null>(null);
+  const [pendingAction, setPendingAction] = useState<{id: string, action: 'hide' | 'publish'} | null>(null);
   const [moderationNote, setModerationNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -110,7 +110,7 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
   }, [feedbackData]);
 
   // Handle moderation actions
-  const handleModerationRequest = (feedbackId: string, action: 'hide' | 'unhide') => {
+  const handleModerationRequest = (feedbackId: string, action: 'hide' | 'publish') => {
     setPendingAction({id: feedbackId, action});
     setShowConfirmDialog(true);
   };
@@ -305,10 +305,42 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
                         </Badge>
                       </div>
                       <p className="text-gray-600 mb-2 line-clamp-2">{feedback.message}</p>
+
+                      {/* Display photos if available */}
+                      {feedback.photos && feedback.photos.length > 0 && (
+                        <div className="flex gap-2 mb-2 flex-wrap">
+                          {feedback.photos.slice(0, 3).map((photoUrl, index) => (
+                            <img
+                              key={index}
+                              src={photoUrl}
+                              alt={`Feedback photo ${index + 1}`}
+                              className="w-20 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                              onClick={() => window.open(photoUrl, '_blank')}
+                            />
+                          ))}
+                          {feedback.photos.length > 3 && (
+                            <div className="w-20 h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-sm font-medium">
+                              +{feedback.photos.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span>By: {feedback.userName}</span>
                         <span>•</span>
                         <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
+                        {feedback.photos && feedback.photos.length > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {feedback.photos.length} photo{feedback.photos.length === 1 ? '' : 's'}
+                            </span>
+                          </>
+                        )}
                         {feedback.moderatedAt && (
                           <>
                             <span>•</span>
@@ -343,11 +375,11 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleModerationRequest(feedback.id, 'unhide')}
+                          onClick={() => handleModerationRequest(feedback.id, 'publish')}
                           className="text-green-600 border-green-200 hover:bg-green-50"
                         >
                           <Eye className="w-4 h-4 mr-1" />
-                          Unhide
+                          Publish
                         </Button>
                       )}
                     </div>
@@ -379,6 +411,27 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
               <div className="border rounded p-3 bg-gray-50">
                 <p className="text-gray-800">{selectedFeedback.message}</p>
               </div>
+
+              {/* Display photos in detail view */}
+              {selectedFeedback.photos && selectedFeedback.photos.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                    Photos ({selectedFeedback.photos.length})
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedFeedback.photos.map((photoUrl, index) => (
+                      <img
+                        key={index}
+                        src={photoUrl}
+                        alt={`Feedback photo ${index + 1}`}
+                        className="w-full h-32 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                        onClick={() => window.open(photoUrl, '_blank')}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="text-sm text-gray-600">
                 <p><strong>Submitted by:</strong> {selectedFeedback.userName}</p>
                 <p><strong>Date:</strong> {new Date(selectedFeedback.createdAt).toLocaleString()}</p>
@@ -395,14 +448,22 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Hide Feedback</DialogTitle>
+            <DialogTitle>
+              {pendingAction?.action === 'hide' ? 'Hide Feedback' : 'Publish Feedback'}
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to hide this feedback from public view? This action can be reviewed later.
+              {pendingAction?.action === 'hide'
+                ? 'Are you sure you want to hide this feedback from public view? This action can be reviewed later.'
+                : 'Are you sure you want to publish this feedback to make it visible to the public? Make sure the content is appropriate and follows community standards.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Textarea
-              placeholder="Optional: Add a note about why this feedback is being hidden..."
+              placeholder={
+                pendingAction?.action === 'hide'
+                  ? 'Optional: Add a note about why this feedback is being hidden...'
+                  : 'Optional: Add a note about why this feedback is being published...'
+              }
               value={moderationNote}
               onChange={(e) => setModerationNote(e.target.value)}
             />
@@ -411,8 +472,15 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
             <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={confirmModeration} className="bg-orange-600 hover:bg-orange-700">
-              Hide Feedback
+            <Button
+              onClick={confirmModeration}
+              className={
+                pendingAction?.action === 'hide'
+                  ? 'bg-orange-600 hover:bg-orange-700'
+                  : 'bg-green-600 hover:bg-green-700'
+              }
+            >
+              {pendingAction?.action === 'hide' ? 'Hide Feedback' : 'Publish Feedback'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -23,7 +23,7 @@ import '../widgets/home/church_card.dart';
 import '../models/filter_state.dart';
 import '../theme/header_palette.dart';
 import 'package:provider/provider.dart';
-import '../widgets/optimized_image_widget.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // Top-level widget for announcements tab
 class HomeAnnouncementsTab extends StatefulWidget {
@@ -82,6 +82,22 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
     }
   }
 
+  Future<void> _refreshChurches() async {
+    debugPrint('🔄 Refreshing churches from Firestore...');
+    try {
+      // Refresh data using PaginatedChurchService if available
+      final churchService = context.read<PaginatedChurchService>();
+      await churchService.refresh();
+
+      // Reload churches
+      _loadChurches();
+
+      debugPrint('✅ Churches refreshed successfully');
+    } catch (e) {
+      debugPrint('❌ Error refreshing churches: $e');
+    }
+  }
+
   void _applyFilter() {
     final criteria = _filterState.criteria;
     setState(() {
@@ -103,8 +119,11 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
       animation: _filterState,
       builder: (context, _) {
         final criteria = _filterState.criteria;
-        return CustomScrollView(
-          slivers: [
+        return RefreshIndicator(
+          onRefresh: _refreshChurches,
+          color: const Color(0xFF2C5F2D),
+          child: CustomScrollView(
+            slivers: [
             SliverAppBar(
               pinned: true,
               expandedHeight: 200,
@@ -170,6 +189,8 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
             ),
             // View toggle and advanced filter button
             _buildViewToggleAndFilterButton(),
+            // Active advanced filters indicator
+            _buildAdvancedFiltersIndicator(),
             // Search mode toggle
             _buildSearchModeToggle(),
             SliverToBoxAdapter(
@@ -197,6 +218,7 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
             _buildEnhancedSearchStatus(),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
+          ),
         );
       },
     );
@@ -422,16 +444,53 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
             ),
             Row(
               children: [
-                // Advanced Filter Button
-                OutlinedButton.icon(
-                  onPressed: () => _showAdvancedFilterBottomSheet(),
-                  icon: const Icon(Icons.tune, size: 18),
-                  label: const Text('Filters'),
-                  style: OutlinedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    visualDensity: VisualDensity.compact,
-                  ),
+                // Advanced Filter Button with badge
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _showAdvancedFilterBottomSheet(),
+                      icon: const Icon(Icons.tune, size: 18),
+                      label: const Text('Filters'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: _filterState.criteria.hasActiveAdvancedFilters
+                            ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                            : null,
+                        foregroundColor: _filterState.criteria.hasActiveAdvancedFilters
+                            ? Theme.of(context).primaryColor
+                            : null,
+                      ),
+                    ),
+                    if (_filterState.criteria.hasActiveAdvancedFilters)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${_filterState.criteria.advancedFilterCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: 8),
                 // View toggle
@@ -481,50 +540,126 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
     }
   }
 
+  Widget _buildAdvancedFiltersIndicator() {
+    final criteria = _filterState.criteria;
+
+    if (!criteria.hasActiveAdvancedFilters) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    List<String> activeFilters = [];
+    if (criteria.foundingYearRange != null) {
+      activeFilters.add(
+          'Years: ${criteria.foundingYearRange!.start.round()}-${criteria.foundingYearRange!.end.round()}');
+    }
+    if (criteria.architecturalStyles.isNotEmpty) {
+      activeFilters.add(
+          'Styles: ${criteria.architecturalStyles.length}');
+    }
+    if (criteria.heritageClassifications.isNotEmpty) {
+      activeFilters.add(
+          'Heritage: ${criteria.heritageClassifications.length}');
+    }
+    if (criteria.dioceses.isNotEmpty) {
+      activeFilters.add(
+          'Dioceses: ${criteria.dioceses.length}');
+    }
+
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.filter_list,
+              size: 16,
+              color: Color(0xFF2563EB),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final filter in activeFilters)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        filter,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                _filterState.resetAdvancedFilters();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                child: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: Color(0xFF2563EB),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showAdvancedFilterBottomSheet() {
+    final criteria = _filterState.criteria;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _AdvancedFilterBottomSheet(
         allChurches: _allChurches,
+        // Pass existing filter values
+        initialYearRange: criteria.foundingYearRange,
+        initialArchitecturalStyles: criteria.architecturalStyles,
+        initialHeritageClassifications: criteria.heritageClassifications,
+        initialReligiousClassifications: criteria.religiousClassifications,
+        initialDioceses: criteria.dioceses,
         onApplyFilters: (foundingYearRange, architecturalStyles,
-            heritageClassifications, dioceses) {
-          setState(() {
-            _filteredChurches = _allChurches.where((church) {
-              // Founding year filter
-              if (foundingYearRange != null && church.foundingYear != null) {
-                if (church.foundingYear! < foundingYearRange.start.round() ||
-                    church.foundingYear! > foundingYearRange.end.round()) {
-                  return false;
-                }
-              }
-
-              // Architectural style filter
-              if (architecturalStyles.isNotEmpty) {
-                if (!architecturalStyles.contains(church.architecturalStyle)) {
-                  return false;
-                }
-              }
-
-              // Heritage classification filter
-              if (heritageClassifications.isNotEmpty) {
-                if (!heritageClassifications
-                    .contains(church.heritageClassification)) {
-                  return false;
-                }
-              }
-
-              // Diocese filter
-              if (dioceses.isNotEmpty) {
-                if (!dioceses.contains(church.diocese)) {
-                  return false;
-                }
-              }
-
-              return true;
-            }).toList();
-          });
+            heritageClassifications, religiousClassifications, dioceses) {
+          // Update filter state instead of directly modifying _filteredChurches
+          _filterState.setAdvancedFilters(
+            foundingYearRange: foundingYearRange,
+            architecturalStyles: architecturalStyles,
+            heritageClassifications: heritageClassifications,
+            religiousClassifications: religiousClassifications,
+            dioceses: dioceses,
+          );
+          // Filter will be automatically applied via listener
+        },
+        onResetFilters: () {
+          _filterState.resetAdvancedFilters();
         },
       ),
     );
@@ -702,12 +837,24 @@ class _ModernSectionHeader extends StatelessWidget {
 // Advanced Filter Bottom Sheet Widget
 class _AdvancedFilterBottomSheet extends StatefulWidget {
   final List<Church> allChurches;
+  final RangeValues? initialYearRange;
+  final Set<ArchitecturalStyle> initialArchitecturalStyles;
+  final Set<HeritageClassification> initialHeritageClassifications;
+  final Set<ReligiousClassification> initialReligiousClassifications;
+  final Set<Diocese> initialDioceses;
   final Function(RangeValues?, Set<ArchitecturalStyle>,
-      Set<HeritageClassification>, Set<Diocese>) onApplyFilters;
+      Set<HeritageClassification>, Set<ReligiousClassification>, Set<Diocese>) onApplyFilters;
+  final VoidCallback onResetFilters;
 
   const _AdvancedFilterBottomSheet({
     required this.allChurches,
+    this.initialYearRange,
+    this.initialArchitecturalStyles = const {},
+    this.initialHeritageClassifications = const {},
+    this.initialReligiousClassifications = const {},
+    this.initialDioceses = const {},
     required this.onApplyFilters,
+    required this.onResetFilters,
   });
 
   @override
@@ -718,14 +865,21 @@ class _AdvancedFilterBottomSheet extends StatefulWidget {
 class _AdvancedFilterBottomSheetState
     extends State<_AdvancedFilterBottomSheet> {
   RangeValues? _yearRange;
-  final Set<ArchitecturalStyle> _architecturalStyles = {};
-  final Set<HeritageClassification> _heritageClassifications = {};
-  final Set<Diocese> _dioceses = {};
+  late Set<ArchitecturalStyle> _architecturalStyles;
+  late Set<HeritageClassification> _heritageClassifications;
+  late Set<ReligiousClassification> _religiousClassifications;
+  late Set<Diocese> _dioceses;
   late RangeValues _availableYearRange;
 
   @override
   void initState() {
     super.initState();
+    // Initialize with passed values
+    _yearRange = widget.initialYearRange;
+    _architecturalStyles = Set.from(widget.initialArchitecturalStyles);
+    _heritageClassifications = Set.from(widget.initialHeritageClassifications);
+    _religiousClassifications = Set.from(widget.initialReligiousClassifications);
+    _dioceses = Set.from(widget.initialDioceses);
     _calculateAvailableYearRange();
   }
 
@@ -775,6 +929,8 @@ class _AdvancedFilterBottomSheetState
                     const SizedBox(height: 24),
                     _buildHeritageClassificationFilter(),
                     const SizedBox(height: 24),
+                    _buildReligiousClassificationFilter(),
+                    const SizedBox(height: 24),
                     _buildDioceseFilter(),
                     const SizedBox(height: 80), // Space for buttons
                   ],
@@ -822,8 +978,11 @@ class _AdvancedFilterBottomSheetState
                 _yearRange = null;
                 _architecturalStyles.clear();
                 _heritageClassifications.clear();
+                _religiousClassifications.clear();
                 _dioceses.clear();
               });
+              // Apply the reset immediately
+              widget.onResetFilters();
             },
             child: const Text('Reset All'),
           ),
@@ -958,6 +1117,46 @@ class _AdvancedFilterBottomSheetState
     );
   }
 
+  Widget _buildReligiousClassificationFilter() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Religious Classification',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ReligiousClassification.values.map((classification) {
+            final isSelected =
+                _religiousClassifications.contains(classification);
+            return FilterChip(
+              label: Text(classification.label),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _religiousClassifications.add(classification);
+                  } else {
+                    _religiousClassifications.remove(classification);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDioceseFilter() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1028,6 +1227,7 @@ class _AdvancedFilterBottomSheetState
                   _yearRange,
                   _architecturalStyles,
                   _heritageClassifications,
+                  _religiousClassifications,
                   _dioceses,
                 );
                 Navigator.pop(context);
@@ -1062,6 +1262,7 @@ class _ProfileAvatarButton extends StatelessWidget {
         }
         final displayName = userProfile.displayName;
         final profileImageUrl = userProfile.profileImageUrl;
+        final hasImage = profileImageUrl != null && profileImageUrl.isNotEmpty;
 
         return GestureDetector(
           onTap: () {
@@ -1073,16 +1274,10 @@ class _ProfileAvatarButton extends StatelessWidget {
             );
           },
           child: Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF2563EB),
-                  Color(0xFF1D4ED8),
-                ],
-              ),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF2563EB).withOpacity(0.3),
@@ -1095,18 +1290,18 @@ class _ProfileAvatarButton extends StatelessWidget {
                 width: 2,
               ),
             ),
-            child: profileImageUrl != null && profileImageUrl.isNotEmpty
-                ? ClipOval(
-                    child: OptimizedImageWidget(
+            child: ClipOval(
+              child: hasImage
+                  ? CachedNetworkImage(
                       imageUrl: profileImageUrl,
-                      width: 60,
-                      height: 60,
+                      width: 40,
+                      height: 40,
                       fit: BoxFit.cover,
-                      isNetworkImage: true,
-                      errorWidget: _buildInitialsAvatar(displayName),
-                    ),
-                  )
-                : _buildInitialsAvatar(displayName),
+                      placeholder: (context, url) => _buildInitialsAvatar(displayName),
+                      errorWidget: (context, url, error) => _buildInitialsAvatar(displayName),
+                    )
+                  : _buildInitialsAvatar(displayName),
+            ),
           ),
         );
       },
@@ -1118,13 +1313,23 @@ class _ProfileAvatarButton extends StatelessWidget {
         ? displayName.split(' ').take(2).map((e) => e[0]).join().toUpperCase()
         : 'U';
 
-    return Center(
-      child: Text(
-        initials,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF2563EB),
+            Color(0xFF1D4ED8),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

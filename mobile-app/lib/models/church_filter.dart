@@ -1,14 +1,22 @@
 import 'church.dart';
 import 'enums.dart';
+import 'package:flutter/material.dart';
 
 class ChurchFilterCriteria {
   final String search;
   final bool heritageOnly;
   final int? foundingYear;
-  final Diocese? diocese; // null => all
+  final Diocese? diocese; // null => all (for basic filter dropdown)
   final HeritageClassification? heritageClassification; // null => all
   final ArchitecturalStyle? architecturalStyle; // null => all
   final String? location; // location-based filtering
+
+  // Advanced filter fields (multi-select)
+  final RangeValues? foundingYearRange;
+  final Set<ArchitecturalStyle> architecturalStyles;
+  final Set<HeritageClassification> heritageClassifications;
+  final Set<ReligiousClassification> religiousClassifications;
+  final Set<Diocese> dioceses;
 
   const ChurchFilterCriteria({
     this.search = '',
@@ -18,6 +26,11 @@ class ChurchFilterCriteria {
     this.heritageClassification,
     this.architecturalStyle,
     this.location,
+    this.foundingYearRange,
+    this.architecturalStyles = const {},
+    this.heritageClassifications = const {},
+    this.religiousClassifications = const {},
+    this.dioceses = const {},
   });
 
   ChurchFilterCriteria copyWith({
@@ -28,6 +41,11 @@ class ChurchFilterCriteria {
     Object? heritageClassification = _undefined,
     Object? architecturalStyle = _undefined,
     Object? location = _undefined,
+    Object? foundingYearRange = _undefined,
+    Set<ArchitecturalStyle>? architecturalStyles,
+    Set<HeritageClassification>? heritageClassifications,
+    Set<ReligiousClassification>? religiousClassifications,
+    Set<Diocese>? dioceses,
   }) =>
       ChurchFilterCriteria(
         search: search ?? this.search,
@@ -37,6 +55,11 @@ class ChurchFilterCriteria {
         heritageClassification: heritageClassification == _undefined ? this.heritageClassification : heritageClassification as HeritageClassification?,
         architecturalStyle: architecturalStyle == _undefined ? this.architecturalStyle : architecturalStyle as ArchitecturalStyle?,
         location: location == _undefined ? this.location : location as String?,
+        foundingYearRange: foundingYearRange == _undefined ? this.foundingYearRange : foundingYearRange as RangeValues?,
+        architecturalStyles: architecturalStyles ?? this.architecturalStyles,
+        heritageClassifications: heritageClassifications ?? this.heritageClassifications,
+        religiousClassifications: religiousClassifications ?? this.religiousClassifications,
+        dioceses: dioceses ?? this.dioceses,
       );
 
   // Check if any advanced filters are active
@@ -47,7 +70,12 @@ class ChurchFilterCriteria {
       diocese != null ||
       heritageClassification != null ||
       architecturalStyle != null ||
-      location != null;
+      location != null ||
+      foundingYearRange != null ||
+      architecturalStyles.isNotEmpty ||
+      heritageClassifications.isNotEmpty ||
+      religiousClassifications.isNotEmpty ||
+      dioceses.isNotEmpty;
 
   // Get count of active filters
   int get activeFilterCount {
@@ -59,6 +87,30 @@ class ChurchFilterCriteria {
     if (heritageClassification != null) count++;
     if (architecturalStyle != null) count++;
     if (location != null) count++;
+    if (foundingYearRange != null) count++;
+    if (architecturalStyles.isNotEmpty) count++;
+    if (heritageClassifications.isNotEmpty) count++;
+    if (religiousClassifications.isNotEmpty) count++;
+    if (dioceses.isNotEmpty) count++;
+    return count;
+  }
+
+  // Check if any advanced multi-select filters are active
+  bool get hasActiveAdvancedFilters =>
+      foundingYearRange != null ||
+      architecturalStyles.isNotEmpty ||
+      heritageClassifications.isNotEmpty ||
+      religiousClassifications.isNotEmpty ||
+      dioceses.isNotEmpty;
+
+  // Get count of advanced filters only
+  int get advancedFilterCount {
+    int count = 0;
+    if (foundingYearRange != null) count++;
+    if (architecturalStyles.isNotEmpty) count++;
+    if (heritageClassifications.isNotEmpty) count++;
+    if (religiousClassifications.isNotEmpty) count++;
+    if (dioceses.isNotEmpty) count++;
     return count;
   }
 }
@@ -104,7 +156,7 @@ List<Church> applyChurchFilter(List<Church> source, ChurchFilterCriteria c) {
       return false;
     }
 
-    // Diocese filter
+    // Diocese filter (basic)
     if (c.diocese != null && church.diocese != c.diocese!.label) {
       return false;
     }
@@ -113,6 +165,45 @@ List<Church> applyChurchFilter(List<Church> source, ChurchFilterCriteria c) {
     if (c.location != null && c.location!.isNotEmpty) {
       final locationMatch = church.location.toLowerCase().contains(c.location!.toLowerCase());
       if (!locationMatch) return false;
+    }
+
+    // Advanced filters (multi-select)
+
+    // Founding year range filter
+    if (c.foundingYearRange != null && church.foundingYear != null) {
+      if (church.foundingYear! < c.foundingYearRange!.start.round() ||
+          church.foundingYear! > c.foundingYearRange!.end.round()) {
+        return false;
+      }
+    }
+
+    // Architectural styles filter (multi-select)
+    if (c.architecturalStyles.isNotEmpty) {
+      if (!c.architecturalStyles.contains(church.architecturalStyle)) {
+        return false;
+      }
+    }
+
+    // Heritage classifications filter (multi-select)
+    if (c.heritageClassifications.isNotEmpty) {
+      if (!c.heritageClassifications.contains(church.heritageClassification)) {
+        return false;
+      }
+    }
+
+    // Religious classifications filter (multi-select)
+    if (c.religiousClassifications.isNotEmpty) {
+      if (!c.religiousClassifications.contains(church.religiousClassification)) {
+        return false;
+      }
+    }
+
+    // Dioceses filter (multi-select)
+    if (c.dioceses.isNotEmpty) {
+      final matchesDiocese = c.dioceses.any((d) => church.diocese == d.label);
+      if (!matchesDiocese) {
+        return false;
+      }
     }
 
     return true;

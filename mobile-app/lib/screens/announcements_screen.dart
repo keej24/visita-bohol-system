@@ -30,12 +30,16 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
 
   // Filter states
   String _search = '';
-  String _scope = 'All';
+  String _scope = 'Diocese'; // Fixed to Diocese only
   String _diocese = 'All';
   String _category = 'All';
   DateFilter _dateFilter = DateFilter.all;
   ViewMode _viewMode = ViewMode.card;
   DateTimeRange? _customDateRange;
+  bool _showArchived = false; // Toggle for showing archived announcements
+
+  // Announcements data
+  late Future<List<Announcement>> _announcementsFuture;
 
   @override
   void initState() {
@@ -45,6 +49,20 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
       vsync: this,
     );
     _animationController.forward();
+    _loadAnnouncements();
+  }
+
+  void _loadAnnouncements() {
+    // Fetch diocese announcements based on archived filter
+    _announcementsFuture = context
+        .read<AnnouncementRepository>()
+        .getDioceseAnnouncements(includeArchived: _showArchived);
+  }
+
+  Future<void> _refreshAnnouncements() async {
+    setState(() {
+      _loadAnnouncements();
+    });
   }
 
   @override
@@ -60,12 +78,16 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(isDark),
-          SliverToBoxAdapter(child: _buildFilters(isDark)),
-          _buildAnnouncementsList(isDark),
-        ],
+      body: RefreshIndicator(
+        onRefresh: _refreshAnnouncements,
+        color: const Color(0xFF2C5F2D),
+        child: CustomScrollView(
+          slivers: [
+            _buildSliverAppBar(isDark),
+            SliverToBoxAdapter(child: _buildFilters(isDark)),
+            _buildAnnouncementsList(isDark),
+          ],
+        ),
       ),
       floatingActionButton: _buildFloatingActionButton(isDark),
     );
@@ -115,9 +137,22 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
         ],
       ),
       actions: [
+        // Archived toggle button
+        IconButton(
+          icon: Icon(_showArchived ? Icons.archive : Icons.archive_outlined),
+          tooltip: _showArchived ? 'Hide Archived' : 'Show Archived',
+          onPressed: () {
+            setState(() {
+              _showArchived = !_showArchived;
+              _loadAnnouncements();
+            });
+          },
+        ),
+        // View mode toggle
         IconButton(
           icon: Icon(
               _viewMode == ViewMode.card ? Icons.view_list : Icons.view_module),
+          tooltip: _viewMode == ViewMode.card ? 'Compact View' : 'Card View',
           onPressed: () {
             setState(() {
               _viewMode =
@@ -204,29 +239,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
 
           const SizedBox(height: 20),
 
-          // Filter chips section
-          Text(
-            'Quick Filters',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: isDark ? Colors.white : const Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Scope filters
-          _buildFilterChips([
-            FilterChipData(
-                'All', _scope == 'All', () => setState(() => _scope = 'All')),
-            FilterChipData('Diocese', _scope == 'Diocese',
-                () => setState(() => _scope = 'Diocese')),
-            FilterChipData('Parish', _scope == 'Parish',
-                () => setState(() => _scope = 'Parish')),
-          ], isDark),
-
-          const SizedBox(height: 16),
-
           // Diocese and Category filters
           Row(
             children: [
@@ -234,7 +246,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                   child: _buildDropdown(
                 'Diocese',
                 _diocese,
-                ['All', 'Diocese of Tagbilaran', 'Diocese of Talibon'],
+                ['All', 'Tagbilaran', 'Talibon'],
                 (v) => setState(() => _diocese = v),
                 isDark,
               )),
@@ -416,7 +428,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
   Widget _buildAnnouncementsList(bool isDark) {
     return SliverToBoxAdapter(
       child: FutureBuilder<List<Announcement>>(
-        future: context.read<AnnouncementRepository>().getAll(),
+        future: _announcementsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return _buildLoadingState(isDark);
@@ -467,8 +479,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
     final matchesScope =
         _scope == 'All' || a.scope.toLowerCase() == _scope.toLowerCase();
 
-    // Diocese filter
-    final matchesDiocese = _diocese == 'All' || a.diocese == _diocese;
+    // Diocese filter - normalize comparison
+    final matchesDiocese = _diocese == 'All' ||
+        a.diocese.toLowerCase() == _diocese.toLowerCase();
 
     // Category filter
     final matchesCategory = _category == 'All' || a.category == _category;
@@ -614,6 +627,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                     _getScopeColor(announcement.scope)),
                 const SizedBox(width: 8),
                 _buildBadge(announcement.category, const Color(0xFF6B7280)),
+                if (announcement.isArchived) ...[
+                  const SizedBox(width: 8),
+                  _buildBadge('ARCHIVED', const Color(0xFF9CA3AF)),
+                ],
                 const Spacer(),
                 _buildStatusBadge(announcement.status, statusColor),
               ],
@@ -674,7 +691,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                   const SizedBox(height: 12),
                   _buildDetailRow(
                     Icons.account_balance_rounded,
-                    announcement.diocese,
+                    _formatDioceseName(announcement.diocese),
                     isDark,
                   ),
                 ],
@@ -752,6 +769,20 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
+                      if (announcement.isArchived)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF9CA3AF).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                                color: const Color(0xFF9CA3AF), width: 1),
+                          ),
+                          child: const Icon(Icons.archive,
+                              size: 12, color: Color(0xFF6B7280)),
+                        ),
+                      const SizedBox(width: 4),
                       _buildStatusBadge(announcement.status, statusColor,
                           isCompact: true),
                     ],
@@ -997,6 +1028,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
     return DateFormat('MMMM d, y · h:mm a').format(dateTime);
   }
 
+  String _formatDioceseName(String diocese) {
+    final lower = diocese.toLowerCase();
+    if (lower == 'tagbilaran') return 'Diocese of Tagbilaran';
+    if (lower == 'talibon') return 'Diocese of Talibon';
+    return diocese; // Return as-is if unknown format
+  }
+
   void _showDatePicker() async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
@@ -1017,11 +1055,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
   void _clearAllFilters() {
     setState(() {
       _search = '';
-      _scope = 'All';
+      _scope = 'Diocese'; // Keep it fixed to Diocese
       _diocese = 'All';
       _category = 'All';
       _dateFilter = DateFilter.all;
       _customDateRange = null;
+      _showArchived = false; // Reset archived toggle
+      _loadAnnouncements(); // Reload with cleared filters
     });
     _searchController.clear();
   }

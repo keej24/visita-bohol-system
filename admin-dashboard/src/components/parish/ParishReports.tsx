@@ -95,21 +95,27 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
 
   const generateChurchSummaryReport = (): ChurchSummaryReport => {
     return {
-      churchName: churchInfo.churchName,
-      parishName: churchInfo.parishName,
+      churchName: churchInfo.parishName || churchInfo.churchName,
+      parishName: churchInfo.parishName || churchInfo.churchName,
+      diocese: churchInfo.diocese,
+      coordinates: churchInfo.coordinates,
       documentationDetails: {
-        foundingYear: churchInfo.historicalDetails.foundingYear,
-        founders: churchInfo.historicalDetails.founders,
+        foundingYear: churchInfo.historicalDetails?.foundingYear || '',
+        founders: churchInfo.historicalDetails?.founders || '',
         keyFigures: [],
-        architecturalStyle: churchInfo.historicalDetails.architecturalStyle,
+        architecturalStyle: churchInfo.historicalDetails?.architecturalStyle || '',
         architecturalEvolution: 'Not documented',
-        majorHistoricalEvents: churchInfo.historicalDetails.majorHistoricalEvents
+        architecturalFeatures: churchInfo.historicalDetails?.architecturalFeatures || '',
+        majorHistoricalEvents: churchInfo.historicalDetails?.majorHistoricalEvents
           ? [churchInfo.historicalDetails.majorHistoricalEvents]
           : [],
-        heritageClassification: churchInfo.historicalDetails.heritageClassification,
+        heritageClassification: churchInfo.historicalDetails?.heritageClassification || 'None',
         heritageRecognitionRecords: [],
+        heritageInformation: churchInfo.historicalDetails?.heritageInformation || '',
         preservationHistory: 'Not documented',
         restorationHistory: 'Not documented',
+        religiousClassification: churchInfo.historicalDetails?.religiousClassification || 'None',
+        historicalBackground: churchInfo.historicalDetails?.historicalBackground || ''
       },
       generatedDate: format(new Date(), 'yyyy-MM-dd HH:mm:ss')
     };
@@ -250,20 +256,31 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
         PDFExportService.exportChurchSummary({
           churchName: churchInfo.churchName,
           parishName: churchInfo.parishName,
+          diocese: churchInfo.diocese,
+          coordinates: churchInfo.coordinates,
           locationDetails: churchInfo.locationDetails,
-          historicalDetails: churchInfo.historicalDetails,
+          historicalDetails: {
+            foundingYear: churchInfo.historicalDetails?.foundingYear || '',
+            founders: churchInfo.historicalDetails?.founders || '',
+            architecturalStyle: churchInfo.historicalDetails?.architecturalStyle || '',
+            historicalBackground: churchInfo.historicalDetails?.historicalBackground || '',
+            majorHistoricalEvents: churchInfo.historicalDetails?.majorHistoricalEvents || '',
+            heritageClassification: churchInfo.historicalDetails?.heritageClassification || 'None',
+            religiousClassification: churchInfo.historicalDetails?.religiousClassification || 'None',
+            architecturalFeatures: churchInfo.historicalDetails?.architecturalFeatures || '',
+            heritageInformation: churchInfo.historicalDetails?.heritageInformation || ''
+          },
           currentParishPriest: churchInfo.currentParishPriest || 'N/A',
           massSchedules: (churchInfo.massSchedules || []).map(schedule => ({
             day: schedule.day,
             time: schedule.time,
             endTime: schedule.endTime || '',
-            language: schedule.language || 'English'
+            language: schedule.language || 'Filipino',
+            isFbLive: schedule.isFbLive || false
           })),
           contactInfo: {
             phone: churchInfo.contactInfo?.phone || '',
-            email: churchInfo.contactInfo?.email || '',
-            website: churchInfo.contactInfo?.website || '',
-            facebookPage: churchInfo.contactInfo?.facebookPage || ''
+            email: churchInfo.contactInfo?.email || ''
           }
         });
 
@@ -479,30 +496,32 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <Label className="text-sm font-medium">Church Name</Label>
-                      <p className="text-lg font-semibold">{summaryReport.churchName}</p>
-                    </div>
-                    <div>
                       <Label className="text-sm font-medium">Parish Name</Label>
-                      <p>{summaryReport.parishName}</p>
+                      <p className="text-lg font-semibold">{summaryReport.parishName}</p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Location</Label>
                       <p>{churchInfo.locationDetails.streetAddress}, {churchInfo.locationDetails.barangay}</p>
-                      <p>{churchInfo.locationDetails.municipality}, {churchInfo.locationDetails.province}</p>
+                      <p>{churchInfo.locationDetails.municipality}</p>
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card className="border-green-200 bg-green-50">
                   <CardHeader>
-                    <CardTitle className="text-lg">Heritage Classification</CardTitle>
+                    <CardTitle className="text-lg">Classifications</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <Label className="text-sm font-medium">Classification</Label>
+                      <Label className="text-sm font-medium">Heritage Classification</Label>
                       <Badge variant="secondary" className="bg-green-100 text-green-800">
                         {summaryReport.documentationDetails.heritageClassification}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Religious Classification</Label>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                        {summaryReport.documentationDetails.religiousClassification}
                       </Badge>
                     </div>
                     <div>
@@ -520,74 +539,61 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
               {/* Historical Details */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Historical Background</CardTitle>
+                  <CardTitle>Historical Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Founders</Label>
-                      <p className="mt-1">{summaryReport.documentationDetails.founders}</p>
+                      <p className="mt-1">{summaryReport.documentationDetails.founders || 'Not specified'}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Key Figures</Label>
-                      <div className="mt-1 space-y-1">
-                        {summaryReport.documentationDetails.keyFigures.length > 0 ? (
-                          summaryReport.documentationDetails.keyFigures.map((figure, index) => (
-                            <Badge key={index} variant="outline">{figure}</Badge>
-                          ))
-                        ) : (
-                          <p className="text-gray-500">Not documented</p>
-                        )}
-                      </div>
+                      <Label className="text-sm font-medium">Founding Year</Label>
+                      <p className="mt-1">{summaryReport.documentationDetails.foundingYear || 'Not specified'}</p>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium">Historical Background</Label>
-                    <p className="mt-1 text-gray-700">{churchInfo.historicalDetails.historicalBackground}</p>
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium">Major Historical Events</Label>
-                    <div className="mt-1">
-                      {summaryReport.documentationDetails.majorHistoricalEvents.length > 0 ? (
-                        <ul className="list-disc list-inside space-y-1">
-                          {summaryReport.documentationDetails.majorHistoricalEvents.map((event, index) => (
-                            <li key={index}>{event}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-gray-500">Not documented</p>
-                      )}
-                    </div>
+                    <Label className="text-sm font-medium">Historical Background</Label>
+                    <p className="mt-1 text-gray-700 whitespace-pre-wrap">{summaryReport.documentationDetails.historicalBackground || 'Not documented'}</p>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Preservation History */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Preservation History</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-700">
-                      {summaryReport.documentationDetails.preservationHistory}
-                    </p>
-                  </CardContent>
-                </Card>
+              {/* Architectural & Heritage Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Architectural & Heritage Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {summaryReport.documentationDetails.architecturalFeatures && (
+                    <div>
+                      <Label className="text-sm font-medium">Architectural Features</Label>
+                      <p className="mt-1 text-gray-700 whitespace-pre-wrap">{summaryReport.documentationDetails.architecturalFeatures}</p>
+                    </div>
+                  )}
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Restoration History</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-700">
-                      {summaryReport.documentationDetails.restorationHistory}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
+                  {summaryReport.documentationDetails.heritageInformation && (
+                    <div>
+                      <Label className="text-sm font-medium">Heritage Information</Label>
+                      <p className="mt-1 text-gray-700 whitespace-pre-wrap">{summaryReport.documentationDetails.heritageInformation}</p>
+                    </div>
+                  )}
+
+                  {summaryReport.documentationDetails.majorHistoricalEvents.length > 0 && (
+                    <div>
+                      <Label className="text-sm font-medium">Major Historical Events</Label>
+                      <p className="mt-1 text-gray-700 whitespace-pre-wrap">{summaryReport.documentationDetails.majorHistoricalEvents.join('\n')}</p>
+                    </div>
+                  )}
+
+                  {!summaryReport.documentationDetails.architecturalFeatures &&
+                   !summaryReport.documentationDetails.heritageInformation &&
+                   summaryReport.documentationDetails.majorHistoricalEvents.length === 0 && (
+                    <p className="text-gray-500 italic">No architectural or heritage information documented</p>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Report Metadata */}
               <Card className="border-gray-200 bg-gray-50">
@@ -730,17 +736,6 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Total Feedback</span>
                       <Badge variant="secondary">{engagementReport.feedbackStats.totalFeedback}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Response Rate</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{engagementReport.feedbackStats.responseRate}%</Badge>
-                        {engagementReport.feedbackStats.responseRate >= 80 ? (
-                          <TrendingUp className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4 text-red-600" />
-                        )}
-                      </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Rating Trend</span>

@@ -49,13 +49,14 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
         });
       }
 
-      // Load current parish announcements
+      // Load current parish announcements - only show announcements created by this user
       const data = await AnnouncementService.getAnnouncements(userProfile.diocese, {
         isArchived: false,
-        scope: 'parish'
+        scope: 'parish',
+        createdBy: userProfile.uid // Only show announcements created by this user
       });
 
-      // Filter to only this parish's announcements
+      // Filter to only this parish's announcements (additional client-side filter for safety)
       const parishAnnouncements = data.filter(announcement =>
         announcement.parishId === churchId
       );
@@ -80,13 +81,14 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
     try {
       setIsLoadingArchived(true);
 
-      // Load archived parish announcements
+      // Load archived parish announcements - only show announcements created by this user
       const data = await AnnouncementService.getAnnouncements(userProfile.diocese, {
         isArchived: true,
-        scope: 'parish'
+        scope: 'parish',
+        createdBy: userProfile.uid // Only show announcements created by this user
       });
 
-      // Filter to only this parish's announcements
+      // Filter to only this parish's announcements (additional client-side filter for safety)
       const parishAnnouncements = data.filter(announcement =>
         announcement.parishId === churchId
       );
@@ -106,14 +108,9 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
 
   useEffect(() => {
     loadAnnouncements();
-  }, [loadAnnouncements]);
-
-  // Load archived announcements when tab is switched
-  useEffect(() => {
-    if (activeTab === 'archived' && archivedAnnouncements.length === 0) {
-      loadArchivedAnnouncements();
-    }
-  }, [activeTab, archivedAnnouncements.length, loadArchivedAnnouncements]);
+    // Load archived announcements immediately for the count
+    loadArchivedAnnouncements();
+  }, [loadAnnouncements, loadArchivedAnnouncements]);
 
   // Handle form submission
   const handleSubmit = async (formData: AnnouncementFormData) => {

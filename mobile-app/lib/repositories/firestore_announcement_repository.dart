@@ -17,7 +17,7 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
   static const String _announcementsCollection = 'announcements';
 
   @override
-  Future<List<Announcement>> getAll() async {
+  Future<List<Announcement>> getAll({bool forceRefresh = false}) async {
     try {
       debugPrint('🔍 [ANNOUNCEMENT REPO] Querying announcements...');
 
@@ -57,30 +57,8 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
                 return null;
               }
 
-              // Convert admin dashboard format to mobile app format
-              final announcement = Announcement.fromJson({
-                'id': doc.id,
-                'title': data['title'] ?? '',
-                'description': data['description'] ?? '',
-                'dateTime': data['eventDate'] != null
-                    ? (data['eventDate'] as Timestamp)
-                        .toDate()
-                        .toIso8601String()
-                    : DateTime.now().toIso8601String(),
-                'endDateTime': data['endDate'] != null
-                    ? (data['endDate'] as Timestamp).toDate().toIso8601String()
-                    : null,
-                'venue': data['venue'] ?? '',
-                'scope': data['scope'] ?? 'diocese',
-                'churchId': data['parishId'], // Map parishId to churchId
-                'diocese': data['diocese'] == 'tagbilaran'
-                    ? 'Diocese of Tagbilaran'
-                    : 'Diocese of Talibon',
-                'category': data['category'] ?? 'Event',
-                'contactInfo': data['contactInfo'],
-                'isRecurring': false,
-                'tags': [],
-              });
+              // Use fromFirestore for consistent parsing
+              final announcement = Announcement.fromFirestore(doc.id, data);
 
               debugPrint(
                   '✅ Parsed: ${announcement.title} (${announcement.scope})');
@@ -114,31 +92,64 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
 
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return Announcement.fromJson({
-          'id': doc.id,
-          'title': data['title'],
-          'description': data['description'],
-          'dateTime':
-              (data['eventDate'] as Timestamp).toDate().toIso8601String(),
-          'endDateTime': data['endDate'] != null
-              ? (data['endDate'] as Timestamp).toDate().toIso8601String()
-              : null,
-          'venue': data['venue'],
-          'scope': data['scope'],
-          'churchId': data['parishId'],
-          'diocese': data['diocese'] == 'tagbilaran'
-              ? 'Diocese of Tagbilaran'
-              : 'Diocese of Talibon',
-          'category': data['category'],
-          'contactInfo': data['contactInfo'],
-          'isRecurring': false,
-          'tags': [],
-        });
+        return Announcement.fromFirestore(doc.id, data);
       }).toList();
     } catch (e) {
       debugPrint('❌ Error fetching announcements by category: $e');
       throw Exception('Failed to fetch announcements by category: $e');
     }
+  }
+
+  @override
+  Future<List<Announcement>> getByDiocese(String diocese, {bool forceRefresh = false}) async {
+    try {
+      debugPrint('🔍 Fetching announcements for diocese: $diocese');
+
+      // Normalize diocese name
+      final normalizedDiocese = diocese.toLowerCase().contains('tagbilaran')
+          ? 'tagbilaran'
+          : diocese.toLowerCase().contains('talibon')
+              ? 'talibon'
+              : diocese.toLowerCase();
+
+      final QuerySnapshot snapshot = await _firestore
+          .collection(_announcementsCollection)
+          .where('diocese', isEqualTo: normalizedDiocese)
+          .where('isArchived', isEqualTo: false)
+          .get();
+
+      final announcements = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return Announcement.fromFirestore(doc.id, data);
+      }).toList();
+
+      announcements.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      return announcements;
+    } catch (e) {
+      debugPrint('❌ Error fetching announcements by diocese: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<Announcement>> getParishAnnouncements(String parishId, {bool forceRefresh = false}) async {
+    return getAnnouncementsByParish(parishId);
+  }
+
+  @override
+  Stream<List<Announcement>> streamAnnouncements() {
+    return _firestore
+        .collection(_announcementsCollection)
+        .where('isArchived', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Announcement.fromFirestore(doc.id, doc.data()))
+            .toList());
+  }
+
+  @override
+  void clearCache() {
+    // No-op for this implementation as it doesn't use caching
   }
 
   /// Get parish-specific announcements
@@ -158,26 +169,7 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
 
       final announcements = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return Announcement.fromJson({
-          'id': doc.id,
-          'title': data['title'],
-          'description': data['description'],
-          'dateTime':
-              (data['eventDate'] as Timestamp).toDate().toIso8601String(),
-          'endDateTime': data['endDate'] != null
-              ? (data['endDate'] as Timestamp).toDate().toIso8601String()
-              : null,
-          'venue': data['venue'],
-          'scope': data['scope'],
-          'churchId': data['parishId'],
-          'diocese': data['diocese'] == 'tagbilaran'
-              ? 'Diocese of Tagbilaran'
-              : 'Diocese of Talibon',
-          'category': data['category'],
-          'contactInfo': data['contactInfo'],
-          'isRecurring': false,
-          'tags': [],
-        });
+        return Announcement.fromFirestore(doc.id, data);
       }).toList();
 
       // Sort by date in-memory to avoid index requirement
@@ -216,10 +208,7 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
       if (!doc.exists) return null;
 
       final data = doc.data() as Map<String, dynamic>;
-      return Announcement.fromJson({
-        'id': doc.id,
-        ...data,
-      });
+      return Announcement.fromFirestore(doc.id, data);
     } catch (e) {
       throw Exception('Failed to fetch announcement: $e');
     }
@@ -271,10 +260,7 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
 
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return Announcement.fromJson({
-          'id': doc.id,
-          ...data,
-        });
+        return Announcement.fromFirestore(doc.id, data);
       }).toList();
     } catch (e) {
       throw Exception('Failed to fetch announcements by date range: $e');
@@ -300,10 +286,7 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
 
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return Announcement.fromJson({
-          'id': doc.id,
-          ...data,
-        });
+        return Announcement.fromFirestore(doc.id, data);
       }).toList();
     } catch (e) {
       throw Exception('Failed to fetch upcoming events: $e');
@@ -312,41 +295,31 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
 
   /// Get diocese-wide (chancery) announcements only
   /// These are displayed in the homepage carousel and main announcements screen
-  Future<List<Announcement>> getDioceseAnnouncements() async {
+  @override
+  Future<List<Announcement>> getDioceseAnnouncements({
+    bool forceRefresh = false,
+    bool includeArchived = false,
+  }) async {
     try {
-      debugPrint('🔍 Fetching diocese-wide announcements');
+      debugPrint('🔍 Fetching diocese-wide announcements (includeArchived: $includeArchived)');
 
-      // Query without orderBy first to avoid index requirement issues
-      final QuerySnapshot snapshot = await _firestore
+      // Build query
+      var query = _firestore
           .collection(_announcementsCollection)
-          .where('scope', isEqualTo: 'diocese')
-          .where('isArchived', isEqualTo: false)
-          .get();
+          .where('scope', isEqualTo: 'diocese');
+
+      // Only filter out archived if not explicitly including them
+      if (!includeArchived) {
+        query = query.where('isArchived', isEqualTo: false);
+      }
+
+      final QuerySnapshot snapshot = await query.get();
 
       debugPrint('✅ Found ${snapshot.docs.length} diocese announcements');
 
       final announcements = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return Announcement.fromJson({
-          'id': doc.id,
-          'title': data['title'],
-          'description': data['description'],
-          'dateTime':
-              (data['eventDate'] as Timestamp).toDate().toIso8601String(),
-          'endDateTime': data['endDate'] != null
-              ? (data['endDate'] as Timestamp).toDate().toIso8601String()
-              : null,
-          'venue': data['venue'],
-          'scope': data['scope'],
-          'churchId': data['parishId'],
-          'diocese': data['diocese'] == 'tagbilaran'
-              ? 'Diocese of Tagbilaran'
-              : 'Diocese of Talibon',
-          'category': data['category'],
-          'contactInfo': data['contactInfo'],
-          'isRecurring': false,
-          'tags': [],
-        });
+        return Announcement.fromFirestore(doc.id, data);
       }).toList();
 
       // Sort by date in-memory to avoid index requirement

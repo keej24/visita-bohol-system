@@ -175,6 +175,42 @@ class PaginatedChurchRepository {
     }
   }
 
+  /// Get a single church by ID from Firestore
+  ///
+  /// Returns the church if found, null otherwise.
+  /// Always fetches fresh data from Firestore (no cache).
+  Future<Church?> getChurchById(String churchId) async {
+    try {
+      debugPrint('📄 [PAGINATED REPO] Fetching church by ID: $churchId');
+
+      final doc = await _firestore
+          .collection(_churchesCollection)
+          .doc(churchId)
+          .get()
+          .timeout(queryTimeout);
+
+      if (!doc.exists) {
+        debugPrint('⚠️ [PAGINATED REPO] Church not found: $churchId');
+        return null;
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+      final church = Church.fromJson({
+        'id': doc.id,
+        ...data,
+      });
+
+      debugPrint('✅ [PAGINATED REPO] Church loaded: ${church.name}');
+      return church;
+    } on TimeoutException {
+      debugPrint('⏱️ [PAGINATED REPO] Query timeout for church $churchId');
+      return null;
+    } catch (e) {
+      debugPrint('❌ [PAGINATED REPO] Error loading church $churchId: $e');
+      return null;
+    }
+  }
+
   /// Map Firestore documents to Church objects
   List<Church> _mapChurches(List<QueryDocumentSnapshot> docs) {
     return docs

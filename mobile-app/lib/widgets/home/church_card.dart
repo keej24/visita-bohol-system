@@ -25,6 +25,32 @@ class ChurchCard extends StatefulWidget {
 }
 
 class _ChurchCardState extends State<ChurchCard> {
+  IconData _getReligiousClassificationIcon(ReligiousClassification classification) {
+    switch (classification) {
+      case ReligiousClassification.diocesanShrine:
+        return Icons.church;
+      case ReligiousClassification.jubileeChurch:
+        return Icons.celebration;
+      case ReligiousClassification.papalBasilicaAffinity:
+        return Icons.account_balance;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Color _getReligiousClassificationColor(ReligiousClassification classification) {
+    switch (classification) {
+      case ReligiousClassification.diocesanShrine:
+        return const Color(0xFFE11D48); // Red
+      case ReligiousClassification.jubileeChurch:
+        return const Color(0xFF0891B2); // Cyan
+      case ReligiousClassification.papalBasilicaAffinity:
+        return const Color(0xFFFB923C); // Orange
+      default:
+        return const Color(0xFF6B7280); // Gray
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Debug logging for heritage churches
@@ -156,44 +182,74 @@ class _ChurchCardState extends State<ChurchCard> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Row(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.schedule_outlined,
+                                            size: 14, color: Color(0xFF6B7280)),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                              'Founded ${widget.church.foundingYear}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                      color: const Color(0xFF6B7280),
+                                                      fontWeight: FontWeight.w500),
+                                              overflow: TextOverflow.ellipsis),
+                                        ),
+                                        if (widget.showDistance &&
+                                            widget.distance != null) ...[
+                                          const SizedBox(width: 12),
+                                          const Icon(Icons.location_on,
+                                              size: 14, color: Color(0xFF2563EB)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                              '${widget.distance!.toStringAsFixed(1)} km',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                      color: const Color(0xFF2563EB),
+                                                      fontWeight: FontWeight.w600)),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (widget.church.religiousClassification != ReligiousClassification.none) ...[
+                                const SizedBox(height: 6),
+                                Row(
                                   children: [
-                                    const Icon(Icons.schedule_outlined,
-                                        size: 14, color: Color(0xFF6B7280)),
+                                    Icon(
+                                      _getReligiousClassificationIcon(widget.church.religiousClassification),
+                                      size: 14,
+                                      color: _getReligiousClassificationColor(widget.church.religiousClassification),
+                                    ),
                                     const SizedBox(width: 4),
                                     Flexible(
                                       child: Text(
-                                          'Founded ${widget.church.foundingYear}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                  color: const Color(0xFF6B7280),
-                                                  fontWeight: FontWeight.w500),
-                                          overflow: TextOverflow.ellipsis),
+                                        widget.church.religiousClassification.label,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                                color: _getReligiousClassificationColor(widget.church.religiousClassification),
+                                                fontWeight: FontWeight.w600),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                    if (widget.showDistance &&
-                                        widget.distance != null) ...[
-                                      const SizedBox(width: 12),
-                                      const Icon(Icons.location_on,
-                                          size: 14, color: Color(0xFF2563EB)),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                          '${widget.distance!.toStringAsFixed(1)} km',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                  color: const Color(0xFF2563EB),
-                                                  fontWeight: FontWeight.w600)),
-                                    ],
                                   ],
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         ],

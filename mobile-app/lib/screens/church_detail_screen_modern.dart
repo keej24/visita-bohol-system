@@ -9,6 +9,7 @@ import '../models/church.dart';
 import '../models/app_state.dart';
 import '../models/enums.dart';
 import '../services/profile_service.dart';
+import '../services/paginated_church_service.dart';
 import 'map_screen.dart';
 import 'virtual_tour_screen.dart';
 
@@ -40,11 +41,14 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
   late TabController _tabController;
   int _currentPhotoIndex = 0;
   bool _isMarkingVisited = false;
+  bool _showFAB = true;
+  late Church _currentChurch;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _currentChurch = widget.church;
   }
 
   @override
@@ -53,19 +57,102 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
     super.dispose();
   }
 
+  Future<void> _refreshChurchData() async {
+    try {
+      debugPrint('🔄 Refreshing church data for: ${_currentChurch.id}');
+
+      // Fetch fresh data from Firestore (bypassing cache)
+      final churchService = Provider.of<PaginatedChurchService>(context, listen: false);
+      final updatedChurch = await churchService.fetchChurchById(_currentChurch.id);
+
+      if (updatedChurch != null && mounted) {
+        setState(() {
+          _currentChurch = updatedChurch;
+        });
+        debugPrint('✅ Church data refreshed successfully');
+      } else {
+        debugPrint('⚠️ No updated church data received');
+      }
+    } catch (e) {
+      debugPrint('❌ Error refreshing church data: $e');
+      // Show error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Failed to refresh: ${e.toString()}')),
+              ],
+            ),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC), // Match home screen background
-      body: CustomScrollView(
-        slivers: [
-          _buildAppBar(context),
-          _buildLocationHeader(),
-          if (widget.church.images.isNotEmpty) _buildPhotoCarouselWithActions(),
-          _buildInfoCard(),
-          _buildTabBar(),
-          _buildTabContent(),
-        ],
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (ScrollNotification notification) {
+          // Only respond to scroll notifications from the main scroll view, not carousel
+          // Check if the notification is from a ScrollView (not PageView/Carousel)
+          if (notification is ScrollUpdateNotification &&
+              notification.depth == 0) {
+            final scrollPosition = notification.metrics.pixels;
+
+            // Show FAB only when at the top (scroll position near 0)
+            // Hide FAB when scrolled down
+            if (scrollPosition <= 50) {
+              // At the top (with small threshold for smooth transition)
+              if (!_showFAB) {
+                setState(() {
+                  _showFAB = true;
+                });
+              }
+            } else {
+              // Scrolled down
+              if (_showFAB) {
+                setState(() {
+                  _showFAB = false;
+                });
+              }
+            }
+          }
+          return false;
+        },
+        child: NestedScrollView(
+          headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+            return [
+              _buildAppBar(context),
+              _buildLocationHeader(),
+              if (_currentChurch.images.isNotEmpty) _buildPhotoCarouselWithActions(),
+              _buildInfoCard(),
+              _buildTabBar(),
+            ];
+          },
+          body: RefreshIndicator(
+            onRefresh: _refreshChurchData,
+            color: const Color(0xFF2C5F2D),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                HistoryTab(church: _currentChurch),
+                MassScheduleTab(church: _currentChurch),
+                AnnouncementsTab(church: _currentChurch),
+                ReviewsTab(church: _currentChurch),
+              ],
+            ),
+          ),
+        ),
       ),
       floatingActionButton: _buildMarkVisitedFAB(context),
     );
@@ -104,7 +191,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
           Expanded(
             child: Consumer<AppState>(
               builder: (context, state, _) {
-                final isInVisitList = state.isForVisit(widget.church);
+                final isInVisitList = state.isForVisit(_currentChurch);
                 return OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
@@ -113,8 +200,8 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                         isInVisitList ? const Color(0xFF2C5F2D) : Colors.white,
                     foregroundColor:
                         isInVisitList ? Colors.white : const Color(0xFF2C5F2D),
-                    side: BorderSide(
-                      color: const Color(0xFF2C5F2D),
+                    side: const BorderSide(
+                      color: Color(0xFF2C5F2D),
                       width: 1.5,
                     ),
                     shape: RoundedRectangleBorder(
@@ -134,9 +221,10 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
 
                     if (isInVisitList) {
                       // Already in list - remove it
-                      state.unmarkForVisit(widget.church);
+                      // Sync with Firebase FIRST before updating local state
                       await profileService
-                          .toggleForVisitChurch(widget.church.id);
+                          .toggleForVisitChurch(_currentChurch.id);
+                      state.unmarkForVisit(_currentChurch);
 
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -161,9 +249,10 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                       }
                     } else {
                       // Not in list - add it
-                      state.markForVisit(widget.church);
+                      // Sync with Firebase FIRST before updating local state
                       await profileService
-                          .toggleForVisitChurch(widget.church.id);
+                          .toggleForVisitChurch(_currentChurch.id);
+                      state.markForVisit(_currentChurch);
 
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -208,7 +297,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
               'Map',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
-            onPressed: () => _openMap(context, widget.church),
+            onPressed: () => _openMap(context, _currentChurch),
           ),
           const SizedBox(width: 8),
           // 360° Tour button
@@ -237,7 +326,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             onPressed: _has360Tour()
-                ? () => _open360Tour(context, widget.church)
+                ? () => _open360Tour(context, _currentChurch)
                 : () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -280,7 +369,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
               children: [
                 Expanded(
                   child: Text(
-                    widget.church.name,
+                    _currentChurch.name,
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
@@ -289,7 +378,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                     ),
                   ),
                 ),
-                if (widget.church.isHeritage) ...[
+                if (_currentChurch.isHeritage) ...[
                   const SizedBox(width: 8),
                   _buildCompactHeritageBadge(),
                 ],
@@ -316,7 +405,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    widget.church.location,
+                    _currentChurch.location,
                     style: const TextStyle(
                       fontSize: 15,
                       color: Color(0xFF6B7280),
@@ -337,14 +426,14 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
   /// Compact heritage badge for header
   Widget _buildCompactHeritageBadge() {
     final isICP =
-        widget.church.heritageClassification == HeritageClassification.icp;
+        _currentChurch.heritageClassification == HeritageClassification.icp;
     final colors = isICP
         ? [const Color(0xFFD4AF37), const Color(0xFFB8941F)] // Gold for ICP
         : [const Color(0xFF7C3AED), const Color(0xFF5B21B6)]; // Purple for NCT
 
     return Tooltip(
       message:
-          '${widget.church.heritageClassification.label} - Protected Heritage Site',
+          '${_currentChurch.heritageClassification.label} - Protected Heritage Site',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
@@ -418,7 +507,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                     });
                   },
                 ),
-                items: widget.church.images.map((imagePath) {
+                items: _currentChurch.images.map((imagePath) {
                   return Container(
                     width: MediaQuery.of(context).size.width,
                     color: const Color(0xFFF3F4F6),
@@ -428,12 +517,12 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
               ),
             ),
             // Modern photo indicators (outside carousel to avoid Positioned error)
-            if (widget.church.images.length > 1)
+            if (_currentChurch.images.length > 1)
               Padding(
                 padding: const EdgeInsets.only(top: 12, bottom: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: widget.church.images.asMap().entries.map((entry) {
+                  children: _currentChurch.images.asMap().entries.map((entry) {
                     final isActive = _currentPhotoIndex == entry.key;
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
@@ -491,21 +580,21 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
             _buildModernInfoRow(
               Icons.calendar_today_outlined,
               'Founded',
-              widget.church.foundingYear?.toString() ?? 'Unknown',
+              _currentChurch.foundingYear?.toString() ?? 'Unknown',
             ),
             const SizedBox(height: 16),
             _buildModernInfoRow(
               Icons.architecture_outlined,
               'Architectural Style',
-              widget.church.architecturalStyle.label,
+              _currentChurch.architecturalStyle.label,
             ),
             const SizedBox(height: 16),
             _buildModernInfoRow(
               Icons.location_on_outlined,
               'Diocese',
-              widget.church.diocese,
+              _currentChurch.diocese,
             ),
-            if (widget.church.isHeritage) ...[
+            if (_currentChurch.isHeritage) ...[
               const SizedBox(height: 16),
               _buildHeritageBadge(),
             ],
@@ -557,7 +646,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
 
   Widget _buildHeritageBadge() {
     final isICP =
-        widget.church.heritageClassification == HeritageClassification.icp;
+        _currentChurch.heritageClassification == HeritageClassification.icp;
     final colors = isICP
         ? [const Color(0xFFD4AF37), const Color(0xFFB8941F)] // Gold for ICP
         : [const Color(0xFF7C3AED), const Color(0xFF5B21B6)]; // Purple for NCT
@@ -588,7 +677,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.church.heritageClassification.label,
+                  _currentChurch.heritageClassification.label,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -616,8 +705,8 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
   Widget _buildTabBar() {
     return SliverPersistentHeader(
       pinned: true,
-      delegate: _SliverAppBarDelegate(
-        Container(
+      delegate: _TabBarDelegate(
+        child: Container(
           color: const Color(0xFFF8FAFC),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Container(
@@ -657,60 +746,51 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
     );
   }
 
-  /// Tab Content
-  Widget _buildTabContent() {
-    return SliverToBoxAdapter(
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height - 400,
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            HistoryTab(church: widget.church),
-            MassScheduleTab(church: widget.church),
-            AnnouncementsTab(church: widget.church),
-            ReviewsTab(church: widget.church),
-          ],
+
+  /// Modern Floating Action Button with scroll-aware visibility
+  Widget _buildMarkVisitedFAB(BuildContext context) {
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 200),
+      offset: _showFAB ? Offset.zero : const Offset(0, 2),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: _showFAB ? 1.0 : 0.0,
+        child: Consumer<AppState>(
+          builder: (context, state, _) {
+            final visited = state.isVisited(_currentChurch);
+
+            return FloatingActionButton.extended(
+              onPressed: _isMarkingVisited
+                  ? null
+                  : () => _handleMarkAsVisited(context, state),
+              backgroundColor:
+                  visited ? const Color(0xFF4CAF50) : const Color(0xFF2C5F2D),
+              foregroundColor: Colors.white,
+              elevation: 6,
+              extendedPadding: const EdgeInsets.symmetric(horizontal: 24),
+              icon: _isMarkingVisited
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(visited ? Icons.check_circle : Icons.check_circle_outline,
+                      size: 24),
+              label: Text(
+                visited ? 'Visited' : 'Mark Visited',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            );
+          },
         ),
       ),
-    );
-  }
-
-  /// Modern Floating Action Button
-  Widget _buildMarkVisitedFAB(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (context, state, _) {
-        final visited = state.isVisited(widget.church);
-
-        return FloatingActionButton.extended(
-          onPressed: _isMarkingVisited
-              ? null
-              : () => _handleMarkAsVisited(context, state),
-          backgroundColor:
-              visited ? const Color(0xFF4CAF50) : const Color(0xFF2C5F2D),
-          foregroundColor: Colors.white,
-          elevation: 6,
-          extendedPadding: const EdgeInsets.symmetric(horizontal: 24),
-          icon: _isMarkingVisited
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : Icon(visited ? Icons.check_circle : Icons.check_circle_outline,
-                  size: 24),
-          label: Text(
-            visited ? 'Visited' : 'Mark Visited',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-              letterSpacing: 0.5,
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -828,7 +908,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
 
   /// Check if the church has 360° tour available
   bool _has360Tour() {
-    return widget.church.hasVirtualTour;
+    return _currentChurch.hasVirtualTour;
   }
 
   /// Open 360° tour viewer
@@ -849,7 +929,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
   Future<void> _handleMarkAsVisited(
       BuildContext context, AppState state) async {
     // Check if already visited
-    if (state.isVisited(widget.church)) {
+    if (state.isVisited(_currentChurch)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -900,7 +980,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
 
       // Validate proximity using the app_state method with location validation
       final validationResult = await state.markVisitedWithValidation(
-        widget.church,
+        _currentChurch,
         position,
       );
 
@@ -910,7 +990,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
         // Success - church marked as visited
         // Sync with ProfileService
         final profileService = context.read<ProfileService>();
-        await profileService.markChurchAsVisited(widget.church.id);
+        await profileService.markChurchAsVisited(_currentChurch.id);
 
         if (!context.mounted) return;
 
@@ -921,7 +1001,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text('${widget.church.name} marked as visited!'),
+                  child: Text('${_currentChurch.name} marked as visited!'),
                 ),
               ],
             ),
@@ -1002,13 +1082,15 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
   }
 }
 
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  final Widget _child;
+/// Custom delegate for pinned TabBar in NestedScrollView
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
 
-  _SliverAppBarDelegate(this._child);
+  _TabBarDelegate({required this.child});
 
   @override
   double get minExtent => 60;
+
   @override
   double get maxExtent => 60;
 
@@ -1018,11 +1100,12 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return _child;
+    return child;
   }
 
   @override
-  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+  bool shouldRebuild(_TabBarDelegate oldDelegate) {
     return false;
   }
 }
+

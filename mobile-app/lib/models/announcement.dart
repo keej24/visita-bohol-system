@@ -3,11 +3,13 @@ class Announcement {
   final String title;
   final String description;
   final DateTime dateTime;
-  final DateTime? endDateTime; // For multi-day events
+  final DateTime? endDateTime; // For multi-day events (endDate in Firestore)
+  final String? eventTime;
+  final String? endTime;
   final String venue;
   final String scope; // 'diocese' or 'parish'
-  final String? churchId;
-  final String diocese; // Diocese of Tagbilaran or Diocese of Talibon
+  final String? churchId; // parishId in Firestore
+  final String diocese; // 'tagbilaran' or 'talibon' in Firestore
   final String category; // Festival, Mass, Exhibit, Community Event
   final String? imageUrl;
   final String? contactInfo;
@@ -16,6 +18,10 @@ class Announcement {
   final String? locationUrl; // Google Maps URL
 
   final bool isArchived;
+  final DateTime? archivedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final String? createdBy;
 
   Announcement({
     required this.id,
@@ -23,10 +29,12 @@ class Announcement {
     required this.description,
     required this.dateTime,
     this.endDateTime,
+    this.eventTime,
+    this.endTime,
     required this.venue,
     this.scope = 'diocese',
     this.churchId,
-    this.diocese = 'Diocese of Tagbilaran', // Default to Diocese of Tagbilaran
+    this.diocese = 'tagbilaran', // Default to tagbilaran
     this.category = 'Community Event',
     this.imageUrl,
     this.contactInfo,
@@ -34,6 +42,10 @@ class Announcement {
     this.tags = const [],
     this.locationUrl,
     this.isArchived = false,
+    this.archivedAt,
+    this.createdAt,
+    this.updatedAt,
+    this.createdBy,
   });
 
   // Helper getters for status
@@ -64,10 +76,12 @@ class Announcement {
             DateTime.parse(j['dateTime'] ?? DateTime.now().toIso8601String()),
         endDateTime:
             j['endDateTime'] != null ? DateTime.parse(j['endDateTime']) : null,
+        eventTime: j['eventTime'],
+        endTime: j['endTime'],
         venue: j['venue'] ?? '',
         scope: j['scope'] ?? 'diocese',
         churchId: j['churchId'],
-        diocese: j['diocese'] ?? 'Diocese of Tagbilaran',
+        diocese: j['diocese'] ?? 'tagbilaran',
         category: j['category'] ?? 'Community Event',
         imageUrl: j['imageUrl'],
         contactInfo: j['contactInfo'],
@@ -75,7 +89,60 @@ class Announcement {
         tags: List<String>.from(j['tags'] ?? []),
         locationUrl: j['locationUrl'],
         isArchived: j['isArchived'] == true,
+        archivedAt:
+            j['archivedAt'] != null ? DateTime.parse(j['archivedAt']) : null,
+        createdAt:
+            j['createdAt'] != null ? DateTime.parse(j['createdAt']) : null,
+        updatedAt:
+            j['updatedAt'] != null ? DateTime.parse(j['updatedAt']) : null,
+        createdBy: j['createdBy'],
       );
+
+  // Factory for Firestore documents
+  factory Announcement.fromFirestore(String id, Map<String, dynamic> data) {
+    // Helper to convert Firestore Timestamp to DateTime
+    DateTime? parseTimestamp(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      // Firestore Timestamp has seconds and nanoseconds
+      if (value is Map && value.containsKey('_seconds')) {
+        return DateTime.fromMillisecondsSinceEpoch(
+            value['_seconds'] * 1000 + (value['_nanoseconds'] ?? 0) ~/ 1000000);
+      }
+      return null;
+    }
+
+    // Convert diocese format
+    String convertDiocese(String? diocese) {
+      if (diocese == null) return 'tagbilaran';
+      if (diocese == 'tagbilaran' || diocese == 'talibon') return diocese;
+      // Convert from old format if needed
+      if (diocese.toLowerCase().contains('tagbilaran')) return 'tagbilaran';
+      if (diocese.toLowerCase().contains('talibon')) return 'talibon';
+      return 'tagbilaran';
+    }
+
+    return Announcement(
+      id: id,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      dateTime: parseTimestamp(data['eventDate']) ?? DateTime.now(),
+      endDateTime: parseTimestamp(data['endDate']),
+      eventTime: data['eventTime'],
+      endTime: data['endTime'],
+      venue: data['venue'] ?? '',
+      scope: data['scope'] ?? 'diocese',
+      churchId: data['parishId'],
+      diocese: convertDiocese(data['diocese']),
+      category: data['category'] ?? 'Community Event',
+      contactInfo: data['contactInfo'],
+      isArchived: data['isArchived'] ?? false,
+      archivedAt: parseTimestamp(data['archivedAt']),
+      createdAt: parseTimestamp(data['createdAt']),
+      updatedAt: parseTimestamp(data['updatedAt']),
+      createdBy: data['createdBy'],
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -83,6 +150,8 @@ class Announcement {
         'description': description,
         'dateTime': dateTime.toIso8601String(),
         'endDateTime': endDateTime?.toIso8601String(),
+        'eventTime': eventTime,
+        'endTime': endTime,
         'venue': venue,
         'scope': scope,
         'churchId': churchId,
@@ -94,5 +163,9 @@ class Announcement {
         'tags': tags,
         'locationUrl': locationUrl,
         'isArchived': isArchived,
+        'archivedAt': archivedAt?.toIso8601String(),
+        'createdAt': createdAt?.toIso8601String(),
+        'updatedAt': updatedAt?.toIso8601String(),
+        'createdBy': createdBy,
       };
 }

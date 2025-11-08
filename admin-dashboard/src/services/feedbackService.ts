@@ -22,8 +22,12 @@ export interface FeedbackItem {
   rating: number;
   subject: string;
   comment: string;
+  message?: string;
+  category?: string;
   status: 'published' | 'hidden' | 'pending';
   date_submitted: Date;
+  createdAt: string;
+  photos?: string[]; // Photo URLs from mobile app
   mediaFiles?: MediaFile[];
   moderatedAt?: Date;
   moderatedBy?: string;
@@ -212,16 +216,22 @@ export class FeedbackService {
    * Helper method to map a single Firestore doc to FeedbackItem
    */
   private static mapFeedbackDoc(id: string, data: DocumentData): FeedbackItem {
+    const dateSubmitted = data.date_submitted?.toDate?.() || data.createdAt?.toDate?.() || new Date();
+
     return {
       id,
       church_id: data.church_id || data.churchId || '',
       pub_user_id: data.pub_user_id || data.userId || '',
       userName: data.userName || data.user_name || 'Anonymous',
       rating: data.rating || 5,
-      subject: data.subject || '',
+      subject: data.subject || data.category || 'Review',
       comment: data.comment || data.message || '',
+      message: data.message || data.comment || '',
+      category: data.category || 'general',
       status: data.status || 'published',
-      date_submitted: data.date_submitted?.toDate?.() || data.createdAt?.toDate?.() || new Date(),
+      date_submitted: dateSubmitted,
+      createdAt: dateSubmitted.toISOString(),
+      photos: Array.isArray(data.photos) ? data.photos : [],
       mediaFiles: data.mediaFiles || data.images || [],
       moderatedAt: data.moderatedAt?.toDate?.(),
       moderatedBy: data.moderatedBy,

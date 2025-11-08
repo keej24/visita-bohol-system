@@ -48,11 +48,17 @@ service cloud.firestore {
       // Allow users to create their own profile if it doesn't exist
       allow create: if isAuthenticated() && request.auth.uid == userId;
 
-      // Chancery office can read all users in their diocese (use try-catch pattern for getUserData)
+      // Chancery office can read all users in their diocese (admin users)
       allow read: if isAuthenticated() &&
                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'chancery_office' &&
                      (resource.data.diocese == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.diocese);
+
+      // Chancery office can read ALL users (including public mobile app users) for management
+      // Note: This allows collection queries. The app filters by accountType client-side.
+      allow read: if isAuthenticated() &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'chancery_office';
 
       // Museum researchers can read user profiles (for attribution)
       allow read: if isAuthenticated() &&
@@ -66,11 +72,19 @@ service cloud.firestore {
                        request.resource.data.role == 'parish_secretary' &&
                        request.resource.data.diocese == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.diocese;
 
-      // Chancery office can update and delete user accounts in their diocese
+      // Chancery office can update user accounts in their diocese (admin users)
       allow update, delete: if isAuthenticated() &&
                                exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'chancery_office' &&
                                resource.data.diocese == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.diocese;
+
+      // Chancery office can update public users (for blocking/unblocking)
+      allow update: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'chancery_office' &&
+                       resource.data.accountType == 'public' &&
+                       // Only allow updating specific fields (blocking-related)
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isBlocked', 'blockReason', 'blockedAt', 'blockedBy', 'isActive', 'lastUpdatedAt']);
     }
     
     // Churches collection - Main church data
@@ -191,6 +205,11 @@ service cloud.firestore {
                      (resource.data.userId == request.auth.uid ||
                       resource.data.pub_user_id == request.auth.uid);
 
+      // Users can delete their own feedback
+      allow delete: if isAuthenticated() &&
+                       (resource.data.userId == request.auth.uid ||
+                        resource.data.pub_user_id == request.auth.uid);
+
       // Chancery office can read ALL feedback in their diocese (for reports and moderation)
       allow read: if isChanceryOffice();
 
@@ -200,6 +219,10 @@ service cloud.firestore {
 
       // Chancery office and parish secretaries can moderate feedback for churches in their diocese
       allow update: if (isChanceryOffice() || isParishSecretary()) &&
+                       get(/databases/$(database)/documents/churches/$(resource.data.church_id)).data.diocese == getUserData().diocese;
+
+      // Chancery office can delete inappropriate feedback in their diocese
+      allow delete: if isChanceryOffice() &&
                        get(/databases/$(database)/documents/churches/$(resource.data.church_id)).data.diocese == getUserData().diocese;
     }
     
@@ -253,18 +276,14 @@ service cloud.firestore {
       // Everyone can read announcements (public information)
       allow read: if true;
 
-      // Chancery office can create and manage announcements for their diocese
+      // Chancery office can create announcements for their diocese
       allow create: if isChanceryOffice() &&
                        request.resource.data.diocese == getUserData().diocese;
 
-      // Chancery office can update announcements in their diocese
-      allow update: if isChanceryOffice() &&
-                       resource.data.diocese == getUserData().diocese &&
-                       request.resource.data.diocese == resource.data.diocese;
-
-      // Chancery office can delete announcements in their diocese
-      allow delete: if isChanceryOffice() &&
-                       resource.data.diocese == getUserData().diocese;
+      // Chancery office can update/delete ONLY announcements they created
+      allow update, delete: if isChanceryOffice() &&
+                               resource.data.diocese == getUserData().diocese &&
+                               resource.data.createdBy == request.auth.uid;
 
       // Parish secretaries can create parish-scoped announcements in their diocese
       allow create: if isParishSecretary() &&
@@ -272,14 +291,12 @@ service cloud.firestore {
                        request.resource.data.scope == 'parish' &&
                        request.resource.data.parishId == getUserData().parish;
 
-      // Parish secretaries can update their own parish announcements
-      allow update: if isParishSecretary() &&
-                       resource.data.diocese == getUserData().diocese &&
-                       resource.data.scope == 'parish' &&
-                       resource.data.parishId == getUserData().parish &&
-                       request.resource.data.diocese == resource.data.diocese &&
-                       request.resource.data.scope == resource.data.scope &&
-                       request.resource.data.parishId == resource.data.parishId;
+      // Parish secretaries can update/delete ONLY their own parish announcements
+      allow update, delete: if isParishSecretary() &&
+                               resource.data.diocese == getUserData().diocese &&
+                               resource.data.scope == 'parish' &&
+                               resource.data.parishId == getUserData().parish &&
+                               resource.data.createdBy == request.auth.uid;
     }
 
     // Church Visited collection - Physical visit tracking

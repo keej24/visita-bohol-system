@@ -111,11 +111,12 @@ class HistoryTab extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
 
-                // Cultural Significance
-                if (church.culturalSignificance != null) ...[
-                  const SizedBox(height: 8),
+                // Architectural Features (NEW)
+                if (church.architecturalFeatures != null &&
+                    church.architecturalFeatures!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
                   const Text(
-                    'Cultural Significance',
+                    'Architectural Features',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF2C5F2D),
@@ -124,19 +125,21 @@ class HistoryTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    church.culturalSignificance!,
+                    church.architecturalFeatures!,
                     style: const TextStyle(
                       height: 1.6,
                       color: Color(0xFF1F2937),
                     ),
+                    textAlign: TextAlign.justify,
                   ),
                 ],
 
-                // Preservation History
-                if (church.preservationHistory != null) ...[
+                // Heritage Information (NEW)
+                if (church.heritageInformation != null &&
+                    church.heritageInformation!.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   const Text(
-                    'Preservation History',
+                    'Heritage Information',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF2C5F2D),
@@ -145,32 +148,12 @@ class HistoryTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    church.preservationHistory!,
+                    church.heritageInformation!,
                     style: const TextStyle(
                       height: 1.6,
                       color: Color(0xFF1F2937),
                     ),
-                  ),
-                ],
-
-                // Restoration History
-                if (church.restorationHistory != null) ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Restoration History',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF2C5F2D),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    church.restorationHistory!,
-                    style: const TextStyle(
-                      height: 1.6,
-                      color: Color(0xFF1F2937),
-                    ),
+                    textAlign: TextAlign.justify,
                   ),
                 ],
               ],

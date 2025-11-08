@@ -21,6 +21,24 @@ class AnnouncementsTab extends StatefulWidget {
 
 class _AnnouncementsTabState extends State<AnnouncementsTab> {
   bool _showArchived = false;
+  final FirestoreAnnouncementRepository _repository = FirestoreAnnouncementRepository();
+  late Future<List<Announcement>> _announcementsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnnouncements();
+  }
+
+  void _loadAnnouncements() {
+    _announcementsFuture = _repository.getAnnouncementsByParish(widget.church.id);
+  }
+
+  Future<void> _refreshAnnouncements() async {
+    setState(() {
+      _loadAnnouncements();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,12 +89,14 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
           ),
         ),
 
-        // Announcements list
+        // Announcements list with RefreshIndicator
         Expanded(
-          child: FutureBuilder<List<Announcement>>(
-            future: FirestoreAnnouncementRepository()
-                .getAnnouncementsByParish(widget.church.id),
-            builder: (context, snapshot) {
+          child: RefreshIndicator(
+            onRefresh: _refreshAnnouncements,
+            color: const Color(0xFF2C5F2D),
+            child: FutureBuilder<List<Announcement>>(
+              future: _announcementsFuture,
+              builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: CircularProgressIndicator(color: Color(0xFF2C5F2D)),
@@ -300,6 +320,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                 },
               );
             },
+            ),
           ),
         ),
       ],

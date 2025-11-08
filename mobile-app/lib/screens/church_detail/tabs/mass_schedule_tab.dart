@@ -335,18 +335,15 @@ class MassScheduleTab extends StatelessWidget {
                                 color: Color(0xFF1F2937),
                               ),
                             ),
-                            if (language.isNotEmpty &&
-                                    language.toLowerCase() != 'filipino' ||
-                                isFbLive)
+                            if (language.toLowerCase() == 'english' || isFbLive)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Wrap(
                                   spacing: 8,
                                   runSpacing: 4,
                                   children: [
-                                    // Only show language badge for English masses
-                                    if (language.isNotEmpty &&
-                                        language.toLowerCase() != 'filipino')
+                                    // Show language badge only for English masses
+                                    if (language.toLowerCase() == 'english')
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 8,
@@ -367,9 +364,9 @@ class MassScheduleTab extends StatelessWidget {
                                               color: Color(0xFF2C5F2D),
                                             ),
                                             const SizedBox(width: 4),
-                                            Text(
-                                              language,
-                                              style: const TextStyle(
+                                            const Text(
+                                              'English',
+                                              style: TextStyle(
                                                 fontSize: 12,
                                                 color: Color(0xFF2C5F2D),
                                                 fontWeight: FontWeight.w500,
@@ -386,10 +383,8 @@ class MassScheduleTab extends StatelessWidget {
                                           vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
-                                          color:
-                                              Colors.red.withValues(alpha: 0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
+                                          color: Colors.red.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,

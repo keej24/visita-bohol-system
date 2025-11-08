@@ -23,12 +23,18 @@ import heroImage from "@/assets/baclayon-church-hero.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChurches, useChurchReview, useDeleteChurch } from "@/hooks/useChurches";
 import { useToast } from "@/components/ui/use-toast";
-import type { ChurchStatus, ChurchClassification } from "@/types/church";
+import type { ChurchStatus, ChurchClassification, Church } from "@/types/church";
+import { ChurchDetailModal } from "@/components/ChurchDetailModal";
+import { Timestamp } from "firebase/firestore";
 
 const Churches = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<ChurchStatus | 'all'>('approved'); // Default to approved for chancery office
   const [classificationFilter, setClassificationFilter] = useState<ChurchClassification | 'all'>('all');
+
+  // Modal state
+  const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { userProfile } = useAuth();
   const { toast } = useToast();
@@ -46,6 +52,16 @@ const Churches = () => {
   }, [searchTerm, statusFilter, classificationFilter, userProfile?.diocese]);
 
   const { data: churches = [], isLoading, error } = useChurches(filters);
+
+  const handleViewChurch = (church: Church) => {
+    setSelectedChurch(church);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedChurch(null);
+  };
 
   const handleReviewChurch = async (churchId: string, action: 'approve' | 'reject' | 'request_revision' | 'forward_to_museum', notes?: string) => {
     if (!userProfile?.uid) return;
@@ -93,6 +109,53 @@ const Churches = () => {
 
   const canManageChurch = userProfile?.role === 'chancery_office' || userProfile?.role === 'museum_researcher';
   const canCreateChurch = userProfile?.role === 'parish_secretary';
+
+  // Convert Church type from @/types/church to @/lib/churches format for the modal
+  const convertChurchForModal = (church: Church | null): import('@/lib/churches').Church | null => {
+    if (!church) return null;
+
+    // Map the classification to the expected format
+    let classification: 'ICP' | 'NCT' | 'non-heritage' | 'unknown' = 'unknown';
+    if (church.classification === 'ICP' || church.classification === 'NCT') {
+      classification = church.classification;
+    } else if (church.classification === 'non_heritage') {
+      classification = 'non-heritage';
+    }
+
+    return {
+      id: church.id,
+      name: church.name,
+      municipality: church.municipality,
+      parishId: church.parishId,
+      diocese: church.diocese,
+      status: church.status as import('@/lib/churches').ChurchStatus,
+      classification,
+      foundedYear: church.foundingYear,
+      address: church.location,
+      latitude: church.coordinates?.latitude,
+      longitude: church.coordinates?.longitude,
+      architecturalStyle: church.architecturalStyle,
+      historicalBackground: church.historicalBackground,
+      massSchedules: church.massSchedules, // Keep as array for modal display
+      assignedPriest: church.assignedPriest,
+      culturalSignificance: church.culturalSignificance,
+      createdAt: church.createdAt ? Timestamp.fromDate(new Date(church.createdAt)) : undefined,
+      updatedAt: church.updatedAt ? Timestamp.fromDate(new Date(church.updatedAt)) : undefined,
+      submittedBy: church.createdBy,
+      lastReviewedBy: church.reviewedBy,
+      lastReviewNote: church.reviewNotes,
+      // Additional fields for modal display
+      fullName: church.fullName,
+      location: church.location,
+      coordinates: church.coordinates,
+      contactInfo: church.contactInfo,
+      images: church.images,
+      documents: church.documents,
+      virtualTour360: church.virtualTour ? [] : [],
+      founders: church.founders,
+      description: church.description,
+    } as import('@/lib/churches').Church;
+  };
 
   return (
     <Layout>
@@ -245,7 +308,12 @@ const Churches = () => {
                       Updated {church.updatedAt.toLocaleDateString()}
                     </span>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" title="View Details">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="View Details"
+                        onClick={() => handleViewChurch(church)}
+                      >
                         <Eye className="w-4 h-4" />
                       </Button>
 
@@ -370,6 +438,14 @@ const Churches = () => {
           </div>
         )}
       </div>
+
+      {/* Church Detail Modal */}
+      <ChurchDetailModal
+        church={convertChurchForModal(selectedChurch)}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        mode="view"
+      />
     </Layout>
   );
 };

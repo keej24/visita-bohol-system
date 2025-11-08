@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/feedback.dart';
 import '../services/feedback_service.dart';
+import '../services/auth_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:provider/provider.dart';
 
 class FeedbackSubmitScreen extends StatefulWidget {
   final String churchId;
@@ -36,6 +38,12 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
   }
 
   void _submit() async {
+    // Get current user from AuthService before any async operations
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUser = authService.currentUser;
+    final userId = currentUser?.uid ?? 'anonymous-${DateTime.now().millisecondsSinceEpoch}';
+    final userName = currentUser?.displayName ?? 'Anonymous';
+
     // Show loading indicator
     showDialog(
       context: context,
@@ -52,17 +60,36 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
         final fileName =
             '${widget.churchId}/${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
         final ref = storage.ref().child('feedback_photos/$fileName');
-        final uploadTask = await ref.putFile(file);
+
+        // Upload with metadata to ensure proper content type and caching
+        final metadata = SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl: 'public, max-age=31536000', // 1 year cache
+          customMetadata: {
+            'uploadedBy': 'mobile-app',
+            'churchId': widget.churchId,
+          },
+        );
+
+        debugPrint('📤 Uploading photo to: feedback_photos/$fileName');
+        await ref.putFile(file, metadata);
+        debugPrint('✅ Upload complete, getting download URL...');
+
         final url = await ref.getDownloadURL();
+        debugPrint('✅ Download URL obtained: $url');
         photoUrls.add(url);
       } catch (e) {
         debugPrint('❌ Error uploading photo: $e');
+        debugPrint('   Stack trace: ${StackTrace.current}');
       }
     }
 
+    debugPrint('📊 Successfully uploaded ${photoUrls.length} photos out of ${_photos.length}');
+
     final fb = FeedbackModel(
       id: const Uuid().v4(),
-      userId: 'local-user',
+      userId: userId,
+      userName: userName,
       churchId: widget.churchId,
       comment: _commentCtl.text,
       rating: _rating,

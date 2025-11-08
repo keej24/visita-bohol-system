@@ -215,42 +215,50 @@ export class AnnouncementService {
 
   // Get announcements for diocese
   static async getAnnouncements(
-    diocese: Diocese, 
+    diocese: Diocese,
     filters?: AnnouncementFilters
   ): Promise<Announcement[]> {
     try {
       console.log('📢 Fetching announcements for diocese:', diocese);
       console.log('🔍 Filters:', filters);
 
-      let q = query(
-        collection(db, ANNOUNCEMENTS_COLLECTION),
-        where('diocese', '==', diocese),
-        orderBy('eventDate', 'desc')
-      );
+      // Build query constraints array
+      const constraints: any[] = [
+        where('diocese', '==', diocese)
+      ];
 
-      // Apply filters
+      // Apply filters BEFORE orderBy
       if (filters?.scope && filters.scope !== 'all') {
-        q = query(q, where('scope', '==', filters.scope));
+        constraints.push(where('scope', '==', filters.scope));
       }
 
       if (filters?.category) {
-        q = query(q, where('category', '==', filters.category));
+        constraints.push(where('category', '==', filters.category));
       }
 
       if (filters?.isArchived !== undefined) {
-        q = query(q, where('isArchived', '==', filters.isArchived));
+        constraints.push(where('isArchived', '==', filters.isArchived));
       }
 
+      // Filter by creator (important for role-based access)
+      if (filters?.createdBy) {
+        constraints.push(where('createdBy', '==', filters.createdBy));
+      }
+
+      // Add orderBy LAST
+      constraints.push(orderBy('eventDate', 'desc'));
+
+      const q = query(collection(db, ANNOUNCEMENTS_COLLECTION), ...constraints);
       const snapshot = await getDocs(q);
       console.log('📊 Found', snapshot.docs.length, 'announcements');
-      
+
       if (snapshot.docs.length > 0) {
         console.log('📄 First announcement sample:', snapshot.docs[0].data());
       }
 
       const announcements = snapshot.docs.map(convertToAnnouncement);
       console.log('✅ Converted announcements:', announcements);
-      
+
       return announcements;
     } catch (error) {
       console.error('❌ Error fetching announcements:', error);
@@ -265,20 +273,29 @@ export class AnnouncementService {
     filters?: AnnouncementFilters
   ): () => void {
     try {
-      let q = query(
-        collection(db, ANNOUNCEMENTS_COLLECTION),
-        where('diocese', '==', diocese),
-        orderBy('eventDate', 'desc')
-      );
+      // Build query constraints array
+      const constraints: any[] = [
+        where('diocese', '==', diocese)
+      ];
 
-      // Apply filters
+      // Apply filters BEFORE orderBy
       if (filters?.scope && filters.scope !== 'all') {
-        q = query(q, where('scope', '==', filters.scope));
+        constraints.push(where('scope', '==', filters.scope));
       }
 
       if (filters?.isArchived !== undefined) {
-        q = query(q, where('isArchived', '==', filters.isArchived));
+        constraints.push(where('isArchived', '==', filters.isArchived));
       }
+
+      // Filter by creator (important for role-based access)
+      if (filters?.createdBy) {
+        constraints.push(where('createdBy', '==', filters.createdBy));
+      }
+
+      // Add orderBy LAST
+      constraints.push(orderBy('eventDate', 'desc'));
+
+      const q = query(collection(db, ANNOUNCEMENTS_COLLECTION), ...constraints);
 
       return onSnapshot(q, (snapshot) => {
         const announcements = snapshot.docs.map(convertToAnnouncement);

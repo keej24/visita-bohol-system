@@ -99,7 +99,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       majorHistoricalEvents: initialData?.historicalDetails?.majorHistoricalEvents || '',
       heritageClassification: initialData?.historicalDetails?.heritageClassification || 'None',
       religiousClassification: initialData?.historicalDetails?.religiousClassification || 'None',
-      supportingDocuments: initialData?.historicalDetails?.supportingDocuments || []
+      supportingDocuments: initialData?.historicalDetails?.supportingDocuments || [],
+      architecturalFeatures: initialData?.historicalDetails?.architecturalFeatures || '',
+      heritageInformation: initialData?.historicalDetails?.heritageInformation || ''
     },
     
     // Current Parish Operations
@@ -127,6 +129,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   });
 
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [scheduleCategory, setScheduleCategory] = useState<'Sunday' | 'Saturday' | 'Daily'>('Sunday');
+  const [pendingSchedules, setPendingSchedules] = useState<MassSchedule[]>([]);
   const [scheduleForm, setScheduleForm] = useState({
     time: '',
     endTime: '',
@@ -226,16 +230,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     );
   };
 
-  const addMassScheduleForSelectedDays = () => {
-    if (selectedDays.length === 0) {
-      toast({
-        title: "No Days Selected",
-        description: "Please select at least one day for the mass schedule.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  // Add schedule to pending list (batch mode)
+  const addToPendingSchedules = () => {
     if (!scheduleForm.time || !scheduleForm.endTime) {
       toast({
         title: "Incomplete Information",
@@ -245,7 +241,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       return;
     }
 
-    const newSchedules = selectedDays.map(day => ({
+    // Determine days based on category
+    const daysForCategory = scheduleCategory === 'Sunday'
+      ? ['Sunday']
+      : scheduleCategory === 'Saturday'
+      ? ['Saturday']
+      : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+    const newSchedules = daysForCategory.map(day => ({
       day,
       time: scheduleForm.time,
       endTime: scheduleForm.endTime,
@@ -253,20 +256,51 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       isFbLive: scheduleForm.isFbLive
     }));
 
+    setPendingSchedules(prev => [...prev, ...newSchedules]);
+
+    // Reset only time fields, keep language and FB Live
+    setScheduleForm(prev => ({ ...prev, time: '', endTime: '' }));
+
+    toast({
+      title: "Added to List",
+      description: `${scheduleCategory} mass schedule added to pending list. Add more or click "Save All Schedules".`,
+    });
+  };
+
+  // Save all pending schedules
+  const saveAllPendingSchedules = () => {
+    if (pendingSchedules.length === 0) {
+      toast({
+        title: "No Schedules",
+        description: "Add at least one schedule before saving.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
-      massSchedules: [...prev.massSchedules, ...newSchedules]
+      massSchedules: [...prev.massSchedules, ...pendingSchedules]
     }));
 
-    // Reset form
-    setSelectedDays([]);
+    setPendingSchedules([]);
     setScheduleForm({ time: '', endTime: '', language: 'Filipino', isFbLive: false });
 
-    const dayText = selectedDays.length === 1 ? selectedDays[0] : `${selectedDays.length} days`;
     toast({
       title: "Success",
-      description: `Mass schedule added for ${dayText}!`
+      description: `${pendingSchedules.length} mass schedule(s) saved!`,
     });
+  };
+
+  // Remove from pending list
+  const removePendingSchedule = (index: number) => {
+    setPendingSchedules(prev => prev.filter((_, i) => i !== index));
+    toast({ title: "Removed", description: "Schedule removed from pending list." });
+  };
+
+  // Legacy function for backward compatibility (can be removed later)
+  const addMassScheduleForSelectedDays = () => {
+    addToPendingSchedules();
   };
 
   const removeMassSchedule = (index: number) => {
@@ -275,6 +309,35 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       massSchedules: prev.massSchedules.filter((_, i) => i !== index)
     }));
     toast({ title: "Success", description: "Mass schedule removed." });
+  };
+
+  // Remove all matching mass schedules (for Daily masses that span multiple days)
+  const removeMatchingSchedules = (schedule: MassSchedule) => {
+    const countBefore = formData.massSchedules.length;
+
+    setFormData(prev => ({
+      ...prev,
+      massSchedules: prev.massSchedules.filter(s =>
+        !(s.time === schedule.time &&
+          s.endTime === schedule.endTime &&
+          s.language === schedule.language &&
+          s.isFbLive === schedule.isFbLive)
+      )
+    }));
+
+    const countAfter = formData.massSchedules.filter(s =>
+      !(s.time === schedule.time &&
+        s.endTime === schedule.endTime &&
+        s.language === schedule.language &&
+        s.isFbLive === schedule.isFbLive)
+    ).length;
+
+    const removedCount = countBefore - countAfter;
+
+    toast({
+      title: "Success",
+      description: `${removedCount} mass schedule(s) removed.`
+    });
   };
 
   // Helper function to convert time to sortable format
@@ -333,25 +396,22 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           <span className="font-medium text-gray-800">
             {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
           </span>
-          {schedule.language && schedule.language !== 'Filipino' && (
-            <span className="text-sm text-gray-600">({schedule.language})</span>
+          {schedule.language && (
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
+              🌐 {schedule.language}
+            </Badge>
           )}
           {schedule.isFbLive && (
-            <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">FB Live</Badge>
+            <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">📺 FB Live</Badge>
           )}
         </div>
         {showRemove && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              const originalIndex = formData.massSchedules.findIndex(s =>
-                s.day === schedule.day && s.time === schedule.time && s.endTime === schedule.endTime &&
-                s.language === schedule.language && s.isFbLive === schedule.isFbLive
-              );
-              if (originalIndex !== -1) removeMassSchedule(originalIndex);
-            }}
+            onClick={() => removeMatchingSchedules(schedule)}
             className="text-red-600 hover:text-red-700"
+            title="Remove this schedule (and all matching schedules for Daily masses)"
           >
             <X className="w-4 h-4" />
           </Button>
@@ -361,6 +421,20 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
     return (
       <div className="space-y-6">
+        {/* Sunday Masses */}
+        {groupedSchedules.sunday.length > 0 && (
+          <div>
+            <h5 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+              ☀️ Sunday Masses
+            </h5>
+            <div className="space-y-2 pl-4">
+              {sortByTime(groupedSchedules.sunday).map((schedule, index) =>
+                renderScheduleItem(schedule, index)
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Daily Masses (Monday–Friday) */}
         {uniqueWeekdaySchedules.length > 0 && (
           <div>
@@ -375,28 +449,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           </div>
         )}
 
-        {/* Saturday */}
+        {/* Saturday Masses */}
         {groupedSchedules.saturday.length > 0 && (
           <div>
             <h5 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              📅 Saturday
+              🌙 Saturday Masses
             </h5>
             <div className="space-y-2 pl-4">
               {sortByTime(groupedSchedules.saturday).map((schedule, index) =>
-                renderScheduleItem(schedule, index)
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Sunday */}
-        {groupedSchedules.sunday.length > 0 && (
-          <div>
-            <h5 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              🌞 Sunday
-            </h5>
-            <div className="space-y-2 pl-4">
-              {sortByTime(groupedSchedules.sunday).map((schedule, index) =>
                 renderScheduleItem(schedule, index)
               )}
             </div>
@@ -599,7 +659,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   'text-green-600'
                 }`} />
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3 mb-3">
                     <h3 className="font-semibold text-gray-900">Heritage Significance Assessment</h3>
                     <Badge variant={
                       heritageAssessment.confidence === 'high' ? 'destructive' :
@@ -610,43 +670,12 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     </Badge>
                   </div>
 
-                  <p className="text-sm text-gray-700 mb-3">
-                    {heritageAssessment.reasoning}
-                  </p>
-
                   {heritageAssessment.shouldRequireReview && (
-                    <div className="bg-orange-100 border border-orange-300 rounded-lg p-3 mb-3">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-orange-600" />
-                        <span className="text-sm font-medium text-orange-800">
-                          Heritage Review Required
-                        </span>
-                      </div>
-                      <p className="text-xs text-orange-700 mt-1">
-                        This church will automatically be sent to Museum Researcher for heritage validation after Chancery review.
+                    <div className="bg-orange-100 border border-orange-300 rounded-lg p-3">
+                      <p className="text-sm text-orange-800">
+                        Church is classified as Important Cultural Property (ICP). Must be forwarded to Museum Researcher for heritage validation.
                       </p>
                     </div>
-                  )}
-
-                  {heritageAssessment.indicators.filter(i => i.present).length > 0 && (
-                    <details className="text-xs">
-                      <summary className="cursor-pointer text-gray-600 hover:text-gray-800">
-                        View Heritage Indicators ({heritageAssessment.indicators.filter(i => i.present).length} detected)
-                      </summary>
-                      <div className="mt-2 space-y-1">
-                        {heritageAssessment.indicators.filter(i => i.present).map((indicator, index) => (
-                          <div key={index} className="flex items-center gap-2 text-gray-600">
-                            <CheckCircle className="w-3 h-3 text-green-500" />
-                            <span className="text-xs">
-                              {indicator.description}
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                Weight: {indicator.weight}
-                              </Badge>
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
                   )}
                 </div>
               </div>
@@ -758,19 +787,6 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           onChange={(e) => updateLocationField('municipality', e.target.value)}
                           placeholder="Municipality name"
                           className="h-11"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="province" className="text-sm font-medium text-gray-700">
-                          Province
-                        </Label>
-                        <Input
-                          id="province"
-                          value={formData.locationDetails.province}
-                          onChange={(e) => updateLocationField('province', e.target.value)}
-                          className="h-11"
-                          disabled
                         />
                       </div>
                     </div>
@@ -938,18 +954,49 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </p>
                     </div>
 
+                  </div>
+
+                  <Separator />
+
+                  {/* Architectural & Heritage Information Section */}
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Landmark className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Architectural & Heritage Information</h3>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="majorHistoricalEvents" className="text-sm font-medium text-gray-700">
-                        Major Historical Events
+                      <Label htmlFor="architecturalFeatures" className="text-sm font-medium text-gray-700">
+                        Architectural Features
                       </Label>
                       <Textarea
-                        id="majorHistoricalEvents"
-                        value={formData.historicalDetails.majorHistoricalEvents}
-                        onChange={(e) => updateHistoricalField('majorHistoricalEvents', e.target.value)}
-                        placeholder="Notable events, renovations, celebrations, or milestones..."
-                        rows={4}
+                        id="architecturalFeatures"
+                        value={formData.historicalDetails.architecturalFeatures}
+                        onChange={(e) => updateHistoricalField('architecturalFeatures', e.target.value)}
+                        placeholder="Describe the architectural features, design elements, materials used, notable structures (e.g., bell tower, facade, interior design)..."
+                        rows={5}
                         className="resize-none"
                       />
+                      <p className="text-xs text-gray-600">
+                        Include details about the building's architecture, unique design elements, and construction materials
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="heritageInformation" className="text-sm font-medium text-gray-700">
+                        Heritage Information
+                      </Label>
+                      <Textarea
+                        id="heritageInformation"
+                        value={formData.historicalDetails.heritageInformation}
+                        onChange={(e) => updateHistoricalField('heritageInformation', e.target.value)}
+                        placeholder="Share information about the church's cultural and historical significance, preservation efforts, restoration projects, heritage status..."
+                        rows={5}
+                        className="resize-none"
+                      />
+                      <p className="text-xs text-gray-600">
+                        Document the church's cultural importance, heritage designation, and conservation history
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1022,38 +1069,6 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           />
                         </div>
                       </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="website" className="text-sm font-medium text-gray-700">
-                          Website
-                        </Label>
-                        <div className="relative">
-                          <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="website"
-                            value={formData.contactInfo.website}
-                            onChange={(e) => updateContactField('website', e.target.value)}
-                            placeholder="https://www.church.com"
-                            className="h-11 pl-10"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="facebookPage" className="text-sm font-medium text-gray-700">
-                          Facebook Page
-                        </Label>
-                        <div className="relative">
-                          <ExternalLink className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="facebookPage"
-                            value={formData.contactInfo.facebookPage}
-                            onChange={(e) => updateContactField('facebookPage', e.target.value)}
-                            placeholder="Facebook page URL or name"
-                            className="h-11 pl-10"
-                          />
-                        </div>
-                      </div>
                     </div>
                   </div>
 
@@ -1074,42 +1089,84 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </div>
                     )}
 
+                    {/* Pending Schedules Preview */}
+                    {pendingSchedules.length > 0 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-gray-900">Pending Schedules ({pendingSchedules.length})</h4>
+                          <Button
+                            onClick={saveAllPendingSchedules}
+                            className="bg-green-600 hover:bg-green-700"
+                            size="sm"
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            Save All Schedules
+                          </Button>
+                        </div>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {pendingSchedules.map((schedule, index) => (
+                            <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-yellow-300">
+                              <div className="flex items-center gap-3">
+                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                                  {schedule.day}
+                                </Badge>
+                                <span className="text-sm font-medium text-gray-800">
+                                  {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
+                                </span>
+                                {schedule.language && (
+                                  <span className="text-xs text-gray-600">({schedule.language})</span>
+                                )}
+                                {schedule.isFbLive && (
+                                  <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">FB Live</Badge>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removePendingSchedule(index)}
+                                className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Add Mass Schedule */}
                     <div className="bg-blue-50 rounded-lg p-6">
                       <h4 className="font-medium text-gray-900 mb-6">Add Mass Schedule</h4>
 
-                      {/* Day Selection */}
+                      {/* Category Selection */}
                       <div className="mb-6">
                         <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                          Select Days <span className="text-gray-500">(check multiple days if they have the same schedule)</span>
+                          Select Category
                         </Label>
-                        <div className="grid grid-cols-7 gap-3">
-                          {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day) => (
-                            <div key={day} className="flex flex-col items-center">
-                              <Checkbox
-                                id={`day-${day}`}
-                                checked={selectedDays.includes(day)}
-                                onCheckedChange={() => toggleDaySelection(day)}
-                                className="mb-2"
-                              />
-                              <Label
-                                htmlFor={`day-${day}`}
-                                className={`text-sm text-center cursor-pointer ${
-                                  selectedDays.includes(day) ? 'font-medium text-blue-700' : 'text-gray-600'
-                                }`}
-                              >
-                                {day.slice(0, 3)}
-                              </Label>
-                            </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          {(['Sunday', 'Daily', 'Saturday'] as const).map((category) => (
+                            <button
+                              key={category}
+                              type="button"
+                              onClick={() => setScheduleCategory(category)}
+                              className={`p-4 rounded-lg border-2 transition-all ${
+                                scheduleCategory === category
+                                  ? 'border-blue-600 bg-blue-100 text-blue-900'
+                                  : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
+                              }`}
+                            >
+                              <div className="text-center">
+                                <div className="text-2xl mb-1">
+                                  {category === 'Sunday' ? '☀️' : category === 'Daily' ? '📅' : '🌙'}
+                                </div>
+                                <div className="font-semibold">{category}</div>
+                                <div className="text-xs mt-1 text-gray-600">
+                                  {category === 'Daily' ? 'Mon-Fri' : category}
+                                </div>
+                              </div>
+                            </button>
                           ))}
                         </div>
-                        {selectedDays.length > 0 && (
-                          <div className="mt-3">
-                            <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50">
-                              Selected: {selectedDays.join(', ')}
-                            </Badge>
-                          </div>
-                        )}
                       </div>
 
                       {/* Schedule Details */}
@@ -1166,12 +1223,12 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         <div>
                           <Label className="text-sm font-medium text-gray-700 mb-2 block">&nbsp;</Label>
                           <Button
-                            onClick={addMassScheduleForSelectedDays}
+                            onClick={addToPendingSchedules}
                             className="flex items-center gap-2 h-10 w-full"
-                            disabled={selectedDays.length === 0}
+                            disabled={!scheduleForm.time || !scheduleForm.endTime}
                           >
                             <Plus className="w-4 h-4" />
-                            Add Schedule
+                            Add to List
                           </Button>
                         </div>
                       </div>

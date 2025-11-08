@@ -1,6 +1,7 @@
 export type ChurchStatus = 'pending' | 'approved' | 'rejected' | 'under_review' | 'needs_revision';
 export type ChurchClassification = 'ICP' | 'NCT' | 'non_heritage' | 'parish_church' | 'pilgrimage_site' | 'historical_shrine';
 export type ArchitecturalStyle = 'baroque' | 'gothic' | 'romanesque' | 'neoclassical' | 'modern' | 'mixed' | 'other';
+export type ReligiousClassification = 'diocesan_shrine' | 'jubilee_church' | 'papal_basilica_affinity' | 'none';
 
 export interface Coordinates {
   latitude: number;
@@ -33,6 +34,7 @@ export interface Church {
   historicalBackground: string;
   description: string;
   classification: ChurchClassification;
+  religiousClassification?: ReligiousClassification;
   assignedPriest?: string;
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;
@@ -48,6 +50,8 @@ export interface Church {
   culturalSignificance?: string;
   preservationHistory?: string;
   restorationHistory?: string;
+  architecturalFeatures?: string;
+  heritageInformation?: string;
 
   // Status and workflow
   status: ChurchStatus;
@@ -87,6 +91,7 @@ export interface ChurchFormData {
   historicalBackground: string;
   description: string;
   classification: ChurchClassification;
+  religiousClassification?: ReligiousClassification;
   assignedPriest?: string;
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;
@@ -97,6 +102,8 @@ export interface ChurchFormData {
   culturalSignificance?: string;
   preservationHistory?: string;
   restorationHistory?: string;
+  architecturalFeatures?: string;
+  heritageInformation?: string;
   tags?: string[];
   category?: string;
 }

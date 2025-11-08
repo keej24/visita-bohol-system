@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user_profile.dart';
 import '../models/church.dart';
 import '../services/profile_service.dart';
@@ -146,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSliverAppBar(UserProfile profile, bool isDark) {
     return SliverAppBar(
-      expandedHeight: 180,
+      expandedHeight: 200,
       pinned: true,
       backgroundColor: isDark ? const Color(0xFF1F1F1F) : HeaderColors.profile,
       elevation: 0,
@@ -245,63 +245,124 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfilePicture(UserProfile profile) {
-    return GestureDetector(
-      onTap: () => context.read<ProfileService>().updateProfileImage(),
-      child: Container(
-        width: 70,
-        height: 70,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Container(
+    final hasImage = profile.profileImageUrl != null && profile.profileImageUrl!.isNotEmpty;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () => context.read<ProfileService>().updateProfileImage(),
+          onLongPress: hasImage
+              ? () {
+                  // Show delete confirmation dialog
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete Profile Picture?'),
+                      content: const Text(
+                          'Are you sure you want to remove your profile picture?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            context.read<ProfileService>().deleteProfileImage();
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8, right: 8),
+            child: SizedBox(
               width: 70,
               height: 70,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                image: profile.profileImageUrl != null
-                    ? DecorationImage(
-                        image: FileImage(File(profile.profileImageUrl!)),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: hasImage
+                        ? ClipOval(
+                            child: CachedNetworkImage(
+                              imageUrl: profile.profileImageUrl!,
+                              width: 70,
+                              height: 70,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              errorWidget: (context, url, error) => Icon(
+                                Icons.person_rounded,
+                                size: 35,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            Icons.person_rounded,
+                            size: 35,
+                            color: Colors.grey[400],
+                          ),
+                  ),
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: hasImage ? Colors.red : const Color(0xFF2563EB),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        hasImage ? Icons.delete_outline : Icons.camera_alt_rounded,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: profile.profileImageUrl == null
-                  ? Icon(
-                      Icons.person_rounded,
-                      size: 35,
-                      color: Colors.grey[400],
-                    )
-                  : null,
             ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2563EB),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.camera_alt_rounded,
-                  size: 12,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (hasImage) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Long press to delete',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.white.withValues(alpha: 0.8),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ],
     );
   }
 

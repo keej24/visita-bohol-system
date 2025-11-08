@@ -36,6 +36,9 @@ export interface HistoricalDetails {
   heritageClassification: 'National Cultural Treasures' | 'Important Cultural Properties' | 'None';
   religiousClassification: 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'None';
   supportingDocuments?: FileUpload[];
+  // Architectural and Heritage Information
+  architecturalFeatures?: string;
+  heritageInformation?: string;
 }
 
 export interface FileUpload {
@@ -163,17 +166,26 @@ export interface FeedbackAnalytics {
 export interface ChurchSummaryReport {
   churchName: string;
   parishName: string;
+  diocese?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
   documentationDetails: {
     foundingYear: string;
     founders: string;
     keyFigures: string[];
     architecturalStyle: string;
     architecturalEvolution: string;
+    architecturalFeatures?: string;
     majorHistoricalEvents: string[];
     heritageClassification: string;
     heritageRecognitionRecords: string[];
+    heritageInformation?: string;
     preservationHistory: string;
     restorationHistory: string;
+    historicalBackground?: string;
+    religiousClassification?: string;
   };
   generatedDate: string;
 }

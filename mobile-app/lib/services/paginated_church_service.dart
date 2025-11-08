@@ -413,11 +413,40 @@ class PaginatedChurchService extends ChangeNotifier {
     _applyFilters();
   }
 
-  /// Get church by ID
+  /// Get church by ID from in-memory cache
   Church? getChurchById(String id) {
     try {
       return _churches.firstWhere((church) => church.id == id);
     } catch (e) {
+      return null;
+    }
+  }
+
+  /// Fetch fresh church data from Firestore by ID
+  ///
+  /// This method always fetches from Firestore, bypassing the cache.
+  /// Use this for refresh operations to get the latest data.
+  Future<Church?> fetchChurchById(String id) async {
+    try {
+      debugPrint('🔄 [PAGINATED SERVICE] Fetching fresh data for church: $id');
+
+      // Fetch from Firestore
+      final freshChurch = await _repository.getChurchById(id);
+
+      if (freshChurch != null) {
+        // Update in-memory cache if church exists
+        final index = _churches.indexWhere((c) => c.id == id);
+        if (index != -1) {
+          _churches[index] = freshChurch;
+          _applyFilters();
+        }
+
+        debugPrint('✅ [PAGINATED SERVICE] Fresh church data loaded');
+      }
+
+      return freshChurch;
+    } catch (e) {
+      debugPrint('❌ [PAGINATED SERVICE] Error fetching church: $e');
       return null;
     }
   }

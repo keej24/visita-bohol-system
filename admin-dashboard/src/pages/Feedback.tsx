@@ -46,6 +46,7 @@ interface FeedbackItem {
   message: string;
   status: 'published' | 'hidden' | 'pending';
   createdAt: string;
+  photos?: string[];
   moderatedAt?: string;
   moderatedBy?: string;
 }
@@ -115,10 +116,11 @@ const FeedbackReports = () => {
               churchName: churchMap.get(churchId) || 'Unknown Church',
               userName,
               rating: data.rating || 5,
-              subject: data.subject || 'Feedback',
+              subject: data.subject || data.category || 'Review',
               message: data.comment || data.message || '',
               status: data.status || 'published',
               createdAt: data.date_submitted?.toDate?.()?.toISOString() || new Date().toISOString(),
+              photos: Array.isArray(data.photos) ? data.photos : [],
               moderatedAt: data.moderatedAt?.toDate?.()?.toISOString(),
               moderatedBy: data.moderatedBy
             });
@@ -361,6 +363,26 @@ const FeedbackReports = () => {
 
                         <p className="text-muted-foreground">{feedback.message}</p>
 
+                        {/* Display photos if available */}
+                        {feedback.photos && feedback.photos.length > 0 && (
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            {feedback.photos.slice(0, 3).map((photoUrl, index) => (
+                              <img
+                                key={index}
+                                src={photoUrl}
+                                alt={`Feedback photo ${index + 1}`}
+                                className="w-20 h-20 object-cover rounded border cursor-pointer hover:opacity-75 transition-opacity"
+                                onClick={() => window.open(photoUrl, '_blank')}
+                              />
+                            ))}
+                            {feedback.photos.length > 3 && (
+                              <div className="w-20 h-20 bg-muted rounded border flex items-center justify-center text-muted-foreground text-sm font-medium">
+                                +{feedback.photos.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {feedback.moderatedAt && (
                           <div className="bg-muted/50 p-3 rounded-lg">
                             <p className="text-sm font-medium text-muted-foreground mb-1">
@@ -457,6 +479,26 @@ const FeedbackReports = () => {
                 <h4 className="text-sm font-medium text-muted-foreground mb-2">Message</h4>
                 <p className="text-sm leading-relaxed">{selectedFeedback.message}</p>
               </div>
+
+              {/* Display photos in detail view */}
+              {selectedFeedback.photos && selectedFeedback.photos.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                    Photos ({selectedFeedback.photos.length})
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedFeedback.photos.map((photoUrl, index) => (
+                      <img
+                        key={index}
+                        src={photoUrl}
+                        alt={`Feedback photo ${index + 1}`}
+                        className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-75 transition-opacity"
+                        onClick={() => window.open(photoUrl, '_blank')}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-2">Status</h4>

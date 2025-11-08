@@ -17,6 +17,7 @@ class Church {
   final List<String>? keyFigures; // Important historical figures
   final ArchitecturalStyle architecturalStyle;
   final HeritageClassification heritageClassification;
+  final ReligiousClassification religiousClassification;
   final String? history; // Historical background
   final String? description; // Church description
   final String? assignedPriest; // Current priest
@@ -36,6 +37,10 @@ class Church {
   final String? preservationHistory;
   final String? restorationHistory;
 
+  // Architectural and Heritage Information
+  final String? architecturalFeatures; // Detailed architectural description
+  final String? heritageInformation; // Heritage significance and preservation
+
   // Tags and categories
   final List<String>? tags;
   final String? category;
@@ -53,6 +58,7 @@ class Church {
     this.keyFigures,
     this.architecturalStyle = ArchitecturalStyle.other,
     this.heritageClassification = HeritageClassification.none,
+    this.religiousClassification = ReligiousClassification.none,
     this.history,
     this.description,
     this.assignedPriest,
@@ -68,6 +74,8 @@ class Church {
     this.culturalSignificance,
     this.preservationHistory,
     this.restorationHistory,
+    this.architecturalFeatures,
+    this.heritageInformation,
     this.tags,
     this.category,
   });
@@ -108,6 +116,8 @@ class Church {
               ? HeritageClassification.icp
               : HeritageClassification.none;
         })(),
+        religiousClassification:
+            ReligiousClassificationX.fromLabel(j['religiousClassification']),
         history: j['history'] ?? j['historicalBackground'],
         description: j['description'],
         assignedPriest: j['assignedPriest'],
@@ -200,6 +210,28 @@ class Church {
         culturalSignificance: j['culturalSignificance'],
         preservationHistory: j['preservationHistory'],
         restorationHistory: j['restorationHistory'],
+        architecturalFeatures: (() {
+          // Check both direct field and nested in historicalDetails
+          if (j['architecturalFeatures'] != null) {
+            return j['architecturalFeatures'] as String;
+          }
+          if (j['historicalDetails'] != null &&
+              j['historicalDetails']['architecturalFeatures'] != null) {
+            return j['historicalDetails']['architecturalFeatures'] as String;
+          }
+          return null;
+        })(),
+        heritageInformation: (() {
+          // Check both direct field and nested in historicalDetails
+          if (j['heritageInformation'] != null) {
+            return j['heritageInformation'] as String;
+          }
+          if (j['historicalDetails'] != null &&
+              j['historicalDetails']['heritageInformation'] != null) {
+            return j['historicalDetails']['heritageInformation'] as String;
+          }
+          return null;
+        })(),
         tags: j['tags'] != null ? List<String>.from(j['tags']) : null,
         category: j['category'],
       );
@@ -232,6 +264,8 @@ class Church {
         'culturalSignificance': culturalSignificance,
         'preservationHistory': preservationHistory,
         'restorationHistory': restorationHistory,
+        'architecturalFeatures': architecturalFeatures,
+        'heritageInformation': heritageInformation,
         'tags': tags,
         'category': category,
       };

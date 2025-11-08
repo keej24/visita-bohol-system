@@ -14,7 +14,8 @@ import {
   Mail,
   Globe,
   Loader2,
-  Building
+  Building,
+  X
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Layout } from '@/components/Layout';
@@ -41,6 +42,7 @@ const ParishDashboard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingChurch, setExistingChurch] = useState<Church | null>(null);
+  const [dismissedApprovedBanner, setDismissedApprovedBanner] = useState(false);
 
   // Core church data
   const [churchInfo, setChurchInfo] = useState<ChurchInfo>(() => ({
@@ -91,9 +93,35 @@ const ParishDashboard = () => {
 
   // Convert Church from Firebase to ChurchInfo format
   const convertChurchToInfo = useCallback((church: Church): ChurchInfo => {
+    // Helper to convert religious classification from Firestore to form format
+    const convertReligiousClassification = (classification?: string) => {
+      switch (classification) {
+        case 'diocesan_shrine': return 'Diocesan Shrine';
+        case 'jubilee_church': return 'Jubilee Church';
+        case 'papal_basilica_affinity': return 'Papal Basilica Affinity';
+        case 'none':
+        default: return 'None';
+      }
+    };
+
+    // Helper to convert architectural style from Firestore to form format
+    const convertArchitecturalStyle = (style?: string) => {
+      switch (style?.toLowerCase()) {
+        case 'baroque': return 'Spanish Colonial'; // Could be Baroque or Spanish Colonial
+        case 'gothic': return 'Neo-Gothic';
+        case 'romanesque': return 'Byzantine';
+        case 'neoclassical': return 'Neo-Classical';
+        case 'modern': return 'Modern';
+        case 'mixed': return 'Mixed';
+        case 'other':
+        default: return 'Other';
+      }
+    };
+
     return {
-      churchName: church.name || '',
-      parishName: church.fullName || '',
+      id: church.id,
+      churchName: church.fullName || church.name || '',
+      parishName: church.fullName || church.name || '',
       locationDetails: {
         streetAddress: church.contactInfo?.address?.split(',')[0]?.trim() || '',
         barangay: church.contactInfo?.address?.split(',')[1]?.trim() || '',
@@ -107,13 +135,15 @@ const ParishDashboard = () => {
       historicalDetails: {
         foundingYear: church.foundingYear?.toString() || '',
         founders: church.founders || '',
-        architecturalStyle: church.architecturalStyle || '',
+        architecturalStyle: convertArchitecturalStyle(church.architecturalStyle),
         historicalBackground: church.historicalBackground || church.description || '',
         majorHistoricalEvents: church.culturalSignificance || '',
         heritageClassification: church.classification === 'NCT' ? 'National Cultural Treasures' :
                                church.classification === 'ICP' ? 'Important Cultural Properties' : 'None',
-        religiousClassification: 'None',
-        supportingDocuments: []
+        religiousClassification: convertReligiousClassification(church.religiousClassification),
+        supportingDocuments: [],
+        architecturalFeatures: (church as any).architecturalFeatures || '',
+        heritageInformation: (church as any).heritageInformation || ''
       },
       currentParishPriest: church.assignedPriest || '',
       massSchedules: (church.massSchedules || []).map(schedule => ({
@@ -385,7 +415,8 @@ const ParishDashboard = () => {
       return schedules.map(schedule => ({
         day: schedule.day,
         time: schedule.endTime ? `${schedule.time} - ${schedule.endTime}` : schedule.time,
-        type: schedule.isFbLive ? `${schedule.language || 'Filipino'} (FB Live)` : (schedule.language || 'Filipino')
+        language: schedule.language || 'Filipino',
+        isFbLive: schedule.isFbLive || false
       }));
     };
 
@@ -395,6 +426,17 @@ const ParishDashboard = () => {
         case 'National Cultural Treasures': return 'NCT';
         case 'Important Cultural Properties': return 'ICP';
         default: return 'non_heritage';
+      }
+    };
+
+    // Helper function to map religious classification
+    const mapReligiousClassification = (classification: string) => {
+      switch (classification) {
+        case 'Diocesan Shrine': return 'diocesan_shrine';
+        case 'Jubilee Church': return 'jubilee_church';
+        case 'Papal Basilica Affinity': return 'papal_basilica_affinity';
+        case 'None':
+        default: return 'none';
       }
     };
 
@@ -424,6 +466,7 @@ const ParishDashboard = () => {
       historicalBackground: data.historicalDetails.historicalBackground || '',
       description: data.historicalDetails.historicalBackground || '',
       classification: mapHeritageClassification(data.historicalDetails.heritageClassification) as ChurchClassification,
+      religiousClassification: mapReligiousClassification(data.historicalDetails.religiousClassification || 'None') as import('@/types/church').ReligiousClassification,
       assignedPriest: data.currentParishPriest || '',
       massSchedules: convertMassSchedules(data.massSchedules || []),
       coordinates: convertCoordinates(data.coordinates),
@@ -444,6 +487,8 @@ const ParishDashboard = () => {
       culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
       preservationHistory: '',
       restorationHistory: '',
+      architecturalFeatures: data.historicalDetails.architecturalFeatures || '',
+      heritageInformation: data.historicalDetails.heritageInformation || '',
       tags: [],
       category: 'parish_church'
     };
@@ -482,7 +527,7 @@ const ParishDashboard = () => {
         );
 
         setChurchId(newChurchId);
-        setChurchInfo({ ...data, status: 'pending' });
+        setChurchInfo({ ...data, status: 'pending', id: newChurchId });
         setShowProfileForm(false);
 
         toast({
@@ -498,7 +543,8 @@ const ParishDashboard = () => {
           userProfile.uid
         );
 
-        // Status will be updated through real-time listener
+        // Update churchInfo immediately with the new data
+        setChurchInfo({ ...data, status: existingChurch.status, id: existingChurch.id });
         setShowProfileForm(false);
 
         const currentStatus = existingChurch.status;
@@ -777,10 +823,6 @@ const ParishDashboard = () => {
               <h3 className="font-semibold text-gray-900 mb-3">Basic Information</h3>
               <div className="space-y-2">
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Church Name:</span>
-                  <p className="text-gray-900">{churchInfo.churchName || 'Not specified'}</p>
-                </div>
-                <div>
                   <span className="text-sm font-medium text-gray-500">Parish Name:</span>
                   <p className="text-gray-900">{churchInfo.parishName || 'Not specified'}</p>
                 </div>
@@ -790,7 +832,7 @@ const ParishDashboard = () => {
                 </div>
               </div>
             </div>
-            
+
             <div>
               <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
               <div className="space-y-2">
@@ -801,10 +843,6 @@ const ParishDashboard = () => {
                 <div>
                   <span className="text-sm font-medium text-gray-500">Municipality:</span>
                   <p className="text-gray-900">{churchInfo.locationDetails?.municipality || 'Not specified'}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Province:</span>
-                  <p className="text-gray-900">{churchInfo.locationDetails?.province || 'Bohol'}</p>
                 </div>
               </div>
             </div>
@@ -942,13 +980,23 @@ const ParishDashboard = () => {
       {/* Real-time Status Updates */}
       {existingChurch && (
         <div className="mb-4">
-          {existingChurch.status === 'approved' && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <div>
-                <span className="font-medium text-green-900">Church Profile Approved!</span>
-                <p className="text-sm text-green-700">Your church information is now published and visible to visitors.</p>
+          {existingChurch.status === 'approved' && !dismissedApprovedBanner && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                <div>
+                  <span className="font-medium text-green-900">Church Profile Approved!</span>
+                  <p className="text-sm text-green-700">Your church information is now published and visible to visitors.</p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDismissedApprovedBanner(true)}
+                className="text-green-600 hover:text-green-700 hover:bg-green-100 flex-shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </Button>
             </div>
           )}
           {(existingChurch.status === 'under_review' || existingChurch.status === 'pending') && (

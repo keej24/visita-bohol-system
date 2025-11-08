@@ -85,10 +85,24 @@ service firebase.storage {
                       firestore.get(/databases/(default)/documents/churches/$(churchId)).data.diocese == getUserDiocese();
     }
     
-    // User profile images
+    // User profile images (new path structure)
+    match /profile_images/{imageId} {
+      // Anyone can read profile images (public access)
+      allow read: if true;
+
+      // Authenticated users can upload/delete their own profile images
+      // Allow write for authenticated users (validation happens in app)
+      allow write: if isAuthenticated() &&
+                      request.resource.size < 10 * 1024 * 1024; // 10MB limit (increased)
+
+      // Allow deletion of own profile image
+      allow delete: if isAuthenticated();
+    }
+
+    // User profile images (old path structure - kept for backward compatibility)
     match /users/{userId}/profile/{imageId} {
       // Users can read and write their own profile images
-      allow read, write: if isAuthenticated() && 
+      allow read, write: if isAuthenticated() &&
                             request.auth.uid == userId &&
                             isValidImageType() &&
                             request.resource.size < 5 * 1024 * 1024; // 5MB limit

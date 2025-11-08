@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'enums.dart';
 import '../utils/constants.dart';
@@ -68,5 +69,34 @@ class FilterState extends ChangeNotifier {
     _criteria = const ChurchFilterCriteria();
     notifyListeners();
     _persist();
+  }
+
+  // Advanced filter methods
+  void setAdvancedFilters({
+    RangeValues? foundingYearRange,
+    Set<ArchitecturalStyle>? architecturalStyles,
+    Set<HeritageClassification>? heritageClassifications,
+    Set<ReligiousClassification>? religiousClassifications,
+    Set<Diocese>? dioceses,
+  }) {
+    _criteria = _criteria.copyWith(
+      foundingYearRange: foundingYearRange,
+      architecturalStyles: architecturalStyles,
+      heritageClassifications: heritageClassifications,
+      religiousClassifications: religiousClassifications,
+      dioceses: dioceses,
+    );
+    notifyListeners();
+  }
+
+  void resetAdvancedFilters() {
+    _criteria = _criteria.copyWith(
+      foundingYearRange: null,
+      architecturalStyles: const {},
+      heritageClassifications: const {},
+      religiousClassifications: const {},
+      dioceses: const {},
+    );
+    notifyListeners();
   }
 }

@@ -42,8 +42,11 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
         });
       }
 
-      // Then load current announcements
-      const data = await AnnouncementService.getAnnouncements(diocese, { isArchived: false });
+      // Then load current announcements - filter by creator to show only user's own announcements
+      const data = await AnnouncementService.getAnnouncements(diocese, {
+        isArchived: false,
+        createdBy: userProfile?.uid // Only show announcements created by this user
+      });
       setAnnouncements(data);
     } catch (error) {
       console.error('Error loading announcements:', error);
@@ -55,13 +58,17 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     } finally {
       setIsLoading(false);
     }
-  }, [diocese, toast]);
+  }, [diocese, userProfile?.uid, toast]);
 
   // Load archived announcements
   const loadArchivedAnnouncements = React.useCallback(async () => {
     try {
       setIsLoadingArchived(true);
-      const data = await AnnouncementService.getAnnouncements(diocese, { isArchived: true });
+      // Filter by creator to show only user's own archived announcements
+      const data = await AnnouncementService.getAnnouncements(diocese, {
+        isArchived: true,
+        createdBy: userProfile?.uid // Only show announcements created by this user
+      });
       setArchivedAnnouncements(data);
     } catch (error) {
       console.error('Error loading archived announcements:', error);
@@ -73,7 +80,7 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     } finally {
       setIsLoadingArchived(false);
     }
-  }, [diocese, toast]);
+  }, [diocese, userProfile?.uid, toast]);
 
   useEffect(() => {
     loadAnnouncements();

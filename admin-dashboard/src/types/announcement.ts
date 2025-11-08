@@ -42,6 +42,7 @@ export interface AnnouncementFilters {
   scope?: 'diocese' | 'parish' | 'all';
   category?: string;
   isArchived?: boolean;
+  createdBy?: string; // Filter by creator userId
   dateRange?: {
     start: Date;
     end: Date;
