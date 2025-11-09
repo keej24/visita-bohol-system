@@ -7,6 +7,56 @@ class MassScheduleTab extends StatelessWidget {
 
   const MassScheduleTab({super.key, required this.church});
 
+  /// Converts 24-hour time format to 12-hour format with AM/PM
+  /// Handles both single times and time ranges
+  /// Examples:
+  /// - "09:00" -> "9:00 AM"
+  /// - "13:30" -> "1:30 PM"
+  /// - "09:00 - 10:00" -> "9:00 AM - 10:00 AM"
+  /// - "04:30 - 06:29" -> "4:30 AM - 6:29 AM"
+  String _formatTo12Hour(String time24) {
+    if (time24.isEmpty) return '';
+
+    try {
+      // Check if it's a time range (contains ' - ')
+      if (time24.contains(' - ')) {
+        final parts = time24.split(' - ');
+        if (parts.length == 2) {
+          final startTime = _convertSingleTime(parts[0].trim());
+          final endTime = _convertSingleTime(parts[1].trim());
+          return '$startTime - $endTime';
+        }
+      }
+
+      // Single time
+      return _convertSingleTime(time24);
+    } catch (e) {
+      return time24; // Return original if parsing fails
+    }
+  }
+
+  /// Converts a single 24-hour time to 12-hour format
+  String _convertSingleTime(String time24) {
+    final parts = time24.split(':');
+    if (parts.length != 2) return time24;
+
+    int hours = int.parse(parts[0]);
+    final minutes = parts[1];
+
+    // Determine AM/PM
+    final period = hours >= 12 ? 'PM' : 'AM';
+
+    // Convert to 12-hour format
+    if (hours == 0) {
+      hours = 12; // Midnight
+    } else if (hours > 12) {
+      hours -= 12; // Afternoon/Evening
+    }
+    // Keep 12 as is for noon
+
+    return '$hours:$minutes $period';
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -301,16 +351,14 @@ class MassScheduleTab extends StatelessWidget {
               const SizedBox(height: 12),
               // Mass Times
               ...schedules.map((schedule) {
-                var time = schedule['time'] ?? '';
+                final time24 = schedule['time'] ?? '';
                 final language = schedule['language'] ?? '';
                 final isFbLive = schedule['isFbLive'] == 'true' ||
                     schedule['isFbLive'] == true ||
                     (schedule['type']?.contains('FB Live') ?? false);
 
-                // Fix 12:00 showing as 00:00
-                if (time.startsWith('00:')) {
-                  time = time.replaceFirst('00:', '12:');
-                }
+                // Convert to 12-hour format
+                final time12 = _formatTo12Hour(time24);
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -328,7 +376,7 @@ class MassScheduleTab extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              time,
+                              time12,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,

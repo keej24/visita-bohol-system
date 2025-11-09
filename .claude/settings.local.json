@@ -63,7 +63,8 @@
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/models/church.dart lib/models/enums.dart --no-fatal-infos)",
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze --no-fatal-infos)",
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/widgets/home/church_card.dart --no-fatal-infos)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
