@@ -18,7 +18,6 @@ const preConfiguredAccounts = [
       diocese: 'tagbilaran',
       createdAt: new Date(),
       isPreConfigured: true,
-      requirePasswordChange: true,  // Force password change on first login
       permissions: ['manage_users', 'approve_churches', 'generate_reports', 'moderate_feedback']
     }
   },
@@ -32,7 +31,6 @@ const preConfiguredAccounts = [
       diocese: 'talibon',
       createdAt: new Date(),
       isPreConfigured: true,
-      requirePasswordChange: true,  // Force password change on first login
       permissions: ['manage_users', 'approve_churches', 'generate_reports', 'moderate_feedback']
     }
   },
@@ -46,7 +44,6 @@ const preConfiguredAccounts = [
       diocese: 'tagbilaran', // Primary affiliation but has cross-diocese access
       createdAt: new Date(),
       isPreConfigured: true,
-      requirePasswordChange: true,  // Force password change on first login
       permissions: ['validate_heritage', 'enhance_cultural_content', 'cross_diocese_access']
     }
   }

@@ -42,7 +42,6 @@ export const userSchema = z.object({
   // Status and Permissions
   isActive: z.boolean().default(true),
   isVerified: z.boolean().default(false),
-  requirePasswordChange: z.boolean().default(false),
 
   // Timestamps
   createdAt: z.string().datetime(),
@@ -156,21 +155,6 @@ export const userFilterSchema = z.object({
   limit: z.number().int().min(1).max(100).default(20),
 });
 
-// Password change schema
-export const passwordChangeSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase, and number'),
-  confirmPassword: z.string().min(1, 'Please confirm your password'),
-}).refine(
-  (data) => data.newPassword === data.confirmPassword,
-  {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  }
-);
-
 // Authentication schemas
 export const loginSchema = z.object({
   email: z.string()
@@ -193,7 +177,6 @@ export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type UserProfileUpdate = z.infer<typeof userProfileUpdateSchema>;
 export type Invitation = z.infer<typeof invitationSchema>;
 export type UserFilter = z.infer<typeof userFilterSchema>;
-export type PasswordChange = z.infer<typeof passwordChangeSchema>;
 export type Login = z.infer<typeof loginSchema>;
 export type PasswordReset = z.infer<typeof passwordResetSchema>;
 
@@ -220,10 +203,6 @@ export const validateInvitation = (data: unknown): Invitation => {
 
 export const validateUserFilter = (data: unknown): UserFilter => {
   return userFilterSchema.parse(data);
-};
-
-export const validatePasswordChange = (data: unknown): PasswordChange => {
-  return passwordChangeSchema.parse(data);
 };
 
 export const validateLogin = (data: unknown): Login => {
