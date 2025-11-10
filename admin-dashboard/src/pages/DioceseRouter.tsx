@@ -25,12 +25,13 @@ const PageLoadingFallback = () => (
 );
 
 const DioceseRouter = () => {
-  const { userProfile, loading, user } = useAuth();
+  const { userProfile, loading, user, profileCreating } = useAuth();
   const [profileLoadTimeout, setProfileLoadTimeout] = useState(false);
 
   // Set a timeout to show error only after reasonable wait time
+  // Don't show timeout error if profile is being created
   useEffect(() => {
-    if (user && !userProfile && !loading) {
+    if (user && !userProfile && !loading && !profileCreating) {
       const timer = setTimeout(() => {
         setProfileLoadTimeout(true);
       }, 5000); // Wait 5 seconds before showing error
@@ -39,11 +40,21 @@ const DioceseRouter = () => {
     } else {
       setProfileLoadTimeout(false);
     }
-  }, [user, userProfile, loading]);
+  }, [user, userProfile, loading, profileCreating]);
 
   // Show loading while authenticating or fetching profile
-  if (loading || (user && !userProfile && !profileLoadTimeout)) {
-    return <LoadingSpinner />;
+  // Show special message when creating profile for first-time known accounts
+  if (loading || profileCreating || (user && !userProfile && !profileLoadTimeout)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">
+            {profileCreating ? 'Setting up your account...' : 'Loading dashboard...'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // If no user, redirect to login

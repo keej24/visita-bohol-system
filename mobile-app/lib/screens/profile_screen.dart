@@ -685,40 +685,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showLogoutDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final authService = context.read<AuthService>();
-              final navigator = Navigator.of(context);
-
-              await authService.signOut();
-
-              if (!mounted) return;
-              navigator.pop(); // Close dialog
-
-              // Show success message
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Logged out successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
+      builder: (context) => _LogoutDialog(),
     );
   }
 
@@ -1045,6 +1012,69 @@ class _ChurchListScreen extends StatelessWidget {
                 );
               },
             ),
+    );
+  }
+}
+
+// Logout Dialog Widget
+class _LogoutDialog extends StatefulWidget {
+  @override
+  State<_LogoutDialog> createState() => _LogoutDialogState();
+}
+
+class _LogoutDialogState extends State<_LogoutDialog> {
+  bool _isLoggingOut = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Logout'),
+      content: _isLoggingOut
+          ? const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Logging out...'),
+              ],
+            )
+          : const Text('Are you sure you want to logout?'),
+      actions: _isLoggingOut
+          ? []
+          : [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  setState(() {
+                    _isLoggingOut = true;
+                  });
+
+                  final authService = context.read<AuthService>();
+                  final navigator = Navigator.of(context);
+
+                  // Add a small delay to ensure the user sees the loading indicator
+                  await Future.delayed(const Duration(milliseconds: 500));
+
+                  await authService.signOut();
+
+                  if (!mounted) return;
+
+                  // Close dialog and navigate to login by popping all routes
+                  navigator.pop(); // Close dialog
+
+                  // Pop all routes to get back to auth wrapper which will show login
+                  navigator.popUntil((route) => route.isFirst);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
     );
   }
 }

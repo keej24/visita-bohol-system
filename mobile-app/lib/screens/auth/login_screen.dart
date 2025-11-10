@@ -18,10 +18,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
-  String? _errorMessage;
+  String? _displayError; // Local copy for display purposes
+
+  @override
+  void initState() {
+    super.initState();
+    // Clear any previous errors when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      authService.clearError();
+    });
+
+    // Clear error when user starts typing
+    _emailController.addListener(_onTextChanged);
+    _passwordController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    if (_displayError != null) {
+      setState(() {
+        _displayError = null;
+      });
+      // Also clear the error in AuthService (silently, no notifyListeners)
+      final authService = Provider.of<AuthService>(context, listen: false);
+      authService.clearError();
+    }
+  }
 
   @override
   void dispose() {
+    _emailController.removeListener(_onTextChanged);
+    _passwordController.removeListener(_onTextChanged);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -32,38 +59,89 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    final authService = Provider.of<AuthService>(context, listen: false);
+
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
+      _displayError = null; // Clear any previous errors
     });
 
+    // Clear any previous errors in AuthService
+    authService.clearError();
+
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      debugPrint('🔐 Attempting login with email: ${_emailController.text.trim()}');
+
       final user = await authService.signIn(
         _emailController.text.trim(),
         _passwordController.text,
       );
 
-      if (user != null) {
+      debugPrint('🔐 Login result - User: ${user?.uid}, Error: ${authService.errorMessage}');
+
+      if (!mounted) {
+        debugPrint('⚠️ Widget not mounted, returning early');
+        return;
+      }
+
+      debugPrint('🔐 Widget is mounted, proceeding with error handling');
+
+      if (user == null) {
+        // Login failed - error message is already in AuthService
+        final errorMsg = authService.errorMessage ??
+            'Login failed. Please check your credentials.';
+
+        debugPrint('❌ Displaying error message: $errorMsg');
+
+        // Update state with error and stop loading
+        setState(() {
+          _isLoading = false;
+          _displayError = errorMsg;
+        });
+
+        // Show error as SnackBar for immediate visibility
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMsg),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+
+        debugPrint('❌ SnackBar shown and error displayed');
+      } else {
+        // Login successful
+        setState(() {
+          _isLoading = false;
+        });
+
+        debugPrint('✅ Login successful');
+
         // Success! AuthWrapper will automatically show HomeScreen.
         // If this screen was pushed (e.g., from a bottom sheet/menu), close it.
         if (mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
-      } else {
-        setState(() {
-          _errorMessage = 'Login failed. Please check your credentials.';
-        });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'An error occurred. Please try again.';
-      });
-    } finally {
+      debugPrint('💥 Exception in _handleLogin: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _displayError = 'An error occurred. Please try again.';
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An error occurred. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -191,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       // Error Message
-                      if (_errorMessage != null) ...[
+                      if (_displayError != null) ...[
                         const SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -218,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  _errorMessage!,
+                                  _displayError!,
                                   style: TextStyle(
                                     color: Theme.of(context).colorScheme.error,
                                     fontSize: 14,

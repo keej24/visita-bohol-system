@@ -255,7 +255,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                   child: _buildDropdown(
                 'Category',
                 _category,
-                ['All', 'Festival', 'Mass', 'Exhibit', 'Community Event'],
+                ['All', 'Festival', 'Mass', 'Exhibit', 'Community Event', 'Celebration', 'Pilgrimage', 'Conference', 'Meeting', 'Other'],
                 (v) => setState(() => _category = v),
                 isDark,
               )),

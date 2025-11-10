@@ -10,7 +10,7 @@ class Announcement {
   final String scope; // 'diocese' or 'parish'
   final String? churchId; // parishId in Firestore
   final String diocese; // 'tagbilaran' or 'talibon' in Firestore
-  final String category; // Festival, Mass, Exhibit, Community Event
+  final String category; // Festival, Mass, Exhibit, Community Event, Celebration, Pilgrimage, Conference, Meeting, Other
   final String? imageUrl;
   final String? contactInfo;
   final bool isRecurring;

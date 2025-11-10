@@ -371,8 +371,71 @@ class PublicUserProfileBar extends StatelessWidget {
         // Navigate to feedback screen
         break;
       case 'logout':
-        authService.signOut();
+        // Show logout confirmation dialog
+        showDialog(
+          context: context,
+          builder: (context) => _LogoutDialog(authService: authService),
+        );
         break;
     }
+  }
+}
+
+// Logout Dialog Widget
+class _LogoutDialog extends StatefulWidget {
+  final AuthService authService;
+
+  const _LogoutDialog({required this.authService});
+
+  @override
+  State<_LogoutDialog> createState() => _LogoutDialogState();
+}
+
+class _LogoutDialogState extends State<_LogoutDialog> {
+  bool _isLoggingOut = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Logout'),
+      content: _isLoggingOut
+          ? const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Logging out...'),
+              ],
+            )
+          : const Text('Are you sure you want to logout?'),
+      actions: _isLoggingOut
+          ? []
+          : [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  setState(() {
+                    _isLoggingOut = true;
+                  });
+
+                  final navigator = Navigator.of(context);
+
+                  await widget.authService.signOut();
+
+                  // Close dialog and pop all routes to return to login
+                  navigator.pop(); // Close dialog
+                  navigator.popUntil((route) => route.isFirst);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
+    );
   }
 }

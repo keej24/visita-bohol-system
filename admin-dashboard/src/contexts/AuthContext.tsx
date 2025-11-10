@@ -117,6 +117,7 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  profileCreating: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   hasRole: (role: UserRole) => boolean;
@@ -135,6 +136,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileCreating, setProfileCreating] = useState(false);
 
   /**
    * =============================================================================
@@ -200,6 +202,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // User profile not found - try to create one for known accounts
           const profileData = getKnownAccountProfile(user.email!);
           if (profileData) {
+            console.log('[AuthContext] Profile not found, creating profile for known account:', user.email);
+            setProfileCreating(true);
             try {
               await setDoc(doc(db, 'users', user.uid), {
                 uid: user.uid,
@@ -208,12 +212,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 createdAt: new Date(),
               });
 
+              console.log('[AuthContext] Profile created successfully, fetching profile data...');
               // Retry fetching the profile
+              setProfileCreating(false);
               await fetchUserProfile(user, 0);
               return;
             } catch (createError) {
-              console.error('Error creating profile for known account:', createError);
+              console.error('[AuthContext] Error creating profile for known account:', createError);
+              console.error('[AuthContext] Error details:', {
+                code: (createError as any)?.code,
+                message: (createError as any)?.message,
+                email: user.email
+              });
+              setProfileCreating(false);
             }
+          } else {
+            console.warn('[AuthContext] User authenticated but not a known account:', user.email);
           }
 
           setUserProfile(null);
@@ -222,9 +236,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         if (!mounted) return;
 
+        console.error('[AuthContext] Error fetching profile, attempt', retryCount + 1, ':', error);
+
         // Retry up to 3 times with increasing delays for network issues
         if (retryCount < 2) {
           const delay = (retryCount + 1) * 1000; // 1s, 2s, 3s
+          console.log(`[AuthContext] Retrying in ${delay}ms...`);
           setTimeout(() => {
             if (mounted) {
               fetchUserProfile(user, retryCount + 1);
@@ -232,6 +249,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }, delay);
         } else {
           // After all retries, silently fail and let the app handle no profile state
+          console.error('[AuthContext] All retry attempts failed for user:', user.email);
           setUserProfile(null);
           setLoading(false);
         }
@@ -339,6 +357,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     userProfile,
     loading,
+    profileCreating,
     login,
     logout,
     hasRole,

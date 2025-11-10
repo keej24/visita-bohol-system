@@ -161,7 +161,7 @@ const AccountSettings = () => {
             Account Settings
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage your personal information and account settings
+            Manage your account information and settings
           </p>
         </div>
 
@@ -184,7 +184,7 @@ const AccountSettings = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <User className="w-5 h-5" />
-                    Personal Information
+                    Account Information
                   </CardTitle>
                   <div className="flex flex-col items-end gap-1">
                     <Button
@@ -286,7 +286,7 @@ const AccountSettings = () => {
                       </div>
                     </>
                   ) : (
-                    // Regular User Accounts - Personal Information
+                    // Regular User Accounts - Account Information
                     <>
                       <div>
                         <Label htmlFor="firstName">First Name</Label>

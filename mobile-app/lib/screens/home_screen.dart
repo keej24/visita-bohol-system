@@ -1,57 +1,55 @@
-/**
- * FILE PURPOSE: Home Screen - Main User Interface
- *
- * This is the primary screen users see when they open the VISITA mobile app.
- * It provides a comprehensive browsing experience for discovering Bohol's churches.
- *
- * KEY RESPONSIBILITIES:
- * - Display list of approved churches
- * - Show diocese-wide announcements in carousel
- * - Provide search and filtering capabilities
- * - Support both list and grid view layouts
- * - Calculate and display distance to churches
- * - Handle pull-to-refresh for data updates
- * - Manage advanced filter bottom sheet
- * - Navigate to church detail screens
- *
- * INTEGRATION POINTS:
- * - Fetches churches from ChurchRepository
- * - Fetches announcements from AnnouncementRepository
- * - Uses LocationService for distance calculations
- * - Integrates with ProfileService for user avatar
- * - Connects to FilterState for filter persistence
- * - Uses PaginatedChurchService for advanced filters
- *
- * TECHNICAL CONCEPTS:
- * - StatefulWidget: Screen with mutable state
- * - CustomScrollView: Advanced scrolling with slivers
- * - SliverAppBar: Collapsible header with parallax effect
- * - Provider Pattern: Access services via context
- * - Debouncing: Delay search to reduce queries
- * - Pull-to-Refresh: User-initiated data reload
- * - Bottom Sheet: Modal filter interface
- * - Grid/List Toggle: Different view modes
- *
- * USER EXPERIENCE:
- * - Hero header with branding
- * - Announcement carousel for important updates
- * - Quick filters (search, diocese, heritage)
- * - Advanced filters (year range, styles, classifications)
- * - Distance-based sorting (when location enabled)
- * - Smooth animations and transitions
- *
- * PERFORMANCE OPTIMIZATIONS:
- * - Search debouncing (300ms delay)
- * - Filter state persistence (SharedPreferences)
- * - Cached network images
- * - Lazy loading (only render visible items)
- *
- * WHY IMPORTANT:
- * - Primary user interaction point
- * - First impression of the app
- * - Drives discovery and engagement
- * - Gateway to all churches
- */
+/// FILE PURPOSE: Home Screen - Main User Interface
+///
+/// This is the primary screen users see when they open the VISITA mobile app.
+/// It provides a comprehensive browsing experience for discovering Bohol's churches.
+///
+/// KEY RESPONSIBILITIES:
+/// - Display list of approved churches
+/// - Show diocese-wide announcements in carousel
+/// - Provide search and filtering capabilities
+/// - Support both list and grid view layouts
+/// - Calculate and display distance to churches
+/// - Handle pull-to-refresh for data updates
+/// - Manage advanced filter bottom sheet
+/// - Navigate to church detail screens
+///
+/// INTEGRATION POINTS:
+/// - Fetches churches from ChurchRepository
+/// - Fetches announcements from AnnouncementRepository
+/// - Uses LocationService for distance calculations
+/// - Integrates with ProfileService for user avatar
+/// - Connects to FilterState for filter persistence
+/// - Uses PaginatedChurchService for advanced filters
+///
+/// TECHNICAL CONCEPTS:
+/// - StatefulWidget: Screen with mutable state
+/// - CustomScrollView: Advanced scrolling with slivers
+/// - SliverAppBar: Collapsible header with parallax effect
+/// - Provider Pattern: Access services via context
+/// - Debouncing: Delay search to reduce queries
+/// - Pull-to-Refresh: User-initiated data reload
+/// - Bottom Sheet: Modal filter interface
+/// - Grid/List Toggle: Different view modes
+///
+/// USER EXPERIENCE:
+/// - Hero header with branding
+/// - Announcement carousel for important updates
+/// - Quick filters (search, diocese, heritage)
+/// - Advanced filters (year range, styles, classifications)
+/// - Distance-based sorting (when location enabled)
+/// - Smooth animations and transitions
+///
+/// PERFORMANCE OPTIMIZATIONS:
+/// - Search debouncing (300ms delay)
+/// - Filter state persistence (SharedPreferences)
+/// - Cached network images
+/// - Lazy loading (only render visible items)
+///
+/// WHY IMPORTANT:
+/// - Primary user interaction point
+/// - First impression of the app
+/// - Drives discovery and engagement
+/// - Gateway to all churches
 
 import 'package:flutter/material.dart';
 // Other screens for navigation
@@ -90,27 +88,25 @@ import 'package:provider/provider.dart';
 // Image caching
 import 'package:cached_network_image/cached_network_image.dart';
 
-/**
- * =============================================================================
- * HOME ANNOUNCEMENTS TAB - Main Content Tab
- * =============================================================================
- *
- * This is the first tab in the bottom navigation, showing the main home screen
- * with announcements carousel and church listings.
- *
- * STATE MANAGEMENT:
- * - _filterState: Persistent filter configuration
- * - _allChurches: Complete list of churches (unfiltered)
- * - _filteredChurches: Churches matching current filters
- * - _searchDebounce: Timer for search input delay
- * - _useEnhancedSearch: Whether to use advanced filter results
- * - _isGridView: Toggle between list and grid layout
- *
- * LIFECYCLE:
- * 1. initState: Load filter state, fetch churches
- * 2. User interaction: Update filters, refresh data
- * 3. dispose: Clean up resources (timers, listeners)
- */
+/// =============================================================================
+/// HOME ANNOUNCEMENTS TAB - Main Content Tab
+/// =============================================================================
+///
+/// This is the first tab in the bottom navigation, showing the main home screen
+/// with announcements carousel and church listings.
+///
+/// STATE MANAGEMENT:
+/// - _filterState: Persistent filter configuration
+/// - _allChurches: Complete list of churches (unfiltered)
+/// - _filteredChurches: Churches matching current filters
+/// - _searchDebounce: Timer for search input delay
+/// - _useEnhancedSearch: Whether to use advanced filter results
+/// - _isGridView: Toggle between list and grid layout
+///
+/// LIFECYCLE:
+/// 1. initState: Load filter state, fetch churches
+/// 2. User interaction: Update filters, refresh data
+/// 3. dispose: Clean up resources (timers, listeners)
 class HomeAnnouncementsTab extends StatefulWidget {
   const HomeAnnouncementsTab({super.key});
 
@@ -119,38 +115,39 @@ class HomeAnnouncementsTab extends StatefulWidget {
 }
 
 class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
-  late final FilterState _filterState;  // Manages filter state
-  List<Church> _allChurches = [];  // All churches from database
-  List<Church> _filteredChurches = [];  // Filtered subset to display
-  Timer? _searchDebounce;  // Prevents excessive search queries
-  bool _useEnhancedSearch = false;  // Use advanced vs basic filters
-  bool _isGridView = false;  // List (false) or grid (true) layout
-  final ScrollController _scrollController = ScrollController();  // For scroll events
+  late final FilterState _filterState; // Manages filter state
+  List<Church> _allChurches = []; // All churches from database
+  List<Church> _filteredChurches = []; // Filtered subset to display
+  Timer? _searchDebounce; // Prevents excessive search queries
+  bool _useEnhancedSearch = false; // Use advanced vs basic filters
+  bool _isGridView = false; // List (false) or grid (true) layout
+  final ScrollController _scrollController =
+      ScrollController(); // For scroll events
 
-  /**
-   * =============================================================================
-   * INITIALIZATION
-   * =============================================================================
-   *
-   * Sets up the screen when it first loads.
-   *
-   * STEPS:
-   * 1. Create FilterState instance for managing filters
-   * 2. Add listener to rebuild UI when filters change
-   * 3. Load saved filter preferences from storage
-   * 4. Fetch churches from repository
-   *
-   * WHY LISTENER:
-   * - Automatically updates UI when user changes filters
-   * - Keeps display in sync with filter state
-   * - Avoids manual setState calls throughout code
-   */
+  /// =============================================================================
+  /// INITIALIZATION
+  /// =============================================================================
+  ///
+  /// Sets up the screen when it first loads.
+  ///
+  /// STEPS:
+  /// 1. Create FilterState instance for managing filters
+  /// 2. Add listener to rebuild UI when filters change
+  /// 3. Load saved filter preferences from storage
+  /// 4. Fetch churches from repository
+  ///
+  /// WHY LISTENER:
+  /// - Automatically updates UI when user changes filters
+  /// - Keeps display in sync with filter state
+  /// - Avoids manual setState calls throughout code
   @override
   void initState() {
     super.initState();
-    _filterState = FilterState();  // Initialize filter state
-    _filterState.addListener(_onFilterChanged);  // Listen for changes
-    _filterState.load().then((_) => _loadChurches());  // Load saved filters, then churches
+    _filterState = FilterState(); // Initialize filter state
+    _filterState.addListener(_onFilterChanged); // Listen for changes
+    _filterState
+        .load()
+        .then((_) => _loadChurches()); // Load saved filters, then churches
 
     // Initialize enhanced church service - DISABLED: using Firestore instead
     // WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -163,44 +160,42 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
     _applyFilter();
   }
 
-  /**
-   * =============================================================================
-   * LOAD CHURCHES FROM REPOSITORY
-   * =============================================================================
-   *
-   * Fetches all approved churches from the data source.
-   *
-   * PROCESS:
-   * 1. Get ChurchRepository from Provider
-   * 2. Call getAll() to fetch approved churches
-   * 3. Update state with churches
-   * 4. Apply current filters to show relevant subset
-   *
-   * ERROR HANDLING:
-   * - Catches network/database errors
-   * - Logs error but doesn't crash
-   * - User sees empty list if error occurs
-   *
-   * MOUNTED CHECK:
-   * - Prevents setState on unmounted widget
-   * - Common issue with async operations
-   */
+  /// =============================================================================
+  /// LOAD CHURCHES FROM REPOSITORY
+  /// =============================================================================
+  ///
+  /// Fetches all approved churches from the data source.
+  ///
+  /// PROCESS:
+  /// 1. Get ChurchRepository from Provider
+  /// 2. Call getAll() to fetch approved churches
+  /// 3. Update state with churches
+  /// 4. Apply current filters to show relevant subset
+  ///
+  /// ERROR HANDLING:
+  /// - Catches network/database errors
+  /// - Logs error but doesn't crash
+  /// - User sees empty list if error occurs
+  ///
+  /// MOUNTED CHECK:
+  /// - Prevents setState on unmounted widget
+  /// - Common issue with async operations
   void _loadChurches() async {
     try {
       assert(() {
         debugPrint('🏠 HomeScreen loading churches...');
         return true;
       }());
-      final churchRepo = context.read<ChurchRepository>();  // Get repository
-      final churches = await churchRepo.getAll();  // Fetch data
+      final churchRepo = context.read<ChurchRepository>(); // Get repository
+      final churches = await churchRepo.getAll(); // Fetch data
       assert(() {
         debugPrint('🏠 HomeScreen received ${churches.length} churches');
         return true;
       }());
-      if (!mounted) return;  // Don't update if widget destroyed
+      if (!mounted) return; // Don't update if widget destroyed
       setState(() {
-        _allChurches = churches;  // Store all churches
-        _applyFilter();  // Filter and display
+        _allChurches = churches; // Store all churches
+        _applyFilter(); // Filter and display
       });
     } catch (e) {
       debugPrint('Error loading churches: $e');
@@ -249,100 +244,100 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
           color: const Color(0xFF2C5F2D),
           child: CustomScrollView(
             slivers: [
-            SliverAppBar(
-              pinned: true,
-              expandedHeight: 200,
-              automaticallyImplyLeading: false,
-              flexibleSpace: const FlexibleSpaceBar(
-                background: HeroHeader(),
-              ),
-              backgroundColor: HeaderColors.home,
-              elevation: 0,
-              actions: [
-                // Profile Avatar Button
-                Padding(
-                  padding: const EdgeInsets.only(right: 16, top: 8),
-                  child: _ProfileAvatarButton(),
+              SliverAppBar(
+                pinned: true,
+                expandedHeight: 200,
+                automaticallyImplyLeading: false,
+                flexibleSpace: const FlexibleSpaceBar(
+                  background: HeroHeader(),
                 ),
-              ],
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(1),
-                child: Container(height: 1, color: HeaderColors.divider),
-              ),
-            ),
-            SliverPadding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-              sliver: SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FutureBuilder<List<Announcement>>(
-                      future: context.read<AnnouncementRepository>().getAll(),
-                      builder: (context, snap) {
-                        return AsyncContent<List<Announcement>>(
-                          snapshot: snap,
-                          emptyMessage: 'No current announcements',
-                          onRetry: () => setState(() {}),
-                          builder: (data) {
-                            // Show upcoming or ongoing diocese announcements
-                            final dioceseAnns = data
-                                .where((a) =>
-                                    a.scope == 'diocese' &&
-                                    (a.isUpcoming || a.isOngoing))
-                                .toList();
-                            return AnnouncementCarousel(
-                              announcements: dioceseAnns,
-                              formatDate: _formatDate,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
+                backgroundColor: HeaderColors.home,
+                elevation: 0,
+                actions: [
+                  // Profile Avatar Button
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16, top: 8),
+                    child: _ProfileAvatarButton(),
+                  ),
+                ],
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(1),
+                  child: Container(height: 1, color: HeaderColors.divider),
                 ),
               ),
-            ),
-            const SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
-              sliver: SliverToBoxAdapter(
-                child: _ModernSectionHeader(
-                    icon: Icons.church_outlined,
-                    title: 'Bohol Churches',
-                    subtitle: 'Discover Bohol\'s spiritual treasures'),
-              ),
-            ),
-            // View toggle and advanced filter button
-            _buildViewToggleAndFilterButton(),
-            // Active advanced filters indicator
-            _buildAdvancedFiltersIndicator(),
-            // Search mode toggle
-            _buildSearchModeToggle(),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: FilterBar(
-                  search: criteria.search,
-                  diocese: criteria.diocese,
-                  heritageOnly: criteria.heritageOnly,
-                  onSearchChanged: (v) {
-                    _searchDebounce?.cancel();
-                    _searchDebounce =
-                        Timer(const Duration(milliseconds: 300), () {
-                      _filterState.setSearch(v);
-                    });
-                  },
-                  onDioceseChanged: _filterState.setDiocese,
-                  onHeritageOnlyChanged: (_) => _filterState.toggleHeritage(),
+              SliverPadding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FutureBuilder<List<Announcement>>(
+                        future: context.read<AnnouncementRepository>().getAll(),
+                        builder: (context, snap) {
+                          return AsyncContent<List<Announcement>>(
+                            snapshot: snap,
+                            emptyMessage: 'No current announcements',
+                            onRetry: () => setState(() {}),
+                            builder: (data) {
+                              // Show upcoming or ongoing diocese announcements
+                              final dioceseAnns = data
+                                  .where((a) =>
+                                      a.scope == 'diocese' &&
+                                      (a.isUpcoming || a.isOngoing))
+                                  .toList();
+                              return AnnouncementCarousel(
+                                announcements: dioceseAnns,
+                                formatDate: _formatDate,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // Churches list
-            _buildChurchList(),
-            // Enhanced search status
-            _buildEnhancedSearchStatus(),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          ],
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _ModernSectionHeader(
+                      icon: Icons.church_outlined,
+                      title: 'Bohol Churches',
+                      subtitle: 'Discover Bohol\'s spiritual treasures'),
+                ),
+              ),
+              // View toggle and advanced filter button
+              _buildViewToggleAndFilterButton(),
+              // Active advanced filters indicator
+              _buildAdvancedFiltersIndicator(),
+              // Search mode toggle
+              _buildSearchModeToggle(),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: FilterBar(
+                    search: criteria.search,
+                    diocese: criteria.diocese,
+                    heritageOnly: criteria.heritageOnly,
+                    onSearchChanged: (v) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce =
+                          Timer(const Duration(milliseconds: 300), () {
+                        _filterState.setSearch(v);
+                      });
+                    },
+                    onDioceseChanged: _filterState.setDiocese,
+                    onHeritageOnlyChanged: (_) => _filterState.toggleHeritage(),
+                  ),
+                ),
+              ),
+              // Churches list
+              _buildChurchList(),
+              // Enhanced search status
+              _buildEnhancedSearchStatus(),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
           ),
         );
       },
@@ -581,12 +576,16 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                         visualDensity: VisualDensity.compact,
-                        backgroundColor: _filterState.criteria.hasActiveAdvancedFilters
-                            ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                            : null,
-                        foregroundColor: _filterState.criteria.hasActiveAdvancedFilters
-                            ? Theme.of(context).primaryColor
-                            : null,
+                        backgroundColor:
+                            _filterState.criteria.hasActiveAdvancedFilters
+                                ? Theme.of(context)
+                                    .primaryColor
+                                    .withValues(alpha: 0.1)
+                                : null,
+                        foregroundColor:
+                            _filterState.criteria.hasActiveAdvancedFilters
+                                ? Theme.of(context).primaryColor
+                                : null,
                       ),
                     ),
                     if (_filterState.criteria.hasActiveAdvancedFilters)
@@ -678,16 +677,13 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
           'Years: ${criteria.foundingYearRange!.start.round()}-${criteria.foundingYearRange!.end.round()}');
     }
     if (criteria.architecturalStyles.isNotEmpty) {
-      activeFilters.add(
-          'Styles: ${criteria.architecturalStyles.length}');
+      activeFilters.add('Styles: ${criteria.architecturalStyles.length}');
     }
     if (criteria.heritageClassifications.isNotEmpty) {
-      activeFilters.add(
-          'Heritage: ${criteria.heritageClassifications.length}');
+      activeFilters.add('Heritage: ${criteria.heritageClassifications.length}');
     }
     if (criteria.dioceses.isNotEmpty) {
-      activeFilters.add(
-          'Dioceses: ${criteria.dioceses.length}');
+      activeFilters.add('Dioceses: ${criteria.dioceses.length}');
     }
 
     return SliverToBoxAdapter(
@@ -967,8 +963,12 @@ class _AdvancedFilterBottomSheet extends StatefulWidget {
   final Set<HeritageClassification> initialHeritageClassifications;
   final Set<ReligiousClassification> initialReligiousClassifications;
   final Set<Diocese> initialDioceses;
-  final Function(RangeValues?, Set<ArchitecturalStyle>,
-      Set<HeritageClassification>, Set<ReligiousClassification>, Set<Diocese>) onApplyFilters;
+  final Function(
+      RangeValues?,
+      Set<ArchitecturalStyle>,
+      Set<HeritageClassification>,
+      Set<ReligiousClassification>,
+      Set<Diocese>) onApplyFilters;
   final VoidCallback onResetFilters;
 
   const _AdvancedFilterBottomSheet({
@@ -1003,7 +1003,8 @@ class _AdvancedFilterBottomSheetState
     _yearRange = widget.initialYearRange;
     _architecturalStyles = Set.from(widget.initialArchitecturalStyles);
     _heritageClassifications = Set.from(widget.initialHeritageClassifications);
-    _religiousClassifications = Set.from(widget.initialReligiousClassifications);
+    _religiousClassifications =
+        Set.from(widget.initialReligiousClassifications);
     _dioceses = Set.from(widget.initialDioceses);
     _calculateAvailableYearRange();
   }
@@ -1422,8 +1423,10 @@ class _ProfileAvatarButton extends StatelessWidget {
                       width: 40,
                       height: 40,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => _buildInitialsAvatar(displayName),
-                      errorWidget: (context, url, error) => _buildInitialsAvatar(displayName),
+                      placeholder: (context, url) =>
+                          _buildInitialsAvatar(displayName),
+                      errorWidget: (context, url, error) =>
+                          _buildInitialsAvatar(displayName),
                     )
                   : _buildInitialsAvatar(displayName),
             ),

@@ -71,8 +71,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
   // New user form state (Parish Secretary only)
   const [newUser, setNewUser] = useState({
     name: '',
-    email: '',
-    parish: ''
+    email: ''
   });
 
   // Load users and parishes
@@ -155,7 +154,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
   }, [diocese, userProfile, toast]);
 
   const handleCreateUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.parish) {
+    if (!newUser.name || !newUser.email) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
@@ -175,13 +174,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       const user = userCredential.user;
 
       // Create user document in Firestore (Parish Secretary only)
+      // Use parish name as the parish reference
       const userData = {
         uid: user.uid,
         name: newUser.name,
         email: newUser.email,
         role: 'parish_secretary',
         diocese: diocese,
-        parish: newUser.parish,
+        parish: newUser.name, // Use parish name as parish reference
         status: 'active',
         createdAt: new Date(),
         createdBy: userProfile?.uid || 'system'
@@ -198,7 +198,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       });
 
       // Reset form and close modal
-      setNewUser({ name: '', email: '', parish: '' });
+      setNewUser({ name: '', email: '' });
       setIsCreateModalOpen(false);
 
       // Reload users
@@ -517,43 +517,28 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
           <DialogHeader>
             <DialogTitle>Add New Parish Account</DialogTitle>
             <DialogDescription>
-              Create a new parish account for the {diocese} diocese. A password reset email will be sent to the user.
+              Create a parish account for the {diocese} diocese. The account will be assigned to manage a specific parish.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Parish Name</Label>
               <Input
                 id="name"
                 value={newUser.name}
                 onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter full name"
+                placeholder="e.g., St. Joseph the Worker Parish"
               />
             </div>
             <div>
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Parish Email Address</Label>
               <Input
                 id="email"
                 type="email"
                 value={newUser.email}
                 onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="Enter email address"
+                placeholder="e.g., stjoseph@parish.ph"
               />
-            </div>
-            <div>
-              <Label htmlFor="parish">Assign Parish</Label>
-              <Select value={newUser.parish} onValueChange={(value) => setNewUser(prev => ({ ...prev, parish: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a parish" />
-                </SelectTrigger>
-                <SelectContent>
-                  {parishes.map((parish) => (
-                    <SelectItem key={parish.id} value={parish.id}>
-                      {parish.name} - {parish.location}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -577,7 +562,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
           {selectedUser && (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="editName">Full Name</Label>
+                <Label htmlFor="editName">Parish Name</Label>
                 <Input
                   id="editName"
                   value={selectedUser.name}
@@ -585,7 +570,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                 />
               </div>
               <div>
-                <Label htmlFor="editEmail">Email Address</Label>
+                <Label htmlFor="editEmail">Parish Email Address</Label>
                 <Input
                   id="editEmail"
                   value={selectedUser.email}
@@ -593,21 +578,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                   className="bg-gray-50"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
-              </div>
-              <div>
-                <Label htmlFor="editParish">Assign Parish</Label>
-                <Select value={selectedUser.parish || ''} onValueChange={(value) => setSelectedUser(prev => prev ? ({ ...prev, parish: value }) : null)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a parish" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {parishes.map((parish) => (
-                      <SelectItem key={parish.id} value={parish.id}>
-                        {parish.name} - {parish.location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div>
                 <Label htmlFor="editStatus">Status</Label>

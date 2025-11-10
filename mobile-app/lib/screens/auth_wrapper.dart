@@ -32,7 +32,8 @@ class AuthWrapper extends StatelessWidget {
         }
 
         // Show login screen if user is not authenticated
-        return const LoginScreen();
+        // Use a key to preserve the login screen state across rebuilds
+        return const LoginScreen(key: ValueKey('login_screen'));
       },
     );
   }

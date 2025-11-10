@@ -1,11 +1,9 @@
-import { Bell, User, ChevronDown, LogOut, Church as ChurchIcon, Key, UserCircle } from "lucide-react";
+import { User, ChevronDown, LogOut, Church as ChurchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -29,46 +27,6 @@ export function Header({ setActiveTab }: HeaderProps) {
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
-    }
-  };
-
-  const handleParishProfile = () => {
-    if (setActiveTab) {
-      setActiveTab('overview'); // This will show the main dashboard with profile form access
-    }
-  };
-
-  const handleMyAccount = () => {
-    if (setActiveTab) {
-      setActiveTab('account'); // This will show the account management page
-    }
-  };
-
-  const handleChangePassword = () => {
-    if (setActiveTab) {
-      // Navigate to account page and focus on password section
-      setActiveTab('account');
-      // Could add a URL hash or state to focus on password section
-    }
-  };
-
-  const handleProfileSettings = () => {
-    // For non-parish users, navigate to settings or show a basic profile modal
-    if (setActiveTab) {
-      setActiveTab('settings');
-    } else {
-      // Fallback to navigate to settings page
-      navigate('/settings');
-    }
-  };
-
-  const handleAccountSecurity = () => {
-    // Navigate to account settings page with security tab
-    if (setActiveTab) {
-      setActiveTab('account');
-    } else {
-      // Fallback to navigate to account settings
-      navigate('/settings');
     }
   };
   return (
@@ -131,53 +89,8 @@ export function Header({ setActiveTab }: HeaderProps) {
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {isParish ? (
-                <>
-                  <DropdownMenuItem 
-                    className="cursor-pointer"
-                    onClick={handleParishProfile}
-                  >
-                    <ChurchIcon className="w-4 h-4 mr-2" />
-                    Parish Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="cursor-pointer"
-                    onClick={handleMyAccount}
-                  >
-                    <UserCircle className="w-4 h-4 mr-2" />
-                    My Account
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="cursor-pointer"
-                    onClick={handleChangePassword}
-                  >
-                    <Key className="w-4 h-4 mr-2" />
-                    Change Password
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                  <DropdownMenuItem 
-                    className="cursor-pointer"
-                    onClick={handleProfileSettings}
-                  >
-                    <UserCircle className="w-4 h-4 mr-2" />
-                    Profile Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={handleAccountSecurity}
-                  >
-                    <Key className="w-4 h-4 mr-2" />
-                    Account Security
-                  </DropdownMenuItem>
-                </>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
                 className="text-destructive cursor-pointer"
                 onClick={handleSignOut}
               >

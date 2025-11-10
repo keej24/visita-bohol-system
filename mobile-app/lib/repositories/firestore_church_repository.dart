@@ -1,102 +1,97 @@
-/**
- * FILE PURPOSE: Firestore Church Repository - Firebase Data Access Layer
- *
- * This repository handles all Firebase Firestore operations for church data
- * in the mobile application. It provides the concrete implementation of the
- * abstract ChurchRepository interface.
- *
- * KEY RESPONSIBILITIES:
- * - Fetch approved churches from Firestore
- * - Query churches by location, diocese, heritage status
- * - Convert Firestore documents to Church objects
- * - Handle Firestore-specific errors
- * - Filter out non-public churches (only show approved)
- * - Provide debug logging for troubleshooting
- *
- * INTEGRATION POINTS:
- * - Extends abstract ChurchRepository class
- * - Connects to same Firestore database as admin dashboard
- * - Reads from 'churches' collection
- * - Uses Church.fromJson for deserialization
- * - Consumed by services and UI components
- *
- * TECHNICAL CONCEPTS:
- * - Repository Pattern: Abstracts data source (can swap with mock for testing)
- * - Inheritance: Extends base repository to provide Firestore implementation
- * - Async/Await: Handle asynchronous database queries
- * - Query Filtering: Server-side filtering for efficiency
- * - Error Handling: Catch and wrap Firestore errors
- *
- * SECURITY:
- * - Reads only approved churches (status = 'approved')
- * - Firebase security rules enforce server-side access control
- * - No write operations (mobile is read-only)
- *
- * PERFORMANCE:
- * - Uses compound queries (where + where) for filtering
- * - Server-side filtering reduces data transfer
- * - Client-side search for fields Firestore can't index
- *
- * WHY IMPORTANT:
- * - Separates data access from business logic
- * - Makes testing easier (can mock repository)
- * - Centralizes Firestore query logic
- * - Consistent error handling
- */
+/// FILE PURPOSE: Firestore Church Repository - Firebase Data Access Layer
+///
+/// This repository handles all Firebase Firestore operations for church data
+/// in the mobile application. It provides the concrete implementation of the
+/// abstract ChurchRepository interface.
+///
+/// KEY RESPONSIBILITIES:
+/// - Fetch approved churches from Firestore
+/// - Query churches by location, diocese, heritage status
+/// - Convert Firestore documents to Church objects
+/// - Handle Firestore-specific errors
+/// - Filter out non-public churches (only show approved)
+/// - Provide debug logging for troubleshooting
+///
+/// INTEGRATION POINTS:
+/// - Extends abstract ChurchRepository class
+/// - Connects to same Firestore database as admin dashboard
+/// - Reads from 'churches' collection
+/// - Uses Church.fromJson for deserialization
+/// - Consumed by services and UI components
+///
+/// TECHNICAL CONCEPTS:
+/// - Repository Pattern: Abstracts data source (can swap with mock for testing)
+/// - Inheritance: Extends base repository to provide Firestore implementation
+/// - Async/Await: Handle asynchronous database queries
+/// - Query Filtering: Server-side filtering for efficiency
+/// - Error Handling: Catch and wrap Firestore errors
+///
+/// SECURITY:
+/// - Reads only approved churches (status = 'approved')
+/// - Firebase security rules enforce server-side access control
+/// - No write operations (mobile is read-only)
+///
+/// PERFORMANCE:
+/// - Uses compound queries (where + where) for filtering
+/// - Server-side filtering reduces data transfer
+/// - Client-side search for fields Firestore can't index
+///
+/// WHY IMPORTANT:
+/// - Separates data access from business logic
+/// - Makes testing easier (can mock repository)
+/// - Centralizes Firestore query logic
+/// - Consistent error handling
 
-import 'package:cloud_firestore/cloud_firestore.dart';  // Firestore SDK
-import 'package:flutter/foundation.dart';  // debugPrint utility
+import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore SDK
+import 'package:flutter/foundation.dart'; // debugPrint utility
 // Data models
 import '../models/church.dart';
 import '../models/mass_schedule.dart';
-import '../models/church_status.dart';  // Status constants
-import '../models/enums.dart';  // Enums for classifications
+import '../models/church_status.dart'; // Status constants
+import '../models/enums.dart'; // Enums for classifications
 // Abstract base repository
 import 'church_repository.dart';
 
-/**
- * Firestore Church Repository
- *
- * Concrete implementation of ChurchRepository using Firebase Firestore.
- * Extends the abstract base class to provide actual database operations.
- */
+/// Firestore Church Repository
+///
+/// Concrete implementation of ChurchRepository using Firebase Firestore.
+/// Extends the abstract base class to provide actual database operations.
 class FirestoreChurchRepository extends ChurchRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const String _churchesCollection = 'churches';
   static const String _massSchedulesCollection = 'mass_schedules';
 
-  /**
-   * =============================================================================
-   * GET ALL APPROVED CHURCHES
-   * =============================================================================
-   *
-   * Fetches all approved churches from Firestore for public viewing.
-   *
-   * WHY FILTER BY STATUS:
-   * - Mobile app users should only see approved churches
-   * - Draft, pending, and rejected churches are admin-only
-   * - Protects incomplete data from public access
-   *
-   * QUERY EXPLANATION:
-   * - Collection: 'churches'
-   * - Filter: status == 'approved'
-   * - Returns: Array of Church objects
-   *
-   * ERROR HANDLING:
-   * - Network errors: Throws exception (caller handles)
-   * - Empty result: Returns empty array (valid state)
-   * - Parse errors: Logs and continues (skip bad documents)
-   *
-   * DEBUGGING:
-   * - Logs query parameters
-   * - Logs result count
-   * - Logs sample church for verification
-   * - Checks for common issues (empty results, status values)
-   */
+  /// =============================================================================
+  /// GET ALL APPROVED CHURCHES
+  /// =============================================================================
+  ///
+  /// Fetches all approved churches from Firestore for public viewing.
+  ///
+  /// WHY FILTER BY STATUS:
+  /// - Mobile app users should only see approved churches
+  /// - Draft, pending, and rejected churches are admin-only
+  /// - Protects incomplete data from public access
+  ///
+  /// QUERY EXPLANATION:
+  /// - Collection: 'churches'
+  /// - Filter: status == 'approved'
+  /// - Returns: Array of Church objects
+  ///
+  /// ERROR HANDLING:
+  /// - Network errors: Throws exception (caller handles)
+  /// - Empty result: Returns empty array (valid state)
+  /// - Parse errors: Logs and continues (skip bad documents)
+  ///
+  /// DEBUGGING:
+  /// - Logs query parameters
+  /// - Logs result count
+  /// - Logs sample church for verification
+  /// - Checks for common issues (empty results, status values)
   @override
   Future<List<Church>> getAll() async {
     try {
-      debugPrint('🔍 [CHURCH REPO] Querying churches with status=${ChurchStatus.approved}');
+      debugPrint(
+          '🔍 [CHURCH REPO] Querying churches with status=${ChurchStatus.approved}');
 
       /**
        * Firestore Query Execution
@@ -115,7 +110,8 @@ class FirestoreChurchRepository extends ChurchRepository {
           .where('status', isEqualTo: ChurchStatus.approved)
           .get();
 
-      debugPrint('📊 [CHURCH REPO] Found ${snapshot.docs.length} approved churches');
+      debugPrint(
+          '📊 [CHURCH REPO] Found ${snapshot.docs.length} approved churches');
 
       if (snapshot.docs.isEmpty) {
         debugPrint('❌ [CHURCH REPO] No approved churches found!');
@@ -125,11 +121,14 @@ class FirestoreChurchRepository extends ChurchRepository {
 
         // Query ALL churches to debug status values
         debugPrint('🔍 [CHURCH REPO] Checking all churches for debugging...');
-        final allSnapshot = await _firestore.collection(_churchesCollection).limit(10).get();
-        debugPrint('📊 [CHURCH REPO] Total churches in database: ${allSnapshot.docs.length}');
+        final allSnapshot =
+            await _firestore.collection(_churchesCollection).limit(10).get();
+        debugPrint(
+            '📊 [CHURCH REPO] Total churches in database: ${allSnapshot.docs.length}');
         for (var doc in allSnapshot.docs) {
           final data = doc.data();
-          debugPrint('   - ${doc.id}: status="${data['status']}", name="${data['name']}"');
+          debugPrint(
+              '   - ${doc.id}: status="${data['status']}", name="${data['name']}"');
         }
       } else {
         // Log first church for debugging
@@ -148,9 +147,12 @@ class FirestoreChurchRepository extends ChurchRepository {
         final data = doc.data() as Map<String, dynamic>;
         try {
           // Log heritage classification data for debugging
-          if (data['heritageClassification'] != null || data['classification'] != null || data['isHeritage'] == true) {
+          if (data['heritageClassification'] != null ||
+              data['classification'] != null ||
+              data['isHeritage'] == true) {
             debugPrint('🏛️  [RAW DATA] ${data['name']}:');
-            debugPrint('   - heritageClassification: "${data['heritageClassification']}"');
+            debugPrint(
+                '   - heritageClassification: "${data['heritageClassification']}"');
             debugPrint('   - classification: "${data['classification']}"');
             debugPrint('   - isHeritage: ${data['isHeritage']}');
           }
@@ -163,7 +165,8 @@ class FirestoreChurchRepository extends ChurchRepository {
           // Log parsed result for heritage churches
           if (church.heritageClassification != HeritageClassification.none) {
             debugPrint('✅ [PARSED] ${church.name}:');
-            debugPrint('   - classification (enum): ${church.heritageClassification}');
+            debugPrint(
+                '   - classification (enum): ${church.heritageClassification}');
             debugPrint('   - isHeritage: ${church.isHeritage}');
           }
 
@@ -175,7 +178,8 @@ class FirestoreChurchRepository extends ChurchRepository {
         }
       }).toList();
 
-      debugPrint('✅ [CHURCH REPO] Successfully returned ${churches.length} churches');
+      debugPrint(
+          '✅ [CHURCH REPO] Successfully returned ${churches.length} churches');
       return churches;
     } catch (e) {
       debugPrint('💥 [CHURCH REPO] Error in getAll(): $e');

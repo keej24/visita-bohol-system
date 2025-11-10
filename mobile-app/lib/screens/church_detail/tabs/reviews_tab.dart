@@ -681,18 +681,18 @@ class _ReviewsTabState extends State<ReviewsTab> {
 
             // Empty State
             if (!_isLoadingReviews && _reviews.isEmpty)
-              Center(
+              const Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(32),
+                  padding: EdgeInsets.all(32),
                   child: Column(
                     children: [
                       Icon(
                         Icons.rate_review_outlined,
                         size: 64,
-                        color: const Color(0xFFD1D5DB),
+                        color: Color(0xFFD1D5DB),
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
+                      SizedBox(height: 16),
+                      Text(
                         'No reviews yet',
                         style: TextStyle(
                           color: Color(0xFF6B7280),
@@ -700,8 +700,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
+                      SizedBox(height: 8),
+                      Text(
                         'Be the first to share your experience!',
                         textAlign: TextAlign.center,
                         style: TextStyle(

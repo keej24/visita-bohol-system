@@ -49,26 +49,37 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<User?> signIn(String email, String password) async {
-    _setLoading(true);
+    // Set loading without notifying to avoid AuthWrapper rebuild
+    _isLoading = true;
     errorMessage = null;
+    debugPrint('🔑 AuthService: Starting sign in for $email');
+
     try {
       final UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      notifyListeners();
+      debugPrint('✅ AuthService: Sign in successful for ${result.user?.email}');
+      _isLoading = false;
+      notifyListeners(); // Only notify on success (user state changed)
       return result.user;
     } on FirebaseAuthException catch (e) {
-      errorMessage = e.message;
-      debugPrint('Sign in error: $e');
+      errorMessage = _getFriendlyErrorMessage(e.code);
+      debugPrint('❌ AuthService: FirebaseAuthException - Code: ${e.code}, Message: ${e.message}');
+      debugPrint('❌ AuthService: Setting errorMessage to: $errorMessage');
+      _isLoading = false;
+      // Don't call notifyListeners() here to prevent AuthWrapper rebuild
       return null;
     } catch (e) {
-      errorMessage = 'Unexpected error during sign in';
-      debugPrint('Sign in error: $e');
+      errorMessage = 'An unexpected error occurred. Please try again.';
+      debugPrint('❌ AuthService: Unexpected error: $e');
+      debugPrint('❌ AuthService: Setting errorMessage to: $errorMessage');
+      _isLoading = false;
+      // Don't call notifyListeners() here to prevent AuthWrapper rebuild
       return null;
     } finally {
-      _setLoading(false);
+      debugPrint('🔑 AuthService: Sign in completed. errorMessage: $errorMessage');
     }
   }
 
@@ -148,5 +159,34 @@ class AuthService extends ChangeNotifier {
     if (_isLoading == value) return;
     _isLoading = value;
     notifyListeners();
+  }
+
+  /// Clear the error message
+  /// Note: Does not call notifyListeners() to avoid triggering AuthWrapper rebuild
+  void clearError() {
+    errorMessage = null;
+  }
+
+  /// Map Firebase error codes to user-friendly messages
+  String _getFriendlyErrorMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        // Generic message to prevent account enumeration
+        return 'Invalid email or password. Please check your credentials.';
+      case 'invalid-email':
+        return 'Invalid email address format.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'too-many-requests':
+        return 'Too many failed attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection.';
+      case 'operation-not-allowed':
+        return 'This sign-in method is not enabled.';
+      default:
+        return 'Login failed. Please check your credentials and try again.';
+    }
   }
 }

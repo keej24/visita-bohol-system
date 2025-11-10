@@ -114,7 +114,10 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
     religiousClassification: data.religiousClassification,
     assignedPriest: data.assignedPriest,
     massSchedules: data.massSchedules || [],
-    coordinates: data.coordinates,
+    // Support both root level (new) and nested (legacy) coordinates
+    coordinates: data.latitude && data.longitude
+      ? { latitude: data.latitude, longitude: data.longitude }
+      : data.coordinates,
     contactInfo: data.contactInfo,
     images: data.images || [],
     documents: data.documents || [],
@@ -161,7 +164,9 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     religiousClassification: formData.religiousClassification,
     assignedPriest: formData.assignedPriest,
     massSchedules: formData.massSchedules,
-    coordinates: formData.coordinates,
+    // Save coordinates at root level for mobile app compatibility
+    latitude: formData.coordinates?.latitude,
+    longitude: formData.coordinates?.longitude,
     contactInfo: formData.contactInfo,
     images: formData.images,
     documents: formData.documents,

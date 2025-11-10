@@ -1,49 +1,47 @@
-/**
- * FILE PURPOSE: Mobile App Entry Point - Main Application Bootstrap
- *
- * This is the main entry point for the VISITA mobile application (Flutter/Dart).
- * It initializes all services, sets up dependency injection, configures themes,
- * and launches the application.
- *
- * KEY RESPONSIBILITIES:
- * - Initialize Firebase for backend connectivity
- * - Set up dependency injection using Provider pattern
- * - Configure app theme (light/dark mode)
- * - Register all services and repositories
- * - Test Firebase connection on startup
- * - Launch authentication wrapper
- *
- * INTEGRATION POINTS:
- * - Connects to same Firebase project as admin dashboard
- * - Uses Firestore for real-time church data
- * - Integrates Firebase Authentication for user login
- * - Configures all app-wide services and providers
- *
- * TECHNICAL CONCEPTS:
- * - Flutter: Google's cross-platform mobile framework (iOS + Android)
- * - Dart: Programming language for Flutter
- * - Provider Pattern: State management and dependency injection
- * - Firebase Integration: Backend-as-a-Service connection
- * - Async Initialization: Wait for Firebase before app starts
- * - Widget Tree: Provider wraps entire app for global access
- *
- * ARCHITECTURE PATTERNS:
- * - Repository Pattern: Data access abstraction
- * - Service Layer: Business logic separation
- * - Dependency Injection: Loose coupling, easy testing
- * - MVVM: Model-View-ViewModel architecture
- *
- * USER TYPES (Mobile App):
- * - Public Users: Browse churches, view announcements
- * - Authenticated Users: Track visits, leave feedback
- * - No admin functions (admin features are in dashboard only)
- *
- * WHY IMPORTANT:
- * - Single initialization point prevents duplicate services
- * - Provider setup enables global access to services
- * - Firebase test ensures connection before app runs
- * - Proper initialization order prevents runtime errors
- */
+/// FILE PURPOSE: Mobile App Entry Point - Main Application Bootstrap
+///
+/// This is the main entry point for the VISITA mobile application (Flutter/Dart).
+/// It initializes all services, sets up dependency injection, configures themes,
+/// and launches the application.
+///
+/// KEY RESPONSIBILITIES:
+/// - Initialize Firebase for backend connectivity
+/// - Set up dependency injection using Provider pattern
+/// - Configure app theme (light/dark mode)
+/// - Register all services and repositories
+/// - Test Firebase connection on startup
+/// - Launch authentication wrapper
+///
+/// INTEGRATION POINTS:
+/// - Connects to same Firebase project as admin dashboard
+/// - Uses Firestore for real-time church data
+/// - Integrates Firebase Authentication for user login
+/// - Configures all app-wide services and providers
+///
+/// TECHNICAL CONCEPTS:
+/// - Flutter: Google's cross-platform mobile framework (iOS + Android)
+/// - Dart: Programming language for Flutter
+/// - Provider Pattern: State management and dependency injection
+/// - Firebase Integration: Backend-as-a-Service connection
+/// - Async Initialization: Wait for Firebase before app starts
+/// - Widget Tree: Provider wraps entire app for global access
+///
+/// ARCHITECTURE PATTERNS:
+/// - Repository Pattern: Data access abstraction
+/// - Service Layer: Business logic separation
+/// - Dependency Injection: Loose coupling, easy testing
+/// - MVVM: Model-View-ViewModel architecture
+///
+/// USER TYPES (Mobile App):
+/// - Public Users: Browse churches, view announcements
+/// - Authenticated Users: Track visits, leave feedback
+/// - No admin functions (admin features are in dashboard only)
+///
+/// WHY IMPORTANT:
+/// - Single initialization point prevents duplicate services
+/// - Provider setup enables global access to services
+/// - Firebase test ensures connection before app runs
+/// - Proper initialization order prevents runtime errors
 
 import 'package:flutter/material.dart';
 // Provider package for state management and dependency injection
@@ -80,28 +78,26 @@ import 'theme/app_theme.dart';
 // Feature flag: Enable Firebase backend (true) or local data only (false)
 const bool kUseFirestoreBackend = true; // Enable Firebase
 
-/**
- * =============================================================================
- * MAIN FUNCTION - Application Entry Point
- * =============================================================================
- *
- * This is the first function called when the app launches.
- *
- * INITIALIZATION SEQUENCE:
- * 1. Ensure Flutter bindings are ready (required for async operations)
- * 2. Initialize Firebase with platform-specific configuration
- * 3. Test Firestore connection to verify backend is accessible
- * 4. Launch the VisitaApp widget
- *
- * WHY ASYNC:
- * - Firebase initialization requires network operations
- * - Must complete before app can access database
- * - Prevents crashes from accessing Firebase too early
- *
- * ERROR HANDLING:
- * - Firebase init errors: App will crash (intentional, can't run without Firebase)
- * - Connection test errors: Logged but app continues (offline mode possible)
- */
+/// =============================================================================
+/// MAIN FUNCTION - Application Entry Point
+/// =============================================================================
+///
+/// This is the first function called when the app launches.
+///
+/// INITIALIZATION SEQUENCE:
+/// 1. Ensure Flutter bindings are ready (required for async operations)
+/// 2. Initialize Firebase with platform-specific configuration
+/// 3. Test Firestore connection to verify backend is accessible
+/// 4. Launch the VisitaApp widget
+///
+/// WHY ASYNC:
+/// - Firebase initialization requires network operations
+/// - Must complete before app can access database
+/// - Prevents crashes from accessing Firebase too early
+///
+/// ERROR HANDLING:
+/// - Firebase init errors: App will crash (intentional, can't run without Firebase)
+/// - Connection test errors: Logged but app continues (offline mode possible)
 Future<void> main() async {
   // Must be called before using async operations in main()
   // Initializes Flutter engine and platform channels
@@ -142,30 +138,28 @@ Future<void> main() async {
   runApp(const VisitaApp());
 }
 
-/**
- * =============================================================================
- * VISITA APP WIDGET - Root Application Widget
- * =============================================================================
- *
- * This is the root widget of the application. It sets up:
- * - Dependency injection via Provider
- * - Material Design theme
- * - App-wide services and repositories
- * - Navigation configuration
- *
- * TECHNICAL CONCEPTS:
- * - StatelessWidget: Immutable widget that doesn't change
- * - MultiProvider: Registers multiple services for dependency injection
- * - Provider Types:
- *   - Provider: Simple object provider (doesn't change)
- *   - ChangeNotifierProvider: For reactive state (updates UI on change)
- *   - ProxyProvider: Depends on other providers
- *
- * PROVIDER DEPENDENCY TREE:
- * Services that depend on others are registered after their dependencies.
- * Example: PaginatedChurchService needs LocationService, so LocationService
- * is registered first.
- */
+/// =============================================================================
+/// VISITA APP WIDGET - Root Application Widget
+/// =============================================================================
+///
+/// This is the root widget of the application. It sets up:
+/// - Dependency injection via Provider
+/// - Material Design theme
+/// - App-wide services and repositories
+/// - Navigation configuration
+///
+/// TECHNICAL CONCEPTS:
+/// - StatelessWidget: Immutable widget that doesn't change
+/// - MultiProvider: Registers multiple services for dependency injection
+/// - Provider Types:
+///   - Provider: Simple object provider (doesn't change)
+///   - ChangeNotifierProvider: For reactive state (updates UI on change)
+///   - ProxyProvider: Depends on other providers
+///
+/// PROVIDER DEPENDENCY TREE:
+/// Services that depend on others are registered after their dependencies.
+/// Example: PaginatedChurchService needs LocationService, so LocationService
+/// is registered first.
 class VisitaApp extends StatelessWidget {
   const VisitaApp({Key? key}) : super(key: key);
 

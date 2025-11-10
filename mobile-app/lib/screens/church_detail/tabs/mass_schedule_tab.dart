@@ -176,18 +176,18 @@ class MassScheduleTab extends StatelessWidget {
           if ((church.contactInfo == null || church.contactInfo!.isEmpty) &&
               church.assignedPriest == null &&
               (church.massSchedules == null || church.massSchedules!.isEmpty))
-            Center(
+            const Center(
               child: Padding(
-                padding: const EdgeInsets.all(32),
+                padding: EdgeInsets.all(32),
                 child: Column(
                   children: [
                     Icon(
                       Icons.event_busy,
                       size: 64,
-                      color: const Color(0xFFD1D5DB),
+                      color: Color(0xFFD1D5DB),
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
+                    SizedBox(height: 16),
+                    Text(
                       'No mass schedule information available yet',
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -431,8 +431,10 @@ class MassScheduleTab extends StatelessWidget {
                                           vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.red.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(6),
+                                          color: Colors.red
+                                              .withValues(alpha: 0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
                                         ),
                                         child: const Row(
                                           mainAxisSize: MainAxisSize.min,

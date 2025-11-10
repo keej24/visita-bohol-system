@@ -42,11 +42,13 @@ service cloud.firestore {
     
     // Users collection - User profiles and authentication data
     match /users/{userId} {
-      // Users can read and update their own profile (using direct UID comparison to avoid circular dependency)
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      // Allow authenticated users to create their own profile
+      // Use direct auth check (NOT isAuthenticated()) to avoid circular dependency
+      // during initial profile creation when profile doesn't exist yet
+      allow create: if request.auth != null && request.auth.uid == userId;
 
-      // Allow users to create their own profile if it doesn't exist
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Users can read and update their own profile (using direct UID comparison to avoid circular dependency)
+      allow read, update: if isAuthenticated() && request.auth.uid == userId;
 
       // Chancery office can read all users in their diocese (admin users)
       allow read: if isAuthenticated() &&

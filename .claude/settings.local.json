@@ -64,7 +64,16 @@
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze --no-fatal-infos)",
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/widgets/home/church_card.dart --no-fatal-infos)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/screens/auth/login_screen.dart lib/screens/profile_screen.dart lib/widgets/public_user_profile_bar.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/services/auth_service.dart mobile-app/lib/screens/auth/login_screen.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/auth/login_screen.dart mobile-app/lib/services/auth_service.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/profile_screen.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/screens/announcements_screen.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/models/announcement.dart lib/screens/announcements_screen.dart --no-fatal-infos)",
+      "Bash(node scripts/verify-church-coordinates.js:*)",
+      "Bash(node scripts/check-coordinate-fields.js:*)",
+      "Bash(node scripts/inspect-unknown-church.js)"
     ],
     "deny": [],
     "ask": []
