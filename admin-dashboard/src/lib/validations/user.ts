@@ -42,7 +42,8 @@ export const userSchema = z.object({
   // Status and Permissions
   isActive: z.boolean().default(true),
   isVerified: z.boolean().default(false),
-  
+  requirePasswordChange: z.boolean().default(false),
+
   // Timestamps
   createdAt: z.string().datetime(),
   lastLoginAt: z.string().datetime().optional(),

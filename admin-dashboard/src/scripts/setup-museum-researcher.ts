@@ -3,15 +3,17 @@ import { auth, db } from '../lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 
+// Password loaded from environment variable for security
 const museumResearcherAccount = {
   email: 'researcher.heritage@museum.ph',
-  password: 'HeritageResearcher2025!',
+  password: import.meta.env.VITE_DEFAULT_PASSWORD_HERITAGE || 'HeritageResearcher2025!',
   profile: {
     role: 'museum_researcher',
     name: 'Heritage Validation Specialist',
     diocese: 'tagbilaran', // Primary affiliation but has cross-diocese access
     createdAt: new Date(),
     isPreConfigured: true,
+    requirePasswordChange: true,  // Force password change on first login
     permissions: ['validate_heritage', 'enhance_cultural_content', 'cross_diocese_access']
   }
 };

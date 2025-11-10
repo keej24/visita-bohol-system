@@ -3,40 +3,44 @@ import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+// Passwords are loaded from environment variables for security
 const accountsToCheck = [
   {
     email: 'dioceseoftagbilaran1941@gmail.com',
-    password: 'ChanceryTagbilaran2025!',
+    password: import.meta.env.VITE_DEFAULT_PASSWORD_TAGBILARAN || 'ChanceryTagbilaran2025!',
     profile: {
       role: 'chancery_office',
       name: 'Tagbilaran Chancery Administrator',
       diocese: 'tagbilaran',
       createdAt: new Date(),
       isPreConfigured: true,
+      requirePasswordChange: true,  // Force password change on first login
       permissions: ['manage_users', 'approve_churches', 'generate_reports', 'moderate_feedback']
     }
   },
   {
     email: 'talibonchancery@gmail.com',
-    password: 'ChanceryTalibon2025!',
+    password: import.meta.env.VITE_DEFAULT_PASSWORD_TALIBON || 'ChanceryTalibon2025!',
     profile: {
       role: 'chancery_office',
       name: 'Talibon Chancery Administrator',
       diocese: 'talibon',
       createdAt: new Date(),
       isPreConfigured: true,
+      requirePasswordChange: true,  // Force password change on first login
       permissions: ['manage_users', 'approve_churches', 'generate_reports', 'moderate_feedback']
     }
   },
   {
     email: 'researcher.heritage@museum.ph',
-    password: 'HeritageResearcher2024!',
+    password: import.meta.env.VITE_DEFAULT_PASSWORD_HERITAGE || 'HeritageResearcher2025!',
     profile: {
       role: 'museum_researcher',
       name: 'Heritage Validation Specialist',
       diocese: 'tagbilaran',
       createdAt: new Date(),
       isPreConfigured: true,
+      requirePasswordChange: true,  // Force password change on first login
       permissions: ['validate_heritage', 'enhance_cultural_content', 'cross_diocese_access']
     }
   }

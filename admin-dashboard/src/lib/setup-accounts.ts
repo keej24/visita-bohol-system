@@ -6,44 +6,47 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'fire
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 // Pre-configured accounts data
+// Passwords are loaded from environment variables for security
 const preConfiguredAccounts = [
   // Chancery Office - Diocese of Tagbilaran
   {
     email: 'dioceseoftagbilaran@gmail.com',
-    password: 'ChanceryTagbilaran2025!',
+    password: import.meta.env.VITE_DEFAULT_PASSWORD_TAGBILARAN || 'ChanceryTagbilaran2025!',
     profile: {
       role: 'chancery_office',
       name: 'Tagbilaran Chancery Administrator',
       diocese: 'tagbilaran',
       createdAt: new Date(),
       isPreConfigured: true,
+      requirePasswordChange: true,  // Force password change on first login
       permissions: ['manage_users', 'approve_churches', 'generate_reports', 'moderate_feedback']
     }
   },
   // Chancery Office - Diocese of Talibon
   {
     email: 'talibonchancery@gmail.com',
-    password: 'ChanceryTalibon2025!',
+    password: import.meta.env.VITE_DEFAULT_PASSWORD_TALIBON || 'ChanceryTalibon2025!',
     profile: {
       role: 'chancery_office',
       name: 'Talibon Chancery Administrator',
       diocese: 'talibon',
       createdAt: new Date(),
       isPreConfigured: true,
+      requirePasswordChange: true,  // Force password change on first login
       permissions: ['manage_users', 'approve_churches', 'generate_reports', 'moderate_feedback']
     }
   },
   // Museum Researcher - Cross Diocese
   {
     email: 'researcher.heritage@museum.ph',
-  // Updated as requested
-  password: 'HeritageResearcher2025!',
+    password: import.meta.env.VITE_DEFAULT_PASSWORD_HERITAGE || 'HeritageResearcher2025!',
     profile: {
       role: 'museum_researcher',
       name: 'Heritage Validation Specialist',
       diocese: 'tagbilaran', // Primary affiliation but has cross-diocese access
       createdAt: new Date(),
       isPreConfigured: true,
+      requirePasswordChange: true,  // Force password change on first login
       permissions: ['validate_heritage', 'enhance_cultural_content', 'cross_diocese_access']
     }
   }

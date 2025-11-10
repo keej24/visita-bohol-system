@@ -73,7 +73,8 @@
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/models/announcement.dart lib/screens/announcements_screen.dart --no-fatal-infos)",
       "Bash(node scripts/verify-church-coordinates.js:*)",
       "Bash(node scripts/check-coordinate-fields.js:*)",
-      "Bash(node scripts/inspect-unknown-church.js)"
+      "Bash(node scripts/inspect-unknown-church.js)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []

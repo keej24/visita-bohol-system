@@ -48,6 +48,7 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId;
 
       // Users can read and update their own profile (using direct UID comparison to avoid circular dependency)
+      // This includes updating requirePasswordChange flag when changing password on first login
       allow read, update: if isAuthenticated() && request.auth.uid == userId;
 
       // Chancery office can read all users in their diocese (admin users)

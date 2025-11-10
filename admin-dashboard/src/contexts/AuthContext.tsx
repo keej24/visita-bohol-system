@@ -91,6 +91,7 @@ export interface UserProfile {
   parish?: string;  // Optional: only parish_secretary has this
   createdAt: Date;
   lastLoginAt: Date;
+  requirePasswordChange?: boolean;  // Force password change on first login
 }
 
 /**
@@ -195,6 +196,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             parish: data.parish,
             createdAt: data.createdAt?.toDate(),
             lastLoginAt: new Date(),
+            requirePasswordChange: data.requirePasswordChange ?? false,
           });
           // Set loading to false only after successful profile fetch
           setLoading(false);
