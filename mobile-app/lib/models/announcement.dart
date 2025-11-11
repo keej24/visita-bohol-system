@@ -1,12 +1,15 @@
+import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Announcement {
   final String id;
   final String title;
   final String description;
-  final DateTime dateTime;
+  final DateTime? dateTime; // Optional for non-event announcements
   final DateTime? endDateTime; // For multi-day events (endDate in Firestore)
   final String? eventTime;
   final String? endTime;
-  final String venue;
+  final String? venue; // Optional for non-event announcements
   final String scope; // 'diocese' or 'parish'
   final String? churchId; // parishId in Firestore
   final String diocese; // 'tagbilaran' or 'talibon' in Firestore
@@ -27,11 +30,11 @@ class Announcement {
     required this.id,
     required this.title,
     required this.description,
-    required this.dateTime,
+    this.dateTime, // Optional for non-event announcements
     this.endDateTime,
     this.eventTime,
     this.endTime,
-    required this.venue,
+    this.venue, // Optional for non-event announcements
     this.scope = 'diocese',
     this.churchId,
     this.diocese = 'tagbilaran', // Default to tagbilaran
@@ -49,16 +52,27 @@ class Announcement {
   });
 
   // Helper getters for status
-  bool get isUpcoming => DateTime.now().isBefore(dateTime);
-  bool get isPast => endDateTime != null
-      ? DateTime.now().isAfter(endDateTime!)
-      : DateTime.now().isAfter(dateTime);
-  bool get isOngoing => endDateTime != null
-      ? DateTime.now().isAfter(dateTime) &&
+  bool get isUpcoming => dateTime != null && DateTime.now().isBefore(dateTime!);
+  bool get isPast {
+    // For non-event announcements (no dates), they are never "past"
+    if (dateTime == null) return false;
+
+    return endDateTime != null
+        ? DateTime.now().isAfter(endDateTime!)
+        : DateTime.now().isAfter(dateTime!);
+  }
+  bool get isOngoing => dateTime != null && endDateTime != null
+      ? DateTime.now().isAfter(dateTime!) &&
           DateTime.now().isBefore(endDateTime!)
       : false;
 
   String get status {
+    // Check if archived first - this takes priority
+    if (isArchived) return 'Archived';
+
+    // For non-event announcements (no dates), show as "Active"
+    if (dateTime == null) return 'Active';
+
     if (isOngoing) return 'Ongoing';
     if (isUpcoming) return 'Upcoming';
     return 'Past';
@@ -66,7 +80,7 @@ class Announcement {
 
   // Compatibility getters for church_detail_screen
   String get message => description;
-  DateTime get date => dateTime;
+  DateTime? get date => dateTime;
 
   factory Announcement.fromJson(Map<String, dynamic> j) => Announcement(
         id: j['id'] ?? '',
@@ -104,11 +118,35 @@ class Announcement {
     DateTime? parseTimestamp(dynamic value) {
       if (value == null) return null;
       if (value is DateTime) return value;
-      // Firestore Timestamp has seconds and nanoseconds
-      if (value is Map && value.containsKey('_seconds')) {
-        return DateTime.fromMillisecondsSinceEpoch(
-            value['_seconds'] * 1000 + (value['_nanoseconds'] ?? 0) ~/ 1000000);
+
+      // Handle Firestore Timestamp object directly
+      if (value is Timestamp) {
+        return value.toDate();
       }
+
+      // Try to parse as Firestore Timestamp Map (has seconds and nanoseconds)
+      if (value is Map) {
+        if (value.containsKey('_seconds')) {
+          return DateTime.fromMillisecondsSinceEpoch(
+              value['_seconds'] * 1000 + (value['_nanoseconds'] ?? 0) ~/ 1000000);
+        }
+        if (value.containsKey('seconds')) {
+          return DateTime.fromMillisecondsSinceEpoch(
+              value['seconds'] * 1000 + (value['nanoseconds'] ?? 0) ~/ 1000000);
+        }
+      }
+
+      // Try to parse as ISO 8601 string
+      if (value is String) {
+        try {
+          return DateTime.parse(value);
+        } catch (e) {
+          debugPrint('❌ Error parsing timestamp: $value - $e');
+          return null;
+        }
+      }
+
+      debugPrint('❌ Unable to parse timestamp of type ${value.runtimeType}: $value');
       return null;
     }
 
@@ -122,20 +160,27 @@ class Announcement {
       return 'tagbilaran';
     }
 
+    final parsedEventDate = parseTimestamp(data['eventDate']);
+    final parsedEndDate = parseTimestamp(data['endDate']);
+
     return Announcement(
       id: id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      dateTime: parseTimestamp(data['eventDate']) ?? DateTime.now(),
-      endDateTime: parseTimestamp(data['endDate']),
+      dateTime: parsedEventDate, // Allow null for non-event announcements
+      endDateTime: parsedEndDate,
       eventTime: data['eventTime'],
       endTime: data['endTime'],
-      venue: data['venue'] ?? '',
+      venue: data['venue'], // Allow null for non-event announcements
       scope: data['scope'] ?? 'diocese',
       churchId: data['parishId'],
       diocese: convertDiocese(data['diocese']),
       category: data['category'] ?? 'Community Event',
+      imageUrl: data['imageUrl'],
       contactInfo: data['contactInfo'],
+      isRecurring: data['isRecurring'] ?? false,
+      tags: data['tags'] != null ? List<String>.from(data['tags']) : [],
+      locationUrl: data['locationUrl'],
       isArchived: data['isArchived'] ?? false,
       archivedAt: parseTimestamp(data['archivedAt']),
       createdAt: parseTimestamp(data['createdAt']),
@@ -148,7 +193,7 @@ class Announcement {
         'id': id,
         'title': title,
         'description': description,
-        'dateTime': dateTime.toIso8601String(),
+        'dateTime': dateTime?.toIso8601String(),
         'endDateTime': endDateTime?.toIso8601String(),
         'eventTime': eventTime,
         'endTime': endTime,

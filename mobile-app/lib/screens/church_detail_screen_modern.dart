@@ -191,7 +191,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
           Expanded(
             child: Consumer<AppState>(
               builder: (context, state, _) {
-                final isInVisitList = state.isForVisit(_currentChurch);
+                final isInVisitList = !state.isForVisit(_currentChurch);
                 return OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(

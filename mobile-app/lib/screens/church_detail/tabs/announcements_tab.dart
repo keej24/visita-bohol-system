@@ -40,6 +40,72 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
     });
   }
 
+  String _formatDateTimeRange(Announcement announcement) {
+    if (announcement.dateTime == null) return '';
+
+    final startDate = announcement.dateTime!;
+    final endDate = announcement.endDateTime;
+    final startTime = announcement.eventTime;
+    final endTime = announcement.endTime;
+
+    // Format date range
+    String dateStr;
+    if (endDate != null && !_isSameDay(startDate, endDate)) {
+      // Multi-day event
+      if (startDate.year == endDate.year && startDate.month == endDate.month) {
+        dateStr = '${DateFormat('MMM d').format(startDate)}-${DateFormat('d, y').format(endDate)}';
+      } else if (startDate.year == endDate.year) {
+        dateStr = '${DateFormat('MMM d').format(startDate)} - ${DateFormat('MMM d, y').format(endDate)}';
+      } else {
+        dateStr = '${DateFormat('MMM d, y').format(startDate)} - ${DateFormat('MMM d, y').format(endDate)}';
+      }
+    } else {
+      // Single day event
+      dateStr = DateFormat('MMM dd, yyyy').format(startDate);
+    }
+
+    // Format time range
+    if (startTime != null && startTime.isNotEmpty) {
+      try {
+        final parsedStartTime = _parseTimeString(startTime);
+        if (endTime != null && endTime.isNotEmpty) {
+          final parsedEndTime = _parseTimeString(endTime);
+          return '$dateStr · ${DateFormat('h:mm a').format(parsedStartTime)} - ${DateFormat('h:mm a').format(parsedEndTime)}';
+        } else {
+          return '$dateStr · ${DateFormat('h:mm a').format(parsedStartTime)}';
+        }
+      } catch (e) {
+        // If parsing fails, show date only
+        return dateStr;
+      }
+    }
+
+    return dateStr;
+  }
+
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
+  }
+
+  DateTime _parseTimeString(String timeStr) {
+    try {
+      final now = DateTime.now();
+      if (timeStr.contains('AM') || timeStr.contains('PM')) {
+        final parsed = DateFormat('h:mm a').parse(timeStr);
+        return DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
+      } else {
+        final parts = timeStr.split(':');
+        final hour = int.parse(parts[0]);
+        final minute = int.parse(parts[1]);
+        return DateTime(now.year, now.month, now.day, hour, minute);
+      }
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -150,7 +216,9 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                   if (a.isUpcoming && !b.isUpcoming) return -1;
                   if (!a.isUpcoming && b.isUpcoming) return 1;
                 }
-                return b.dateTime.compareTo(a.dateTime);
+                final aDate = a.dateTime ?? (a.createdAt ?? DateTime.now());
+                final bDate = b.dateTime ?? (b.createdAt ?? DateTime.now());
+                return bDate.compareTo(aDate);
               });
 
               if (filteredAnnouncements.isEmpty) {
@@ -267,53 +335,71 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2C5F2D)
-                                    .withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(8),
+                        // Event date/time information
+                        if (announcement.dateTime != null)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2C5F2D)
+                                      .withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.event,
+                                  size: 14,
+                                  color: Color(0xFF2C5F2D),
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.event,
-                                size: 14,
-                                color: Color(0xFF2C5F2D),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              DateFormat('MMM dd, yyyy')
-                                  .format(announcement.dateTime),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF2C5F2D),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (announcement.venue.isNotEmpty) ...[
-                              const SizedBox(width: 16),
-                              const Icon(
-                                Icons.location_on,
-                                size: 14,
-                                color: Color(0xFF6B7280),
-                              ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  announcement.venue,
+                                  _formatDateTimeRange(announcement),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF2C5F2D),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        // Venue information
+                        if (announcement.venue?.isNotEmpty ?? false) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6B7280)
+                                      .withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.location_on,
+                                  size: 14,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  announcement.venue!,
                                   style: const TextStyle(
                                     fontSize: 13,
                                     color: Color(0xFF6B7280),
                                   ),
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
-                          ],
-                        ),
+                          ),
+                        ],
                       ],
                     ),
                   );

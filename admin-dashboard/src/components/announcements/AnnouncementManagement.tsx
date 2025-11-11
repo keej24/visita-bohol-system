@@ -6,7 +6,9 @@ import { AnnouncementList } from './AnnouncementList';
 import { AnnouncementForm } from './AnnouncementForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { Plus } from 'lucide-react';
 import type { Announcement, AnnouncementFormData } from '@/types/announcement';
 import type { Diocese } from '@/contexts/AuthContext';
 
@@ -244,6 +246,10 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
             </p>
           )}
         </div>
+        <Button onClick={handleCreateAnnouncement} className="btn-heritage">
+          <Plus className="w-4 h-4 mr-2" />
+          New Announcement
+        </Button>
       </div>
 
       {/* Tabs for Active vs Archived */}

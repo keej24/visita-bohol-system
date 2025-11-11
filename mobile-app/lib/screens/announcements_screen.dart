@@ -140,7 +140,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
         // Archived toggle button
         IconButton(
           icon: Icon(_showArchived ? Icons.archive : Icons.archive_outlined),
-          tooltip: _showArchived ? 'Hide Archived' : 'Show Archived',
+          tooltip: _showArchived ? 'Show Active' : 'Show Archived',
           onPressed: () {
             setState(() {
               _showArchived = !_showArchived;
@@ -448,15 +448,30 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
+                if (grouped['active']!.isNotEmpty)
+                  _buildSection(
+                      _showArchived ? 'Archived Announcements' : 'Active Announcements',
+                      grouped['active']!,
+                      isDark,
+                      _showArchived ? Icons.archive : Icons.campaign_rounded),
                 if (grouped['upcoming']!.isNotEmpty)
-                  _buildSection('Upcoming Events', grouped['upcoming']!, isDark,
-                      Icons.upcoming),
+                  _buildSection(
+                      _showArchived ? 'Archived Upcoming Events' : 'Upcoming Events',
+                      grouped['upcoming']!,
+                      isDark,
+                      _showArchived ? Icons.archive : Icons.upcoming),
                 if (grouped['ongoing']!.isNotEmpty)
-                  _buildSection('Ongoing Events', grouped['ongoing']!, isDark,
-                      Icons.timelapse),
+                  _buildSection(
+                      _showArchived ? 'Archived Ongoing Events' : 'Ongoing Events',
+                      grouped['ongoing']!,
+                      isDark,
+                      _showArchived ? Icons.archive : Icons.timelapse),
                 if (grouped['past']!.isNotEmpty)
                   _buildSection(
-                      'Past Events', grouped['past']!, isDark, Icons.history),
+                      _showArchived ? 'Archived Past Events' : 'Past Events',
+                      grouped['past']!,
+                      isDark,
+                      _showArchived ? Icons.archive : Icons.history),
                 const SizedBox(height: 100), // Space for FAB
               ],
             ),
@@ -472,7 +487,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
     final matchesSearch = searchLower.isEmpty ||
         a.title.toLowerCase().contains(searchLower) ||
         a.description.toLowerCase().contains(searchLower) ||
-        a.venue.toLowerCase().contains(searchLower) ||
+        (a.venue?.toLowerCase().contains(searchLower) ?? false) ||
         a.category.toLowerCase().contains(searchLower);
 
     // Scope filter
@@ -491,21 +506,31 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
     final now = DateTime.now();
     switch (_dateFilter) {
       case DateFilter.thisWeek:
-        final weekStart = now.subtract(Duration(days: now.weekday - 1));
-        final weekEnd = weekStart.add(const Duration(days: 6));
-        matchesDate =
-            a.dateTime.isAfter(weekStart) && a.dateTime.isBefore(weekEnd);
+        if (a.dateTime != null) {
+          final weekStart = now.subtract(Duration(days: now.weekday - 1));
+          final weekEnd = weekStart.add(const Duration(days: 6));
+          matchesDate =
+              a.dateTime!.isAfter(weekStart) && a.dateTime!.isBefore(weekEnd);
+        } else {
+          matchesDate = true; // Non-event announcements match all date filters
+        }
         break;
       case DateFilter.thisMonth:
-        final monthStart = DateTime(now.year, now.month, 1);
-        final monthEnd = DateTime(now.year, now.month + 1, 0);
-        matchesDate =
-            a.dateTime.isAfter(monthStart) && a.dateTime.isBefore(monthEnd);
+        if (a.dateTime != null) {
+          final monthStart = DateTime(now.year, now.month, 1);
+          final monthEnd = DateTime(now.year, now.month + 1, 0);
+          matchesDate =
+              a.dateTime!.isAfter(monthStart) && a.dateTime!.isBefore(monthEnd);
+        } else {
+          matchesDate = true; // Non-event announcements match all date filters
+        }
         break;
       case DateFilter.custom:
-        if (_customDateRange != null) {
-          matchesDate = a.dateTime.isAfter(_customDateRange!.start) &&
-              a.dateTime.isBefore(_customDateRange!.end);
+        if (_customDateRange != null && a.dateTime != null) {
+          matchesDate = a.dateTime!.isAfter(_customDateRange!.start) &&
+              a.dateTime!.isBefore(_customDateRange!.end);
+        } else if (a.dateTime == null) {
+          matchesDate = true; // Non-event announcements match all date filters
         }
         break;
       case DateFilter.all:
@@ -526,10 +551,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
       'upcoming': <Announcement>[],
       'ongoing': <Announcement>[],
       'past': <Announcement>[],
+      'active': <Announcement>[], // For non-event announcements
     };
 
     for (final announcement in announcements) {
-      if (announcement.isUpcoming) {
+      if (announcement.dateTime == null) {
+        // Non-event announcements go to 'active' group
+        grouped['active']!.add(announcement);
+      } else if (announcement.isUpcoming) {
         grouped['upcoming']!.add(announcement);
       } else if (announcement.isOngoing) {
         grouped['ongoing']!.add(announcement);
@@ -538,10 +567,20 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
       }
     }
 
-    // Sort each group by date
-    grouped['upcoming']!.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-    grouped['ongoing']!.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-    grouped['past']!.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    // Sort each group by date (use createdAt for non-event announcements)
+    grouped['upcoming']!.sort((a, b) {
+      if (a.dateTime == null || b.dateTime == null) return 0;
+      return a.dateTime!.compareTo(b.dateTime!);
+    });
+    grouped['ongoing']!.sort((a, b) {
+      if (a.dateTime == null || b.dateTime == null) return 0;
+      return a.dateTime!.compareTo(b.dateTime!);
+    });
+    grouped['past']!.sort((a, b) {
+      if (a.dateTime == null || b.dateTime == null) return 0;
+      return b.dateTime!.compareTo(a.dateTime!);
+    });
+    grouped['active']!.sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
 
     return grouped;
   }
@@ -615,9 +654,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
           color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+      child: InkWell(
+        onTap: () => _showAnnouncementDetail(announcement, isDark),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header with badges
@@ -627,10 +669,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                     _getScopeColor(announcement.scope)),
                 const SizedBox(width: 8),
                 _buildBadge(announcement.category, const Color(0xFF6B7280)),
-                if (announcement.isArchived) ...[
-                  const SizedBox(width: 8),
-                  _buildBadge('ARCHIVED', const Color(0xFF9CA3AF)),
-                ],
                 const Spacer(),
                 _buildStatusBadge(announcement.status, statusColor),
               ],
@@ -658,6 +696,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                 color: isDark ? Colors.white70 : const Color(0xFF6B7280),
                 height: 1.5,
               ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
 
             const SizedBox(height: 20),
@@ -677,18 +717,22 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
               ),
               child: Column(
                 children: [
-                  _buildDetailRow(
-                    Icons.schedule_rounded,
-                    _formatDateTime(announcement.dateTime),
-                    isDark,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    Icons.location_on_rounded,
-                    announcement.venue,
-                    isDark,
-                  ),
-                  const SizedBox(height: 12),
+                  if (announcement.dateTime != null) ...[
+                    _buildDetailRow(
+                      Icons.schedule_rounded,
+                      _formatDateTimeRange(announcement),
+                      isDark,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (announcement.venue != null && announcement.venue!.isNotEmpty) ...[
+                    _buildDetailRow(
+                      Icons.location_on_rounded,
+                      announcement.venue!,
+                      isDark,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   _buildDetailRow(
                     Icons.account_balance_rounded,
                     _formatDioceseName(announcement.diocese),
@@ -699,7 +743,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
             ),
 
             // Action buttons
-            if (announcement.contactInfo != null) ...[
+            if (announcement.contactInfo != null && announcement.contactInfo!.isNotEmpty) ...[
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -717,6 +761,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
             ],
           ],
         ),
+        ),
       ),
     );
   }
@@ -733,9 +778,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
           color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+      child: InkWell(
+        onTap: () => _showAnnouncementDetail(announcement, isDark),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
           children: [
             // Status indicator
             Container(
@@ -769,47 +817,64 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      if (announcement.isArchived)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF9CA3AF).withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                                color: const Color(0xFF9CA3AF), width: 1),
-                          ),
-                          child: const Icon(Icons.archive,
-                              size: 12, color: Color(0xFF6B7280)),
-                        ),
-                      const SizedBox(width: 4),
                       _buildStatusBadge(announcement.status, statusColor,
                           isCompact: true),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    _formatDateTime(announcement.dateTime),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.white70 : const Color(0xFF6B7280),
-                      fontWeight: FontWeight.w500,
+                  if (announcement.dateTime != null) ...[
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 14,
+                          color: isDark ? Colors.white54 : const Color(0xFF9CA3AF),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _formatDateTimeRange(announcement),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white70 : const Color(0xFF6B7280),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    announcement.venue,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.white54 : const Color(0xFF9CA3AF),
+                    const SizedBox(height: 2),
+                  ],
+                  if (announcement.venue != null && announcement.venue!.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_rounded,
+                          size: 14,
+                          color: isDark ? Colors.white54 : const Color(0xFF9CA3AF),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            announcement.venue!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white54 : const Color(0xFF9CA3AF),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  ],
                 ],
               ),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -1008,9 +1073,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
 
   // Helper methods
   Color _getStatusColor(Announcement announcement) {
-    if (announcement.isUpcoming) return const Color(0xFF10B981);
-    if (announcement.isOngoing) return const Color(0xFFF59E0B);
-    return const Color(0xFF6B7280);
+    if (announcement.isArchived) return const Color(0xFF9CA3AF); // Gray for archived
+    if (announcement.isUpcoming) return const Color(0xFF10B981); // Green for upcoming
+    if (announcement.isOngoing) return const Color(0xFFF59E0B); // Orange for ongoing
+    return const Color(0xFF10B981); // Green for active
   }
 
   Color _getScopeColor(String scope) {
@@ -1024,8 +1090,82 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
     }
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    return DateFormat('MMMM d, y · h:mm a').format(dateTime);
+  String _formatDateTimeRange(Announcement announcement) {
+    if (announcement.dateTime == null) return '';
+
+    final startDate = announcement.dateTime!;
+    final endDate = announcement.endDateTime;
+    final startTime = announcement.eventTime;
+    final endTime = announcement.endTime;
+
+    // Format date range
+    String dateStr;
+    if (endDate != null && !_isSameDay(startDate, endDate)) {
+      // Multi-day event
+      if (startDate.year == endDate.year && startDate.month == endDate.month) {
+        // Same month: "June 15-17, 2024"
+        dateStr = '${DateFormat('MMMM d').format(startDate)}-${DateFormat('d, y').format(endDate)}';
+      } else if (startDate.year == endDate.year) {
+        // Same year: "June 15 - July 2, 2024"
+        dateStr = '${DateFormat('MMMM d').format(startDate)} - ${DateFormat('MMMM d, y').format(endDate)}';
+      } else {
+        // Different years: "Dec 30, 2024 - Jan 2, 2025"
+        dateStr = '${DateFormat('MMM d, y').format(startDate)} - ${DateFormat('MMM d, y').format(endDate)}';
+      }
+    } else {
+      // Single day event
+      dateStr = DateFormat('MMMM d, y').format(startDate);
+    }
+
+    // Format time range
+    String timeStr = '';
+    if (startTime != null && startTime.isNotEmpty) {
+      try {
+        final parsedStartTime = _parseTimeString(startTime);
+        if (endTime != null && endTime.isNotEmpty) {
+          final parsedEndTime = _parseTimeString(endTime);
+          timeStr = ' · ${DateFormat('h:mm a').format(parsedStartTime)} - ${DateFormat('h:mm a').format(parsedEndTime)}';
+        } else {
+          timeStr = ' · ${DateFormat('h:mm a').format(parsedStartTime)}';
+        }
+      } catch (e) {
+        // If parsing fails, show raw time strings
+        if (endTime != null && endTime.isNotEmpty) {
+          timeStr = ' · $startTime - $endTime';
+        } else {
+          timeStr = ' · $startTime';
+        }
+      }
+    }
+
+    return dateStr + timeStr;
+  }
+
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
+  }
+
+  DateTime _parseTimeString(String timeStr) {
+    // Parse time string in format "HH:mm" or "h:mm a"
+    try {
+      final now = DateTime.now();
+      if (timeStr.contains('AM') || timeStr.contains('PM')) {
+        // 12-hour format
+        final parsed = DateFormat('h:mm a').parse(timeStr);
+        return DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
+      } else {
+        // 24-hour format
+        final parts = timeStr.split(':');
+        final hour = int.parse(parts[0]);
+        final minute = int.parse(parts[1]);
+        return DateTime(now.year, now.month, now.day, hour, minute);
+      }
+    } catch (e) {
+      // Fallback to current time if parsing fails
+      return DateTime.now();
+    }
   }
 
   String _formatDioceseName(String diocese) {
@@ -1064,6 +1204,249 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
       _loadAnnouncements(); // Reload with cleared filters
     });
     _searchController.clear();
+  }
+
+  void _showAnnouncementDetail(Announcement announcement, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header badges
+                      Row(
+                        children: [
+                          _buildBadge(announcement.scope.toUpperCase(),
+                              _getScopeColor(announcement.scope)),
+                          const SizedBox(width: 8),
+                          _buildBadge(announcement.category, const Color(0xFF6B7280)),
+                          const Spacer(),
+                          _buildStatusBadge(
+                              announcement.status, _getStatusColor(announcement)),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Title
+                      Text(
+                        announcement.title,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : const Color(0xFF1F2937),
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Description
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF2A2A2A)
+                              : const Color(0xFFF8F9FA),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF3A3A3A)
+                                : const Color(0xFFE5E7EB),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.description_rounded,
+                                  size: 20,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : const Color(0xFF6B7280),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Description',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF1F2937),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              announcement.description,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isDark
+                                    ? Colors.white70
+                                    : const Color(0xFF374151),
+                                height: 1.6,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Event details (only show if there's event info or always show diocese)
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF2A2A2A)
+                              : const Color(0xFFF8F9FA),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF3A3A3A)
+                                : const Color(0xFFE5E7EB),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 20,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : const Color(0xFF6B7280),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  announcement.dateTime != null || (announcement.venue != null && announcement.venue!.isNotEmpty)
+                                      ? 'Event Details'
+                                      : 'Details',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF1F2937),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            if (announcement.dateTime != null) ...[
+                              _buildDetailRow(
+                                Icons.schedule_rounded,
+                                _formatDateTimeRange(announcement),
+                                isDark,
+                              ),
+                            ],
+                            if (announcement.venue != null && announcement.venue!.isNotEmpty) ...[
+                              if (announcement.dateTime != null) const SizedBox(height: 12),
+                              _buildDetailRow(
+                                Icons.location_on_rounded,
+                                announcement.venue!,
+                                isDark,
+                              ),
+                            ],
+                            if (announcement.dateTime != null || (announcement.venue != null && announcement.venue!.isNotEmpty))
+                              const SizedBox(height: 12),
+                            _buildDetailRow(
+                              Icons.account_balance_rounded,
+                              _formatDioceseName(announcement.diocese),
+                              isDark,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Contact info
+                      if (announcement.contactInfo != null && announcement.contactInfo!.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _showContactInfo(announcement.contactInfo!),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 16, horizontal: 24),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.phone_rounded, size: 20),
+                            label: const Text(
+                              'Contact Information',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 16),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      // Close button
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark
+                                ? Colors.white70
+                                : const Color(0xFF374151),
+                            side: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF3A3A3A)
+                                  : const Color(0xFFE5E7EB),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Close',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showContactInfo(String contactInfo) {

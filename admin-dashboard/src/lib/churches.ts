@@ -6,6 +6,15 @@ import { shouldRequireHeritageReview } from '@/lib/heritage-detection';
 
 export type ChurchStatus = 'pending' | 'approved' | 'rejected' | 'under_review' | 'needs_revision' | 'heritage_review';
 
+export interface MassSchedule {
+  day: string;
+  time: string;
+  endTime?: string;
+  type?: string; // Sunday Mass, Daily Mass, etc.
+  language?: string; // Language of the mass (Filipino, English, Cebuano, etc.)
+  isFbLive?: boolean; // Whether the mass is live-streamed on Facebook
+}
+
 export interface Church {
   id: string;
   name: string;
@@ -21,7 +30,7 @@ export interface Church {
   longitude?: number;
   architecturalStyle?: string;
   historicalBackground?: string;
-  massSchedules?: string; // can be structured later
+  massSchedules?: MassSchedule[];
   assignedPriest?: string;
   // Heritage-related fields (museum researcher)
   culturalSignificance?: string;

@@ -25,6 +25,7 @@ const announcementSchema = z.object({
   endTime: z.string().optional(), // New: End time for events
   venue: z.string().optional(), // Optional for non-event announcements
   category: z.string().min(1, 'Category is required'),
+  customCategory: z.string().max(100, 'Custom category too long').optional(), // For custom categories
   endDate: z.string().optional(), // Optional for non-event announcements
   contactInfo: z.string().max(200, 'Contact info too long').optional(),
 });
@@ -48,6 +49,10 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
 }) => {
   const isEditing = !!announcement;
 
+  // Check if the announcement has a custom category (not in predefined list)
+  const isCustomCategory = announcement?.category &&
+    !ANNOUNCEMENT_CATEGORIES.includes(announcement.category as typeof ANNOUNCEMENT_CATEGORIES[number]);
+
   const {
     register,
     handleSubmit,
@@ -65,7 +70,8 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
       eventTime: announcement.eventTime || '',
       endTime: announcement.endTime || '',
       venue: announcement.venue || '',
-      category: announcement.category,
+      category: isCustomCategory ? 'Other' : announcement.category,
+      customCategory: isCustomCategory ? announcement.category : '',
       endDate: announcement.endDate ? announcement.endDate.toISOString().split('T')[0] : '',
       contactInfo: announcement.contactInfo || '',
     } : {
@@ -74,20 +80,35 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
   });
 
   const scope = watch('scope');
+  const selectedCategory = watch('category');
+  const showCustomCategoryInput = selectedCategory === 'Other';
 
   const handleFormSubmit = async (data: AnnouncementFormData) => {
     try {
       console.log('🔍 Form data before submission:', data);
-      
+
       // Validate form data
       if (!data.category) {
         throw new Error('Please select a category');
       }
-      
-      await onSubmit(data);
+
+      // If "Other" is selected, validate and use custom category
+      if (data.category === 'Other') {
+        if (!data.customCategory || data.customCategory.trim() === '') {
+          throw new Error('Please specify a custom category');
+        }
+        // Replace category with custom category value
+        data.category = data.customCategory.trim();
+      }
+
+      // Remove customCategory field before submission
+      const { customCategory, ...submitData } = data;
+
+      await onSubmit(submitData);
     } catch (error) {
       console.error('❌ Form submission error:', error);
-      // Don't re-throw here, let the parent component handle it
+      // Re-throw to show error to user
+      throw error;
     }
   };
 
@@ -142,7 +163,7 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
 
             <div>
               <Label htmlFor="category">Category</Label>
-              <Select 
+              <Select
                 defaultValue={announcement?.category}
                 onValueChange={(value) => setValue('category', value)}
               >
@@ -161,6 +182,22 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
                 <p className="text-sm text-red-600 mt-1">{errors.category.message}</p>
               )}
             </div>
+
+            {/* Custom Category Input - shown when "Other" is selected */}
+            {showCustomCategoryInput && (
+              <div>
+                <Label htmlFor="customCategory">Custom Category</Label>
+                <Input
+                  id="customCategory"
+                  {...register('customCategory')}
+                  placeholder="Enter custom category name"
+                  className={errors.customCategory ? 'border-red-500' : ''}
+                />
+                {errors.customCategory && (
+                  <p className="text-sm text-red-600 mt-1">{errors.customCategory.message}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Event Details (Optional for non-event announcements) */}

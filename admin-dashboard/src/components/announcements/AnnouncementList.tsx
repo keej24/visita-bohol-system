@@ -75,19 +75,25 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
 
   const getStatusColor = (announcement: Announcement) => {
     if (announcement.isArchived) return 'secondary';
-    
+
+    // For non-event announcements (no dates), show as active
+    if (!announcement.eventDate) return 'default';
+
     const now = new Date();
     const eventDate = new Date(announcement.eventDate);
-    const endDate = new Date(announcement.endDate);
-    
+    const endDate = announcement.endDate ? new Date(announcement.endDate) : null;
+
     if (eventDate > now) return 'default'; // Upcoming
     if (eventDate.toDateString() === now.toDateString()) return 'destructive'; // Today
     // Past events - check if should be auto-archived based on endDate
-    return endDate < now ? 'secondary' : 'outline'; // Past and ended vs Past but still valid
+    return endDate && endDate < now ? 'secondary' : 'outline'; // Past and ended vs Past but still valid
   };
 
   const getStatusText = (announcement: Announcement) => {
     if (announcement.isArchived) return 'Archived';
+
+    // For non-event announcements (no dates), show as active
+    if (!announcement.eventDate) return 'Active';
 
     const now = new Date();
     const eventDate = new Date(announcement.eventDate);
@@ -102,6 +108,7 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
     const now = new Date();
     return announcements.filter(a =>
       !a.isArchived &&
+      a.endDate &&
       new Date(a.endDate) < now
     ).length;
   };
@@ -298,23 +305,31 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
               
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span>{format(new Date(announcement.eventDate), 'PPP')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span>{announcement.eventTime}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
-                    <span>{announcement.venue}</span>
-                  </div>
+                  {announcement.eventDate && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span>{format(new Date(announcement.eventDate), 'PPP')}</span>
+                    </div>
+                  )}
+                  {announcement.eventTime && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span>{announcement.eventTime}</span>
+                    </div>
+                  )}
+                  {announcement.venue && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-muted-foreground" />
+                      <span>{announcement.venue}</span>
+                    </div>
+                  )}
 
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Valid until: {format(new Date(announcement.endDate), 'PPP')}</span>
-                  </div>
+                  {announcement.endDate && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Valid until: {format(new Date(announcement.endDate), 'PPP')}</span>
+                    </div>
+                  )}
 
                   {announcement.contactInfo && (
                     <div className="flex items-center gap-2">

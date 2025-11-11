@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../models/announcement.dart';
 
 class AnnouncementCard extends StatelessWidget {
@@ -11,13 +12,79 @@ class AnnouncementCard extends StatelessWidget {
       required this.formatDate,
       this.onTap});
 
+  String _formatDateTimeRange() {
+    if (announcement.dateTime == null) return '';
+
+    final startDate = announcement.dateTime!;
+    final endDate = announcement.endDateTime;
+    final startTime = announcement.eventTime;
+    final endTime = announcement.endTime;
+
+    // Format date range
+    String dateStr;
+    if (endDate != null && !_isSameDay(startDate, endDate)) {
+      // Multi-day event
+      if (startDate.year == endDate.year && startDate.month == endDate.month) {
+        dateStr = '${DateFormat('MMM d').format(startDate)}-${DateFormat('d').format(endDate)}';
+      } else if (startDate.year == endDate.year) {
+        dateStr = '${DateFormat('MMM d').format(startDate)} - ${DateFormat('MMM d').format(endDate)}';
+      } else {
+        dateStr = '${DateFormat('MMM d, y').format(startDate)} - ${DateFormat('MMM d, y').format(endDate)}';
+      }
+    } else {
+      // Single day event
+      dateStr = DateFormat('MMM d').format(startDate);
+    }
+
+    // Format time range
+    if (startTime != null && startTime.isNotEmpty) {
+      try {
+        final parsedStartTime = _parseTimeString(startTime);
+        if (endTime != null && endTime.isNotEmpty) {
+          final parsedEndTime = _parseTimeString(endTime);
+          return '$dateStr · ${DateFormat('h:mm a').format(parsedStartTime)}-${DateFormat('h:mm a').format(parsedEndTime)}';
+        } else {
+          return '$dateStr · ${DateFormat('h:mm a').format(parsedStartTime)}';
+        }
+      } catch (e) {
+        // If parsing fails, show date only
+        return dateStr;
+      }
+    }
+
+    return dateStr;
+  }
+
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
+  }
+
+  DateTime _parseTimeString(String timeStr) {
+    try {
+      final now = DateTime.now();
+      if (timeStr.contains('AM') || timeStr.contains('PM')) {
+        final parsed = DateFormat('h:mm a').parse(timeStr);
+        return DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
+      } else {
+        final parts = timeStr.split(':');
+        final hour = int.parse(parts[0]);
+        final minute = int.parse(parts[1]);
+        return DateTime(now.year, now.month, now.day, hour, minute);
+      }
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final dateStr = formatDate(announcement.dateTime);
+    final dateStr = announcement.dateTime != null ? _formatDateTimeRange() : null;
     return Semantics(
       label:
-          'Announcement ${announcement.title}, happening at ${announcement.venue} on $dateStr',
+          'Announcement ${announcement.title}${announcement.venue != null ? ', happening at ${announcement.venue}' : ''}${dateStr != null ? ' on $dateStr' : ''}',
       button: true,
       child: InkWell(
         onTap: onTap,
@@ -48,13 +115,13 @@ class AnnouncementCard extends StatelessWidget {
                         color: cs.primary),
                     const SizedBox(width: 6),
                     _Pill(
-                      text: announcement.diocese == 'Diocese of Tagbilaran'
+                      text: announcement.diocese.toLowerCase().contains('tagbilaran')
                           ? 'TAGBILARAN'
                           : 'TALIBON',
                       color: cs.secondary,
                     ),
                     const Spacer(),
-                    _DateBadge(date: dateStr),
+                    if (dateStr != null) _DateBadge(date: dateStr),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -91,18 +158,21 @@ class AnnouncementCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(Icons.location_on, size: 16, color: cs.secondary),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        announcement.venue,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: cs.secondary, fontWeight: FontWeight.w600),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    if (announcement.venue != null) ...[
+                      Icon(Icons.location_on, size: 16, color: cs.secondary),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          announcement.venue!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cs.secondary, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: 8),
+                    ] else
+                      const Spacer(),
                     TextButton(
                       onPressed: onTap,
                       style: TextButton.styleFrom(

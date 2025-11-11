@@ -34,6 +34,7 @@ export interface AnnouncementFormData {
   endTime?: string; // End time for events
   venue?: string; // Optional for non-event announcements
   category: string;
+  customCategory?: string; // For custom categories when "Other" is selected
   endDate?: string; // Optional for non-event announcements
   contactInfo?: string;
 }

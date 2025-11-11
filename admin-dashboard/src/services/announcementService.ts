@@ -11,7 +11,8 @@ import {
   where,
   orderBy,
   onSnapshot,
-  Timestamp
+  Timestamp,
+  type QueryConstraint
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { Announcement, AnnouncementFormData, AnnouncementFilters } from '@/types/announcement';
@@ -223,7 +224,7 @@ export class AnnouncementService {
       console.log('🔍 Filters:', filters);
 
       // Build query constraints array
-      const constraints: any[] = [
+      const constraints: QueryConstraint[] = [
         where('diocese', '==', diocese)
       ];
 
@@ -245,8 +246,8 @@ export class AnnouncementService {
         constraints.push(where('createdBy', '==', filters.createdBy));
       }
 
-      // Add orderBy LAST
-      constraints.push(orderBy('eventDate', 'desc'));
+      // Add orderBy LAST - use createdAt since eventDate can be null for non-event announcements
+      constraints.push(orderBy('createdAt', 'desc'));
 
       const q = query(collection(db, ANNOUNCEMENTS_COLLECTION), ...constraints);
       const snapshot = await getDocs(q);
@@ -274,7 +275,7 @@ export class AnnouncementService {
   ): () => void {
     try {
       // Build query constraints array
-      const constraints: any[] = [
+      const constraints: QueryConstraint[] = [
         where('diocese', '==', diocese)
       ];
 
@@ -292,8 +293,8 @@ export class AnnouncementService {
         constraints.push(where('createdBy', '==', filters.createdBy));
       }
 
-      // Add orderBy LAST
-      constraints.push(orderBy('eventDate', 'desc'));
+      // Add orderBy LAST - use createdAt since eventDate can be null for non-event announcements
+      constraints.push(orderBy('createdAt', 'desc'));
 
       const q = query(collection(db, ANNOUNCEMENTS_COLLECTION), ...constraints);
 

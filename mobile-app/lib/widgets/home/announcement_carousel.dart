@@ -75,9 +75,12 @@ class _AnnouncementCarouselState extends State<AnnouncementCarousel> {
                   autoPlayInterval: const Duration(seconds: 4),
                   autoPlayAnimationDuration: const Duration(milliseconds: 800),
                   autoPlayCurve: Curves.easeInOutCubic,
-                  enlargeCenterPage: true,
-                  enlargeFactor: 0.2,
-                  viewportFraction: 0.85,
+                  // Only enable centering and viewport effects when there are multiple items
+                  enlargeCenterPage: anns.length > 1,
+                  enlargeFactor: anns.length > 1 ? 0.2 : 0.0,
+                  viewportFraction: anns.length > 1 ? 0.85 : 1.0,
+                  // Disable infinite scroll for single item to prevent empty cards
+                  enableInfiniteScroll: anns.length > 1,
                   onPageChanged: (index, reason) {
                     setState(() => _currentIndex = index);
                   },
@@ -194,7 +197,8 @@ class _EnhancedAnnouncementCard extends StatelessWidget {
                         diocese: announcement.diocese,
                       ),
                       const Spacer(),
-                      _DatePill(date: formatDate(announcement.dateTime)),
+                      if (announcement.dateTime != null)
+                        _DatePill(date: formatDate(announcement.dateTime!)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -224,19 +228,20 @@ class _EnhancedAnnouncementCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   // Venue
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          announcement.venue,
-                          style: Theme.of(context)
-                              .textTheme
+                  if (announcement.venue != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            announcement.venue!,
+                            style: Theme.of(context)
+                                .textTheme
                               .bodySmall
                               ?.copyWith(
                                 color: Theme.of(context).colorScheme.secondary,
@@ -332,7 +337,7 @@ class _DioceseIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTagbilaran = diocese.contains('Tagbilaran');
+    final isTagbilaran = diocese.toLowerCase().contains('tagbilaran');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

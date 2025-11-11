@@ -154,7 +154,7 @@ const Churches = () => {
       virtualTour360: church.virtualTour ? [] : [],
       founders: church.founders,
       description: church.description,
-    } as import('@/lib/churches').Church;
+    };
   };
 
   return (
@@ -164,6 +164,7 @@ const Churches = () => {
         <div className="heritage-card-accent overflow-hidden">
           <div 
             className="h-48 bg-cover bg-center relative"
+            // Dynamic background image requires inline style - this is the React-recommended approach
             style={{ backgroundImage: `url(${heroImage})` }}
           >
             <div className="absolute inset-0 bg-primary/80 flex items-center">

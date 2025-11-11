@@ -57,6 +57,16 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
                 return null;
               }
 
+              // Skip announcements with missing required fields
+              final title = data['title']?.toString().trim() ?? '';
+              final description = data['description']?.toString().trim() ?? '';
+
+              if (title.isEmpty || description.isEmpty) {
+                debugPrint('⏭️  Skipping invalid announcement ${doc.id}: missing title or description');
+                debugPrint('   Title: "$title", Description: "$description"');
+                return null;
+              }
+
               // Use fromFirestore for consistent parsing
               final announcement = Announcement.fromFirestore(doc.id, data);
 
@@ -123,7 +133,12 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
         return Announcement.fromFirestore(doc.id, data);
       }).toList();
 
-      announcements.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      // Sort by dateTime if available, otherwise by createdAt
+      announcements.sort((a, b) {
+        final aDate = a.dateTime ?? a.createdAt ?? DateTime.now();
+        final bDate = b.dateTime ?? b.createdAt ?? DateTime.now();
+        return bDate.compareTo(aDate);
+      });
       return announcements;
     } catch (e) {
       debugPrint('❌ Error fetching announcements by diocese: $e');
@@ -173,7 +188,11 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
       }).toList();
 
       // Sort by date in-memory to avoid index requirement
-      announcements.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      announcements.sort((a, b) {
+        final aDate = a.dateTime ?? a.createdAt ?? DateTime.now();
+        final bDate = b.dateTime ?? b.createdAt ?? DateTime.now();
+        return bDate.compareTo(aDate);
+      });
 
       return announcements;
     } catch (e) {
@@ -193,7 +212,7 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
         final searchQuery = query.toLowerCase();
         return announcement.title.toLowerCase().contains(searchQuery) ||
             announcement.description.toLowerCase().contains(searchQuery) ||
-            (announcement.venue.toLowerCase().contains(searchQuery));
+            (announcement.venue?.toLowerCase().contains(searchQuery) ?? false);
       }).toList();
     } catch (e) {
       throw Exception('Failed to search announcements: $e');
@@ -308,22 +327,39 @@ class FirestoreAnnouncementRepository extends AnnouncementRepository {
           .collection(_announcementsCollection)
           .where('scope', isEqualTo: 'diocese');
 
-      // Only filter out archived if not explicitly including them
-      if (!includeArchived) {
-        query = query.where('isArchived', isEqualTo: false);
-      }
+      // Filter based on archived status
+      // includeArchived = false: show only active announcements
+      // includeArchived = true: show only archived announcements
+      query = query.where('isArchived', isEqualTo: includeArchived);
 
       final QuerySnapshot snapshot = await query.get();
 
-      debugPrint('✅ Found ${snapshot.docs.length} diocese announcements');
+      debugPrint('✅ Found ${snapshot.docs.length} ${includeArchived ? "archived" : "active"} diocese announcements');
 
-      final announcements = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return Announcement.fromFirestore(doc.id, data);
-      }).toList();
+      final announcements = snapshot.docs
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+
+            // Skip announcements with missing required fields
+            final title = data['title']?.toString().trim() ?? '';
+            final description = data['description']?.toString().trim() ?? '';
+
+            if (title.isEmpty || description.isEmpty) {
+              debugPrint('⏭️  Skipping invalid diocese announcement ${doc.id}: missing title or description');
+              return null;
+            }
+
+            return Announcement.fromFirestore(doc.id, data);
+          })
+          .whereType<Announcement>()
+          .toList();
 
       // Sort by date in-memory to avoid index requirement
-      announcements.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      announcements.sort((a, b) {
+        final aDate = a.dateTime ?? a.createdAt ?? DateTime.now();
+        final bDate = b.dateTime ?? b.createdAt ?? DateTime.now();
+        return bDate.compareTo(aDate);
+      });
 
       return announcements;
     } catch (e) {

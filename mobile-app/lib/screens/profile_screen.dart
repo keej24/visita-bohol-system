@@ -475,11 +475,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onRemove: (church) async {
             // Remove from wishlist
             final profileService = context.read<ProfileService>();
+            final scaffoldMessenger = ScaffoldMessenger.of(context);
+            final navigator = Navigator.of(context);
+
             await profileService.toggleForVisitChurch(church.id);
 
             // Show confirmation
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              scaffoldMessenger.showSnackBar(
                 SnackBar(
                   content: Text('${church.name} removed from wishlist'),
                   backgroundColor: Colors.orange,
@@ -487,7 +490,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               );
               // Refresh the list by popping and showing again
-              Navigator.pop(context);
+              navigator.pop();
               if (profileService.userProfile != null) {
                 _showForVisitChurches(profileService.userProfile!);
               }

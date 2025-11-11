@@ -280,12 +280,21 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
                             emptyMessage: 'No current announcements',
                             onRetry: () => setState(() {}),
                             builder: (data) {
-                              // Show upcoming or ongoing diocese announcements
+                              // Show active, upcoming, or ongoing diocese announcements (exclude archived and past)
                               final dioceseAnns = data
                                   .where((a) =>
                                       a.scope == 'diocese' &&
-                                      (a.isUpcoming || a.isOngoing))
+                                      !a.isArchived &&
+                                      (a.isUpcoming || a.isOngoing || a.status == 'Active'))
                                   .toList();
+
+                              // Sort by most recent: use createdAt for active announcements, dateTime for events
+                              dioceseAnns.sort((a, b) {
+                                final aDate = a.dateTime ?? a.createdAt ?? DateTime.now();
+                                final bDate = b.dateTime ?? b.createdAt ?? DateTime.now();
+                                return bDate.compareTo(aDate); // Most recent first
+                              });
+
                               return AnnouncementCarousel(
                                 announcements: dioceseAnns,
                                 formatDate: _formatDate,
@@ -344,7 +353,7 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
     );
   }
 
-  String _formatDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  String _formatDate(DateTime d) => '${d.month}/${d.day}/${d.year}';
 
   Widget _buildChurchList() {
     // Make PaginatedChurchService optional to avoid crashes when not provided (e.g., tests)

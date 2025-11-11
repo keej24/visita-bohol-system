@@ -4,7 +4,6 @@ import '../../models/enums.dart';
 import '../../utils/design_system.dart';
 import '../../utils/animations.dart';
 import '../optimized_image_widget.dart';
-import '../../screens/virtual_tour_screen.dart';
 
 class ChurchCard extends StatefulWidget {
   final Church church;
@@ -25,7 +24,8 @@ class ChurchCard extends StatefulWidget {
 }
 
 class _ChurchCardState extends State<ChurchCard> {
-  IconData _getReligiousClassificationIcon(ReligiousClassification classification) {
+  IconData _getReligiousClassificationIcon(
+      ReligiousClassification classification) {
     switch (classification) {
       case ReligiousClassification.diocesanShrine:
         return Icons.church;
@@ -38,7 +38,8 @@ class _ChurchCardState extends State<ChurchCard> {
     }
   }
 
-  Color _getReligiousClassificationColor(ReligiousClassification classification) {
+  Color _getReligiousClassificationColor(
+      ReligiousClassification classification) {
     switch (classification) {
       case ReligiousClassification.diocesanShrine:
         return const Color(0xFFE11D48); // Red
@@ -201,15 +202,18 @@ class _ChurchCardState extends State<ChurchCard> {
                                                   .textTheme
                                                   .bodySmall
                                                   ?.copyWith(
-                                                      color: const Color(0xFF6B7280),
-                                                      fontWeight: FontWeight.w500),
+                                                      color: const Color(
+                                                          0xFF6B7280),
+                                                      fontWeight:
+                                                          FontWeight.w500),
                                               overflow: TextOverflow.ellipsis),
                                         ),
                                         if (widget.showDistance &&
                                             widget.distance != null) ...[
                                           const SizedBox(width: 12),
                                           const Icon(Icons.location_on,
-                                              size: 14, color: Color(0xFF2563EB)),
+                                              size: 14,
+                                              color: Color(0xFF2563EB)),
                                           const SizedBox(width: 4),
                                           Text(
                                               '${widget.distance!.toStringAsFixed(1)} km',
@@ -217,32 +221,41 @@ class _ChurchCardState extends State<ChurchCard> {
                                                   .textTheme
                                                   .bodySmall
                                                   ?.copyWith(
-                                                      color: const Color(0xFF2563EB),
-                                                      fontWeight: FontWeight.w600)),
+                                                      color: const Color(
+                                                          0xFF2563EB),
+                                                      fontWeight:
+                                                          FontWeight.w600)),
                                         ],
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
-                              if (widget.church.religiousClassification != ReligiousClassification.none) ...[
+                              if (widget.church.religiousClassification !=
+                                  ReligiousClassification.none) ...[
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [
                                     Icon(
-                                      _getReligiousClassificationIcon(widget.church.religiousClassification),
+                                      _getReligiousClassificationIcon(widget
+                                          .church.religiousClassification),
                                       size: 14,
-                                      color: _getReligiousClassificationColor(widget.church.religiousClassification),
+                                      color: _getReligiousClassificationColor(
+                                          widget
+                                              .church.religiousClassification),
                                     ),
                                     const SizedBox(width: 4),
                                     Flexible(
                                       child: Text(
-                                        widget.church.religiousClassification.label,
+                                        widget.church.religiousClassification
+                                            .label,
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
                                             ?.copyWith(
-                                                color: _getReligiousClassificationColor(widget.church.religiousClassification),
+                                                color: _getReligiousClassificationColor(
+                                                    widget.church
+                                                        .religiousClassification),
                                                 fontWeight: FontWeight.w600),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -402,75 +415,6 @@ class _HeritageChip extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TourButton extends StatelessWidget {
-  final Church church;
-  const _TourButton({required this.church});
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        minimumSize: const Size(0, 0),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        side: BorderSide(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VirtualTourScreen(
-              tour: church.virtualTour!,
-              churchName: church.name,
-            ),
-          ),
-        );
-      },
-      icon:
-          const Icon(Icons.threed_rotation, size: 14, color: Color(0xFF2563EB)),
-      label: const Text('Tour',
-          style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF2563EB))),
-    );
-  }
-}
-
-class _ViewDetailsButton extends StatelessWidget {
-  const _ViewDetailsButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm - 2,
-      ),
-      decoration: BoxDecoration(
-        gradient: AppGradients.sacredGreen,
-        borderRadius: AppRadius.mediumRadius,
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2C5F2D).withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: const Text(
-        'Details',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
       ),
     );
   }

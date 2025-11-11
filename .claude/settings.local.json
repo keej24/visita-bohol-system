@@ -74,7 +74,18 @@
       "Bash(node scripts/verify-church-coordinates.js:*)",
       "Bash(node scripts/check-coordinate-fields.js:*)",
       "Bash(node scripts/inspect-unknown-church.js)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/screens/profile_screen.dart lib/services/auth_service.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/screens/home_screen.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/widgets/home/announcement_carousel.dart lib/widgets/home/announcement_card.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/repositories/firestore_announcement_repository.dart mobile-app/lib/screens/announcements_screen.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/announcements_screen.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/repositories/firestore_announcement_repository.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/announcements_screen.dart)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/church_detail/tabs/announcements_tab.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/models/announcement.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/screens/announcements_screen.dart lib/widgets/home/announcement_card.dart lib/screens/church_detail/tabs/announcements_tab.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/home_screen.dart --no-fatal-infos)"
     ],
     "deny": [],
     "ask": []
