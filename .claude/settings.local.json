@@ -85,7 +85,12 @@
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/church_detail/tabs/announcements_tab.dart --no-fatal-infos)",
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/models/announcement.dart --no-fatal-infos)",
       "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze lib/screens/announcements_screen.dart lib/widgets/home/announcement_card.dart lib/screens/church_detail/tabs/announcements_tab.dart --no-fatal-infos)",
-      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/home_screen.dart --no-fatal-infos)"
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/home_screen.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/models/church.dart --no-fatal-infos)",
+      "Bash(dart test_heritage_filter.dart:*)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" run mobile-app/test_heritage_filter.dart)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/models/app_state.dart mobile-app/lib/screens/home_screen.dart --no-fatal-infos)",
+      "Bash(\"C:\\src\\flutter\\bin\\flutter.bat\" analyze mobile-app/lib/screens/church_detail_screen_modern.dart --no-fatal-infos)"
     ],
     "deny": [],
     "ask": []

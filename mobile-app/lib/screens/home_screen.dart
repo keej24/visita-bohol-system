@@ -61,6 +61,7 @@ import '../models/announcement.dart';
 import '../models/church.dart';
 import '../models/church_filter.dart';
 import '../models/enums.dart';
+import '../models/app_state.dart';
 // Data access
 import '../repositories/church_repository.dart';
 import '../repositories/announcement_repository.dart';
@@ -197,6 +198,17 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
         _allChurches = churches; // Store all churches
         _applyFilter(); // Filter and display
       });
+
+      // Load visited churches from Firestore after churches are loaded
+      if (!mounted) return;
+      final appState = context.read<AppState>();
+      final profileService = context.read<ProfileService>();
+
+      // Inject ProfileService into AppState for syncing
+      appState.setProfileService(profileService);
+
+      await appState.loadVisitedChurches(churches);
+      debugPrint('✅ Visited churches initialized');
     } catch (e) {
       debugPrint('Error loading churches: $e');
     }

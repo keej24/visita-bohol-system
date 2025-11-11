@@ -229,7 +229,21 @@ class Church {
           }
           return docs;
         })(),
-        isHeritage: j['isHeritage'] ?? false,
+        isHeritage: (() {
+          // Auto-derive isHeritage from heritageClassification if not explicitly set
+          if (j['isHeritage'] != null) return j['isHeritage'] as bool;
+
+          // Check if church has a valid heritage classification
+          final classificationValue = j['heritageClassification'] ?? j['classification'];
+          if (classificationValue != null) {
+            final classification = HeritageClassificationX.fromLabel(classificationValue);
+            // Heritage sites are ICP or NCT (not 'none' or 'nonHeritage')
+            return classification == HeritageClassification.icp ||
+                   classification == HeritageClassification.nct;
+          }
+
+          return false;
+        })(),
         latitude: j['latitude'] != null
             ? (j['latitude'] as num).toDouble()
             : (j['coordinates'] != null && j['coordinates']['latitude'] != null

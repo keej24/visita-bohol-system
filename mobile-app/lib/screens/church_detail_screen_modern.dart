@@ -988,9 +988,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
 
       if (validationResult.isValid) {
         // Success - church marked as visited
-        // Sync with ProfileService
-        final profileService = context.read<ProfileService>();
-        await profileService.markChurchAsVisited(_currentChurch.id);
+        // Note: ProfileService sync is handled automatically in AppState.markVisitedWithValidation
 
         if (!context.mounted) return;
 

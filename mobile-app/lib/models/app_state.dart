@@ -6,13 +6,20 @@ import 'church.dart';
 import '../utils/constants.dart';
 import '../services/visitor_validation_service.dart';
 import '../services/visitor_log_service.dart';
+import '../services/profile_service.dart';
 
 class AppState extends ChangeNotifier {
   List<Church> _visited = [];
   List<Church> _forVisit = [];
+  ProfileService? _profileService;
 
   List<Church> get visited => _visited;
   List<Church> get forVisit => _forVisit;
+
+  // Setter for ProfileService dependency injection
+  void setProfileService(ProfileService profileService) {
+    _profileService = profileService;
+  }
 
   // Tracks last validated church id (after location check)
   String? _lastValidatedChurchId;
@@ -22,6 +29,50 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Load visited churches from Firestore (cloud sync)
+  /// This is the primary method for initializing visit history
+  /// Falls back to local storage if user is not authenticated or Firestore fails
+  Future<void> loadVisitedChurches(List<Church> allChurches) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        // Load from Firestore (cloud sync)
+        debugPrint('📥 Loading visited churches from Firestore for user: ${user.uid}');
+        final visitHistory = await VisitorLogService.getUserVisitHistory(userId: user.uid);
+
+        // Get unique church IDs from visit history
+        final visitedChurchIds = visitHistory
+            .map((visit) => visit['church_id'] as String)
+            .toSet()
+            .toList();
+
+        debugPrint('📥 Found ${visitedChurchIds.length} visited churches in Firestore');
+
+        // Map church IDs to Church objects
+        _visited = allChurches.where((c) => visitedChurchIds.contains(c.id)).toList();
+
+        // Sync to local storage for offline access
+        await _savePrefs();
+
+        debugPrint('✅ Loaded ${_visited.length} visited churches from Firestore');
+      } else {
+        // User not authenticated - try loading from local cache
+        debugPrint('📱 User not authenticated, loading from local cache');
+        await loadFromPrefs(allChurches);
+      }
+
+      notifyListeners();
+    } catch (error) {
+      debugPrint('⚠️ Error loading visited churches from Firestore: $error');
+      debugPrint('📱 Falling back to local storage');
+      // Fallback to local storage if Firestore fails
+      await loadFromPrefs(allChurches);
+    }
+  }
+
+  /// Load visited churches from local storage (SharedPreferences)
+  /// Used as fallback when Firestore is unavailable
   Future<void> loadFromPrefs(List<Church> allChurches) async {
     final prefs = await SharedPreferences.getInstance();
     final v = prefs.getStringList(AppConstants.visitedChurchIds) ?? [];
@@ -78,6 +129,19 @@ class AppState extends ChangeNotifier {
     } catch (error) {
       debugPrint('⚠️ Failed to log visit to Firestore: $error');
       // Don't fail the whole operation if logging fails
+    }
+
+    // Sync with ProfileService to update user's profile
+    try {
+      if (_profileService != null) {
+        await _profileService!.markChurchAsVisited(church.id);
+        debugPrint('✅ Profile updated with visited church: ${church.id}');
+      } else {
+        debugPrint('⚠️ ProfileService not available for sync');
+      }
+    } catch (error) {
+      debugPrint('⚠️ Failed to update profile: $error');
+      // Don't fail the whole operation if profile update fails
     }
 
     return validationResult;
