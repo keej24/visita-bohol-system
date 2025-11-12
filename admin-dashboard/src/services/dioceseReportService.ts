@@ -31,18 +31,33 @@ export class DioceseReportService {
     doc.text('Diocese Overview', 20, yPos);
     yPos += 7;
 
+    // Build statistics rows dynamically based on filtered data
+    const statsRows: [string, string][] = [
+      ['Total Churches', analytics.totalChurches.toString()]
+    ];
+
+    // Only show classification breakdowns if they have churches
+    if (analytics.churchesByClassification.NCT > 0) {
+      statsRows.push(['National Cultural Treasures (NCT)', analytics.churchesByClassification.NCT.toString()]);
+    }
+    if (analytics.churchesByClassification.ICP > 0) {
+      statsRows.push(['Important Cultural Properties (ICP)', analytics.churchesByClassification.ICP.toString()]);
+    }
+    if (analytics.nonHeritageChurches > 0) {
+      statsRows.push(['Non-Heritage Churches', analytics.nonHeritageChurches.toString()]);
+    }
+
+    // Always show visitor statistics
+    statsRows.push(
+      ['Total Visitors', analytics.totalVisitors.toLocaleString()],
+      ['Average Rating', `${analytics.avgRating.toFixed(1)} / 5.0`],
+      ['Total Feedback', analytics.totalFeedback.toLocaleString()]
+    );
+
     autoTable(doc, {
       startY: yPos,
       head: [['Metric', 'Count']],
-      body: [
-        ['Total Churches', analytics.totalChurches.toString()],
-        ['National Cultural Treasures (NCT)', analytics.churchesByClassification.NCT.toString()],
-        ['Important Cultural Properties (ICP)', analytics.churchesByClassification.ICP.toString()],
-        ['Non-Heritage Churches', analytics.nonHeritageChurches.toString()],
-        ['Total Visitors', analytics.totalVisitors.toLocaleString()],
-        ['Average Rating', `${analytics.avgRating} / 5.0`],
-        ['Total Feedback', analytics.totalFeedback.toLocaleString()]
-      ],
+      body: statsRows,
       theme: 'grid',
       headStyles: { fillColor: [59, 130, 246] },
       margin: { left: 20, right: 20 },
@@ -189,23 +204,37 @@ export class DioceseReportService {
   ): void {
     const workbook = XLSX.utils.book_new();
 
-    // Sheet 1: Diocese Overview
-    const overviewData = [
+    // Sheet 1: Diocese Overview - Build rows dynamically based on filtered data
+    const overviewData: any[][] = [
       ['Diocese Church Summary Report'],
       ['Diocese:', dioceseName],
       ['Generated:', new Date().toLocaleDateString()],
       [],
       ['Diocese Statistics'],
       ['Metric', 'Value'],
-      ['Total Churches', analytics.totalChurches],
-      ['Heritage Churches (NCT + ICP)', analytics.heritageChurches],
-      ['- National Cultural Treasures', analytics.churchesByClassification.NCT],
-      ['- Important Cultural Properties', analytics.churchesByClassification.ICP],
-      ['Non-Heritage Churches', analytics.nonHeritageChurches],
+      ['Total Churches', analytics.totalChurches]
+    ];
+
+    // Only add classification rows if they have churches
+    if (analytics.heritageChurches > 0) {
+      overviewData.push(['Heritage Churches (NCT + ICP)', analytics.heritageChurches]);
+    }
+    if (analytics.churchesByClassification.NCT > 0) {
+      overviewData.push(['- National Cultural Treasures', analytics.churchesByClassification.NCT]);
+    }
+    if (analytics.churchesByClassification.ICP > 0) {
+      overviewData.push(['- Important Cultural Properties', analytics.churchesByClassification.ICP]);
+    }
+    if (analytics.nonHeritageChurches > 0) {
+      overviewData.push(['Non-Heritage Churches', analytics.nonHeritageChurches]);
+    }
+
+    // Always add visitor statistics
+    overviewData.push(
       ['Total Visitors', analytics.totalVisitors],
       ['Total Feedback', analytics.totalFeedback],
       ['Average Rating', analytics.avgRating]
-    ];
+    );
 
     const overviewSheet = XLSX.utils.aoa_to_sheet(overviewData);
     overviewSheet['!cols'] = [{ wch: 30 }, { wch: 20 }];

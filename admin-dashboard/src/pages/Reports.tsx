@@ -10,10 +10,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import { format, subMonths } from 'date-fns';
+import { format as formatDate, subMonths } from 'date-fns';
 import { HybridHeatmap } from '../components/heatmap/HybridHeatmap';
 import { DioceseAnalyticsService, type DioceseAnalytics, type EngagementMetrics, type ChurchSummaryData } from '@/services/dioceseAnalyticsService';
 import { PDFExportService } from '@/services/pdfExportService';
@@ -46,10 +47,14 @@ const Reports = () => {
   const [startDate, setStartDate] = useState<Date>(subMonths(new Date(), 3));
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [reportType, setReportType] = useState<string>('church_summary');
-  const [selectedParish, setSelectedParish] = useState<string>('all');
+  const [selectedMunicipality, setSelectedMunicipality] = useState<string>('all');
   const [selectedClassification, setSelectedClassification] = useState<string>('all');
   const [exportFormat, setExportFormat] = useState<string>('pdf');
   const [activeTab, setActiveTab] = useState<string>('church_summary');
+  
+  // Export confirmation dialog state
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [pendingExport, setPendingExport] = useState<{ format: string; reportType: string } | null>(null);
 
   // Real data state
   const [dioceseAnalytics, setDioceseAnalytics] = useState<DioceseAnalytics | null>(null);
@@ -60,6 +65,20 @@ const Reports = () => {
   // Determine if user is parish secretary (limited to own church) or chancery (diocesan-wide)
   const isParishSecretary = userProfile?.role === 'parish_secretary';
   const currentDiocese = userProfile?.diocese || 'tagbilaran';
+
+  // Date range validation
+  const isValidDateRange = useMemo(() => {
+    if (!startDate || !endDate) return true; // Allow empty dates
+    return startDate <= endDate;
+  }, [startDate, endDate]);
+
+  const dateRangeError = useMemo(() => {
+    if (!startDate || !endDate) return null;
+    if (startDate > endDate) {
+      return "Invalid date range: Start date must be before or equal to end date.";
+    }
+    return null;
+  }, [startDate, endDate]);
 
   // Report type options based on user role
   const reportTypes = [
@@ -72,6 +91,19 @@ const Reports = () => {
     const loadAnalytics = async () => {
       if (!currentDiocese) return;
 
+      // Validate date range before loading data
+      if (!isValidDateRange) {
+        console.log('❌ Reports: Invalid date range detected, skipping data load');
+        toast({
+          title: "Invalid Date Range",
+          description: dateRangeError || "Please select a valid date range.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('📊 Reports: Loading analytics for diocese:', currentDiocese);
       setIsLoading(true);
       try {
         const [analytics, engagement, churches] = await Promise.all([
@@ -80,11 +112,21 @@ const Reports = () => {
           DioceseAnalyticsService.getChurchSummaryData(currentDiocese)
         ]);
 
+        console.log('✅ Reports: Analytics loaded:', {
+          totalChurches: analytics.totalChurches,
+          churchesWithData: churches.length,
+          churchesWithCoordinates: churches.filter(c => c.coordinates).length
+        });
+        
+        if (churches.length > 0) {
+          console.log('Sample church data for heatmap:', churches[0]);
+        }
+
         setDioceseAnalytics(analytics);
         setEngagementMetrics(engagement);
         setChurchSummaryData(churches);
       } catch (error) {
-        console.error('Error loading analytics:', error);
+        console.error('❌ Reports: Error loading analytics:', error);
         toast({
           title: "Error",
           description: "Failed to load analytics data",
@@ -96,7 +138,14 @@ const Reports = () => {
     };
 
     loadAnalytics();
-  }, [currentDiocese, startDate, endDate, toast]);
+  }, [currentDiocese, startDate, endDate, toast, isValidDateRange, dateRangeError]);
+
+  // Get unique municipalities from church data
+  const availableMunicipalities = useMemo(() => {
+    if (!churchSummaryData) return [];
+    const municipalities = [...new Set(churchSummaryData.map(c => c.municipality))].filter(Boolean);
+    return municipalities.sort();
+  }, [churchSummaryData]);
 
   // Get filtered churches data
   const availableChurches = useMemo(() => {
@@ -108,12 +157,18 @@ const Reports = () => {
 
     let filtered = churchSummaryData;
 
+    // Apply municipality filter
+    if (selectedMunicipality !== 'all') {
+      filtered = filtered.filter(c => c.municipality === selectedMunicipality);
+    }
+
+    // Apply classification filter
     if (selectedClassification !== 'all') {
       filtered = filtered.filter(c => c.classification === selectedClassification);
     }
 
     return filtered;
-  }, [churchSummaryData, isParishSecretary, userProfile?.parish, selectedClassification]);
+  }, [churchSummaryData, isParishSecretary, userProfile?.parish, selectedMunicipality, selectedClassification]);
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -140,8 +195,8 @@ const Reports = () => {
     };
   }, [dioceseAnalytics]);
 
-  // Handle export functionality with real exports
-  const handleExport = async (format: string, reportType: string) => {
+  // Show export confirmation dialog
+  const handleExportClick = (format: string, reportType: string) => {
     if (!dioceseAnalytics || !engagementMetrics) {
       toast({
         title: "No Data",
@@ -151,27 +206,79 @@ const Reports = () => {
       return;
     }
 
+    // Show confirmation dialog
+    setPendingExport({ format, reportType });
+    setShowExportDialog(true);
+  };
+
+  // Confirm and perform export
+  const confirmExport = async () => {
+    if (!pendingExport) return;
+
+    const { format, reportType } = pendingExport;
+
     try {
       const dioceseName = currentDiocese.charAt(0).toUpperCase() + currentDiocese.slice(1);
 
       if (reportType === 'church_summary') {
+        // availableChurches is already filtered by municipality and classification
+        // Apply any additional UI-level filters for display
+        const filteredChurches = availableChurches.filter(church =>
+          (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
+          (selectedClassification === 'all' ||
+           (selectedClassification === 'non-heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
+           church.classification === selectedClassification)
+        );
+
+        // Create filtered analytics data with recalculated municipality breakdown
+        const churchesByMunicipality: Record<string, number> = {};
+        filteredChurches.forEach(church => {
+          const municipality = church.municipality || 'Unknown';
+          churchesByMunicipality[municipality] = (churchesByMunicipality[municipality] || 0) + 1;
+        });
+
+        const icpCount = filteredChurches.filter(c => c.classification === 'ICP').length;
+        const nctCount = filteredChurches.filter(c => c.classification === 'NCT').length;
+        const nonHeritageCount = filteredChurches.filter(c => !['ICP', 'NCT'].includes(c.classification)).length;
+
+        const filteredAnalytics = {
+          ...dioceseAnalytics!,
+          totalChurches: filteredChurches.length,
+          heritageChurches: icpCount + nctCount, // Recalculate heritage count
+          nonHeritageChurches: nonHeritageCount,
+          churchesByMunicipality, // Use recalculated municipality breakdown from filtered set
+          churchesByClassification: {
+            ICP: icpCount,
+            NCT: nctCount,
+            non_heritage: nonHeritageCount
+          },
+          topChurches: filteredChurches.slice(0, 10), // Top 10 from filtered set
+          totalVisitors: filteredChurches.reduce((sum, c) => sum + c.visitorCount, 0),
+          totalFeedback: filteredChurches.reduce((sum, c) => sum + c.feedbackCount, 0),
+          avgRating: filteredChurches.length > 0
+            ? filteredChurches.reduce((sum, c) => sum + c.avgRating, 0) / filteredChurches.length
+            : 0
+        };
+
         // Diocese-wide Church Summary Report
         if (format === 'pdf') {
-          DioceseReportService.exportDioceseChurchSummary(dioceseName, dioceseAnalytics);
+          DioceseReportService.exportDioceseChurchSummary(dioceseName, filteredAnalytics);
           toast({
-            title: "Export Complete",
-            description: `${dioceseName} Diocese Church Summary PDF downloaded successfully`
+            title: "Report successfully exported",
+            description: `Church Summary PDF has been downloaded (${filteredChurches.length} churches)`
           });
         } else {
-          DioceseReportService.exportDioceseChurchSummaryExcel(dioceseName, dioceseAnalytics);
+          DioceseReportService.exportDioceseChurchSummaryExcel(dioceseName, filteredAnalytics);
           toast({
-            title: "Export Complete",
-            description: `${dioceseName} Diocese Church Summary Excel downloaded successfully`
+            title: "Report successfully exported",
+            description: `Church Summary Excel has been downloaded (${filteredChurches.length} churches)`
           });
         }
       } else if (reportType === 'engagement_analytics') {
+        // Use already filtered data from date range (startDate, endDate already applied in loadAnalytics)
+        // This respects the date range filters selected by the user
         const analyticsData = {
-          visitorLogs: dioceseAnalytics.topChurches.flatMap(church =>
+          visitorLogs: dioceseAnalytics!.topChurches.flatMap(church =>
             Array(church.visitorCount).fill({
               id: `${church.id}_visitor`,
               visitDate: new Date(),
@@ -180,7 +287,7 @@ const Reports = () => {
               userId: ''
             })
           ),
-          feedback: dioceseAnalytics.topChurches.flatMap(church =>
+          feedback: dioceseAnalytics!.topChurches.flatMap(church =>
             Array(church.feedbackCount).fill({
               id: `${church.id}_feedback`,
               rating: church.avgRating,
@@ -192,9 +299,9 @@ const Reports = () => {
             })
           ),
           stats: {
-            totalVisitors: dioceseAnalytics.totalVisitors,
-            avgDailyVisitors: Math.round(dioceseAnalytics.totalVisitors / 30),
-            avgRating: dioceseAnalytics.avgRating,
+            totalVisitors: dioceseAnalytics!.totalVisitors,
+            avgDailyVisitors: Math.round(dioceseAnalytics!.totalVisitors / 30),
+            avgRating: dioceseAnalytics!.avgRating,
             growthRate: 0
           }
         };
@@ -208,22 +315,27 @@ const Reports = () => {
             dateRangeObj
           );
           toast({
-            title: "Export Complete",
-            description: `${dioceseName} Diocese Analytics PDF downloaded successfully`
+            title: "Report successfully exported",
+            description: `Engagement Analytics PDF has been downloaded (${formatDate(startDate, 'MMM dd')} - ${formatDate(endDate, 'MMM dd, yyyy')})`
           });
         } else {
           // Use diocese-specific engagement export for Excel
           DioceseReportService.exportDioceseEngagementExcel(
             dioceseName,
-            dioceseAnalytics,
+            dioceseAnalytics!,
             dateRangeObj
           );
           toast({
-            title: "Export Complete",
-            description: `${dioceseName} Diocese Engagement Analytics Excel downloaded successfully`
+            title: "Report successfully exported",
+            description: `Engagement Analytics Excel has been downloaded (${formatDate(startDate, 'MMM dd')} - ${formatDate(endDate, 'MMM dd, yyyy')})`
           });
         }
       }
+
+      // Success - close dialog and show confirmation
+      setShowExportDialog(false);
+      setPendingExport(null);
+      
     } catch (error) {
       console.error('Export error:', error);
       toast({
@@ -231,7 +343,15 @@ const Reports = () => {
         description: "Failed to export report. Please try again.",
         variant: "destructive"
       });
+      setShowExportDialog(false);
+      setPendingExport(null);
     }
+  };
+
+  // Cancel export
+  const cancelExport = () => {
+    setShowExportDialog(false);
+    setPendingExport(null);
   };
 
   // Render stars for ratings
@@ -367,16 +487,16 @@ const Reports = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {!isParishSecretary && (
                     <div className="space-y-2">
-                      <Label>Parish</Label>
-                      <Select value={selectedParish} onValueChange={setSelectedParish}>
+                      <Label>Municipality</Label>
+                      <Select value={selectedMunicipality} onValueChange={setSelectedMunicipality}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Parishes</SelectItem>
-                          {availableChurches.map((church) => (
-                            <SelectItem key={church.id} value={church.id}>
-                              {church.municipality}
+                          <SelectItem value="all">All Municipalities</SelectItem>
+                          {availableMunicipalities.map((municipality) => (
+                            <SelectItem key={municipality} value={municipality}>
+                              {municipality}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -412,16 +532,35 @@ const Reports = () => {
                     </Select>
                   </div>
 
-                  <div className="flex items-end">
+                  <div className="space-y-2">
+                    <Label>&nbsp;</Label>
                     <Button 
-                      onClick={() => handleExport(exportFormat, 'church_summary')}
-                      className="w-full"
+                      onClick={() => handleExportClick(exportFormat, 'church_summary')}
+                      className="w-full h-10"
+                      disabled={availableChurches.filter(church =>
+                        (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
+                        (selectedClassification === 'all' ||
+                         (selectedClassification === 'non-heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
+                         church.classification === selectedClassification)
+                      ).length === 0}
                     >
                       <Download className="w-4 h-4 mr-2" />
                       Export Report
                     </Button>
                   </div>
                 </div>
+
+                {/* Export Error Message */}
+                {availableChurches.filter(church =>
+                  (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
+                  (selectedClassification === 'all' ||
+                   (selectedClassification === 'non-heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
+                   church.classification === selectedClassification)
+                ).length === 0 && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <span className="text-red-600 text-sm font-medium">⚠️ No data to export with current filters</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -430,23 +569,88 @@ const Reports = () => {
               <Card className="col-span-full">
                 <CardContent className="p-12 text-center">
                   <Church className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Churches Found</h3>
-                  <p className="text-muted-foreground">
-                    There are no approved churches in the {currentDiocese} diocese yet.
-                    Churches will appear here once they are approved.
+                  <h3 className="text-lg font-semibold mb-2">No Records Found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {selectedMunicipality !== 'all' || selectedClassification !== 'all' ? (
+                      <>
+                        No churches match your selected filters. Try adjusting your filter criteria:
+                        {selectedMunicipality !== 'all' && <><br />• Municipality: {selectedMunicipality}</>}
+                        {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</>}
+                      </>
+                    ) : (
+                      <>
+                        There are no approved churches in the {currentDiocese} diocese yet.
+                        Churches will appear here once they are approved.
+                      </>
+                    )}
                   </p>
+                  <div className="flex gap-3 justify-center">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSelectedMunicipality('all');
+                        setSelectedClassification('all');
+                      }}
+                    >
+                      <Filter className="w-4 h-4 mr-2" />
+                      Clear Filters
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setActiveTab('engagement_analytics')}
+                    >
+                      View Engagement Analytics
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {availableChurches
-                  .filter(church =>
-                    (selectedParish === 'all' || church.id === selectedParish) &&
+              <>
+                {(() => {
+                  const filteredForDisplay = availableChurches.filter(church =>
+                    (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
                     (selectedClassification === 'all' ||
                      (selectedClassification === 'non-heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
                      church.classification === selectedClassification)
-                  )
-                  .map((church) => (
+                  );
+
+                  if (filteredForDisplay.length === 0) {
+                    return (
+                      <Card className="col-span-full">
+                        <CardContent className="p-12 text-center">
+                          <Church className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                          <h3 className="text-lg font-semibold mb-2">No Records Found</h3>
+                          <p className="text-muted-foreground mb-4">
+                            No churches match your selected filters:
+                            {selectedMunicipality !== 'all' && <><br />• Municipality: {selectedMunicipality}</>}
+                            {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</>}
+                          </p>
+                          <div className="flex gap-3 justify-center">
+                            <Button 
+                              variant="outline" 
+                              onClick={() => {
+                                setSelectedMunicipality('all');
+                                setSelectedClassification('all');
+                              }}
+                            >
+                              <Filter className="w-4 h-4 mr-2" />
+                              Clear Filters
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setActiveTab('engagement_analytics')}
+                            >
+                              View Engagement Analytics
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {filteredForDisplay.map((church) => (
                 <Card key={church.id} className="overflow-hidden">
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -544,7 +748,10 @@ const Reports = () => {
                   </CardContent>
                 </Card>
               ))}
-              </div>
+                    </div>
+                  );
+                })()}
+              </>
             )}
           </TabsContent>
 
@@ -568,11 +775,12 @@ const Reports = () => {
                           variant="outline"
                           className={cn(
                             "w-full justify-start text-left font-normal",
-                            !startDate && "text-muted-foreground"
+                            !startDate && "text-muted-foreground",
+                            !isValidDateRange && "border-red-500"
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {startDate ? format(startDate, "PPP") : <span>Start date</span>}
+                          {startDate ? formatDate(startDate, "PPP") : <span>Start date</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -580,6 +788,7 @@ const Reports = () => {
                           mode="single"
                           selected={startDate}
                           onSelect={(date) => date && setStartDate(date)}
+                          disabled={(date) => date > new Date()}
                           initialFocus
                         />
                       </PopoverContent>
@@ -594,11 +803,12 @@ const Reports = () => {
                           variant="outline"
                           className={cn(
                             "w-full justify-start text-left font-normal",
-                            !endDate && "text-muted-foreground"
+                            !endDate && "text-muted-foreground",
+                            !isValidDateRange && "border-red-500"
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {endDate ? format(endDate, "PPP") : <span>End date</span>}
+                          {endDate ? formatDate(endDate, "PPP") : <span>End date</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -606,6 +816,7 @@ const Reports = () => {
                           mode="single"
                           selected={endDate}
                           onSelect={(date) => date && setEndDate(date)}
+                          disabled={(date) => date > new Date() || (startDate ? date < startDate : false)}
                           initialFocus
                         />
                       </PopoverContent>
@@ -625,16 +836,32 @@ const Reports = () => {
                     </Select>
                   </div>
 
-                  <div className="flex items-end">
+                  <div className="space-y-2">
+                    <Label>&nbsp;</Label>
                     <Button 
-                      onClick={() => handleExport(exportFormat, 'engagement_analytics')}
-                      className="w-full"
+                      onClick={() => handleExportClick(exportFormat, 'engagement_analytics')}
+                      className="w-full h-10"
+                      disabled={!engagementMetrics || !dioceseAnalytics || !isValidDateRange}
                     >
                       <Download className="w-4 h-4 mr-2" />
                       Export Analytics
                     </Button>
                   </div>
                 </div>
+
+                {/* Export Error Messages */}
+                {(!engagementMetrics || !dioceseAnalytics) && !dateRangeError && (
+                  <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <span className="text-blue-600 text-sm font-medium">ℹ️ Loading data...</span>
+                  </div>
+                )}
+
+                {/* Date Range Error Message */}
+                {dateRangeError && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <span className="text-red-600 text-sm font-medium">⚠️ {dateRangeError}</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -803,6 +1030,48 @@ const Reports = () => {
 
         </Tabs>
       </div>
+
+      {/* Export Confirmation Dialog */}
+      <AlertDialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Export</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to export the <strong>{pendingExport?.reportType === 'church_summary' ? 'Church Summary' : 'Engagement Analytics'}</strong> report as a <strong>{pendingExport?.format === 'pdf' ? 'PDF document' : 'Excel spreadsheet'}</strong>.
+              <br /><br />
+              {pendingExport?.reportType === 'church_summary' ? (
+                <>
+                  <strong>Applied Filters:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    {selectedMunicipality !== 'all' && (
+                      <li>Municipality: {selectedMunicipality}</li>
+                    )}
+                    {selectedClassification !== 'all' && (
+                      <li>Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</li>
+                    )}
+                    {selectedMunicipality === 'all' && selectedClassification === 'all' && (
+                      <li>All churches in {currentDiocese} diocese</li>
+                    )}
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <strong>Date Range:</strong> {formatDate(startDate, 'MMM dd, yyyy')} - {formatDate(endDate, 'MMM dd, yyyy')}
+                </>
+              )}
+              <br /><br />
+              This report will be downloaded to your device. Do you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelExport}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmExport}>
+              <Download className="w-4 h-4 mr-2" />
+              Export Report
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
