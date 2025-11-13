@@ -13,10 +13,7 @@ import {
   Star,
   Award,
   Layers,
-  Navigation,
-  Eye,
-  EyeOff,
-  Flame
+  Navigation
 } from 'lucide-react';
 import type { ChurchSummaryData } from '@/services/dioceseAnalyticsService';
 
@@ -58,7 +55,6 @@ interface Church {
 }
 
 type HeatmapLayer = 'visitors' | 'ratings' | 'heritage';
-type ViewMode = 'heatmap' | 'markers' | 'both';
 
 interface HybridHeatmapProps {
   diocese: 'tagbilaran' | 'talibon';
@@ -68,8 +64,11 @@ interface HybridHeatmapProps {
 // Helper function to convert ChurchSummaryData to Church format
 function convertToChurchFormat(churchData: ChurchSummaryData): Church | null {
   if (!churchData.coordinates || churchData.coordinates.length !== 2) {
+    console.log(`❌ Church "${churchData.name}" has no valid coordinates:`, churchData.coordinates);
     return null;
   }
+
+  console.log(`✓ Church "${churchData.name}" has coordinates:`, churchData.coordinates);
 
   let heritageStatus = 'Regular Parish';
   if (churchData.classification === 'ICP') {
@@ -127,7 +126,6 @@ const createChurchIcon = (church: Church) => {
 };
 
 export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches }) => {
-  const [viewMode, setViewMode] = useState<ViewMode>('both');
   const [heatmapLayer, setHeatmapLayer] = useState<HeatmapLayer>('visitors');
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
 
@@ -140,9 +138,24 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
   const [convertedChurches, setConvertedChurches] = useState<Church[]>([]);
 
   useEffect(() => {
+    console.log('🗺️ HybridHeatmap: Received churches data:', churches.length);
+    
     const converted = churches
       .map(convertToChurchFormat)
       .filter((church): church is Church => church !== null);
+    
+    console.log('✅ HybridHeatmap: Converted churches with coordinates:', converted.length);
+    
+    if (converted.length === 0 && churches.length > 0) {
+      console.warn('⚠️ HybridHeatmap: No churches have valid coordinates!');
+      console.log('Sample church data:', churches[0]);
+    }
+    
+    if (converted.length > 0) {
+      console.log('Sample converted church:', converted[0]);
+      console.log('Visitor counts:', converted.map(c => ({ name: c.name, visitors: c.visitorCount })));
+    }
+    
     setConvertedChurches(converted);
   }, [churches]);
 
@@ -165,7 +178,7 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
   }, []);
 
   // Calculate intensity based on selected layer
-  const calculateIntensity = (church: Church): number => {
+  const calculateIntensity = React.useCallback((church: Church): number => {
     switch (heatmapLayer) {
       case 'visitors':
         return Math.min(church.visitorCount / 1000, 1); // Normalize to 0-1
@@ -176,11 +189,22 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
       default:
         return 0.5;
     }
-  };
+  }, [heatmapLayer]);
 
   // Update map layers when data or view mode changes
   useEffect(() => {
-    if (!mapRef.current || convertedChurches.length === 0) return;
+    if (!mapRef.current || convertedChurches.length === 0) {
+      console.log('⏳ Heatmap waiting for data:', { 
+        hasMap: !!mapRef.current, 
+        churchCount: convertedChurches.length 
+      });
+      return;
+    }
+
+    console.log('🎨 Rendering heatmap with:', {
+      heatmapLayer,
+      churchCount: convertedChurches.length
+    });
 
     const map = mapRef.current;
 
@@ -192,58 +216,31 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
     markersRef.current.forEach(marker => map.removeLayer(marker));
     markersRef.current = [];
 
-    // Add heatmap layer if enabled
-    if (viewMode === 'heatmap' || viewMode === 'both') {
-      const heatData: Array<[number, number, number]> = convertedChurches.map(church => [
-        church.coordinates[0],
-        church.coordinates[1],
-        calculateIntensity(church)
-      ]);
+    // Add heatmap layer only
+    const heatData: Array<[number, number, number]> = convertedChurches.map(church => [
+      church.coordinates[0],
+      church.coordinates[1],
+      calculateIntensity(church)
+    ]);
 
-      heatLayerRef.current = L.heatLayer(heatData, {
-        radius: 25,
-        blur: 20,
-        maxZoom: 10,
-        gradient: {
-          0.0: '#16a34a',  // green
-          0.3: '#fbbf24',  // yellow
-          0.5: '#f59e0b',  // orange
-          0.7: '#ea580c',  // dark orange
-          1.0: '#dc2626'   // red
-        }
-      }).addTo(map);
-    }
+    console.log('🔥 Adding heatmap layer with data points:', heatData.length);
+    console.log('Sample heat data:', heatData.slice(0, 3));
 
-    // Add marker layer if enabled
-    if (viewMode === 'markers' || viewMode === 'both') {
-      convertedChurches.forEach(church => {
-        const marker = L.marker(church.coordinates, {
-          icon: createChurchIcon(church)
-        }).addTo(map);
-
-        marker.bindPopup(`
-          <div style="min-width: 200px;">
-            <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">
-              ${church.name}
-            </div>
-            <div style="color: #6b7280; font-size: 14px; margin-bottom: 8px;">
-              ${church.municipality || ''}
-            </div>
-            <div style="font-size: 14px; display: flex; flex-direction: column; gap: 4px;">
-              <div>👥 ${church.visitorCount.toLocaleString()} visitors</div>
-              <div>⭐ ${church.avgRating} (${church.feedbackCount} reviews)</div>
-              <div>🏛️ ${church.heritageStatus}</div>
-              ${church.foundingYear ? `<div style="margin-top: 4px; font-size: 12px; color: #6b7280;">Founded: ${church.foundingYear}</div>` : ''}
-            </div>
-          </div>
-        `);
-
-        marker.on('click', () => setSelectedChurch(church));
-
-        markersRef.current.push(marker);
-      });
-    }
-  }, [convertedChurches, viewMode, heatmapLayer]);
+    heatLayerRef.current = L.heatLayer(heatData, {
+      radius: 25,
+      blur: 20,
+      maxZoom: 10,
+      gradient: {
+        0.0: '#16a34a',  // green
+        0.3: '#fbbf24',  // yellow
+        0.5: '#f59e0b',  // orange
+        0.7: '#ea580c',  // dark orange
+        1.0: '#dc2626'   // red
+      }
+    }).addTo(map);
+    
+    console.log('✅ Heatmap layer added successfully');
+  }, [convertedChurches, heatmapLayer, calculateIntensity]);
 
   return (
     <div className="space-y-6">
@@ -256,37 +253,7 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* View Mode */}
-            <div className="space-y-2">
-              <Label>View Mode</Label>
-              <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="heatmap">
-                    <div className="flex items-center gap-2">
-                      <Flame className="w-4 h-4" />
-                      Heatmap Only
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="markers">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Markers Only
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="both">
-                    <div className="flex items-center gap-2">
-                      <Eye className="w-4 h-4" />
-                      Both (Hybrid)
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Heatmap Layer */}
             <div className="space-y-2">
               <Label>Intensity Metric</Label>
@@ -353,29 +320,25 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
             <h4 className="font-semibold mb-3">Legend</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <h5 className="text-sm font-medium">
-                  {viewMode !== 'markers' ? 'Heat Intensity' : 'Church Markers'}
-                </h5>
-                {viewMode !== 'markers' && (
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded-full bg-red-600"></div>
-                      <span className="text-xs">High</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded-full bg-orange-500"></div>
-                      <span className="text-xs">Medium</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded-full bg-yellow-400"></div>
-                      <span className="text-xs">Low</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded-full bg-green-600"></div>
-                      <span className="text-xs">Minimal</span>
-                    </div>
+                <h5 className="text-sm font-medium">Heat Intensity</h5>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 rounded-full bg-red-600"></div>
+                    <span className="text-xs">High</span>
                   </div>
-                )}
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 rounded-full bg-orange-500"></div>
+                    <span className="text-xs">Medium</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 rounded-full bg-yellow-400"></div>
+                    <span className="text-xs">Low</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 rounded-full bg-green-600"></div>
+                    <span className="text-xs">Minimal</span>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -389,7 +352,7 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
             </div>
 
             <div className="mt-3 text-xs text-gray-500">
-              💡 Click on any church marker for detailed information • Toggle view mode to see different visualizations
+              💡 Heatmap shows intensity based on selected metric • Use Intensity Metric dropdown to change visualization
             </div>
           </div>
         </CardContent>

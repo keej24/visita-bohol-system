@@ -80,6 +80,21 @@ const Reports = () => {
     return null;
   }, [startDate, endDate]);
 
+  // Check if there's any data to export for engagement analytics
+  const hasExportableData = useMemo(() => {
+    if (!engagementMetrics || !dioceseAnalytics) return false;
+    const hasVisitors = dioceseAnalytics.totalVisitors > 0;
+    const hasFeedback = dioceseAnalytics.totalFeedback > 0;
+    const hasChurches = dioceseAnalytics.totalChurches > 0;
+    return hasVisitors || hasFeedback || hasChurches;
+  }, [engagementMetrics, dioceseAnalytics]);
+
+  const noDataMessage = useMemo(() => {
+    if (!engagementMetrics || !dioceseAnalytics) return null;
+    if (hasExportableData) return null;
+    return "No data to export with current filters.";
+  }, [engagementMetrics, dioceseAnalytics, hasExportableData]);
+
   // Report type options based on user role
   const reportTypes = [
     { value: "church_summary", label: "Church Summary Report" },
@@ -275,6 +290,16 @@ const Reports = () => {
           });
         }
       } else if (reportType === 'engagement_analytics') {
+        // Validate that there's data to export
+        if (!hasExportableData) {
+          toast({
+            title: "No Data to Export",
+            description: "No data to export with current filters.",
+            variant: "destructive"
+          });
+          return;
+        }
+
         // Use already filtered data from date range (startDate, endDate already applied in loadAnalytics)
         // This respects the date range filters selected by the user
         const analyticsData = {
@@ -841,10 +866,10 @@ const Reports = () => {
                     <Button 
                       onClick={() => handleExportClick(exportFormat, 'engagement_analytics')}
                       className="w-full h-10"
-                      disabled={!engagementMetrics || !dioceseAnalytics || !isValidDateRange}
+                      disabled={!engagementMetrics || !dioceseAnalytics || !isValidDateRange || !hasExportableData}
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      Export Analytics
+                      Export Report
                     </Button>
                   </div>
                 </div>
@@ -860,6 +885,13 @@ const Reports = () => {
                 {dateRangeError && (
                   <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
                     <span className="text-red-600 text-sm font-medium">⚠️ {dateRangeError}</span>
+                  </div>
+                )}
+
+                {/* No Data Message */}
+                {!dateRangeError && noDataMessage && (
+                  <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <span className="text-yellow-700 text-sm font-medium">ℹ️ {noDataMessage}</span>
                   </div>
                 )}
               </CardContent>

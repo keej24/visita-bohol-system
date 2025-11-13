@@ -15,7 +15,9 @@ import {
   Globe,
   Loader2,
   Building,
-  X
+  X,
+  Plus,
+  Info
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Layout } from '@/components/Layout';
@@ -142,8 +144,8 @@ const ParishDashboard = () => {
                                church.classification === 'ICP' ? 'Important Cultural Properties' : 'None',
         religiousClassification: convertReligiousClassification(church.religiousClassification),
         supportingDocuments: [],
-        architecturalFeatures: (church as any).architecturalFeatures || '',
-        heritageInformation: (church as any).heritageInformation || ''
+        architecturalFeatures: church.architecturalFeatures || '',
+        heritageInformation: church.heritageInformation || ''
       },
       currentParishPriest: church.assignedPriest || '',
       massSchedules: (church.massSchedules || []).map(schedule => ({
@@ -175,17 +177,17 @@ const ParishDashboard = () => {
         uploadDate: new Date().toISOString(),
         status: 'approved' as const
       })),
-      virtual360Images: (church.virtualTour360 || [])
-        .map((url, index) => {
+      virtual360Images: (church.virtualTour?.scenes || [])
+        .map((scene, index) => {
           // Validate URL and aspect ratio (basic check)
-          const isValidUrl = typeof url === 'string' && url.trim() && url.startsWith('http');
+          const isValidUrl = typeof scene.imageUrl === 'string' && scene.imageUrl.trim() && scene.imageUrl.startsWith('http');
           // Optionally, add more checks for file extension or known panorama formats
           return {
-            id: `360-${index}`,
-            url: url,
-            name: `360 Image ${index + 1}`,
+            id: scene.id || `360-${index}`,
+            url: scene.imageUrl,
+            name: scene.title || `360 Image ${index + 1}`,
             uploadDate: new Date().toISOString(),
-            status: isValidUrl ? 'approved' : 'rejected',
+            status: (isValidUrl ? 'approved' : 'rejected') as 'approved' | 'rejected',
             isValid: isValidUrl,
             category: 'interior' as const
           };
@@ -230,14 +232,14 @@ const ParishDashboard = () => {
               setShowProfileForm(false);
             }
           } else {
-            // No existing church - initialize with default data
+            // No existing church - initialize with default data but don't show form yet
             setChurchInfo(prev => ({
               ...prev,
               churchName: userProfile.parish,
               name: userProfile.parish,
               diocese: userProfile.diocese
             }));
-            setShowProfileForm(true);
+            setShowProfileForm(false); // Changed to false - user must click "Add Profile" button
           }
         })
         .catch((error) => {
@@ -249,7 +251,7 @@ const ParishDashboard = () => {
             name: userProfile.parish,
             diocese: userProfile.diocese
           }));
-          setShowProfileForm(true);
+          setShowProfileForm(false); // Changed to false - user must click "Add Profile" button
         })
         .finally(() => {
           setIsLoading(false);
@@ -770,23 +772,23 @@ const ParishDashboard = () => {
   const renderParishProfile = () => (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
+      <div className="bg-gradient-to-r from-indigo-50 to-sky-50 rounded-lg shadow-sm border border-indigo-200 p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
               <ChurchIcon className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">
+              <h1 className="text-2xl font-bold text-indigo-900 mb-1">
                 {getGreeting()}! 👋
               </h1>
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">
+              <h2 className="text-xl font-semibold text-slate-800 mb-2">
                 {churchInfo.churchName || churchInfo.name || "Your Parish"}
               </h2>
               <div className="flex items-center gap-3">
                 {getStatusBadge()}
                 {churchInfo.locationDetails?.municipality && (
-                  <Badge variant="outline" className="text-gray-600">
+                  <Badge variant="outline" className="text-indigo-800 border-indigo-300">
                     <MapPin className="w-3 h-3 mr-1" />
                     {churchInfo.locationDetails.municipality}, {churchInfo.locationDetails.province}
                   </Badge>
@@ -797,7 +799,7 @@ const ParishDashboard = () => {
           
           <Button 
             onClick={() => setShowProfileForm(true)}
-            className="bg-purple-600 hover:bg-purple-700"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit Profile
@@ -806,13 +808,13 @@ const ParishDashboard = () => {
       </div>
 
       {/* Parish Profile Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ChurchIcon className="w-5 h-5 text-purple-600" />
+      <Card className="border-indigo-200">
+        <CardHeader className="bg-gradient-to-r from-indigo-50/50 to-transparent">
+          <CardTitle className="flex items-center gap-2 text-indigo-900">
+            <ChurchIcon className="w-5 h-5 text-indigo-600" />
             Parish Profile
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-slate-600">
             Your church information as displayed to visitors
           </CardDescription>
         </CardHeader>
@@ -962,9 +964,9 @@ const ParishDashboard = () => {
       >
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Church Data</h3>
-            <p className="text-gray-600">Syncing your church information...</p>
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-600" />
+            <h3 className="text-lg font-semibold text-indigo-900 mb-2">Loading Church Data</h3>
+            <p className="text-slate-600">Syncing your church information...</p>
           </div>
         </div>
       </Layout>
@@ -1000,14 +1002,14 @@ const ParishDashboard = () => {
             </div>
           )}
           {(existingChurch.status === 'under_review' || existingChurch.status === 'pending') && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-600" />
+            <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-sky-600" />
               <div>
-                <span className="font-medium text-orange-900">Revision Requested</span>
-                <p className="text-sm text-orange-700">The chancery office has requested changes to your submission. Please review and resubmit.</p>
+                <span className="font-medium text-sky-900">Revision Requested</span>
+                <p className="text-sm text-sky-700">The chancery office has requested changes to your submission. Please review and resubmit.</p>
                 <button
                   onClick={() => setShowProfileForm(true)}
-                  className="text-sm text-orange-800 underline hover:text-orange-900 mt-1"
+                  className="text-sm text-sky-800 underline hover:text-sky-900 mt-1"
                 >
                   Update Church Profile →
                 </button>
@@ -1015,17 +1017,17 @@ const ParishDashboard = () => {
             </div>
           )}
           {existingChurch.status === 'under_review' && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center gap-2">
-              <Building className="w-5 h-5 text-purple-600" />
+            <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 flex items-center gap-2">
+              <Building className="w-5 h-5 text-violet-600" />
               <div>
-                <span className="font-medium text-purple-900">Heritage Review in Progress</span>
-                <p className="text-sm text-purple-700">Your church has been forwarded to the Museum Researcher for heritage validation.</p>
+                <span className="font-medium text-violet-900">Heritage Review in Progress</span>
+                <p className="text-sm text-violet-700">Your church has been forwarded to the Heritage Reviewer for heritage validation.</p>
               </div>
             </div>
           )}
           {existingChurch.status === 'pending' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-blue-600" />
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-indigo-600" />
               <div>
                 <span className="font-medium text-blue-900">Review in Progress</span>
                 <p className="text-sm text-blue-700">Your church profile is being reviewed by the chancery office.</p>
@@ -1087,6 +1089,75 @@ const ParishDashboard = () => {
           isSubmitting={isSubmitting}
           churchId={churchId || undefined}
         />
+      ) : !existingChurch ? (
+        // Welcome screen for new parishes without church profile
+        <div className="max-w-4xl mx-auto">
+          <Card className="shadow-lg border-2 border-indigo-200">
+            <CardHeader className="text-center pb-4 bg-gradient-to-r from-indigo-50 to-sky-50">
+              <div className="flex justify-center mb-4">
+                <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                  <ChurchIcon className="w-10 h-10 text-white" />
+                </div>
+              </div>
+              <CardTitle className="text-3xl font-bold text-indigo-900 mb-2">
+                Welcome to {userProfile?.parish || 'Your Parish'} Dashboard! 👋
+              </CardTitle>
+              <CardDescription className="text-lg text-slate-700">
+                Let's get started by creating your church profile
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
+                <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+                  <Info className="w-5 h-5" />
+                  What you can do with your church profile:
+                </h3>
+                <ul className="space-y-2 text-indigo-800">
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span>Share your parish's rich history and heritage with visitors</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span>Upload photos including 360° virtual tours of your church</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span>Manage mass schedules and contact information</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span>Post announcements and events for your parishioners</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span>Track visitor engagement and generate reports</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
+                <p className="text-sky-900 text-sm flex items-start gap-2">
+                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Note:</strong> Your church profile will be submitted to the Chancery Office for review before it becomes visible to the public.
+                  </span>
+                </p>
+              </div>
+
+              <div className="flex justify-center pt-4">
+                <Button
+                  onClick={() => setShowProfileForm(true)}
+                  size="lg"
+                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add Profile
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         renderParishProfile()
       )}

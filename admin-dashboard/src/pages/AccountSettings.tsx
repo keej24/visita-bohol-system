@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { isPreconfiguredAccount } from '@/lib/auth-utils';
 import { User, Shield, Save, Camera, Lock, Eye, EyeOff, Crown, Mail, Phone, MapPin, Edit, Key } from 'lucide-react';
@@ -40,6 +39,66 @@ const AccountSettings = () => {
     confirmPassword: ''
   });
 
+  // Validation states
+  const [errors, setErrors] = useState({
+    phone: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    password: ''
+  });
+
+  // Validate phone number
+  const validatePhone = (phone: string): string => {
+    if (!phone.trim()) return '';
+    
+    const phoneRegex = /^[\d\s\-()+]+$/;
+    if (!phoneRegex.test(phone)) {
+      return 'Please enter a valid phone number (numbers, spaces, hyphens, parentheses, and + allowed)';
+    }
+
+    const digitCount = phone.replace(/\D/g, '').length;
+    if (digitCount < 7) {
+      return 'Phone number must contain at least 7 digits';
+    }
+
+    if (digitCount > 15) {
+      return 'Phone number cannot exceed 15 digits';
+    }
+
+    return '';
+  };
+
+  // Validate email
+  const validateEmail = (email: string): string => {
+    if (!email.trim()) return 'Email is required';
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+
+    return '';
+  };
+
+  // Validate name
+  const validateName = (name: string, fieldName: string): string => {
+    if (!name.trim()) return `${fieldName} is required`;
+    if (name.trim().length < 2) return `${fieldName} must be at least 2 characters`;
+    return '';
+  };
+
+  // Validate password
+  const validatePassword = (password: string): string => {
+    if (!password) return '';
+    if (password.length < 8) return 'Password must be at least 8 characters long';
+    if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
+    if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
+    if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Password must contain at least one special character';
+    return '';
+  };
+
   const handleProfileUpdate = async () => {
     if (!user || !userProfile) {
       toast({
@@ -49,6 +108,32 @@ const AccountSettings = () => {
       });
       return;
     }
+
+    // Validate all fields
+    const phoneError = validatePhone(profileData.phone);
+    const emailError = !isSystemAccount ? validateEmail(profileData.email) : '';
+    const firstNameError = !isSystemAccount ? validateName(profileData.firstName, 'First name') : '';
+    const lastNameError = !isSystemAccount ? validateName(profileData.lastName, 'Last name') : '';
+
+    if (phoneError || emailError || firstNameError || lastNameError) {
+      setErrors({
+        phone: phoneError,
+        email: emailError,
+        firstName: firstNameError,
+        lastName: lastNameError,
+        password: ''
+      });
+      
+      toast({
+        title: 'Validation Error',
+        description: 'Please fix the errors in the form',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Clear errors
+    setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '' });
 
     setIsLoading(true);
     try {
@@ -70,7 +155,7 @@ const AccountSettings = () => {
 
       toast({
         title: 'Success',
-        description: 'Profile updated successfully',
+        description: 'Profile updated successfully.',
       });
       setIsEditingProfile(false);
     } catch (error) {
@@ -152,6 +237,169 @@ const AccountSettings = () => {
     }
   };
 
+  // Combined update handler for both profile and password
+  const handleCombinedUpdate = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Validate profile fields first
+      const phoneError = validatePhone(profileData.phone);
+      const emailError = !isSystemAccount ? validateEmail(profileData.email) : '';
+      const firstNameError = !isSystemAccount ? validateName(profileData.firstName, 'First name') : '';
+      const lastNameError = !isSystemAccount ? validateName(profileData.lastName, 'Last name') : '';
+
+      if (phoneError || emailError || firstNameError || lastNameError) {
+        setErrors({
+          phone: phoneError,
+          email: emailError,
+          firstName: firstNameError,
+          lastName: lastNameError,
+          password: ''
+        });
+        
+        toast({
+          title: 'Validation Error',
+          description: 'Please fix the errors in the form',
+          variant: 'destructive'
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Clear errors
+      setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '' });
+      
+      // Only update password if password fields are filled
+      const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
+      
+      if (hasPasswordData) {
+        // Validate all password fields are filled
+        if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+          toast({
+            title: 'Error',
+            description: 'Please fill in all password fields or leave them blank to skip password change',
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        // Validate password match
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+          toast({
+            title: 'Error',
+            description: 'New passwords do not match',
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        // Validate password strength
+        const passwordError = validatePassword(passwordData.newPassword);
+        if (passwordError) {
+          setErrors(prev => ({ ...prev, password: passwordError }));
+          toast({
+            title: 'Invalid Password',
+            description: passwordError,
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        if (!auth.currentUser || !userProfile?.email) {
+          toast({
+            title: 'Error',
+            description: 'User not authenticated',
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Update profile first
+        await handleProfileUpdate();
+
+        try {
+          // Re-authenticate user before changing password
+          const credential = EmailAuthProvider.credential(
+            userProfile.email,
+            passwordData.currentPassword
+          );
+          await reauthenticateWithCredential(auth.currentUser, credential);
+
+          // Update password
+          await updatePassword(auth.currentUser, passwordData.newPassword);
+
+          toast({
+            title: 'Success',
+            description: 'Profile and password updated successfully',
+          });
+          setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (error: unknown) {
+          console.error('Password update failed:', error);
+          let errorMessage = 'Failed to update password. Please try again.';
+
+          const authError = error as { code?: string };
+          if (authError.code === 'auth/wrong-password') {
+            errorMessage = 'Current password is incorrect';
+          } else if (authError.code === 'auth/weak-password') {
+            errorMessage = 'Password is too weak. Please choose a stronger password.';
+          } else if (authError.code === 'auth/requires-recent-login') {
+            errorMessage = 'Please log out and log back in before changing your password';
+          }
+
+          toast({
+            title: 'Error',
+            description: errorMessage,
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        // Profile only update
+        await handleProfileUpdate();
+        toast({
+          title: 'Success',
+          description: 'Profile updated successfully',
+        });
+      }
+      
+      setIsEditingProfile(false);
+    } catch (error) {
+      console.error('Update failed:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cancel edit and reset all changes
+  const handleCancelEdit = () => {
+    // Reset profile data to original values
+    setProfileData({
+      firstName: userProfile?.name?.split(' ')[0] || '',
+      lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
+      email: userProfile?.email || '',
+      phone: '',
+      address: '',
+      office: userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : 'Chancery Office',
+      diocese: userProfile?.diocese || 'tagbilaran'
+    });
+    
+    // Clear password data
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    
+    // Exit edit mode
+    setIsEditingProfile(false);
+  };
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -165,228 +413,245 @@ const AccountSettings = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Profile
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
-              <Shield className="w-4 h-4" />
-              Security
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    Account Information
-                  </CardTitle>
-                  <div className="flex flex-col items-end gap-1">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsEditingProfile(!isEditingProfile)}
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      {isEditingProfile ? 'Cancel' : isSystemAccount ? 'Edit Contact Info' : 'Edit Profile'}
-                    </Button>
-                    {isSystemAccount && (
-                      <p className="text-xs text-gray-500">Contact information only</p>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Profile Picture & Basic Info */}
-                <div className="flex items-center gap-6">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
-                    {profileData.firstName[0]}{profileData.lastName[0]}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      {profileData.firstName} {profileData.lastName}
-                    </h3>
-                    <p className="text-gray-600">
-                      {userProfile?.role === 'museum_researcher' ? 'Heritage Reviewer' : 'Chancery Office'}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {userProfile?.role === 'museum_researcher' ? (
-                        <Badge variant="outline" className="text-xs text-amber-700 border-amber-300">
-                          <Crown className="w-3 h-3 mr-1" />
-                          Heritage Specialist
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs text-blue-700 border-blue-300">
-                          Diocese of {profileData.diocese}
-                        </Badge>
-                      )}
-                      {isSystemAccount && (
-                        <Badge variant="secondary" className="text-xs">
-                          <Shield className="w-3 h-3 mr-1" />
-                          System Account
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Form Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {isSystemAccount ? (
-                    // System Account - Institutional Display
-                    <>
-                      <div>
-                        <Label htmlFor="institutionName" className="flex items-center gap-2">
-                          Institution Name
-                          <Lock className="w-3 h-3 text-gray-400" />
-                        </Label>
-                        <Input
-                          id="institutionName"
-                          value={profileData.firstName + ' ' + profileData.lastName}
-                          disabled
-                          className="mt-1 bg-gray-50"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Official institutional name</p>
-                      </div>
-                      <div>
-                        <Label htmlFor="institutionEmail" className="flex items-center gap-2">
-                          Official Email
-                          <Lock className="w-3 h-3 text-gray-400" />
-                        </Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="institutionEmail"
-                            type="email"
-                            value={profileData.email}
-                            disabled
-                            className="mt-1 pl-10 bg-gray-50"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Official institutional email</p>
-                      </div>
-                      <div>
-                        <Label htmlFor="phone">Contact Number</Label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="phone"
-                            value={profileData.phone}
-                            onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                            disabled={!isEditingProfile}
-                            className="mt-1 pl-10"
-                            placeholder="+63 xxx xxx xxxx"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Primary contact number for the office</p>
-                      </div>
-                    </>
-                  ) : (
-                    // Regular User Accounts - Account Information
-                    <>
-                      <div>
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input
-                          id="firstName"
-                          value={profileData.firstName}
-                          onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
-                          disabled={!isEditingProfile}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input
-                          id="lastName"
-                          value={profileData.lastName}
-                          onChange={(e) => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
-                          disabled={!isEditingProfile}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="email">Email Address</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="email"
-                            type="email"
-                            value={profileData.email}
-                            onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                            disabled={!isEditingProfile}
-                            className="mt-1 pl-10"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="phone"
-                            value={profileData.phone}
-                            onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                            disabled={!isEditingProfile}
-                            className="mt-1 pl-10"
-                            placeholder="+63 xxx xxx xxxx"
-                          />
-                        </div>
-                      </div>
-                      <div className="col-span-2">
-                        <Label htmlFor="address">Address</Label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="address"
-                            value={profileData.address}
-                            onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-                            disabled={!isEditingProfile}
-                            className="mt-1 pl-10"
-                            placeholder="Complete address"
-                          />
-                        </div>
-                      </div>
-                    </>
+        {/* Merged Edit Profile Form */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Edit Profile
+              </CardTitle>
+              {!isEditingProfile && (
+                <div className="flex flex-col items-end gap-1">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditingProfile(true)}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  {isSystemAccount && (
+                    <p className="text-xs text-gray-500">Contact information and password</p>
                   )}
                 </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Profile Picture & Basic Info */}
+            <div className="flex items-center gap-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                {profileData.firstName[0]}{profileData.lastName[0]}
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {profileData.firstName} {profileData.lastName}
+                </h3>
+                <p className="text-gray-600">
+                  {userProfile?.role === 'museum_researcher' ? 'Heritage Reviewer' : 'Chancery Office'}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  {userProfile?.role === 'museum_researcher' ? (
+                    <Badge variant="outline" className="text-xs text-amber-700 border-amber-300">
+                      <Crown className="w-3 h-3 mr-1" />
+                      Heritage Specialist
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs text-blue-700 border-blue-300">
+                      Diocese of {profileData.diocese}
+                    </Badge>
+                  )}
+                  {isSystemAccount && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Shield className="w-3 h-3 mr-1" />
+                      System Account
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
 
-                {isEditingProfile && (
-                  <div className="flex gap-3 pt-4">
-                    <Button onClick={handleProfileUpdate} className="flex-1" disabled={isLoading}>
-                      <Save className="w-4 h-4 mr-2" />
-                      {isLoading ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setIsEditingProfile(false)}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
+            {/* Account Information Section */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Account Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {isSystemAccount ? (
+                  // System Account - Institutional Display
+                  <>
+                    <div>
+                      <Label htmlFor="institutionName" className="flex items-center gap-2">
+                        Institution Name
+                        <Lock className="w-3 h-3 text-gray-400" />
+                      </Label>
+                      <Input
+                        id="institutionName"
+                        value={profileData.firstName + ' ' + profileData.lastName}
+                        disabled
+                        className="mt-1 bg-gray-50"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Official institutional name</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="institutionEmail" className="flex items-center gap-2">
+                        Official Email
+                        <Lock className="w-3 h-3 text-gray-400" />
+                      </Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="institutionEmail"
+                          type="email"
+                          value={profileData.email}
+                          disabled
+                          className="mt-1 pl-10 bg-gray-50"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Official institutional email</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Contact Number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="phone"
+                          value={profileData.phone}
+                          onChange={(e) => {
+                            setProfileData(prev => ({ ...prev, phone: e.target.value }));
+                            if (errors.phone) {
+                              setErrors(prev => ({ ...prev, phone: validatePhone(e.target.value) }));
+                            }
+                          }}
+                          disabled={!isEditingProfile}
+                          className={`mt-1 pl-10 ${errors.phone && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                          placeholder="+63 xxx xxx xxxx"
+                          autoComplete="off"
+                          data-form-type="other"
+                        />
+                      </div>
+                      {errors.phone && isEditingProfile && (
+                        <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
+                      )}
+                      {!errors.phone && (
+                        <p className="text-xs text-gray-500 mt-1">Primary contact number for the office</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  // Regular User Accounts - Account Information
+                  <>
+                    <div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={profileData.firstName}
+                        onChange={(e) => {
+                          setProfileData(prev => ({ ...prev, firstName: e.target.value }));
+                          if (errors.firstName) {
+                            setErrors(prev => ({ ...prev, firstName: validateName(e.target.value, 'First name') }));
+                          }
+                        }}
+                        disabled={!isEditingProfile}
+                        className={`mt-1 ${errors.firstName && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                      />
+                      {errors.firstName && isEditingProfile && (
+                        <p className="text-xs text-red-600 mt-1">{errors.firstName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={profileData.lastName}
+                        onChange={(e) => {
+                          setProfileData(prev => ({ ...prev, lastName: e.target.value }));
+                          if (errors.lastName) {
+                            setErrors(prev => ({ ...prev, lastName: validateName(e.target.value, 'Last name') }));
+                          }
+                        }}
+                        disabled={!isEditingProfile}
+                        className={`mt-1 ${errors.lastName && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                      />
+                      {errors.lastName && isEditingProfile && (
+                        <p className="text-xs text-red-600 mt-1">{errors.lastName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="email"
+                          type="email"
+                          value={profileData.email}
+                          onChange={(e) => {
+                            setProfileData(prev => ({ ...prev, email: e.target.value }));
+                            if (errors.email) {
+                              setErrors(prev => ({ ...prev, email: validateEmail(e.target.value) }));
+                            }
+                          }}
+                          disabled={!isEditingProfile}
+                          className={`mt-1 pl-10 ${errors.email && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                        />
+                      </div>
+                      {errors.email && isEditingProfile && (
+                        <p className="text-xs text-red-600 mt-1">{errors.email}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="phone"
+                          value={profileData.phone}
+                          onChange={(e) => {
+                            setProfileData(prev => ({ ...prev, phone: e.target.value }));
+                            if (errors.phone) {
+                              setErrors(prev => ({ ...prev, phone: validatePhone(e.target.value) }));
+                            }
+                          }}
+                          disabled={!isEditingProfile}
+                          className={`mt-1 pl-10 ${errors.phone && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                          placeholder="+63 xxx xxx xxxx"
+                          autoComplete="off"
+                          data-form-type="other"
+                        />
+                      </div>
+                      {errors.phone && isEditingProfile && (
+                        <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
+                      )}
+                    </div>
+                    <div className="col-span-2">
+                      <Label htmlFor="address">Address</Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="address"
+                          value={profileData.address}
+                          onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
+                          disabled={!isEditingProfile}
+                          className="mt-1 pl-10"
+                          placeholder="Complete address"
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </div>
+            </div>
 
-          {/* Security Tab */}
-          <TabsContent value="security" className="space-y-6">
-            {/* Change Password Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Key className="w-5 h-5" />
-                  Change Password
-                </CardTitle>
-                <CardDescription>
-                  Update your password to keep your account secure
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            {/* Password Section (only visible in edit mode) */}
+            {isEditingProfile && (
+              <div className="space-y-4 pt-4 border-t">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Key className="w-4 h-4" />
+                  Change Password (Optional)
+                </h4>
+                <p className="text-sm text-gray-500">Leave blank if you don't want to change your password</p>
+                
                 <div>
                   <Label htmlFor="currentPassword">Current Password</Label>
                   <div className="relative">
@@ -418,8 +683,13 @@ const AccountSettings = () => {
                         id="newPassword"
                         type={showNewPassword ? "text" : "password"}
                         value={passwordData.newPassword}
-                        onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                        className="mt-1 pr-10"
+                        onChange={(e) => {
+                          setPasswordData(prev => ({ ...prev, newPassword: e.target.value }));
+                          if (errors.password) {
+                            setErrors(prev => ({ ...prev, password: validatePassword(e.target.value) }));
+                          }
+                        }}
+                        className={`mt-1 pr-10 ${errors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
                         placeholder="Enter new password"
                       />
                       <Button
@@ -432,6 +702,9 @@ const AccountSettings = () => {
                         {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
                     </div>
+                    {errors.password && (
+                      <p className="text-xs text-red-600 mt-1">{errors.password}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="confirmPassword">Confirm New Password</Label>
@@ -440,34 +713,53 @@ const AccountSettings = () => {
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="mt-1"
+                      className={`mt-1 ${passwordData.newPassword && passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword ? 'border-red-500 focus:ring-red-500' : ''}`}
                       placeholder="Confirm new password"
                     />
+                    {passwordData.newPassword && passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
+                      <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h4 className="font-medium text-gray-900 mb-2">Password Requirements:</h4>
                   <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• At least 8 characters long</li>
-                    <li>• Contains uppercase and lowercase letters</li>
-                    <li>• Contains at least one number</li>
-                    <li>• Contains at least one special character</li>
+                    <li className={passwordData.newPassword.length >= 8 ? 'text-green-600' : ''}>
+                      • At least 8 characters long
+                    </li>
+                    <li className={/[A-Z]/.test(passwordData.newPassword) && /[a-z]/.test(passwordData.newPassword) ? 'text-green-600' : ''}>
+                      • Contains uppercase and lowercase letters
+                    </li>
+                    <li className={/[0-9]/.test(passwordData.newPassword) ? 'text-green-600' : ''}>
+                      • Contains at least one number
+                    </li>
+                    <li className={/[!@#$%^&*(),.?":{}|<>]/.test(passwordData.newPassword) ? 'text-green-600' : ''}>
+                      • Contains at least one special character
+                    </li>
                   </ul>
                 </div>
+              </div>
+            )}
 
-                <Button 
-                  onClick={handlePasswordUpdate}
-                  disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword || isLoading}
-                  className="w-full"
-                >
-                  <Key className="w-4 h-4 mr-2" />
-                  {isLoading ? 'Updating...' : 'Update Password'}
+            {/* Save/Cancel Buttons (only visible in edit mode) */}
+            {isEditingProfile && (
+              <div className="flex gap-3 pt-4">
+                <Button onClick={handleCombinedUpdate} className="flex-1" disabled={isLoading}>
+                  <Save className="w-4 h-4 mr-2" />
+                  {isLoading ? 'Saving...' : 'Save Changes'}
                 </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCancelEdit}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );

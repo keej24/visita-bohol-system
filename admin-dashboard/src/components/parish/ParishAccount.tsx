@@ -48,9 +48,73 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
   });
 
   const handleProfileSave = () => {
+    // Validate required fields
+    const requiredFields = [
+      { value: profileData.email, name: 'Email' },
+      { value: profileData.phone, name: 'Phone' }
+    ];
+
+    const emptyFields = requiredFields.filter(field => !field.value.trim());
+
+    if (emptyFields.length > 0) {
+      toast({ 
+        title: "Validation Error", 
+        description: "Please complete all required fields.",
+        variant: "destructive"
+      });
+      return; // Prevent save
+    }
+
+    // Additional email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileData.email)) {
+      toast({ 
+        title: "Invalid Email", 
+        description: "Please enter a valid email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Phone number validation
+    if (profileData.phone && profileData.phone.trim()) {
+      // Phone number should contain only numbers, spaces, hyphens, parentheses, and plus sign
+      const phoneRegex = /^[\d\s\-()+]+$/;
+      if (!phoneRegex.test(profileData.phone)) {
+        toast({ 
+          title: "Invalid Phone Number", 
+          description: "Please enter a valid phone number (numbers, spaces, hyphens, parentheses, and + allowed)",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check if phone has at least 7 digits (minimum for valid phone numbers)
+      const digitCount = profileData.phone.replace(/\D/g, '').length;
+      if (digitCount < 7) {
+        toast({ 
+          title: "Invalid Phone Number", 
+          description: "Phone number must contain at least 7 digits",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check if phone doesn't exceed 15 digits (international standard)
+      if (digitCount > 15) {
+        toast({ 
+          title: "Invalid Phone Number", 
+          description: "Phone number cannot exceed 15 digits",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Save if all validations pass
     toast({ 
       title: "Profile Updated", 
-      description: "Your profile information has been saved successfully!" 
+      description: "Your profile information has been saved successfully." 
     });
     setIsEditing(false);
   };
@@ -86,6 +150,145 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
     });
   };
 
+  // Combined update handler for both profile and password
+  const handleCombinedUpdate = () => {
+    // First validate and save profile
+    const requiredFields = [
+      { value: profileData.email, name: 'Email' },
+      { value: profileData.phone, name: 'Phone' }
+    ];
+
+    const emptyFields = requiredFields.filter(field => !field.value.trim());
+
+    if (emptyFields.length > 0) {
+      toast({ 
+        title: "Validation Error", 
+        description: "Please complete all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileData.email)) {
+      toast({ 
+        title: "Invalid Email", 
+        description: "Please enter a valid email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Phone validation
+    if (profileData.phone && profileData.phone.trim()) {
+      const phoneRegex = /^[\d\s\-()+]+$/;
+      if (!phoneRegex.test(profileData.phone)) {
+        toast({ 
+          title: "Invalid Phone Number", 
+          description: "Please enter a valid phone number (numbers, spaces, hyphens, parentheses, and + allowed)",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const digitCount = profileData.phone.replace(/\D/g, '').length;
+      if (digitCount < 7) {
+        toast({ 
+          title: "Invalid Phone Number", 
+          description: "Phone number must contain at least 7 digits",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (digitCount > 15) {
+        toast({ 
+          title: "Invalid Phone Number", 
+          description: "Phone number cannot exceed 15 digits",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Check if password fields have data
+    const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
+
+    if (hasPasswordData) {
+      // Validate all password fields are filled
+      if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+        toast({ 
+          title: "Validation Error", 
+          description: "Please fill in all password fields or leave them blank to skip password change",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate password match
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        toast({ 
+          title: "Password Mismatch", 
+          description: "New password and confirmation don't match.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate password length
+      if (passwordData.newPassword.length < 8) {
+        toast({ 
+          title: "Password Too Short", 
+          description: "Password must be at least 8 characters long.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Both profile and password updated
+      toast({ 
+        title: "Account Updated", 
+        description: "Your profile and password have been updated successfully!" 
+      });
+      
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } else {
+      // Profile only updated
+      toast({ 
+        title: "Profile Updated", 
+        description: "Your profile information has been saved successfully." 
+      });
+    }
+
+    setIsEditing(false);
+  };
+
+  // Cancel edit and reset all changes
+  const handleCancelEdit = () => {
+    // Reset profile data to original values
+    setProfileData({
+      parishName: userProfile?.parish || userProfile?.name || 'St. Mary\'s Parish',
+      email: userProfile?.email || '',
+      phone: '',
+      diocese: 'Diocese of Tagbilaran'
+    });
+
+    // Clear password data
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+
+    // Exit edit mode
+    setIsEditing(false);
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -99,21 +302,23 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
         </Button>
       </div>
 
-      {/* Profile Information Card */}
+      {/* Merged Edit Profile Form */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Church className="w-5 h-5" />
-              Parish Account Information
+              Edit Profile
             </CardTitle>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              {isEditing ? 'Cancel' : 'Edit Profile'}
-            </Button>
+            {!isEditing && (
+              <Button
+                variant="outline"
+                onClick={() => setIsEditing(true)}
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -134,172 +339,183 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
             </div>
           </div>
 
-          {/* Form Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2">
-              <Label htmlFor="parishName">Parish Name</Label>
-              <Input
-                id="parishName"
-                value={profileData.parishName}
-                disabled
-                className="mt-1 bg-gray-50"
-              />
-              <p className="text-xs text-gray-500 mt-1">Contact admin to change parish name</p>
-            </div>
-            <div>
-              <Label htmlFor="email">Parish Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+          {/* Account Information Section */}
+          <div className="space-y-4">
+            <h4 className="font-medium text-gray-900 flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Parish Information
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <Label htmlFor="parishName">Parish Name</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={profileData.email}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                  disabled={!isEditing}
-                  className="mt-1 pl-10"
-                  placeholder="parish@example.com"
+                  id="parishName"
+                  value={profileData.parishName}
+                  disabled
+                  className="mt-1 bg-gray-50"
                 />
+                <p className="text-xs text-gray-500 mt-1">Contact admin to change parish name</p>
               </div>
-            </div>
-            <div>
-              <Label htmlFor="phone">Parish Contact Number</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <div>
+                <Label htmlFor="email" className="flex items-center gap-1">
+                  Parish Email Address
+                  <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={profileData.email}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+                    disabled={!isEditing}
+                    className={`mt-1 pl-10 ${isEditing && !profileData.email.trim() ? 'border-red-500 focus:ring-red-500' : ''}`}
+                    placeholder="parish@example.com"
+                  />
+                </div>
+                {isEditing && !profileData.email.trim() && (
+                  <p className="text-xs text-red-600 mt-1">Email is required</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="phone" className="flex items-center gap-1">
+                  Parish Contact Number
+                  <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="phone"
+                    value={profileData.phone}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                    disabled={!isEditing}
+                    className={`mt-1 pl-10 ${isEditing && !profileData.phone.trim() ? 'border-red-500 focus:ring-red-500' : ''}`}
+                    placeholder="+63 xxx xxx xxxx"
+                    autoComplete="off"
+                    data-form-type="other"
+                  />
+                </div>
+                {isEditing && !profileData.phone.trim() && (
+                  <p className="text-xs text-red-600 mt-1">Phone is required</p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="diocese">Diocese</Label>
                 <Input
-                  id="phone"
-                  value={profileData.phone}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                  disabled={!isEditing}
-                  className="mt-1 pl-10"
-                  placeholder="+63 xxx xxx xxxx"
+                  id="diocese"
+                  value={profileData.diocese}
+                  disabled
+                  className="mt-1 bg-gray-50"
                 />
+                <p className="text-xs text-gray-500 mt-1">Contact admin to change diocese assignment</p>
               </div>
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="diocese">Diocese</Label>
-            <Input
-              id="diocese"
-              value={profileData.diocese}
-              disabled
-              className="mt-1 bg-gray-50"
-            />
-            <p className="text-xs text-gray-500 mt-1">Contact admin to change diocese assignment</p>
-          </div>
+          {/* Password Section (only visible in edit mode) */}
+          {isEditing && (
+            <div className="space-y-4 pt-4 border-t">
+              <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                <Key className="w-4 h-4" />
+                Change Password (Optional)
+              </h4>
+              <p className="text-sm text-gray-500">Leave blank if you don't want to change your password</p>
+              
+              <div>
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <div className="relative">
+                  <Input
+                    id="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                    className="mt-1 pr-10"
+                    placeholder="Enter current password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      className="mt-1 pr-10"
+                      placeholder="Enter new password"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    className="mt-1"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-2">Password Requirements:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• At least 8 characters long</li>
+                  <li>• Contains uppercase and lowercase letters</li>
+                  <li>• Contains at least one number</li>
+                  <li>• Contains at least one special character</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Save/Cancel Buttons (only visible in edit mode) */}
           {isEditing && (
             <div className="flex gap-3 pt-4">
-              <Button onClick={handleProfileSave} className="flex-1">
+              <Button onClick={handleCombinedUpdate} className="flex-1">
                 <Save className="w-4 h-4 mr-2" />
                 Save Changes
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => setIsEditing(false)}
+                onClick={handleCancelEdit}
                 className="flex-1"
               >
                 Cancel
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Password Change Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="w-5 h-5" />
-            Change Password
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="currentPassword">Current Password</Label>
-            <div className="relative">
-              <Input
-                id="currentPassword"
-                type={showCurrentPassword ? "text" : "password"}
-                value={passwordData.currentPassword}
-                onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                className="mt-1 pr-10"
-                placeholder="Enter current password"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-              >
-                {showCurrentPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="newPassword">New Password</Label>
-              <div className="relative">
-                <Input
-                  id="newPassword"
-                  type={showNewPassword ? "text" : "password"}
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                  className="mt-1 pr-10"
-                  placeholder="Enter new password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                >
-                  {showNewPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                className="mt-1"
-                placeholder="Confirm new password"
-              />
-            </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-2">Password Requirements:</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• At least 8 characters long</li>
-              <li>• Contains uppercase and lowercase letters</li>
-              <li>• Contains at least one number</li>
-              <li>• Contains at least one special character</li>
-            </ul>
-          </div>
-
-          <Button 
-            onClick={handlePasswordChange}
-            disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
-            className="w-full"
-          >
-            <Key className="w-4 h-4 mr-2" />
-            Update Password
-          </Button>
         </CardContent>
       </Card>
     </div>

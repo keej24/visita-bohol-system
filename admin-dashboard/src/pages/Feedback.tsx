@@ -167,7 +167,9 @@ const FeedbackReports = () => {
 
       toast({
         title: 'Success',
-        description: `Feedback ${pendingAction.action === 'hide' ? 'hidden' : 'published'} successfully`,
+        description: pendingAction.action === 'hide' 
+          ? 'Feedback hidden successfully.' 
+          : 'Feedback published successfully.',
       });
     } catch (error) {
       console.error('Error moderating feedback:', error);
@@ -562,30 +564,20 @@ const FeedbackReports = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pendingAction?.action === 'hide' ? 'Hide Feedback?' : 'Publish Feedback?'}
+              {pendingAction?.action === 'hide' ? 'Confirm Hide Feedback' : 'Confirm Publish Feedback'}
             </DialogTitle>
             <DialogDescription>
               {pendingAction?.action === 'hide'
-                ? 'This will hide the feedback from public view due to community standards violations. This action removes inappropriate content while keeping a record for administrative purposes.'
-                : 'This will make the feedback visible to the public. Make sure the content is appropriate and follows community standards.'}
+                ? 'Are you sure you want to hide this feedback?'
+                : 'Are you sure you want to publish this feedback?'}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex gap-2 pt-4">
+          <DialogFooter className="flex gap-2 pt-4">
             <Button
               variant={pendingAction?.action === 'hide' ? 'destructive' : 'default'}
               onClick={confirmModeration}
             >
-              {pendingAction?.action === 'hide' ? (
-                <>
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Hide Feedback
-                </>
-              ) : (
-                <>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Publish Feedback
-                </>
-              )}
+              Yes
             </Button>
             <Button
               variant="outline"
@@ -594,9 +586,9 @@ const FeedbackReports = () => {
                 setPendingAction(null);
               }}
             >
-              Cancel
+              No
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Layout>

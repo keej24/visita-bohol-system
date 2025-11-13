@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AnnouncementService } from '@/services/announcementService';
 import { AnnouncementList } from './AnnouncementList';
 import { AnnouncementForm } from './AnnouncementForm';
+import { AnnouncementDetailDialog } from './AnnouncementDetailDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,9 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
   const [isLoadingArchived, setIsLoadingArchived] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [detailAnnouncement, setDetailAnnouncement] = useState<Announcement | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailReturnMeta, setDetailReturnMeta] = useState<{ id: string } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,7 +40,6 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
       // First, auto-archive past events
       const archivedCount = await AnnouncementService.autoArchivePastEvents(diocese);
 
-      // Show notification if events were auto-archived
       if (archivedCount > 0) {
         toast({
           title: "Auto-Archive",
@@ -47,7 +50,7 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
       // Then load current announcements - filter by creator to show only user's own announcements
       const data = await AnnouncementService.getAnnouncements(diocese, {
         isArchived: false,
-        createdBy: userProfile?.uid // Only show announcements created by this user
+        createdBy: userProfile?.uid,
       });
       setAnnouncements(data);
     } catch (error) {
@@ -55,7 +58,7 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
       toast({
         title: "Error",
         description: "Failed to load announcements",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -96,13 +99,28 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
   }, [activeTab, archivedAnnouncements.length, loadArchivedAnnouncements]);
 
   const handleCreateAnnouncement = () => {
+    setDetailAnnouncement(null);
+    setIsDetailOpen(false);
+    setDetailReturnMeta(null);
     setSelectedAnnouncement(null);
     setIsFormOpen(true);
   };
 
   const handleEditAnnouncement = (announcement: Announcement) => {
     setSelectedAnnouncement(announcement);
+    if (detailAnnouncement && detailAnnouncement.id === announcement.id) {
+      setDetailReturnMeta({ id: announcement.id });
+    } else {
+      setDetailReturnMeta(null);
+    }
+    setIsDetailOpen(false);
     setIsFormOpen(true);
+  };
+
+  const handleViewAnnouncement = (announcement: Announcement) => {
+    setDetailAnnouncement(announcement);
+    setIsDetailOpen(true);
+    setDetailReturnMeta(null);
   };
 
   const handleFormSubmit = async (formData: AnnouncementFormData) => {
@@ -134,7 +152,7 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
         );
         toast({
           title: "Success",
-          description: "Announcement updated successfully"
+          description: "Announcement updated successfully."
         });
       } else {
         // Create new announcement
@@ -146,13 +164,27 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
         );
         toast({
           title: "Success",
-          description: "Announcement created successfully"
+          description: "Announcement successfully published."
         });
       }
 
       setIsFormOpen(false);
       setSelectedAnnouncement(null);
       await loadAnnouncements();
+      if (detailReturnMeta) {
+        const refreshedList = await AnnouncementService.getAnnouncements(diocese, {
+          createdBy: userProfile.uid,
+        });
+        const refreshedAnnouncement = refreshedList.find((item) => item.id === detailReturnMeta.id);
+        if (refreshedAnnouncement) {
+          setDetailAnnouncement(refreshedAnnouncement);
+          setIsDetailOpen(true);
+        } else {
+          setDetailAnnouncement(null);
+          setIsDetailOpen(false);
+        }
+        setDetailReturnMeta(null);
+      }
     } catch (error) {
       console.error('❌ Error saving announcement:', error);
 
@@ -175,11 +207,14 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
       await AnnouncementService.archiveAnnouncement(id);
       toast({
         title: "Archived",
-        description: "Announcement moved to archive"
+        description: "Announcement archived successfully."
       });
       // Refresh both lists to keep them in sync
       await loadAnnouncements();
       await loadArchivedAnnouncements();
+      setIsDetailOpen(false);
+      setDetailAnnouncement(null);
+      setDetailReturnMeta(null);
     } catch (error) {
       console.error('Error archiving announcement:', error);
       toast({
@@ -199,6 +234,9 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
       });
       await loadAnnouncements();
       await loadArchivedAnnouncements();
+      setIsDetailOpen(false);
+      setDetailAnnouncement(null);
+      setDetailReturnMeta(null);
     } catch (error) {
       console.error('Error unarchiving announcement:', error);
       toast({
@@ -210,15 +248,20 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
+    if (!confirm('Are you sure you want to permanently delete this announcement? This action cannot be undone.')) {
+      return;
+    }
+    
     try {
       await AnnouncementService.deleteAnnouncement(id);
       toast({
         title: "Deleted",
-        description: "Announcement permanently deleted"
+        description: "Announcement deleted permanently"
       });
-      // Refresh both lists to keep them in sync
-      await loadAnnouncements();
       await loadArchivedAnnouncements();
+      setIsDetailOpen(false);
+      setDetailAnnouncement(null);
+      setDetailReturnMeta(null);
     } catch (error) {
       console.error('Error deleting announcement:', error);
       toast({
@@ -232,6 +275,15 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
   const handleFormCancel = () => {
     setIsFormOpen(false);
     setSelectedAnnouncement(null);
+    if (detailReturnMeta) {
+      const combined = [...announcements, ...archivedAnnouncements];
+      const original = combined.find((item) => item.id === detailReturnMeta.id);
+      if (original) {
+        setDetailAnnouncement(original);
+        setIsDetailOpen(true);
+      }
+      setDetailReturnMeta(null);
+    }
   };
 
   return (
@@ -271,8 +323,8 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
             isLoading={isLoading}
             onEdit={handleEditAnnouncement}
             onArchive={handleArchiveAnnouncement}
-            onDelete={handleDeleteAnnouncement}
             onCreate={handleCreateAnnouncement}
+            onView={handleViewAnnouncement}
             showHeader={false}
           />
         </TabsContent>
@@ -288,6 +340,7 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
             onDelete={handleDeleteAnnouncement}
             showHeader={false}
             isArchivedView={true}
+            onView={handleViewAnnouncement}
           />
         </TabsContent>
       </Tabs>
@@ -308,6 +361,20 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
           />
         </DialogContent>
       </Dialog>
+
+      <AnnouncementDetailDialog
+        announcement={detailAnnouncement}
+        isOpen={isDetailOpen && !!detailAnnouncement}
+        onClose={() => {
+          setIsDetailOpen(false);
+          setDetailAnnouncement(null);
+          setDetailReturnMeta(null);
+        }}
+        onEdit={handleEditAnnouncement}
+        onArchive={(announcement) => handleArchiveAnnouncement(announcement.id)}
+        onUnarchive={(announcement) => handleUnarchiveAnnouncement(announcement.id)}
+        onDelete={(announcement) => handleDeleteAnnouncement(announcement.id)}
+      />
     </div>
   );
 };

@@ -23,6 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.production
+.env.development
+
 # Firebase credentials - NEVER commit these
 firebase-service-account.json
 serviceAccountKey.json

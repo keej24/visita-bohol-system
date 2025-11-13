@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import {
   Calendar,
   Clock,
@@ -14,9 +13,9 @@ import {
   Filter,
   Edit,
   Archive,
-  Trash2,
   Plus,
-  Phone
+  Phone,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Announcement, AnnouncementFilters } from '@/types/announcement';
@@ -29,9 +28,10 @@ interface AnnouncementListProps {
   isLoading?: boolean;
   onEdit: (announcement: Announcement) => void;
   onArchive: (id: string) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void; // Optional - kept for backward compatibility but not used
   onCreate?: () => void;
   onAutoArchive?: () => void;
+  onView?: (announcement: Announcement) => void;
   showScope?: boolean; // Show scope badge (diocese/parish)
   showHeader?: boolean; // Show header with title and "New Announcement" button
   isArchivedView?: boolean; // Whether this is showing archived announcements
@@ -46,6 +46,7 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
   onDelete,
   onCreate,
   onAutoArchive,
+  onView,
   showScope = true,
   showHeader = true,
   isArchivedView = false,
@@ -220,7 +221,7 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{announcement.title}</CardTitle>
                       <Badge variant={getStatusColor(announcement)}>
                         {getStatusText(announcement)}
@@ -234,71 +235,68 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                         {announcement.category}
                       </Badge>
                     </div>
-                    <CardDescription className="line-clamp-2">
-                      {announcement.description}
-                    </CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onEdit(announcement)}
-                      title="Edit announcement"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    {isArchivedView ? (
+                    {onView ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onArchive(announcement.id)}
-                        title="Restore announcement to active list"
-                        className="text-green-600 border-green-300 hover:bg-green-50"
+                        onClick={() => onView(announcement)}
+                        title="View announcement details"
+                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
                       >
-                        <Archive className="w-4 h-4" />
-                        <span className="ml-1">Unarchive</span>
+                        <Search className="w-4 h-4" />
+                        <span className="ml-1">View</span>
                       </Button>
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onArchive(announcement.id)}
-                        title="Archive announcement"
-                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
-                      >
-                        <Archive className="w-4 h-4" />
-                        <span className="ml-1">Archive</span>
-                      </Button>
-                    )}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                      <>
                         <Button
                           variant="outline"
                           size="sm"
-                          title="Delete announcement permanently"
-                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={() => onEdit(announcement)}
+                          title="Edit announcement"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Announcement</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "{announcement.title}"? This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => onDelete(announcement.id)}
-                            className="bg-red-600 hover:bg-red-700"
+                        {isArchivedView ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onArchive(announcement.id)}
+                              title="Restore announcement to active list"
+                              className="text-green-600 border-green-300 hover:bg-green-50"
+                            >
+                              <Archive className="w-4 h-4" />
+                              <span className="ml-1">Unarchive</span>
+                            </Button>
+                            {onDelete && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onDelete(announcement.id)}
+                                title="Delete announcement permanently"
+                                className="text-red-600 border-red-300 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                <span className="ml-1">Delete</span>
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onArchive(announcement.id)}
+                            title="Archive announcement"
+                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
                           >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                            <Archive className="w-4 h-4" />
+                            <span className="ml-1">Archive</span>
+                          </Button>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </CardHeader>

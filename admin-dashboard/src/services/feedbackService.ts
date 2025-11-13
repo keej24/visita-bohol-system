@@ -23,7 +23,6 @@ export interface FeedbackItem {
   subject: string;
   comment: string;
   message?: string;
-  category?: string;
   status: 'published' | 'hidden' | 'pending';
   date_submitted: Date;
   createdAt: string;
@@ -224,10 +223,9 @@ export class FeedbackService {
       pub_user_id: data.pub_user_id || data.userId || '',
       userName: data.userName || data.user_name || 'Anonymous',
       rating: data.rating || 5,
-      subject: data.subject || data.category || 'Review',
+      subject: data.subject || 'Review',
       comment: data.comment || data.message || '',
       message: data.message || data.comment || '',
-      category: data.category || 'general',
       status: data.status || 'published',
       date_submitted: dateSubmitted,
       createdAt: dateSubmitted.toISOString(),

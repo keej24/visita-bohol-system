@@ -1,4 +1,4 @@
-// Museum Researcher Dashboard for heritage validation and cultural content
+// Heritage Reviewer Dashboard for heritage validation and cultural content
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from "@/components/Layout";
@@ -239,7 +239,7 @@ const MuseumResearcherDashboard = () => {
         church.id,
         'approved',
         userProfile,
-        'Heritage validation completed by Museum Researcher'
+        'Heritage validation completed by Heritage Reviewer'
       );
 
       if (result.success) {
@@ -283,16 +283,16 @@ const MuseumResearcherDashboard = () => {
   const getStatusBadgeColor = (status: ChurchStatus) => {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      heritage_review: 'bg-orange-100 text-orange-800 border-orange-300',
-      approved: 'bg-green-100 text-green-800 border-green-300'
+      heritage_review: 'bg-amber-100 text-amber-800 border-amber-300',
+      approved: 'bg-emerald-100 text-emerald-800 border-emerald-300'
     };
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const getClassificationBadge = (classification: string) => {
     const colors = {
-      'ICP': 'bg-accent text-accent-foreground',
-      'NCT': 'bg-primary text-primary-foreground'
+      'ICP': 'bg-amber-600 text-white hover:bg-amber-700',
+      'NCT': 'bg-teal-600 text-white hover:bg-teal-700'
     };
     return colors[classification as keyof typeof colors] || 'bg-secondary text-secondary-foreground';
   };
@@ -300,21 +300,21 @@ const MuseumResearcherDashboard = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Museum Researcher Header */}
-        <div className="heritage-card-accent p-6 bg-gradient-to-r from-primary/5 to-accent/5">
+        {/* Heritage Reviewer Header */}
+        <div className="heritage-card-accent p-6 bg-gradient-to-r from-amber-50 to-teal-50 border border-amber-200">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-primary-foreground" />
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-700 to-amber-800 rounded-xl flex items-center justify-center shadow-md">
+              <BookOpen className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-primary mb-1">
-                Museum Researcher - Heritage Validation Dashboard
+              <h1 className="text-2xl font-bold text-amber-900 mb-1">
+                Heritage Reviewer Dashboard
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-slate-600">
                 Securely review and verify heritage church entries (ICP/NCT), validate historical content, and enhance cultural documentation across both dioceses
               </p>
               <div className="flex items-center gap-2 mt-2">
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs border-amber-300 text-amber-800">
                   {userProfile?.name}
                 </Badge>
               </div>
@@ -324,41 +324,41 @@ const MuseumResearcherDashboard = () => {
 
         {/* Simple Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+          <Card className="border-amber-200 bg-amber-50/30">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <Clock className="w-6 h-6 text-orange-600" />
+                <Clock className="w-6 h-6 text-amber-600" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Pending Review</p>
-                  <p className="text-xl font-bold text-orange-600">
-                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : heritageReviewChurches.length}
+                  <p className="text-sm text-slate-600">Pending Review</p>
+                  <p className="text-xl font-bold text-amber-700">
+                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin text-amber-600" /> : heritageReviewChurches.length}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-emerald-200 bg-emerald-50/30">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-600" />
+                <CheckCircle className="w-6 h-6 text-emerald-600" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Approved Heritage</p>
-                  <p className="text-xl font-bold text-green-600">
-                    {isApprovedLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : approvedHeritageChurches.length}
+                  <p className="text-sm text-slate-600">Approved Heritage</p>
+                  <p className="text-xl font-bold text-emerald-700">
+                    {isApprovedLoading ? <Loader2 className="w-6 h-6 animate-spin text-emerald-600" /> : approvedHeritageChurches.length}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
+          <Card className="border-teal-200 bg-teal-50/30">
+            <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <Award className="w-6 h-6 text-blue-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Both Dioceses</p>
-                  <p className="text-xl font-bold text-blue-600">Cross-Access</p>
+                <Award className="w-6 h-6 text-teal-600" />
+                <div className="flex-1">
+                  <p className="text-sm text-slate-600">Both Dioceses</p>
+                  <p className="text-xl font-bold text-teal-700">Cross-Access</p>
                 </div>
               </div>
             </CardContent>
@@ -368,37 +368,37 @@ const MuseumResearcherDashboard = () => {
         {/* Main Content - Heritage Validation */}
 
         {/* Heritage Review Queue */}
-        <Card className="heritage-card">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-primary">
-              Heritage Review Queue {isLoading && <Loader2 className="inline h-4 w-4 ml-2 animate-spin" />}
+        <Card className="heritage-card border-amber-200">
+          <CardHeader className="bg-gradient-to-r from-amber-50/50 to-transparent">
+            <CardTitle className="text-lg font-semibold text-amber-900">
+              Heritage Review Queue {isLoading && <Loader2 className="inline h-4 w-4 ml-2 animate-spin text-amber-600" />}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Loading heritage reviews...</p>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-amber-600" />
+                  <p className="text-sm text-slate-600">Loading heritage reviews...</p>
                 </div>
               </div>
             ) : heritageReviewChurches.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No heritage churches awaiting validation.</div>
+              <div className="text-sm text-slate-600">No heritage churches awaiting validation.</div>
             ) : (
               <TooltipProvider>
                 {heritageReviewChurches.map((church) => (
-                  <div key={church.id} className="p-3 rounded-lg bg-secondary/30">
+                  <div key={church.id} className="p-3 rounded-lg bg-amber-50/40 border border-amber-100 hover:bg-amber-50 transition-colors">
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <div className="font-medium text-sm truncate">{church.name}</div>
                           {church.classification && (
-                            <Badge className={getClassificationBadge(church.classification)}>
+                            <Badge className={church.classification === 'ICP' ? 'bg-amber-600 hover:bg-amber-700 text-white text-xs' : church.classification === 'NCT' ? 'bg-teal-600 hover:bg-teal-700 text-white text-xs' : getClassificationBadge(church.classification)}>
                               {church.classification}
                             </Badge>
                           )}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-slate-600">
                           <span className="capitalize">{church.diocese}</span> • {church.municipality ?? "Unknown"}
                           {church.foundedYear && ` • Founded ${church.foundedYear}`}
                         </div>
@@ -406,14 +406,14 @@ const MuseumResearcherDashboard = () => {
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
-                          className={`text-xs capitalize ${getStatusBadgeColor(church.status)}`}
+                          className={`text-xs capitalize ${church.status === 'heritage_review' ? 'bg-amber-50 text-amber-800 border-amber-300' : getStatusBadgeColor(church.status)}`}
                         >
                           {church.status.replace("_", " ")}
                         </Badge>
 
                         <Tooltip>
                           <TooltipTrigger>
-                            <div className="flex items-center text-xs text-muted-foreground">
+                            <div className="flex items-center text-xs text-slate-600">
                               <Clock className="w-3 h-3 mr-1" />
                               1 action
                             </div>
@@ -434,7 +434,7 @@ const MuseumResearcherDashboard = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleViewChurch(church)}
-                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                        className="text-teal-700 border-teal-300 hover:bg-teal-50"
                       >
                         <Eye className="w-4 h-4 mr-1" /> View
                       </Button>
@@ -444,7 +444,7 @@ const MuseumResearcherDashboard = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEditChurch(church)}
-                        className="text-green-600 border-green-300 hover:bg-green-50"
+                        className="text-amber-700 border-amber-300 hover:bg-amber-50"
                       >
                         <Edit className="w-4 h-4 mr-1" /> Edit
                       </Button>
@@ -455,7 +455,7 @@ const MuseumResearcherDashboard = () => {
                         size="sm"
                         onClick={() => handleValidateChurch(church)}
                         disabled={isSubmitting}
-                        className="text-green-600 border-green-300 hover:bg-green-50"
+                        className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 disabled:opacity-50"
                       >
                         {isSubmitting ? (
                           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -479,8 +479,8 @@ const MuseumResearcherDashboard = () => {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         mode={modalMode}
-        onSave={handleSaveChurch} // Museum researcher can save edits
-        onSubmit={handleSubmitChurch} // Museum researcher can submit edits
+        onSave={handleSaveChurch} // Heritage reviewer can save edits
+        onSubmit={handleSubmitChurch} // Heritage reviewer can submit edits
         isSubmitting={isSubmitting}
       />
     </Layout>

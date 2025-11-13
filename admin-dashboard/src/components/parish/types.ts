@@ -1,4 +1,5 @@
 // Parish Dashboard Types
+import type { ChurchStatus } from '@/types/church';
 
 export interface MassSchedule {
   day: string;
@@ -100,7 +101,7 @@ export interface ChurchInfo {
   founded: string;
   classification: string;
   description: string;
-  status: 'draft' | 'pending' | 'approved' | 'rejected';
+  status: ChurchStatus;
   capacity?: number;
   architecturalStyle?: string;
   patronSaint?: string;
@@ -159,7 +160,6 @@ export interface FeedbackAnalytics {
   date: string;
   rating: number;
   comment: string;
-  category: 'general' | 'accessibility' | 'facilities' | 'experience';
   respondedDate?: string;
 }
 
@@ -207,7 +207,6 @@ export interface EngagementAnalyticsReport {
     averageRating: number;
     ratingTrend: number;
     responseRate: number;
-    categoryBreakdown: Record<string, number>;
   };
   visualizations: {
     visitorHeatMap: Array<{ date: string; visitors: number; timeSlot: string }>;

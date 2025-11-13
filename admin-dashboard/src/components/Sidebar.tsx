@@ -73,7 +73,7 @@ const getNavigationItems = (role?: string, setActiveTab?: (tab: string) => void,
         disabled: !churchApproved,
         disabledReason: 'Available after church profile approval'
       },
-      { title: 'My Account', url: '/parish', icon: User, onClick: () => setActiveTab?.('account'), isTab: true },
+      { title: 'Account Settings', url: '/parish', icon: User, onClick: () => setActiveTab?.('account'), isTab: true },
     ];
   }
   
@@ -237,14 +237,20 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
               </p>
               {userProfile?.role === 'museum_researcher' && (
                 <div className="flex items-center gap-1 mt-1">
-                  <Crown className="w-3 h-3 text-amber-400" />
-                  <span className="text-xs text-amber-400 font-medium">Heritage Reviewer</span>
+                  <Crown className="w-3 h-3 text-yellow-400" />
+                  <span className="text-xs text-yellow-400 font-medium">Heritage Reviewer</span>
+                </div>
+              )}
+              {userProfile?.role === 'parish_secretary' && (
+                <div className="flex items-center gap-1 mt-1">
+                  <Church className="w-3 h-3 text-sky-400" />
+                  <span className="text-xs text-sky-400 font-medium">Parish Secretary</span>
                 </div>
               )}
             </div>
           </div>
           
-          {/* Simple status for Museum Researcher */}
+          {/* Simple status for Heritage Reviewer */}
           {userProfile?.role === 'museum_researcher' && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between text-xs">
@@ -343,7 +349,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
         })}
       </nav>
 
-      {/* Heritage Quick Actions for Museum Researcher - Removed for simplicity */}
+      {/* Heritage Quick Actions for Heritage Reviewer - Removed for simplicity */}
 
       {/* Footer */}
       <div className="p-3 border-t border-sidebar-border">

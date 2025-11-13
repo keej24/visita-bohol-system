@@ -117,6 +117,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     // Media Collections
     photos: initialData?.photos || [],
     documents: initialData?.documents || [],
+    virtual360Images: initialData?.virtual360Images || [],
 
     // Legacy compatibility fields
     name: initialData?.name || '',
@@ -173,6 +174,12 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
   // Heritage Assessment - Run when form data changes
   useEffect(() => {
+    // Skip assessment if church is already approved
+    if (currentStatus === 'approved') {
+      setHeritageAssessment(null);
+      return;
+    }
+
     // Only run assessment if we have enough data
     if (formData.churchName && (formData.historicalDetails.foundingYear || formData.historicalDetails.architecturalStyle)) {
       try {
@@ -185,7 +192,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     } else {
       setHeritageAssessment(null);
     }
-  }, [formData]);
+  }, [formData, currentStatus]);
 
   // Form field updaters
   const updateBasicField = (field: string, value: string) => {
@@ -222,11 +229,12 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
   // Mass schedule management
   const toggleDaySelection = (day: string) => {
-    setSelectedDays(prev =>
-      prev.includes(day)
-        ? prev.filter(d => d !== day)
-        : [...prev, day]
-    );
+    setScheduleForm(prev => ({
+      ...prev,
+      selectedDays: prev.selectedDays.includes(day)
+        ? prev.selectedDays.filter(d => d !== day)
+        : [...prev.selectedDays, day]
+    }));
   };
 
   // Add schedule to pending list (batch mode)
@@ -285,7 +293,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     }));
 
     setPendingSchedules([]);
-    setScheduleForm({ time: '', endTime: '', isEnglish: false, isFbLive: false });
+    setScheduleForm({ time: '', endTime: '', isEnglish: false, isFbLive: false, selectedDays: [] });
 
     toast({
       title: "Success",
@@ -522,6 +530,129 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   const handleSubmit = async () => {
     const isApprovedProfile = currentStatus === 'approved';
 
+    // Comprehensive form validation
+    const validationErrors: string[] = [];
+
+    // Basic Information validation
+    if (!formData.parishName || !formData.parishName.trim()) {
+      validationErrors.push("Parish Name is required");
+    }
+
+    if (!formData.churchName || !formData.churchName.trim()) {
+      validationErrors.push("Church Name is required");
+    }
+
+    // Location validation
+    if (!formData.locationDetails.streetAddress || !formData.locationDetails.streetAddress.trim()) {
+      validationErrors.push("Street Address is required");
+    }
+
+    if (!formData.locationDetails.barangay || !formData.locationDetails.barangay.trim()) {
+      validationErrors.push("Barangay is required");
+    }
+
+    if (!formData.locationDetails.municipality || !formData.locationDetails.municipality.trim()) {
+      validationErrors.push("Municipality is required");
+    }
+
+    // GPS Coordinates validation
+    if (!formData.coordinates.lat || !formData.coordinates.lng) {
+      validationErrors.push("GPS Coordinates (latitude and longitude) are required");
+    } else {
+      // Validate coordinate ranges
+      if (formData.coordinates.lat < -90 || formData.coordinates.lat > 90) {
+        validationErrors.push("Latitude must be between -90 and 90 degrees");
+      }
+
+      if (formData.coordinates.lng < -180 || formData.coordinates.lng > 180) {
+        validationErrors.push("Longitude must be between -180 and 180 degrees");
+      }
+
+      // Validate Bohol region (approximate bounds)
+      if (formData.coordinates.lat < 9.4 || formData.coordinates.lat > 10.2 ||
+          formData.coordinates.lng < 123.7 || formData.coordinates.lng > 124.7) {
+        validationErrors.push("Coordinates appear to be outside Bohol region. Please verify.");
+      }
+    }
+
+    // Historical Information validation
+    if (!formData.historicalDetails.foundingYear) {
+      validationErrors.push("Founding Year is required");
+    } else {
+      const currentYear = new Date().getFullYear();
+      const foundingYear = parseInt(formData.historicalDetails.foundingYear, 10);
+      if (isNaN(foundingYear) || foundingYear < 1500 || foundingYear > currentYear) {
+        validationErrors.push(`Founding Year must be a valid year between 1500 and ${currentYear}`);
+      }
+    }
+
+    if (!formData.historicalDetails.architecturalStyle || !formData.historicalDetails.architecturalStyle.trim()) {
+      validationErrors.push("Architectural Style is required");
+    }
+
+    if (!formData.historicalDetails.historicalBackground || formData.historicalDetails.historicalBackground.trim().length < 50) {
+      validationErrors.push("Historical Background is required (minimum 50 characters)");
+    }
+
+    // Parish Information validation
+    if (!formData.currentParishPriest || !formData.currentParishPriest.trim()) {
+      validationErrors.push("Current Parish Priest is required");
+    }
+
+    // Contact Information validation
+    if (formData.contactInfo.phone && formData.contactInfo.phone.trim()) {
+      const phoneRegex = /^[\d\s\-()+]+$/;
+      if (!phoneRegex.test(formData.contactInfo.phone)) {
+        validationErrors.push("Phone number contains invalid characters");
+      }
+      const digitCount = formData.contactInfo.phone.replace(/\D/g, '').length;
+      if (digitCount < 7 || digitCount > 15) {
+        validationErrors.push("Phone number must contain 7-15 digits");
+      }
+    }
+
+    if (formData.contactInfo.email && formData.contactInfo.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.contactInfo.email)) {
+        validationErrors.push("Invalid email format");
+      }
+    }
+
+    if (formData.contactInfo.website && formData.contactInfo.website.trim()) {
+      const urlRegex = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+      if (!urlRegex.test(formData.contactInfo.website)) {
+        validationErrors.push("Invalid website URL format");
+      }
+    }
+
+    // Mass Schedule validation
+    if (!formData.massSchedules || formData.massSchedules.length === 0) {
+      validationErrors.push("At least one mass schedule is required");
+    }
+
+    // Display validation errors
+    if (validationErrors.length > 0) {
+      toast({
+        title: "Validation Errors",
+        description: (
+          <div className="space-y-1">
+            <p className="font-semibold">Please fix the following errors:</p>
+            <ul className="list-disc list-inside text-sm">
+              {validationErrors.slice(0, 5).map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+            {validationErrors.length > 5 && (
+              <p className="text-sm italic">...and {validationErrors.length - 5} more errors</p>
+            )}
+          </div>
+        ),
+        variant: "destructive",
+        duration: 8000
+      });
+      return;
+    }
+
     if (!isApprovedProfile && completionPercentage < 80) {
       toast({
         title: "Profile Incomplete",
@@ -673,7 +804,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         )}
 
         {/* Heritage Assessment Card */}
-        {heritageAssessment && (
+        {heritageAssessment && currentStatus !== 'approved' && (
           <Card className={`shadow-lg border-l-4 mb-6 ${
             heritageAssessment.confidence === 'high' ? 'border-l-orange-500 bg-orange-50/30' :
             heritageAssessment.confidence === 'medium' ? 'border-l-yellow-500 bg-yellow-50/30' :
@@ -701,7 +832,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   {heritageAssessment.shouldRequireReview && (
                     <div className="bg-orange-100 border border-orange-300 rounded-lg p-3">
                       <p className="text-sm text-orange-800">
-                        Church is classified as Important Cultural Property (ICP). Must be forwarded to Museum Researcher for heritage validation.
+                        Church is classified as Important Cultural Property (ICP). Must be forwarded to Heritage Reviewer for heritage validation.
                       </p>
                     </div>
                   )}
@@ -821,10 +952,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
                     {/* Coordinates */}
                     <div className="bg-blue-50 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-900 mb-3">GPS Coordinates (Optional)</h4>
+                      <h4 className="font-medium text-gray-900 mb-3">
+                        GPS Coordinates <span className="text-red-500">*</span>
+                      </h4>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="latitude" className="text-sm font-medium text-gray-700">Latitude</Label>
+                          <Label htmlFor="latitude" className="text-sm font-medium text-gray-700">
+                            Latitude <span className="text-red-500">*</span>
+                          </Label>
                           <Input
                             id="latitude"
                             type="number"
@@ -833,10 +968,13 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             onChange={(e) => updateCoordinates(parseFloat(e.target.value) || 0, formData.coordinates.lng)}
                             placeholder="e.g., 9.6475"
                             className="h-11"
+                            required
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="longitude" className="text-sm font-medium text-gray-700">Longitude</Label>
+                          <Label htmlFor="longitude" className="text-sm font-medium text-gray-700">
+                            Longitude <span className="text-red-500">*</span>
+                          </Label>
                           <Input
                             id="longitude"
                             type="number"
@@ -845,11 +983,20 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             onChange={(e) => updateCoordinates(formData.coordinates.lat, parseFloat(e.target.value) || 0)}
                             placeholder="e.g., 123.8887"
                             className="h-11"
+                            required
                           />
                         </div>
                       </div>
                       <p className="text-xs text-gray-600 mt-2">
-                        GPS coordinates help visitors find your church location precisely
+                        <strong>Required:</strong> GPS coordinates are needed to pin your church on the map. 
+                        <a 
+                          href="https://www.google.com/maps" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline ml-1"
+                        >
+                          Get coordinates from Google Maps
+                        </a>
                       </p>
                     </div>
                   </div>

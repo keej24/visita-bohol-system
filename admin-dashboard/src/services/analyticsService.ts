@@ -32,7 +32,6 @@ export interface FeedbackData {
   rating: number;
   subject: string;
   message: string;
-  category: string;
   status: 'published' | 'hidden' | 'pending';
   createdAt: Date;
   images?: string[];
@@ -105,12 +104,11 @@ export class AnalyticsService {
     try {
       const feedbackRef = collection(db, 'feedback');
 
+      // Build base query with church_id and date range
+      // Note: Firestore requires composite index for multiple where + orderBy
       let q = query(
         feedbackRef,
-        where('churchId', '==', churchId),
-        where('createdAt', '>=', Timestamp.fromDate(startDate)),
-        where('createdAt', '<=', Timestamp.fromDate(endDate)),
-        orderBy('createdAt', 'desc')
+        where('church_id', '==', churchId)
       );
 
       if (status) {
@@ -119,21 +117,48 @@ export class AnalyticsService {
 
       const querySnapshot = await getDocs(q);
 
-      return querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          churchId: data.churchId,
-          userId: data.userId,
-          rating: data.rating || 5,
-          subject: data.subject || '',
-          message: data.message || '',
-          category: data.category || 'general',
-          status: data.status || 'published',
-          createdAt: data.createdAt.toDate(),
-          images: data.images || []
-        } as FeedbackData;
-      });
+      console.log(`📊 Analytics: Fetched ${querySnapshot.docs.length} feedback docs for church ${churchId}`);
+
+      // Filter by date range in memory since we can't use multiple range queries
+      const allFeedback = querySnapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          const createdAt = data.date_submitted?.toDate?.() || data.createdAt?.toDate?.() || new Date();
+          
+          console.log(`📝 Feedback ${doc.id}:`, {
+            rating: data.rating,
+            subject: data.subject,
+            status: data.status,
+            createdAt: createdAt.toISOString(),
+            dateSubmitted: data.date_submitted,
+            hasCreatedAt: !!data.createdAt
+          });
+          
+          return {
+            id: doc.id,
+            churchId: data.church_id || data.churchId,
+            userId: data.pub_user_id || data.userId,
+            rating: data.rating || 5,
+            subject: data.subject || '',
+            message: data.message || data.comment || '',
+            status: data.status || 'published',
+            createdAt: createdAt,
+            images: data.images || []
+          } as FeedbackData;
+        });
+
+      const filtered = allFeedback.filter(feedback => {
+          // Filter by date range
+          const inRange = feedback.createdAt >= startDate && feedback.createdAt <= endDate;
+          if (!inRange) {
+            console.log(`❌ Feedback ${feedback.id} filtered out - date ${feedback.createdAt.toISOString()} not in range ${startDate.toISOString()} to ${endDate.toISOString()}`);
+          }
+          return inRange;
+        });
+
+      console.log(`✅ Analytics: Returning ${filtered.length} feedback after date filter (range: ${startDate.toISOString()} to ${endDate.toISOString()})`);
+      
+      return filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     } catch (error) {
       console.error('Error fetching feedback:', error);
       // Return sample data if collection doesn't exist yet
@@ -209,16 +234,10 @@ export class AnalyticsService {
       return acc;
     }, {} as Record<number, number>);
 
-    const categoryBreakdown = feedback.reduce((acc, f) => {
-      acc[f.category] = (acc[f.category] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
     return {
       totalFeedback,
       averageRating: Math.round(averageRating * 10) / 10,
-      ratingDistribution,
-      categoryBreakdown
+      ratingDistribution
     };
   }
 
@@ -246,7 +265,6 @@ export class AnalyticsService {
   }
 
   private static getSampleFeedback(churchId: string, startDate: Date, endDate: Date): FeedbackData[] {
-    const categories = ['worship', 'facilities', 'community', 'accessibility', 'general'];
     const subjects = [
       'Beautiful Sunday Mass',
       'Great Community Spirit',
@@ -267,7 +285,6 @@ export class AnalyticsService {
           rating: Math.floor(Math.random() * 2) + 4, // 4-5 stars mostly
           subject: subjects[Math.floor(Math.random() * subjects.length)],
           message: 'Sample feedback message about the church experience.',
-          category: categories[Math.floor(Math.random() * categories.length)],
           status: 'published',
           createdAt: date
         });

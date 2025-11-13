@@ -1,4 +1,4 @@
-export type ChurchStatus = 'pending' | 'approved' | 'rejected' | 'under_review' | 'needs_revision';
+export type ChurchStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'under_review' | 'needs_revision';
 export type ChurchClassification = 'ICP' | 'NCT' | 'non_heritage' | 'parish_church' | 'pilgrimage_site' | 'historical_shrine';
 export type ArchitecturalStyle = 'baroque' | 'gothic' | 'romanesque' | 'neoclassical' | 'modern' | 'mixed' | 'other';
 export type ReligiousClassification = 'diocesan_shrine' | 'jubilee_church' | 'papal_basilica_affinity' | 'none';

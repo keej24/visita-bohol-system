@@ -157,7 +157,18 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
     if (!newUser.name || !newUser.email) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please complete all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUser.email)) {
+      toast({
+        title: "Validation Error",
+        description: "Invalid input format",
         variant: "destructive"
       });
       return;
@@ -207,9 +218,27 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
     } catch (error: unknown) {
       console.error('Error creating user:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create user account';
+
+      // Translate Firebase errors to user-friendly messages
+      let displayMessage = errorMessage;
+
+      if (errorMessage.includes('auth/email-already-in-use')) {
+        displayMessage = 'Username already exists. Please choose another.';
+      } else if (errorMessage.includes('auth/invalid-email')) {
+        displayMessage = 'Invalid input format';
+      } else if (errorMessage.includes('auth/weak-password')) {
+        displayMessage = 'Password is too weak. Please use a stronger password.';
+      } else if (errorMessage.includes('auth/operation-not-allowed')) {
+        displayMessage = 'Account creation is currently disabled. Contact support.';
+      } else if (errorMessage.includes('auth/network-request-failed')) {
+        displayMessage = 'Network error. Please check your connection and try again.';
+      } else {
+        displayMessage = 'Failed to create user account';
+      }
+
       toast({
         title: "Error",
-        description: errorMessage,
+        description: displayMessage,
         variant: "destructive"
       });
     } finally {
@@ -220,12 +249,22 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
   const handleUpdateUser = async () => {
     if (!selectedUser) return;
 
+    // Validate required fields
+    if (!selectedUser.name || !selectedUser.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Invalid input format",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
 
       const userRef = doc(db, 'users', selectedUser.id);
       await updateDoc(userRef, {
-        name: selectedUser.name,
+        name: selectedUser.name.trim(),
         parish: selectedUser.parish,
         status: selectedUser.status,
         updatedAt: new Date()

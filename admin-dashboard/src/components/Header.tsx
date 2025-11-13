@@ -46,7 +46,7 @@ export function Header({ setActiveTab }: HeaderProps) {
           <div>
             <h1 className="text-xl font-bold text-foreground">
               {userProfile?.role === 'chancery_office' && 'Chancery Office Dashboard'}
-              {userProfile?.role === 'museum_researcher' && 'Heritage Research Dashboard'}
+              {userProfile?.role === 'museum_researcher' && 'Heritage Reviewer Dashboard'}
               {userProfile?.role === 'parish_secretary' && 'Parish Secretary Dashboard'}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -95,7 +95,7 @@ export function Header({ setActiveTab }: HeaderProps) {
                 onClick={handleSignOut}
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                Sign out
+                Logout
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

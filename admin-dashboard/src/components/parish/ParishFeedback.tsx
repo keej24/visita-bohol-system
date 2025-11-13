@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -62,7 +61,6 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<{id: string, action: 'hide' | 'publish'} | null>(null);
-  const [moderationNote, setModerationNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Real feedback data from Firestore
@@ -128,8 +126,10 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
       );
 
       toast({
-        title: "Feedback Moderated",
-        description: `The feedback has been ${newStatus === 'hidden' ? 'hidden from' : 'published to'} public view.`,
+        title: "Success",
+        description: newStatus === 'hidden' 
+          ? 'Feedback has been hidden from public view.' 
+          : 'Feedback has been unhidden to public view.',
       });
     } catch (error) {
       toast({
@@ -141,7 +141,6 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
 
     setShowConfirmDialog(false);
     setPendingAction(null);
-    setModerationNote('');
   };
 
   const renderStars = (rating: number) => {
@@ -379,7 +378,7 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
                           className="text-green-600 border-green-200 hover:bg-green-50"
                         >
                           <Eye className="w-4 h-4 mr-1" />
-                          Publish
+                          Unhide
                         </Button>
                       )}
                     </div>
@@ -449,28 +448,17 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pendingAction?.action === 'hide' ? 'Hide Feedback' : 'Publish Feedback'}
+              {pendingAction?.action === 'hide' ? 'Hide Feedback' : 'Unhide Feedback'}
             </DialogTitle>
             <DialogDescription>
               {pendingAction?.action === 'hide'
-                ? 'Are you sure you want to hide this feedback from public view? This action can be reviewed later.'
-                : 'Are you sure you want to publish this feedback to make it visible to the public? Make sure the content is appropriate and follows community standards.'}
+                ? 'Are you sure you want to hide this feedback?'
+                : 'Are you sure you want to unhide this feedback?'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              placeholder={
-                pendingAction?.action === 'hide'
-                  ? 'Optional: Add a note about why this feedback is being hidden...'
-                  : 'Optional: Add a note about why this feedback is being published...'
-              }
-              value={moderationNote}
-              onChange={(e) => setModerationNote(e.target.value)}
-            />
-          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
-              Cancel
+              No
             </Button>
             <Button
               onClick={confirmModeration}
@@ -480,7 +468,7 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
                   : 'bg-green-600 hover:bg-green-700'
               }
             >
-              {pendingAction?.action === 'hide' ? 'Hide Feedback' : 'Publish Feedback'}
+              Yes
             </Button>
           </DialogFooter>
         </DialogContent>

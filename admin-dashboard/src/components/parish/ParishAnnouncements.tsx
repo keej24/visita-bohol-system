@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AnnouncementService } from '@/services/announcementService';
 import { AnnouncementList } from '@/components/announcements/AnnouncementList';
 import { AnnouncementForm } from '@/components/announcements/AnnouncementForm';
+import { AnnouncementDetailDialog } from '@/components/announcements/AnnouncementDetailDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +30,9 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
   const [isLoadingArchived, setIsLoadingArchived] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [detailAnnouncement, setDetailAnnouncement] = useState<Announcement | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailReturnMeta, setDetailReturnMeta] = useState<{ id: string } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -72,7 +76,7 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [userProfile?.diocese, churchId, toast]);
+  }, [userProfile?.diocese, userProfile?.uid, churchId, toast]);
 
   // Load archived parish announcements
   const loadArchivedAnnouncements = React.useCallback(async () => {
@@ -104,13 +108,32 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
     } finally {
       setIsLoadingArchived(false);
     }
-  }, [userProfile?.diocese, churchId, toast]);
+  }, [userProfile?.diocese, userProfile?.uid, churchId, toast]);
 
   useEffect(() => {
     loadAnnouncements();
     // Load archived announcements immediately for the count
     loadArchivedAnnouncements();
   }, [loadAnnouncements, loadArchivedAnnouncements]);
+
+  // Handle view announcement
+  const handleViewAnnouncement = (announcement: Announcement) => {
+    setDetailAnnouncement(announcement);
+    setIsDetailOpen(true);
+    setDetailReturnMeta(null);
+  };
+
+  // Handle edit announcement
+  const handleEditAnnouncement = (announcement: Announcement) => {
+    setSelectedAnnouncement(announcement);
+    if (detailAnnouncement && detailAnnouncement.id === announcement.id) {
+      setDetailReturnMeta({ id: announcement.id });
+    } else {
+      setDetailReturnMeta(null);
+    }
+    setIsDetailOpen(false);
+    setIsFormOpen(true);
+  };
 
   // Handle form submission
   const handleSubmit = async (formData: AnnouncementFormData) => {
@@ -129,19 +152,36 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
         await AnnouncementService.updateAnnouncement(selectedAnnouncement.id, parishFormData, userProfile.diocese, userProfile.uid);
         toast({
           title: "Success",
-          description: "Announcement updated successfully"
+          description: "Announcement updated successfully."
         });
       } else {
         await AnnouncementService.createAnnouncement(parishFormData, userProfile.diocese, userProfile.uid);
         toast({
           title: "Success",
-          description: "Announcement created successfully"
+          description: "Announcement successfully published."
         });
       }
 
       setIsFormOpen(false);
       setSelectedAnnouncement(null);
       await loadAnnouncements();
+      
+      // If edit was triggered from detail view, reopen detail dialog
+      if (detailReturnMeta) {
+        const refreshedList = await AnnouncementService.getAnnouncements(userProfile.diocese, {
+          createdBy: userProfile.uid,
+          scope: 'parish'
+        });
+        const refreshedAnnouncement = refreshedList.find((item) => item.id === detailReturnMeta.id);
+        if (refreshedAnnouncement) {
+          setDetailAnnouncement(refreshedAnnouncement);
+          setIsDetailOpen(true);
+        } else {
+          setDetailAnnouncement(null);
+          setIsDetailOpen(false);
+        }
+        setDetailReturnMeta(null);
+      }
     } catch (error) {
       console.error('Error saving announcement:', error);
       toast({
@@ -154,36 +194,20 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
     }
   };
 
-  // Handle delete
-  const handleDelete = async (announcementId: string) => {
-    try {
-      await AnnouncementService.deleteAnnouncement(announcementId);
-      toast({
-        title: "Success",
-        description: "Announcement deleted successfully"
-      });
-      await loadAnnouncements();
-    } catch (error) {
-      console.error('Error deleting announcement:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete announcement",
-        variant: "destructive"
-      });
-    }
-  };
-
   // Handle archive
   const handleArchive = async (announcementId: string) => {
     try {
       await AnnouncementService.archiveAnnouncement(announcementId);
       toast({
         title: "Success",
-        description: "Announcement archived successfully"
+        description: "Announcement archived successfully."
       });
       // Refresh both lists to keep them in sync
       await loadAnnouncements();
       await loadArchivedAnnouncements();
+      setIsDetailOpen(false);
+      setDetailAnnouncement(null);
+      setDetailReturnMeta(null);
     } catch (error) {
       console.error('Error archiving announcement:', error);
       toast({
@@ -205,11 +229,37 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
       // Refresh both lists to keep them in sync
       await loadAnnouncements();
       await loadArchivedAnnouncements();
+      setIsDetailOpen(false);
+      setDetailAnnouncement(null);
+      setDetailReturnMeta(null);
     } catch (error) {
       console.error('Error restoring announcement:', error);
       toast({
         title: "Error",
         description: "Failed to restore announcement",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async (announcementId: string) => {
+    try {
+      await AnnouncementService.deleteAnnouncement(announcementId);
+      toast({
+        title: "Deleted",
+        description: "Announcement deleted permanently"
+      });
+      // Refresh archived list
+      await loadArchivedAnnouncements();
+      setIsDetailOpen(false);
+      setDetailAnnouncement(null);
+      setDetailReturnMeta(null);
+    } catch (error) {
+      console.error('Error deleting announcement:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete announcement",
         variant: "destructive"
       });
     }
@@ -240,6 +290,9 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
         <Button
           onClick={() => {
             setSelectedAnnouncement(null);
+            setDetailAnnouncement(null);
+            setIsDetailOpen(false);
+            setDetailReturnMeta(null);
             setIsFormOpen(true);
           }}
           className="bg-blue-600 hover:bg-blue-700"
@@ -306,12 +359,9 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
               <AnnouncementList
                 announcements={announcements}
                 isLoading={isLoading}
-                onEdit={(announcement) => {
-                  setSelectedAnnouncement(announcement);
-                  setIsFormOpen(true);
-                }}
-                onDelete={handleDelete}
+                onEdit={handleEditAnnouncement}
                 onArchive={handleArchive}
+                onView={handleViewAnnouncement}
                 onCreate={() => setIsFormOpen(true)}
                 showScope={false}
                 showHeader={false}
@@ -327,12 +377,10 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
               <AnnouncementList
                 announcements={archivedAnnouncements}
                 isLoading={isLoadingArchived}
-                onEdit={(announcement) => {
-                  setSelectedAnnouncement(announcement);
-                  setIsFormOpen(true);
-                }}
-                onDelete={handleDelete}
+                onEdit={handleEditAnnouncement}
                 onArchive={handleUnarchive}
+                onDelete={handleDelete}
+                onView={handleViewAnnouncement}
                 onCreate={() => setIsFormOpen(true)}
                 showScope={false}
                 showHeader={false}
@@ -358,12 +406,35 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
             onCancel={() => {
               setIsFormOpen(false);
               setSelectedAnnouncement(null);
+              if (detailReturnMeta) {
+                const combined = [...announcements, ...archivedAnnouncements];
+                const original = combined.find((item) => item.id === detailReturnMeta.id);
+                if (original) {
+                  setDetailAnnouncement(original);
+                  setIsDetailOpen(true);
+                }
+                setDetailReturnMeta(null);
+              }
             }}
             isLoading={isSubmitting}
             forceParishScope={true}
           />
         </DialogContent>
       </Dialog>
+
+      <AnnouncementDetailDialog
+        announcement={detailAnnouncement}
+        isOpen={isDetailOpen && !!detailAnnouncement}
+        onClose={() => {
+          setIsDetailOpen(false);
+          setDetailAnnouncement(null);
+          setDetailReturnMeta(null);
+        }}
+        onEdit={handleEditAnnouncement}
+        onArchive={(announcement) => handleArchive(announcement.id)}
+        onUnarchive={(announcement) => handleUnarchive(announcement.id)}
+        onDelete={(announcement) => handleDelete(announcement.id)}
+      />
     </div>
   );
 };

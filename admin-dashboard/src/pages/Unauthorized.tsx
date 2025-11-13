@@ -44,7 +44,7 @@ const Unauthorized = () => {
               variant="destructive"
               className="w-full"
             >
-              Sign Out
+              Logout
             </Button>
           </div>
         </CardContent>

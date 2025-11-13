@@ -99,7 +99,7 @@ const DioceseRouter = () => {
     );
   }
 
-  // Museum researchers get their heritage-focused dashboard
+  // Heritage reviewers get their heritage-focused dashboard
   if (userProfile.role === 'museum_researcher') {
     return (
       <Suspense fallback={<PageLoadingFallback />}>

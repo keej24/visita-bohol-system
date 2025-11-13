@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Church, Loader2 } from 'lucide-react';
+import { Church, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -23,11 +24,36 @@ const Login = () => {
     setLoading(true);
     setError('');
 
+    // Validate empty fields
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter username and password.');
+      setLoading(false);
+      return;
+    }
+
     try {
       await login(email, password);
       navigate('/');
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'Failed to login');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to login';
+
+      // Translate Firebase errors to user-friendly messages
+      if (errorMessage.includes('auth/invalid-credential') ||
+          errorMessage.includes('auth/wrong-password') ||
+          errorMessage.includes('auth/user-not-found') ||
+          errorMessage.includes('auth/invalid-login-credentials')) {
+        setError('Invalid username or password.');
+      } else if (errorMessage.includes('auth/invalid-email')) {
+        setError('Please enter a valid email address.');
+      } else if (errorMessage.includes('auth/too-many-requests')) {
+        setError('Too many failed attempts. Please try again later.');
+      } else if (errorMessage.includes('auth/user-disabled')) {
+        setError('This account has been disabled. Contact the Chancery Office.');
+      } else if (errorMessage.includes('auth/network-request-failed')) {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError('Failed to login. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -64,7 +90,6 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
-                required
                 disabled={loading}
                 name="login_email"
                 autoComplete="off"
@@ -81,7 +106,6 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                required
                 disabled={loading}
                 name="login_password"
                 autoComplete="new-password"
@@ -98,10 +122,10 @@ const Login = () => {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  Logging in...
                 </>
               ) : (
-                'Sign In'
+                'Login'
               )}
             </Button>
           </form>

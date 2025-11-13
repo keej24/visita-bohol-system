@@ -167,6 +167,26 @@
     content: '';
   }
 
+  /* Active icon gets primary color (sky blue for parish) */
+  .sidebar-parish .sidebar-nav-item.active > svg {
+    color: hsl(var(--sidebar-primary));
+  }
+
+  /* Active icon gets primary color (teal for museum) */
+  .sidebar-museum .sidebar-nav-item.active > svg {
+    color: hsl(var(--sidebar-primary));
+  }
+
+  /* Inactive icons for museum get warm gold tone */
+  .sidebar-museum .sidebar-nav-item:not(.active) > svg {
+    color: hsl(45 90% 65%); /* Warm gold #f4c542 for inactive icons */
+  }
+
+  /* Hover state icons for museum get brighter gold */
+  .sidebar-museum .sidebar-nav-item:hover:not(.active) > svg {
+    color: hsl(45 95% 75%); /* Brighter gold #f7d770 on hover */
+  }
+
   /* Enhanced Sidebar Functionality */
   .sidebar-nav-item:focus-visible {
     @apply ring-2 ring-sidebar-ring ring-offset-2 outline-none;
@@ -308,25 +328,25 @@
 
   /* Role-specific Sidebar Colors */
   .sidebar-parish {
-    --sidebar-background: 142 76% 36%;  /* Darker Forest Green #16A34A - growth, community */
-    --sidebar-foreground: 33 100% 98%;  /* Warm cream text #FFFEF7 for warmth */
-    --sidebar-primary: 33 100% 90%;     /* Light cream #FEF3C7 for primary elements */
-    --sidebar-primary-foreground: 142 100% 15%; /* Deep green text on primary */
-    --sidebar-accent: 142 71% 45%;      /* Medium green #22C55E for hover states */
-    --sidebar-accent-foreground: 33 100% 98%;   /* Cream text on accent */
-    --sidebar-border: 142 85% 25%;      /* Very dark green #15803D for borders */
-    --sidebar-ring: 33 100% 90%;        /* Cream focus ring for accessibility */
+    --sidebar-background: 238 56% 13%;  /* Deep Indigo-900 #1e1b4b - trust, community leadership */
+    --sidebar-foreground: 238 20% 95%;  /* Indigo-50 #eef2ff for text */
+    --sidebar-primary: 199 89% 48%;     /* Sky-500 #0ea5e9 for primary elements */
+    --sidebar-primary-foreground: 0 0% 100%;  /* White text on primary */
+    --sidebar-accent: 238 50% 20%;      /* Indigo-800 #3730a3 for hover states */
+    --sidebar-accent-foreground: 238 20% 95%;  /* Light text on accent */
+    --sidebar-border: 238 45% 25%;      /* Indigo-700 #4338ca for borders */
+    --sidebar-ring: 199 89% 48%;        /* Sky-500 focus ring */
   }
 
   .sidebar-museum {
-    --sidebar-background: 43 74% 36%;   /* Dark goldenrod #B8860B */
-    --sidebar-foreground: 43 100% 95%;  /* Light cream text for contrast */
-    --sidebar-primary: 43 100% 70%;     /* Lighter gold for primary elements */
-    --sidebar-primary-foreground: 43 100% 15%;  /* Dark text on primary */
-    --sidebar-accent: 43 60% 50%;       /* Medium gold for hover states */
-    --sidebar-accent-foreground: 43 100% 95%;   /* Light text on accent */
-    --sidebar-border: 43 80% 25%;       /* Darker gold for borders */
-    --sidebar-ring: 43 100% 70%;        /* Focus ring color */
+    --sidebar-background: 42 78% 18%;   /* Classic Museum Gold #523d0a - antique gold, balanced */
+    --sidebar-foreground: 48 100% 96%;  /* Light gold-cream #fffef5 - warm text */
+    --sidebar-primary: 43 96% 56%;      /* Bright Gold #eab308 - golden accent instead of teal */
+    --sidebar-primary-foreground: 42 78% 18%;  /* Dark gold text on primary */
+    --sidebar-accent: 42 70% 28%;       /* Lighter gold #7a5910 - hover state */
+    --sidebar-accent-foreground: 48 100% 96%;   /* Light text on accent */
+    --sidebar-border: 42 65% 35%;       /* Border gold #9a7016 for dividers */
+    --sidebar-ring: 43 96% 56%;         /* Bright gold focus ring */
   }
 
   .sidebar-chancery {

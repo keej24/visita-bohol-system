@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   FileText,
   BarChart3,
@@ -59,9 +69,49 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
     startDate: format(subMonths(new Date(), 3), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd')
   });
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [isGenerating, setIsGenerating] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+
+  // Export confirmation dialog state
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [pendingExport, setPendingExport] = useState<{
+    reportType: 'summary' | 'engagement';
+    format: 'pdf' | 'excel';
+  } | null>(null);
+
+  // Date range validation
+  const isValidDateRange = useMemo(() => {
+    const start = dateRange.startDate;
+    const end = dateRange.endDate;
+    if (!start || !end) return true; // Allow empty dates
+    return start <= end;
+  }, [dateRange.startDate, dateRange.endDate]);
+
+  const dateRangeError = useMemo(() => {
+    const start = dateRange.startDate;
+    const end = dateRange.endDate;
+    if (!start || !end) return null;
+    if (start > end) {
+      return "Invalid date range: Start date must be before or equal to end date.";
+    }
+    return null;
+  }, [dateRange.startDate, dateRange.endDate]);
+
+  // Check if there's any data to export
+  const hasExportableData = useMemo(() => {
+    if (!analyticsData) return false;
+    const hasVisitors = analyticsData.visitorLogs && analyticsData.visitorLogs.length > 0;
+    const hasFeedback = analyticsData.feedback && analyticsData.feedback.length > 0;
+    return hasVisitors || hasFeedback;
+  }, [analyticsData]);
+
+  const noDataMessage = useMemo(() => {
+    if (!analyticsData) return null;
+    if (hasExportableData) return null;
+    return "No data to export with current filters.";
+  }, [analyticsData, hasExportableData]);
 
   // Load real analytics data from Firebase
   const loadAnalyticsData = useCallback(async () => {
@@ -69,11 +119,27 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
       console.warn('No church ID provided for analytics');
       return;
     }
+
+    // Validate date range before loading data
+    if (!isValidDateRange) {
+      console.log('❌ ParishReports: Invalid date range detected, skipping data load');
+      toast({
+        title: "Invalid Date Range",
+        description: dateRangeError || "Please select a valid date range.",
+        variant: "destructive",
+      });
+      setIsLoadingAnalytics(false);
+      return;
+    }
     
     setIsLoadingAnalytics(true);
     try {
       const startDate = new Date(dateRange.startDate);
+      startDate.setHours(0, 0, 0, 0); // Start of day
+      
       const endDate = new Date(dateRange.endDate);
+      endDate.setHours(23, 59, 59, 999); // End of day
+      
       const data = await AnalyticsService.getChurchAnalytics(churchInfo.id, startDate, endDate);
       setAnalyticsData(data);
     } catch (error) {
@@ -86,7 +152,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
     } finally {
       setIsLoadingAnalytics(false);
     }
-  }, [churchInfo.id, dateRange.startDate, dateRange.endDate, toast]);
+  }, [churchInfo.id, dateRange.startDate, dateRange.endDate, toast, isValidDateRange, dateRangeError]);
 
   // Load analytics data on component mount and date range change
   useEffect(() => {
@@ -137,8 +203,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
           totalFeedback: 0,
           averageRating: 0,
           ratingTrend: 0,
-          responseRate: 0,
-          categoryBreakdown: {}
+          responseRate: 0
         },
         visualizations: {
           visitorHeatMap: [],
@@ -199,8 +264,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
         totalFeedback: feedbackStats.totalFeedback,
         averageRating: feedbackStats.averageRating,
         ratingTrend: 0, // Would need historical data to calculate trend
-        responseRate: 100, // All feedback in our system is "responded" by being published
-        categoryBreakdown: feedbackStats.categoryBreakdown
+        responseRate: 100 // All feedback in our system is "responded" by being published
       },
       visualizations: {
         visitorHeatMap,
@@ -216,37 +280,91 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
   };
 
   const handleGenerateReport = async (reportType: 'summary' | 'engagement') => {
+    // Validate date range before generating report
+    if (reportType === 'engagement' && !isValidDateRange) {
+      toast({
+        title: "Invalid Date Range",
+        description: dateRangeError || "Please select a valid date range.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if there's any data to export for engagement reports
+    if (reportType === 'engagement' && !hasExportableData && analyticsData) {
+      toast({
+        title: "No Data to Export",
+        description: "No data to export with current filters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Show confirmation dialog
+    setPendingExport({
+      reportType,
+      format: reportType === 'engagement' ? exportFormat : 'pdf'
+    });
+    setShowExportDialog(true);
+  };
+
+  // Confirm and perform export
+  const confirmExport = async () => {
+    if (!pendingExport) return;
+
     setIsGenerating(true);
+    setShowExportDialog(false);
 
     try {
-      if (reportType === 'engagement') {
+      if (pendingExport.reportType === 'engagement') {
         // Reload analytics data with current date range
         await loadAnalyticsData();
-      }
-
-      if (reportType === 'summary') {
-        generateChurchSummaryReport();
+        
+        // Check if there's any data to export
+        if (!hasExportableData) {
+          toast({
+            title: "No Data to Export",
+            description: "No data to export with current filters.",
+            variant: "destructive",
+          });
+          setIsGenerating(false);
+          setPendingExport(null);
+          return;
+        }
+        
+        // Download the report in the selected format
+        await handleDownloadReport('engagement', pendingExport.format);
+        
         toast({
-          title: "Report Generated",
-          description: "Church Summary Report has been generated successfully!"
+          title: "Report Exported",
+          description: `Engagement & Feedback Analytics Report downloaded as ${pendingExport.format.toUpperCase()}!`
         });
       } else {
-        generateEngagementReport();
+        // Generate and download summary report
+        await handleDownloadReport('summary', 'pdf');
+        
         toast({
-          title: "Report Generated",
-          description: "Engagement & Feedback Analytics Report has been generated successfully!"
+          title: "Report Exported",
+          description: "Church Summary Report has been downloaded as PDF!"
         });
       }
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error('Error exporting report:', error);
       toast({
         title: "Error",
-        description: "Failed to generate report",
+        description: "Failed to export report",
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
+      setPendingExport(null);
     }
+  };
+
+  // Cancel export
+  const cancelExport = () => {
+    setShowExportDialog(false);
+    setPendingExport(null);
   };
 
   const handleDownloadReport = async (reportType: 'summary' | 'engagement', format: 'pdf' | 'excel' = 'pdf') => {
@@ -293,7 +411,17 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
         if (!analyticsData) {
           toast({
             title: "No Data",
-            description: "Please generate the report first to download analytics data.",
+            description: "Please load the analytics data first.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Check if there's any data to export
+        if (!hasExportableData) {
+          toast({
+            title: "No Data to Export",
+            description: "No data to export with current filters.",
             variant: "destructive"
           });
           return;
@@ -477,7 +605,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                   ) : (
                     <FileText className="w-4 h-4 mr-2" />
                   )}
-                  {isGenerating ? 'Generating...' : 'Generate Report'}
+                  {isGenerating ? 'Exporting...' : 'Export Report'}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -621,59 +749,84 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Date Range Filter */}
-              <div className="flex items-center gap-4 p-4 border rounded-lg bg-gray-50">
-                <Filter className="w-5 h-5 text-gray-600" />
-                <div className="flex items-center gap-4">
-                  <div>
-                    <Label className="text-sm">Start Date</Label>
-                    <Input
-                      type="date"
-                      value={dateRange.startDate}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="mt-1"
-                    />
+              {/* Report Filters */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <Filter className="w-5 h-5" />
+                    Report Filters
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Date</Label>
+                      <Input
+                        type="date"
+                        value={dateRange.startDate}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>End Date</Label>
+                      <Input
+                        type="date"
+                        value={dateRange.endDate}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Export Format</Label>
+                      <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as 'pdf' | 'excel')}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pdf">PDF Document</SelectItem>
+                          <SelectItem value="excel">Excel Spreadsheet</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>&nbsp;</Label>
+                      <Button
+                        onClick={() => handleGenerateReport('engagement')}
+                        disabled={isGenerating || isLoadingAnalytics || !isValidDateRange || (analyticsData !== null && !hasExportableData)}
+                        className="w-full h-10 bg-green-600 hover:bg-green-700"
+                      >
+                        {(isGenerating || isLoadingAnalytics) ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="w-4 h-4 mr-2" />
+                            Export Report
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm">End Date</Label>
-                    <Input
-                      type="date"
-                      value={dateRange.endDate}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => handleGenerateReport('engagement')}
-                      disabled={isGenerating || isLoadingAnalytics}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {(isGenerating || isLoadingAnalytics) ? (
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <BarChart3 className="w-4 h-4 mr-2" />
-                      )}
-                      {(isGenerating || isLoadingAnalytics) ? 'Loading...' : 'Generate Report'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleDownloadReport('engagement', 'pdf')}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download PDF
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleDownloadReport('engagement', 'excel')}
-                      className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Excel
-                    </Button>
-                  </div>
-                </div>
-              </div>
+
+                  {/* Date Range Error Message */}
+                  {dateRangeError && (
+                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                      <span className="text-red-600 text-sm font-medium">⚠️ {dateRangeError}</span>
+                    </div>
+                  )}
+
+                  {/* No Data Message */}
+                  {!dateRangeError && noDataMessage && (
+                    <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                      <span className="text-yellow-700 text-sm font-medium">ℹ️ {noDataMessage}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Visitor Statistics */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -727,40 +880,24 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
               </div>
 
               {/* Feedback Analytics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Feedback Overview</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Total Feedback</span>
-                      <Badge variant="secondary">{engagementReport.feedbackStats.totalFeedback}</Badge>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Feedback Overview</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Total Feedback</span>
+                    <Badge variant="secondary">{engagementReport.feedbackStats.totalFeedback}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Rating Trend</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">+{engagementReport.feedbackStats.ratingTrend}</Badge>
+                      <TrendingUp className="w-4 h-4 text-green-600" />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Rating Trend</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">+{engagementReport.feedbackStats.ratingTrend}</Badge>
-                        <TrendingUp className="w-4 h-4 text-green-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Category Breakdown</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {Object.entries(engagementReport.feedbackStats.categoryBreakdown).map(([category, count]) => (
-                      <div key={category} className="flex items-center justify-between">
-                        <span className="text-sm font-medium capitalize">{category}</span>
-                        <Badge variant="outline">{count}</Badge>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Visitor Trend Chart */}
               <Card>
@@ -883,6 +1020,8 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                             outerRadius={80}
                             paddingAngle={2}
                             dataKey="count"
+                            nameKey="rating"
+                            label={({ rating, percentage }) => `${rating}: ${percentage}%`}
                           >
                             {chartData.ratingDistributionData.map((entry, index) => (
                               <Cell
@@ -899,8 +1038,8 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                           </Pie>
                           <Tooltip
                             formatter={(value, name, props) => [
-                              `${value} (${props.payload.percentage}%)`,
-                              'Reviews'
+                              `${value} reviews (${props.payload.percentage}%)`,
+                              props.payload.rating
                             ]}
                           />
                           <Legend />
@@ -910,55 +1049,6 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                   </CardContent>
                 </Card>
               </div>
-
-              {/* Feedback Trend Line Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Star className="w-5 h-5 text-yellow-600" />
-                    Feedback Trends & Ratings
-                  </CardTitle>
-                  <CardDescription>
-                    Daily feedback volume and average ratings over time
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={chartData.feedbackTrendData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                        <XAxis dataKey="date" stroke="#6B7280" fontSize={12} />
-                        <YAxis yAxisId="left" stroke="#6B7280" fontSize={12} />
-                        <YAxis yAxisId="right" orientation="right" stroke="#6B7280" fontSize={12} domain={[0, 5]} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#F9FAFB',
-                            border: '1px solid #E5E7EB',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Legend />
-                        <Bar
-                          yAxisId="left"
-                          dataKey="count"
-                          fill={chartColors.accent}
-                          fillOpacity={0.6}
-                          name="Feedback Count"
-                        />
-                        <Line
-                          yAxisId="right"
-                          type="monotone"
-                          dataKey="averageRating"
-                          stroke={chartColors.purple}
-                          strokeWidth={3}
-                          dot={{ fill: chartColors.purple, strokeWidth: 2, r: 4 }}
-                          name="Average Rating"
-                        />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
 
               {/* Report Metadata */}
               <Card className="border-gray-200 bg-gray-50">
@@ -973,6 +1063,35 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Export Confirmation Dialog */}
+      <AlertDialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Export</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to export the <strong>{pendingExport?.reportType === 'summary' ? 'Church Summary' : 'Engagement & Feedback Analytics'}</strong> report as a <strong>{pendingExport?.format === 'pdf' ? 'PDF document' : 'Excel spreadsheet'}</strong>.
+              <br /><br />
+              {pendingExport?.reportType === 'engagement' && (
+                <>
+                  <strong>Date Range:</strong> {format(new Date(dateRange.startDate), 'MMM dd, yyyy')} - {format(new Date(dateRange.endDate), 'MMM dd, yyyy')}
+                  <br /><br />
+                </>
+              )}
+              <strong>Church:</strong> {churchInfo.parishName || churchInfo.churchName}
+              <br /><br />
+              This report will be downloaded to your device. Do you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelExport}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmExport}>
+              <Download className="w-4 h-4 mr-2" />
+              Export Report
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
