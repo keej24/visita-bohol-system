@@ -57,6 +57,31 @@ class MassScheduleTab extends StatelessWidget {
     return '$hours:$minutes $period';
   }
 
+  /// Parses time string (HH:MM or time range) to minutes for sorting
+  /// Handles formats like "09:00", "13:30", "09:00 - 10:00"
+  int _parseTimeToMinutes(String time) {
+    if (time.isEmpty) return 0;
+
+    try {
+      // If it's a range, take the start time
+      String startTime = time;
+      if (time.contains(' - ')) {
+        startTime = time.split(' - ')[0].trim();
+      }
+
+      final parts = startTime.split(':');
+      if (parts.length == 2) {
+        final hours = int.tryParse(parts[0]) ?? 0;
+        final minutes = int.tryParse(parts[1]) ?? 0;
+        return hours * 60 + minutes;
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error parsing time "$time": $e');
+    }
+
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -257,7 +282,7 @@ class MassScheduleTab extends StatelessWidget {
         '🕐 [MASS SCHEDULE] Total schedules: ${church.massSchedules!.length}');
     for (var schedule in church.massSchedules!) {
       debugPrint(
-          '   - Day: ${schedule['day']}, Time: ${schedule['time']}, Language: "${schedule['language']}", isFbLive: ${schedule['isFbLive']}');
+          '   - Day: ${schedule['day']}, Time: ${schedule['time']}, Language: "${schedule['language']}", isFbLive: ${schedule['isFbLive']}, Type: ${schedule['type']}');
     }
 
     // Group schedules by day
@@ -270,6 +295,15 @@ class MassScheduleTab extends StatelessWidget {
       }
       groupedSchedules[day]!.add(schedule);
     }
+
+    // Sort schedules within each day by time
+    groupedSchedules.forEach((day, schedules) {
+      schedules.sort((a, b) {
+        final timeA = _parseTimeToMinutes(a['time'] ?? '');
+        final timeB = _parseTimeToMinutes(b['time'] ?? '');
+        return timeA.compareTo(timeB);
+      });
+    });
 
     // Define day order for proper sorting
     final dayOrder = [
@@ -352,13 +386,20 @@ class MassScheduleTab extends StatelessWidget {
               // Mass Times
               ...schedules.map((schedule) {
                 final time24 = schedule['time'] ?? '';
-                final language = schedule['language'] ?? '';
+                final language = (schedule['language'] ?? '').trim();
                 final isFbLive = schedule['isFbLive'] == 'true' ||
                     schedule['isFbLive'] == true ||
                     (schedule['type']?.contains('FB Live') ?? false);
 
                 // Convert to 12-hour format
                 final time12 = _formatTo12Hour(time24);
+
+                // Check if this is an English mass (case-insensitive)
+                final isEnglishMass = language.toLowerCase() == 'english';
+
+                // Debug: Log badge conditions
+                debugPrint(
+                    '   🏷️ Badge check for $time12: language="$language", isEnglish=$isEnglishMass, isFbLive=$isFbLive');
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -383,7 +424,7 @@ class MassScheduleTab extends StatelessWidget {
                                 color: Color(0xFF1F2937),
                               ),
                             ),
-                            if (language.toLowerCase() == 'english' || isFbLive)
+                            if (isEnglishMass || isFbLive)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Wrap(
@@ -391,7 +432,7 @@ class MassScheduleTab extends StatelessWidget {
                                   runSpacing: 4,
                                   children: [
                                     // Show language badge only for English masses
-                                    if (language.toLowerCase() == 'english')
+                                    if (isEnglishMass)
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 8,

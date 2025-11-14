@@ -239,13 +239,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onPressed: () => _showLogoutDialog(),
           tooltip: 'Logout',
         ),
-        const SizedBox(width: 8),
       ],
     );
   }
 
   Widget _buildProfilePicture(UserProfile profile) {
-    final hasImage = profile.profileImageUrl != null && profile.profileImageUrl!.isNotEmpty;
+    final hasImage =
+        profile.profileImageUrl != null && profile.profileImageUrl!.isNotEmpty;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -311,7 +311,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               height: 70,
                               fit: BoxFit.cover,
                               placeholder: (context, url) => const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               ),
                               errorWidget: (context, url, error) => Icon(
                                 Icons.person_rounded,
@@ -340,7 +341,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       child: Icon(
-                        hasImage ? Icons.delete_outline : Icons.camera_alt_rounded,
+                        hasImage
+                            ? Icons.delete_outline
+                            : Icons.camera_alt_rounded,
                         size: 12,
                         color: Colors.white,
                       ),
@@ -507,6 +510,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
     bool showPasswordFields = false;
 
     showDialog(
@@ -515,83 +519,141 @@ class _ProfileScreenState extends State<ProfileScreen> {
         builder: (context, setState) => AlertDialog(
           title: const Text('Edit Profile'),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(),
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: nameController,
+                    textInputAction: TextInputAction.next,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLength: 50,
+                    validator: (value) {
+                      final v = value?.trim() ?? '';
+                      if (v.isEmpty) return 'Please enter your name';
+                      if (v.length < 2)
+                        return 'Name must be at least 2 characters';
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) {
+                      final v = value?.trim() ?? '';
+                      if (v.isEmpty) return 'Please enter your email';
+                      final emailRegex =
+                          RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4} ?$');
+                      // Fallback if regex above mishandles due to escape: use a simpler check
+                      final simpleEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                      if (!(emailRegex.hasMatch(v) ||
+                          simpleEmail.hasMatch(v))) {
+                        return 'Please enter a valid email address';
+                      }
+                      return null;
+                    },
                   ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 20),
-                InkWell(
-                  onTap: () =>
-                      setState(() => showPasswordFields = !showPasswordFields),
-                  child: Row(
-                    children: [
-                      Icon(
-                        showPasswordFields
-                            ? Icons.lock_open
-                            : Icons.lock_outline,
-                        size: 20,
-                        color: const Color(0xFF2563EB),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        showPasswordFields
-                            ? 'Hide Password Change'
-                            : 'Change Password',
-                        style: const TextStyle(
-                          color: Color(0xFF2563EB),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (showPasswordFields) ...[
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: currentPasswordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Current Password',
-                      border: OutlineInputBorder(),
+                  InkWell(
+                    onTap: () => setState(
+                        () => showPasswordFields = !showPasswordFields),
+                    child: Row(
+                      children: [
+                        Icon(
+                          showPasswordFields
+                              ? Icons.lock_open
+                              : Icons.lock_outline,
+                          size: 20,
+                          color: const Color(0xFF2563EB),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          showPasswordFields
+                              ? 'Hide Password Change'
+                              : 'Change Password',
+                          style: const TextStyle(
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    obscureText: true,
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: newPasswordController,
-                    decoration: const InputDecoration(
-                      labelText: 'New Password',
-                      border: OutlineInputBorder(),
-                      helperText: 'At least 6 characters',
+                  if (showPasswordFields) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: currentPasswordController,
+                      decoration: const InputDecoration(
+                        labelText: 'Current Password',
+                        border: OutlineInputBorder(),
+                      ),
+                      obscureText: true,
+                      validator: (value) {
+                        // Only require when changing password
+                        if (!showPasswordFields) return null;
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your current password';
+                        }
+                        return null;
+                      },
                     ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: confirmPasswordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm New Password',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: newPasswordController,
+                      decoration: const InputDecoration(
+                        labelText: 'New Password',
+                        border: OutlineInputBorder(),
+                        helperText:
+                            'At least 8 chars with uppercase, lowercase, and number',
+                      ),
+                      obscureText: true,
+                      validator: (value) {
+                        if (!showPasswordFields) return null;
+                        final v = value ?? '';
+                        if (v.isEmpty) return 'Please enter a new password';
+                        if (v.length < 8)
+                          return 'Password must be at least 8 characters';
+                        if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)')
+                            .hasMatch(v)) {
+                          return 'Must include uppercase, lowercase, and number';
+                        }
+                        return null;
+                      },
                     ),
-                    obscureText: true,
-                  ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: confirmPasswordController,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirm New Password',
+                        border: OutlineInputBorder(),
+                      ),
+                      obscureText: true,
+                      validator: (value) {
+                        if (!showPasswordFields) return null;
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your new password';
+                        }
+                        if (value != newPasswordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           actions: [
@@ -601,51 +663,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                // Validate password change if fields are shown
-                if (showPasswordFields) {
-                  if (currentPasswordController.text.isEmpty ||
-                      newPasswordController.text.isEmpty ||
-                      confirmPasswordController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please fill in all password fields'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-
-                  if (newPasswordController.text !=
-                      confirmPasswordController.text) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('New passwords do not match'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-
-                  if (newPasswordController.text.length < 6) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Password must be at least 6 characters'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
+                // Run validators first
+                if (!(formKey.currentState?.validate() ?? false)) {
+                  return;
                 }
 
                 final service = context.read<ProfileService>();
                 final authService = context.read<AuthService>();
                 final navigator = Navigator.of(context);
 
+                // If nothing changed and not changing password, avoid unnecessary update
+                final newName = nameController.text.trim();
+                final newEmail = emailController.text.trim();
+                final nameChanged = newName != (profile.displayName);
+                final emailChanged = newEmail != (profile.email);
+
                 // Update profile
-                await service.updateProfile(
-                  displayName: nameController.text.trim(),
-                  email: emailController.text.trim(),
-                );
+                if (nameChanged || emailChanged) {
+                  await service.updateProfile(
+                    displayName: newName,
+                    email: newEmail,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile updated successfully'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                }
 
                 // Update password if requested
                 if (showPasswordFields) {

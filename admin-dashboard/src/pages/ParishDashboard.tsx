@@ -152,8 +152,8 @@ const ParishDashboard = () => {
         day: schedule.day || '',
         time: schedule.time?.split(' - ')[0] || '',
         endTime: schedule.time?.split(' - ')[1] || '',
-        language: schedule.type?.replace(' (FB Live)', '') || 'Filipino',
-        isFbLive: schedule.type?.includes('(FB Live)') || false
+        language: schedule.language || 'Filipino',
+        isFbLive: schedule.isFbLive || false
       })),
       contactInfo: {
         phone: church.contactInfo?.phone || '',

@@ -191,7 +191,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
           Expanded(
             child: Consumer<AppState>(
               builder: (context, state, _) {
-                final isInVisitList = !state.isForVisit(_currentChurch);
+                final isInVisitList = state.isForVisit(_currentChurch);
                 return OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
@@ -219,13 +219,39 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                   onPressed: () async {
                     final profileService = context.read<ProfileService>();
 
-                    if (isInVisitList) {
-                      // Already in list - remove it
-                      // Sync with Firebase FIRST before updating local state
-                      await profileService
-                          .toggleForVisitChurch(_currentChurch.id);
+                    // Toggle in ProfileService (this handles Firebase sync)
+                    await profileService.toggleForVisitChurch(_currentChurch.id);
+                    
+                    // Update local AppState to match ProfileService
+                    final updatedList = profileService.userProfile?.forVisitChurches ?? [];
+                    if (updatedList.contains(_currentChurch.id)) {
+                      // Church was added to list
+                      state.markForVisit(_currentChurch);
+                      
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(Icons.bookmark_added, color: Colors.white),
+                                SizedBox(width: 12),
+                                Expanded(
+                                    child: Text('Added to For Visit list')),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF2C5F2D),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            margin: const EdgeInsets.all(16),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } else {
+                      // Church was removed from list
                       state.unmarkForVisit(_currentChurch);
-
+                      
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -239,33 +265,6 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                               ],
                             ),
                             backgroundColor: const Color(0xFF6B7280),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            margin: const EdgeInsets.all(16),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    } else {
-                      // Not in list - add it
-                      // Sync with Firebase FIRST before updating local state
-                      await profileService
-                          .toggleForVisitChurch(_currentChurch.id);
-                      state.markForVisit(_currentChurch);
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.bookmark_added, color: Colors.white),
-                                SizedBox(width: 12),
-                                Expanded(
-                                    child: Text('Added to For Visit list')),
-                              ],
-                            ),
-                            backgroundColor: const Color(0xFF2C5F2D),
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
@@ -737,7 +736,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                 Tab(text: 'History'),
                 Tab(text: 'Mass'),
                 Tab(text: 'Announcements'),
-                Tab(text: 'Reviews'),
+                Tab(text: 'Feedback'),
               ],
             ),
           ),

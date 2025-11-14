@@ -71,10 +71,57 @@ class _ReviewsTabState extends State<ReviewsTab> {
         maxWidth: 1600,
       );
       if (images.isNotEmpty) {
-        setState(() {
-          _selectedPhotos.addAll(images.map((x) => File(x.path)));
-        });
-        debugPrint('📸 [REVIEWS TAB] Selected ${images.length} photos');
+        // Validate file sizes (10MB limit)
+        const maxSizeInBytes = 10 * 1024 * 1024; // 10MB
+        final List<File> validImages = [];
+        final List<String> oversizedImages = [];
+
+        for (var image in images) {
+          final file = File(image.path);
+          final fileSize = await file.length();
+          
+          if (fileSize > maxSizeInBytes) {
+            oversizedImages.add(image.name);
+            debugPrint('❌ [REVIEWS TAB] Image too large: ${image.name} (${(fileSize / (1024 * 1024)).toStringAsFixed(2)}MB)');
+          } else {
+            validImages.add(file);
+            debugPrint('✅ [REVIEWS TAB] Valid image: ${image.name} (${(fileSize / (1024 * 1024)).toStringAsFixed(2)}MB)');
+          }
+        }
+
+        // Show error if any images are too large
+        if (oversizedImages.isNotEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      oversizedImages.length == 1
+                          ? 'Image too large. Please upload a smaller file.'
+                          : '${oversizedImages.length} images too large. Please upload smaller files.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.all(16),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+
+        // Add only valid images
+        if (validImages.isNotEmpty) {
+          setState(() {
+            _selectedPhotos.addAll(validImages);
+          });
+          debugPrint('📸 [REVIEWS TAB] Added ${validImages.length} valid photos');
+        }
       }
     } catch (e) {
       debugPrint('❌ Error picking images: $e');
@@ -196,6 +243,94 @@ class _ReviewsTabState extends State<ReviewsTab> {
       return;
     }
 
+    // Show confirmation dialog
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 28),
+              SizedBox(width: 12),
+              Text('Confirm Submission'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Please review your feedback before submitting:',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              _buildConfirmationItem(
+                icon: Icons.star,
+                label: 'Rating',
+                value: '$_starRating ${_starRating == 1 ? 'star' : 'stars'}',
+                color: const Color(0xFFF59E0B),
+              ),
+              const SizedBox(height: 12),
+              _buildConfirmationItem(
+                icon: Icons.message,
+                label: 'Review',
+                value: _reviewController.text.trim().length > 50
+                    ? '${_reviewController.text.trim().substring(0, 50)}...'
+                    : _reviewController.text.trim(),
+                color: const Color(0xFF3B82F6),
+              ),
+              if (_selectedPhotos.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildConfirmationItem(
+                  icon: Icons.photo_library,
+                  label: 'Photos',
+                  value: '${_selectedPhotos.length} ${_selectedPhotos.length == 1 ? 'photo' : 'photos'} attached',
+                  color: const Color(0xFF8B5CF6),
+                ),
+              ],
+              const SizedBox(height: 12),
+              _buildConfirmationItem(
+                icon: Icons.church,
+                label: 'Church',
+                value: widget.church.name,
+                color: const Color(0xFF10B981),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[600],
+              ),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('Confirm Feedback'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // If user canceled, return early
+    if (confirmed != true) {
+      debugPrint('ℹ️ [REVIEWS TAB] User canceled feedback submission');
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -299,7 +434,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
             children: [
               const Icon(Icons.error_outline, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(child: Text('Failed to submit review: ${e.toString()}')),
+              Expanded(child: Text('Failed to submit feedback: ${e.toString()}')),
             ],
           ),
           backgroundColor: const Color(0xFFEF4444),
@@ -311,6 +446,45 @@ class _ReviewsTabState extends State<ReviewsTab> {
         ),
       );
     }
+  }
+
+  Widget _buildConfirmationItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _showDeleteConfirmation(FeedbackModel review) async {
@@ -326,7 +500,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
                 color: Color(0xFFF59E0B), size: 28),
             SizedBox(width: 12),
             Text(
-              'Delete Review?',
+              'Delete Feedback?',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -335,7 +509,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
           ],
         ),
         content: const Text(
-          'Are you sure you want to delete this review? This action cannot be undone.',
+          'Are you sure you want to delete this feedback? This action cannot be undone.',
           style: TextStyle(
             fontSize: 14,
             color: Color(0xFF6B7280),
@@ -614,7 +788,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
                               ),
                             )
                           : const Text(
-                              'Submit Review',
+                              'Submit Feedback',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -629,12 +803,12 @@ class _ReviewsTabState extends State<ReviewsTab> {
 
             const SizedBox(height: 16),
 
-            // Recent Reviews Section
+            // Recent Feedback Section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Recent Reviews',
+                  'Recent Feedback',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -652,7 +826,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '${_reviews.length} ${_reviews.length == 1 ? 'review' : 'reviews'}',
+                      '${_reviews.length} ${_reviews.length == 1 ? 'feedback' : 'feedback'}',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -693,7 +867,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
                       ),
                       SizedBox(height: 16),
                       Text(
-                        'No reviews yet',
+                        'No feedback yet',
                         style: TextStyle(
                           color: Color(0xFF6B7280),
                           fontSize: 18,

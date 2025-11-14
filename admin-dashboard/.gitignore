@@ -32,3 +32,5 @@ dist-ssr
 # Firebase credentials - NEVER commit these
 firebase-service-account.json
 serviceAccountKey.json
+
+.vercel

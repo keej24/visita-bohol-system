@@ -30,6 +30,15 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
     _loadAnnouncements();
   }
 
+  void _showAnnouncementDetail(Announcement announcement) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildAnnouncementDetailSheet(announcement),
+    );
+  }
+
   void _loadAnnouncements() {
     _announcementsFuture = _repository.getAnnouncementsByParish(widget.church.id);
   }
@@ -104,6 +113,217 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
     } catch (e) {
       return DateTime.now();
     }
+  }
+
+  Widget _buildAnnouncementDetailSheet(Announcement announcement) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Announcement Details',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1F2937),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              // Content
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    // Status badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: announcement.isUpcoming
+                            ? const Color(0xFF2C5F2D).withValues(alpha: 0.1)
+                            : announcement.isOngoing
+                                ? Colors.orange.withValues(alpha: 0.1)
+                                : Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        announcement.status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: announcement.isUpcoming
+                              ? const Color(0xFF2C5F2D)
+                              : announcement.isOngoing
+                                  ? Colors.orange
+                                  : Colors.grey,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Title
+                    Text(
+                      announcement.title,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Description
+                    Text(
+                      announcement.description,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF4B5563),
+                        height: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Event details
+                    if (announcement.dateTime != null) ...[
+                      _buildDetailRow(
+                        icon: Icons.event,
+                        label: 'Date & Time',
+                        value: _formatDateTimeRange(announcement),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (announcement.venue?.isNotEmpty ?? false) ...[
+                      _buildDetailRow(
+                        icon: Icons.location_on,
+                        label: 'Venue',
+                        value: announcement.venue!,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (announcement.category.isNotEmpty) ...[
+                      _buildDetailRow(
+                        icon: Icons.category,
+                        label: 'Category',
+                        value: announcement.category,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    // Image if available
+                    if (announcement.imageUrl?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          announcement.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 200,
+                              color: const Color(0xFFF3F4F6),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  size: 48,
+                                  color: Color(0xFF9CA3AF),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2C5F2D).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 20,
+            color: const Color(0xFF2C5F2D),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF9CA3AF),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF1F2937),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -253,17 +473,19 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                     const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final announcement = filteredAnnouncements[index];
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFE5E7EB),
-                        width: 1.5,
+                  return GestureDetector(
+                    onTap: () => _showAnnouncementDetail(announcement),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 1.5,
+                        ),
                       ),
-                    ),
-                    child: Column(
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Status badge
@@ -401,6 +623,7 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                           ),
                         ],
                       ],
+                    ),
                     ),
                   );
                 },

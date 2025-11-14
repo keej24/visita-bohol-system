@@ -213,3 +213,4 @@ android/local.properties
 # 🎨 IDE History
 .history/
 *.iml
+.vercel

@@ -265,7 +265,33 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       isFbLive: scheduleForm.isFbLive
     }));
 
-    setPendingSchedules(prev => [...prev, ...newSchedules]);
+    // Check for duplicates in existing schedules
+    const allExistingSchedules = [...formData.massSchedules, ...pendingSchedules];
+    const duplicates: string[] = [];
+    
+    newSchedules.forEach(newSchedule => {
+      const isDuplicate = allExistingSchedules.some(existing => 
+        existing.day === newSchedule.day &&
+        existing.time === newSchedule.time &&
+        existing.endTime === newSchedule.endTime
+      );
+      
+      if (isDuplicate) {
+        duplicates.push(newSchedule.day);
+      }
+    });
+
+    if (duplicates.length > 0) {
+      toast({
+        title: "Duplicate Schedule Detected",
+        description: `A mass schedule with the same time already exists for: ${duplicates.join(', ')}. Please use a different time or remove the existing schedule first.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Add and sort by time
+    setPendingSchedules(prev => sortSchedulesByDayAndTime([...prev, ...newSchedules]));
 
     // Reset time fields and selected days, keep English and FB Live checkboxes
     setScheduleForm(prev => ({ ...prev, time: '', endTime: '', selectedDays: [] }));
@@ -287,9 +313,12 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       return;
     }
 
+    // Combine and sort all schedules by day and time
+    const combinedSchedules = sortSchedulesByDayAndTime([...formData.massSchedules, ...pendingSchedules]);
+
     setFormData(prev => ({
       ...prev,
-      massSchedules: [...prev.massSchedules, ...pendingSchedules]
+      massSchedules: combinedSchedules
     }));
 
     setPendingSchedules([]);
@@ -297,7 +326,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
     toast({
       title: "Success",
-      description: `${pendingSchedules.length} mass schedule(s) saved!`,
+      description: `${pendingSchedules.length} mass schedule(s) saved and sorted by time!`,
     });
   };
 
@@ -374,6 +403,32 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   // Sort schedules by time
   const sortByTime = (schedules: typeof formData.massSchedules) => {
     return schedules.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  };
+
+  // Helper function to sort schedules by day and time
+  const sortSchedulesByDayAndTime = (schedules: MassSchedule[]): MassSchedule[] => {
+    const dayOrder: { [key: string]: number } = {
+      'Sunday': 0,
+      'Monday': 1,
+      'Tuesday': 2,
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5,
+      'Saturday': 6,
+      'Daily': 7,
+      'Weekdays': 8,
+      'Weekends': 9
+    };
+
+    return [...schedules].sort((a, b) => {
+      // First sort by day
+      const dayA = dayOrder[a.day] ?? 999;
+      const dayB = dayOrder[b.day] ?? 999;
+      if (dayA !== dayB) return dayA - dayB;
+
+      // Then sort by time
+      return timeToMinutes(a.time) - timeToMinutes(b.time);
+    });
   };
 
   // Format time from 24-hour to 12-hour format with AM/PM
