@@ -62,8 +62,10 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
       debugPrint('🔄 Refreshing church data for: ${_currentChurch.id}');
 
       // Fetch fresh data from Firestore (bypassing cache)
-      final churchService = Provider.of<PaginatedChurchService>(context, listen: false);
-      final updatedChurch = await churchService.fetchChurchById(_currentChurch.id);
+      final churchService =
+          Provider.of<PaginatedChurchService>(context, listen: false);
+      final updatedChurch =
+          await churchService.fetchChurchById(_currentChurch.id);
 
       if (updatedChurch != null && mounted) {
         setState(() {
@@ -88,7 +90,8 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
             ),
             backgroundColor: const Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             margin: const EdgeInsets.all(16),
             duration: const Duration(seconds: 3),
           ),
@@ -134,7 +137,8 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
             return [
               _buildAppBar(context),
               _buildLocationHeader(),
-              if (_currentChurch.images.isNotEmpty) _buildPhotoCarouselWithActions(),
+              if (_currentChurch.images.isNotEmpty)
+                _buildPhotoCarouselWithActions(),
               _buildInfoCard(),
               _buildTabBar(),
             ];
@@ -220,14 +224,16 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                     final profileService = context.read<ProfileService>();
 
                     // Toggle in ProfileService (this handles Firebase sync)
-                    await profileService.toggleForVisitChurch(_currentChurch.id);
-                    
+                    await profileService
+                        .toggleForVisitChurch(_currentChurch.id);
+
                     // Update local AppState to match ProfileService
-                    final updatedList = profileService.userProfile?.forVisitChurches ?? [];
+                    final updatedList =
+                        profileService.userProfile?.forVisitChurches ?? [];
                     if (updatedList.contains(_currentChurch.id)) {
                       // Church was added to list
                       state.markForVisit(_currentChurch);
-                      
+
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -251,7 +257,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                     } else {
                       // Church was removed from list
                       state.unmarkForVisit(_currentChurch);
-                      
+
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -745,7 +751,6 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
     );
   }
 
-
   /// Modern Floating Action Button with scroll-aware visibility
   Widget _buildMarkVisitedFAB(BuildContext context) {
     return AnimatedSlide(
@@ -776,7 +781,8 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                         color: Colors.white,
                       ),
                     )
-                  : Icon(visited ? Icons.check_circle : Icons.check_circle_outline,
+                  : Icon(
+                      visited ? Icons.check_circle : Icons.check_circle_outline,
                       size: 24),
               label: Text(
                 visited ? 'Visited' : 'Mark Visited',
@@ -1105,4 +1111,3 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
     return false;
   }
 }
-

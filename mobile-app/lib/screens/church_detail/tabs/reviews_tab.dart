@@ -79,13 +79,15 @@ class _ReviewsTabState extends State<ReviewsTab> {
         for (var image in images) {
           final file = File(image.path);
           final fileSize = await file.length();
-          
+
           if (fileSize > maxSizeInBytes) {
             oversizedImages.add(image.name);
-            debugPrint('❌ [REVIEWS TAB] Image too large: ${image.name} (${(fileSize / (1024 * 1024)).toStringAsFixed(2)}MB)');
+            debugPrint(
+                '❌ [REVIEWS TAB] Image too large: ${image.name} (${(fileSize / (1024 * 1024)).toStringAsFixed(2)}MB)');
           } else {
             validImages.add(file);
-            debugPrint('✅ [REVIEWS TAB] Valid image: ${image.name} (${(fileSize / (1024 * 1024)).toStringAsFixed(2)}MB)');
+            debugPrint(
+                '✅ [REVIEWS TAB] Valid image: ${image.name} (${(fileSize / (1024 * 1024)).toStringAsFixed(2)}MB)');
           }
         }
 
@@ -108,7 +110,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
               ),
               backgroundColor: const Color(0xFFEF4444),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               margin: const EdgeInsets.all(16),
               duration: const Duration(seconds: 3),
             ),
@@ -120,7 +123,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
           setState(() {
             _selectedPhotos.addAll(validImages);
           });
-          debugPrint('📸 [REVIEWS TAB] Added ${validImages.length} valid photos');
+          debugPrint(
+              '📸 [REVIEWS TAB] Added ${validImages.length} valid photos');
         }
       }
     } catch (e) {
@@ -253,7 +257,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
           ),
           title: const Row(
             children: [
-              Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 28),
+              Icon(Icons.check_circle_outline,
+                  color: Color(0xFF10B981), size: 28),
               SizedBox(width: 12),
               Text('Confirm Submission'),
             ],
@@ -287,7 +292,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
                 _buildConfirmationItem(
                   icon: Icons.photo_library,
                   label: 'Photos',
-                  value: '${_selectedPhotos.length} ${_selectedPhotos.length == 1 ? 'photo' : 'photos'} attached',
+                  value:
+                      '${_selectedPhotos.length} ${_selectedPhotos.length == 1 ? 'photo' : 'photos'} attached',
                   color: const Color(0xFF8B5CF6),
                 ),
               ],
@@ -316,7 +322,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               child: const Text('Confirm Feedback'),
             ),
@@ -434,7 +441,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
             children: [
               const Icon(Icons.error_outline, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(child: Text('Failed to submit feedback: ${e.toString()}')),
+              Expanded(
+                  child: Text('Failed to submit feedback: ${e.toString()}')),
             ],
           ),
           backgroundColor: const Color(0xFFEF4444),
