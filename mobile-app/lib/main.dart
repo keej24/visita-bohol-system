@@ -67,16 +67,11 @@ import 'services/profile_service.dart';
 import 'services/location_service.dart';
 import 'services/enhanced_church_service.dart';
 import 'services/local_data_service.dart';
-import 'services/connectivity_service.dart';
-import 'services/offline_sync_service.dart';
 import 'services/paginated_church_service.dart';
 // Paginated data repository for performance
 import 'repositories/paginated_church_repository.dart';
 // App theme configuration
 import 'theme/app_theme.dart';
-
-// Feature flag: Enable Firebase backend (true) or local data only (false)
-const bool kUseFirestoreBackend = true; // Enable Firebase
 
 /// =============================================================================
 /// MAIN FUNCTION - Application Entry Point
@@ -166,19 +161,6 @@ class VisitaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     /**
-     * Debug Logging
-     *
-     * assert() blocks only run in debug mode, not production.
-     * Helps developers understand which data source is being used.
-     */
-    assert(() {
-      debugPrint(kUseFirestoreBackend
-          ? '🔥 Running with Firebase integration'
-          : '📱 Running in local data mode');
-      return true;
-    }());
-
-    /**
      * MultiProvider Setup
      *
      * Registers all services and repositories for dependency injection.
@@ -195,10 +177,6 @@ class VisitaApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocationService()),
         Provider(create: (_) => LocalDataService()),
         Provider(create: (_) => MassScheduleRepository()),
-
-        // Mobile-only offline services
-        ChangeNotifierProvider(create: (_) => ConnectivityService()),
-        ChangeNotifierProvider(create: (_) => OfflineSyncService()),
         Provider(create: (_) => PaginatedChurchRepository()),
         ChangeNotifierProxyProvider<LocationService, PaginatedChurchService>(
           create: (context) => PaginatedChurchService(
@@ -213,16 +191,12 @@ class VisitaApp extends StatelessWidget {
               ),
         ),
 
-        // Data repositories - Firebase or local based on flag
+        // Data repositories - using Firebase Firestore
         Provider<ChurchRepository>(
-          create: (_) => kUseFirestoreBackend
-              ? FirestoreChurchRepository()
-              : ChurchRepository(),
+          create: (_) => FirestoreChurchRepository(),
         ),
         Provider<AnnouncementRepository>(
-          create: (_) => kUseFirestoreBackend
-              ? FirestoreAnnouncementRepository()
-              : AnnouncementRepository(),
+          create: (_) => FirestoreAnnouncementRepository(),
         ),
         ChangeNotifierProxyProvider2<LocalDataService, LocationService,
             EnhancedChurchService>(

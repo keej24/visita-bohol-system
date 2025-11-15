@@ -38,8 +38,10 @@ class AppState extends ChangeNotifier {
 
       if (user != null) {
         // Load from Firestore (cloud sync)
-        debugPrint('📥 Loading visited churches from Firestore for user: ${user.uid}');
-        final visitHistory = await VisitorLogService.getUserVisitHistory(userId: user.uid);
+        debugPrint(
+            '📥 Loading visited churches from Firestore for user: ${user.uid}');
+        final visitHistory =
+            await VisitorLogService.getUserVisitHistory(userId: user.uid);
 
         // Get unique church IDs from visit history
         final visitedChurchIds = visitHistory
@@ -47,15 +49,28 @@ class AppState extends ChangeNotifier {
             .toSet()
             .toList();
 
-        debugPrint('📥 Found ${visitedChurchIds.length} visited churches in Firestore');
+        debugPrint(
+            '📥 Found ${visitedChurchIds.length} visited churches in Firestore');
 
         // Map church IDs to Church objects
-        _visited = allChurches.where((c) => visitedChurchIds.contains(c.id)).toList();
+        _visited =
+            allChurches.where((c) => visitedChurchIds.contains(c.id)).toList();
 
         // Sync to local storage for offline access
         await _savePrefs();
 
-        debugPrint('✅ Loaded ${_visited.length} visited churches from Firestore');
+        debugPrint(
+            '✅ Loaded ${_visited.length} visited churches from Firestore');
+
+        // CRITICAL FIX: Load For Visit churches from SharedPreferences
+        // The For Visit feature uses local storage, not Firestore visit history
+        final prefs = await SharedPreferences.getInstance();
+        final forVisitIds =
+            prefs.getStringList(AppConstants.forVisitChurchIds) ?? [];
+        _forVisit =
+            allChurches.where((c) => forVisitIds.contains(c.id)).toList();
+        debugPrint(
+            '✅ Loaded ${_forVisit.length} For Visit churches from SharedPreferences');
       } else {
         // User not authenticated - try loading from local cache
         debugPrint('📱 User not authenticated, loading from local cache');

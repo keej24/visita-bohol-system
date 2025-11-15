@@ -49,6 +49,31 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _currentChurch = widget.church;
+
+    // CRITICAL FIX: Sync AppState with ProfileService on screen load
+    // This ensures button shows correct state even if user navigates quickly
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncForVisitState();
+    });
+  }
+
+  /// Sync AppState with ProfileService for For Visit button state
+  void _syncForVisitState() {
+    try {
+      final appState = context.read<AppState>();
+      final profileService = context.read<ProfileService>();
+      final forVisitIds = profileService.userProfile?.forVisitChurches ?? [];
+
+      // Check if this church is in ProfileService but not in AppState
+      if (forVisitIds.contains(_currentChurch.id) &&
+          !appState.isForVisit(_currentChurch)) {
+        debugPrint(
+            '🔄 Syncing: Church ${_currentChurch.id} is in ProfileService but not AppState');
+        appState.markForVisit(_currentChurch);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error syncing For Visit state: $e');
+    }
   }
 
   @override
