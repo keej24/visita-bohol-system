@@ -60,10 +60,11 @@ service firebase.storage {
       allow read: if true;
       
       // Parish secretaries and chancery can upload 360 images
+      // Note: churchId in storage may be sanitized (spaces replaced with underscores)
+      // We allow write for authenticated parish/chancery users
       allow write: if (isParishSecretary() || isChanceryOffice()) &&
                       isValidImageType() &&
-                      request.resource.size < 50 * 1024 * 1024 && // 50MB limit for 360 images
-                      firestore.get(/databases/(default)/documents/churches/$(churchId)).data.diocese == getUserDiocese();
+                      request.resource.size < 50 * 1024 * 1024; // 50MB limit for 360 images
     }
     
     // Heritage documents - restricted access

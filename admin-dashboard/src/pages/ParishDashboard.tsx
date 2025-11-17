@@ -29,6 +29,8 @@ import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
 import { ParishFeedback } from '@/components/parish/ParishFeedback';
 import { ChurchService } from '@/services/churchService';
 import type { ArchitecturalStyle, ChurchClassification, Church } from '@/types/church';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 // Simplified Parish Dashboard - Shows form on first access, then Parish Profile after approval
 const ParishDashboard = () => {
@@ -109,7 +111,7 @@ const ParishDashboard = () => {
     // Helper to convert architectural style from Firestore to form format
     const convertArchitecturalStyle = (style?: string) => {
       switch (style?.toLowerCase()) {
-        case 'baroque': return 'Spanish Colonial'; // Could be Baroque or Spanish Colonial
+        case 'baroque': return 'Baroque';
         case 'gothic': return 'Neo-Gothic';
         case 'romanesque': return 'Byzantine';
         case 'neoclassical': return 'Neo-Classical';
@@ -445,7 +447,6 @@ const ParishDashboard = () => {
     // Helper function to map architectural style
     const mapArchitecturalStyle = (style: string) => {
       const styleMap: Record<string, string> = {
-        'Spanish Colonial': 'baroque',
         'Baroque': 'baroque',
         'Neo-Gothic': 'gothic',
         'Gothic': 'gothic',
@@ -497,9 +498,70 @@ const ParishDashboard = () => {
   };
 
   // Form submission handlers
-  const handleProfileFormSave = (data: ChurchInfo) => {
-    setChurchInfo({ ...data, status: churchInfo.status || 'draft' });
-    toast({ title: "Success", description: "Church profile saved as draft!" });
+  const handleProfileFormSave = async (data: ChurchInfo) => {
+    if (!userProfile) {
+      toast({
+        title: "Error",
+        description: "User profile not available.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const formData = convertToFormData(data);
+      
+      if (existingChurch) {
+        // Update existing church as draft - manually set status to draft
+        const docRef = doc(db, 'churches', existingChurch.id);
+        await updateDoc(docRef, {
+          ...formData,
+          status: 'draft',
+          updatedAt: serverTimestamp()
+        });
+        
+        setChurchInfo({ ...data, status: 'draft', id: existingChurch.id });
+        toast({ 
+          title: "Success", 
+          description: "Church profile saved as draft!" 
+        });
+      } else {
+        // Create new church as draft (without submitting for review)
+        const docRef = doc(db, 'churches', userProfile.parish);
+        await setDoc(docRef, {
+          ...formData,
+          status: 'draft',
+          diocese: userProfile.diocese,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          createdBy: userProfile.uid
+        });
+        
+        setChurchId(userProfile.parish);
+        setChurchInfo({ ...data, status: 'draft', id: userProfile.parish });
+        setExistingChurch({ 
+          ...formData, 
+          id: userProfile.parish, 
+          status: 'draft',
+          diocese: userProfile.diocese,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: userProfile.uid
+        } as unknown as Church);
+        
+        toast({ 
+          title: "Success", 
+          description: "Church profile created as draft!" 
+        });
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save draft. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleProfileFormSubmit = async (data: ChurchInfo) => {
@@ -538,19 +600,32 @@ const ParishDashboard = () => {
         });
       } else {
         // Update existing church in Firebase
-        await ChurchService.updateChurch(
-          existingChurch.id,
-          formData,
-          userProfile.diocese,
-          userProfile.uid
-        );
+        // If church is draft, change to pending on submit
+        const newStatus = existingChurch.status === 'draft' ? 'pending' : existingChurch.status;
+        
+        // Manually update status if transitioning from draft to pending
+        if (existingChurch.status === 'draft') {
+          const docRef = doc(db, 'churches', existingChurch.id);
+          await updateDoc(docRef, {
+            ...formData,
+            status: 'pending',
+            submittedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        } else {
+          await ChurchService.updateChurch(
+            existingChurch.id,
+            formData,
+            userProfile.diocese,
+            userProfile.uid
+          );
+        }
 
-        // Update churchInfo immediately with the new data
-        setChurchInfo({ ...data, status: existingChurch.status, id: existingChurch.id });
+        // Update churchInfo with new status
+        setChurchInfo({ ...data, status: newStatus, id: existingChurch.id });
         setShowProfileForm(false);
 
-        const currentStatus = existingChurch.status;
-        const statusText = currentStatus === 'approved' ? 'updated' : 'resubmitted for review';
+        const statusText = newStatus === 'approved' ? 'updated' : 'submitted for review';
 
         toast({
           title: "Success",
@@ -999,21 +1074,6 @@ const ParishDashboard = () => {
               >
                 <X className="w-4 h-4" />
               </Button>
-            </div>
-          )}
-          {(existingChurch.status === 'under_review' || existingChurch.status === 'pending') && (
-            <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-sky-600" />
-              <div>
-                <span className="font-medium text-sky-900">Revision Requested</span>
-                <p className="text-sm text-sky-700">The chancery office has requested changes to your submission. Please review and resubmit.</p>
-                <button
-                  onClick={() => setShowProfileForm(true)}
-                  className="text-sm text-sky-800 underline hover:text-sky-900 mt-1"
-                >
-                  Update Church Profile →
-                </button>
-              </div>
             </div>
           )}
           {existingChurch.status === 'under_review' && (

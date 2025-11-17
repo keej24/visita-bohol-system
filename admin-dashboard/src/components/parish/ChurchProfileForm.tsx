@@ -38,7 +38,7 @@ import { VirtualTourManager } from '../360/VirtualTourManager';
 import PhotoUploader from './PhotoUploader';
 import DocumentUploader from './DocumentUploader';
 import { assessHeritageSignificance, type HeritageAssessment } from '@/lib/heritage-detection';
-import { upload360Image, uploadChurchImage, uploadDocument, deleteFile } from '@/lib/storage';
+import { upload360Image, uploadChurchImage, uploadDocument, deleteFile, compressImage } from '@/lib/storage';
 
 interface ChurchProfileFormProps {
   initialData?: Partial<ChurchInfo>;
@@ -142,16 +142,21 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   const getRequiredFields = () => ({
     basic: [
       { field: formData.parishName, label: 'Parish Name' },
+      { field: formData.churchName, label: 'Church Name' },
       { field: formData.locationDetails.streetAddress, label: 'Street Address' },
       { field: formData.locationDetails.barangay, label: 'Barangay' },
-      { field: formData.locationDetails.municipality, label: 'Municipality' }
+      { field: formData.locationDetails.municipality, label: 'Municipality' },
+      { field: formData.coordinates.lat, label: 'Latitude' },
+      { field: formData.coordinates.lng, label: 'Longitude' }
     ],
     historical: [
       { field: formData.historicalDetails.foundingYear, label: 'Founding Year' },
+      { field: formData.historicalDetails.architecturalStyle, label: 'Architectural Style' },
       { field: formData.historicalDetails.historicalBackground, label: 'Historical Background' }
     ],
     parish: [
-      { field: formData.currentParishPriest, label: 'Current Parish Priest' }
+      { field: formData.currentParishPriest, label: 'Current Parish Priest' },
+      { field: formData.massSchedules.length > 0 ? 'has-schedules' : '', label: 'Mass Schedule' }
     ],
     media: [] // Optional section
   });
@@ -720,12 +725,29 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     try {
       setUploading(true);
 
-      // Upload regular photos to Firebase Storage
+      // Use provided churchId or generate from parish name as fallback
+      const uploadChurchId = churchId || formData.parishName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+      // Upload regular photos to Firebase Storage with compression
       // NOTE: Virtual tour is now managed separately by VirtualTourManager component
       const uploadedPhotoURLs: string[] = [];
       for (const photo of formData.photos) {
-        // FileUpload only has url property, so just use existing URLs
-        if (photo.url) {
+        if (photo.file) {
+          // New file to upload - compress and upload
+          try {
+            const compressedFile = await compressImage(photo.file);
+            const url = await uploadChurchImage(uploadChurchId, compressedFile);
+            uploadedPhotoURLs.push(url);
+          } catch (error) {
+            console.error('Error uploading photo:', error);
+            toast({
+              title: "Upload Error",
+              description: `Failed to upload ${photo.name}. Continuing with other files.`,
+              variant: "destructive"
+            });
+          }
+        } else if (photo.url && !photo.url.startsWith('blob:')) {
+          // Existing URL from Firebase Storage
           uploadedPhotoURLs.push(photo.url);
         }
       }
@@ -733,8 +755,21 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       // Upload documents to Firebase Storage
       const uploadedDocURLs: string[] = [];
       for (const doc of formData.documents) {
-        // FileUpload only has url property, so just use existing URLs
-        if (doc.url) {
+        if (doc.file) {
+          // New file to upload
+          try {
+            const url = await uploadDocument(uploadChurchId, doc.file, doc.type || 'document');
+            uploadedDocURLs.push(url);
+          } catch (error) {
+            console.error('Error uploading document:', error);
+            toast({
+              title: "Upload Error",
+              description: `Failed to upload ${doc.name}. Continuing with other files.`,
+              variant: "destructive"
+            });
+          }
+        } else if (doc.url && !doc.url.startsWith('blob:')) {
+          // Existing URL from Firebase Storage
           uploadedDocURLs.push(doc.url);
         }
       }

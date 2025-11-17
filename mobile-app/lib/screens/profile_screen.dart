@@ -538,8 +538,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     validator: (value) {
                       final v = value?.trim() ?? '';
                       if (v.isEmpty) return 'Please enter your name';
-                      if (v.length < 2)
+                      if (v.length < 2) {
                         return 'Name must be at least 2 characters';
+                      }
                       return null;
                     },
                   ),
@@ -623,8 +624,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (!showPasswordFields) return null;
                         final v = value ?? '';
                         if (v.isEmpty) return 'Please enter a new password';
-                        if (v.length < 8)
+                        if (v.length < 8) {
                           return 'Password must be at least 8 characters';
+                        }
                         if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)')
                             .hasMatch(v)) {
                           return 'Must include uppercase, lowercase, and number';

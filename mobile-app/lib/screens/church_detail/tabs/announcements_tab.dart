@@ -149,10 +149,10 @@ class _AnnouncementsTabState extends State<AnnouncementsTab> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    Expanded(
+                    const Expanded(
                       child: Text(
                         'Announcement Details',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1F2937),

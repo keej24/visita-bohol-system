@@ -12,7 +12,7 @@ import type { Diocese } from '@/contexts/AuthContext';
 import type { Church } from '@/lib/churches';
 import { ChurchInfo } from '@/components/parish/types';
 import { ChurchService } from '@/services/churchService';
-import type { ArchitecturalStyle, ChurchClassification } from '@/types/church';
+import type { ArchitecturalStyle, ChurchClassification, ReligiousClassification } from '@/types/church';
 
 interface OptimizedChanceryDashboardProps {
   diocese: Diocese;
@@ -107,6 +107,19 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
 
   // Helper function to convert ChurchInfo to ChurchFormData
   const convertChurchInfoToFormData = (data: ChurchInfo) => {
+    // Helper function to map architectural style from display to database format
+    const mapArchitecturalStyle = (style: string): ArchitecturalStyle => {
+      const styleMap: Record<string, ArchitecturalStyle> = {
+        'Baroque': 'baroque',
+        'Neo-Gothic': 'gothic',
+        'Gothic': 'gothic',
+        'Byzantine': 'romanesque',
+        'Modern': 'modern',
+        'Mixed': 'mixed'
+      };
+      return styleMap[style] || 'other';
+    };
+
     return {
       name: data.churchName || '',
       fullName: data.parishName || data.churchName || '',
@@ -115,11 +128,18 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
       foundingYear: parseInt(data.historicalDetails.foundingYear) || new Date().getFullYear(),
       founders: data.historicalDetails.founders || '',
       keyFigures: [],
-      architecturalStyle: (data.historicalDetails.architecturalStyle || 'other') as ArchitecturalStyle,
+      architecturalStyle: mapArchitecturalStyle(data.historicalDetails.architecturalStyle || 'Other'),
       historicalBackground: data.historicalDetails.historicalBackground || '',
       description: data.historicalDetails.historicalBackground || '',
       classification: (data.historicalDetails.heritageClassification === 'National Cultural Treasures' ? 'NCT' :
                     data.historicalDetails.heritageClassification === 'Important Cultural Properties' ? 'ICP' : 'non_heritage') as ChurchClassification,
+      religiousClassification: (
+        data.historicalDetails.religiousClassification === 'None' ? 'none' :
+        data.historicalDetails.religiousClassification === 'Diocesan Shrine' ? 'diocesan_shrine' :
+        data.historicalDetails.religiousClassification === 'Jubilee Church' ? 'jubilee_church' :
+        data.historicalDetails.religiousClassification === 'Papal Basilica Affinity' ? 'papal_basilica_affinity' :
+        'none'
+      ) as ReligiousClassification,
       assignedPriest: data.currentParishPriest || '',
       massSchedules: (data.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
@@ -133,7 +153,9 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
       contactInfo: {
         phone: data.contactInfo?.phone || '',
         email: data.contactInfo?.email || '',
-        address: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '')
+        address: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, ''),
+        website: data.contactInfo?.website || '',
+        facebookPage: data.contactInfo?.facebookPage || ''
       },
       images: (data.photos || []).map(photo => photo.url || '').filter(url => url !== ''),
       documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
@@ -141,6 +163,8 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
       culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
       preservationHistory: '',
       restorationHistory: '',
+      architecturalFeatures: data.historicalDetails.architecturalFeatures || '',
+      heritageInformation: data.historicalDetails.heritageInformation || '',
       tags: [],
       category: 'parish_church'
     };

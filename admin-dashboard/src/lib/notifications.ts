@@ -241,11 +241,17 @@ export class NotificationService {
    * Get notifications for a specific user
    */
   async getUserNotifications(
-    userProfile: UserProfile,
+    userProfile: UserProfile | null,
     limitCount: number = 20,
     unreadOnly: boolean = false
   ): Promise<Notification[]> {
     try {
+      // Guard clause: return empty if no profile
+      if (!userProfile || !userProfile.uid) {
+        console.warn('Cannot fetch notifications: user profile is null or missing UID');
+        return [];
+      }
+
       let q = query(
         collection(db, 'notifications'),
         orderBy('createdAt', 'desc'),
@@ -272,7 +278,13 @@ export class NotificationService {
       });
 
       return notifications;
-    } catch (error) {
+    } catch (error: unknown) {
+      // Silently handle permission errors during account creation or when user doesn't exist
+      const firebaseError = error as { code?: string };
+      if (firebaseError?.code === 'permission-denied') {
+        // This is expected for new users or when no notifications exist yet
+        return [];
+      }
       console.error('Error fetching user notifications:', error);
       return [];
     }
@@ -295,8 +307,11 @@ export class NotificationService {
   /**
    * Get unread notification count for user
    */
-  async getUnreadCount(userProfile: UserProfile): Promise<number> {
+  async getUnreadCount(userProfile: UserProfile | null): Promise<number> {
     try {
+      if (!userProfile) {
+        return 0;
+      }
       const notifications = await this.getUserNotifications(userProfile, 100, true);
       return notifications.length;
     } catch (error) {
@@ -307,7 +322,8 @@ export class NotificationService {
 
   private processTemplate(template: string, data: Record<string, unknown>): string {
     return template.replace(/\{(\w+)\}/g, (match, key) => {
-      return data[key] || match;
+      const value = data[key];
+      return typeof value === 'string' ? value : match;
     });
   }
 
@@ -320,7 +336,10 @@ export class NotificationService {
     // Basic role-based recipients
     if (template.recipientRules.roles) {
       recipients.roles = template.recipientRules.roles;
-      recipients.dioceses = [context.diocese]; // Limit to relevant diocese
+      // Type-safe diocese assignment
+      if (context.diocese === 'tagbilaran' || context.diocese === 'talibon') {
+        recipients.dioceses = [context.diocese as Diocese];
+      }
     }
 
     // Apply conditions if any

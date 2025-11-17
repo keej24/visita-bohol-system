@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { Diocese } from '@/hooks/useAuth';
 import { createAuthUserWithoutAffectingSession, generateTempPassword } from '@/lib/accounts';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Copy, Eye, EyeOff, Wand2, CheckCircle2 } from 'lucide-react';
 
 interface Props {
@@ -34,17 +34,37 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
     setError(null);
     try {
       if (!userProfile) throw new Error('Not authenticated');
-      // pick password: custom if provided, else generate
-      const finalPassword = (password && password.length > 0) ? password : generateTempPassword();
-      if (password) {
-        if (password.length < 8) throw new Error('Password must be at least 8 characters');
-        if (password !== confirm) throw new Error('Passwords do not match');
+      
+      // Check if email already exists in Firestore
+      const emailLower = email.trim().toLowerCase();
+      const emailCheck = await getDocs(
+        query(collection(db, 'users'), where('email', '==', emailLower))
+      );
+      
+      if (!emailCheck.empty) {
+        throw new Error('An account with this email already exists. Please use a different email or check existing parish accounts.');
       }
-      const cred = await createAuthUserWithoutAffectingSession(email.trim(), finalPassword);
+      
+      // Validate password is required
+      if (!password || password.trim().length === 0) {
+        throw new Error('Password is required. Please enter a password or use the Generate button.');
+      }
+      
+      if (password.length < 8) {
+        throw new Error('Password must be at least 8 characters');
+      }
+      
+      if (password !== confirm) {
+        throw new Error('Passwords do not match');
+      }
+      
+      const finalPassword = password;
+      
+      const cred = await createAuthUserWithoutAffectingSession(emailLower, finalPassword);
       const uid = cred.user.uid;
       await setDoc(doc(db, 'users', uid), {
         uid,
-        email: email.trim().toLowerCase(),
+        email: emailLower,
         role: 'parish_secretary',
         name: parishName,
         diocese,
@@ -52,10 +72,23 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
         createdAt: serverTimestamp(),
         createdBy: { uid: userProfile.uid, email: userProfile.email, name: userProfile.name },
       });
-      setCredentials({ email: email.trim(), password: finalPassword });
+      setCredentials({ email: emailLower, password: finalPassword });
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to create account';
-      setError(message);
+      // Improve error messages for common Firebase Auth errors
+      let displayMessage = message;
+      
+      if (message.includes('auth/email-already-in-use')) {
+        displayMessage = 'This email is already registered in the system. Please use a different email address or check if an account already exists for this parish.';
+      } else if (message.includes('auth/invalid-email')) {
+        displayMessage = 'Invalid email format. Please enter a valid email address (e.g., parish@example.com).';
+      } else if (message.includes('auth/operation-not-allowed')) {
+        displayMessage = 'Email/password accounts are not enabled. Please contact system administrator.';
+      } else if (message.includes('auth/weak-password')) {
+        displayMessage = 'Password is too weak. Please use at least 8 characters with a mix of letters, numbers, and symbols.';
+      }
+      
+      setError(displayMessage);
     } finally {
       setCreating(false);
     }
@@ -77,8 +110,12 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   const reset = () => {
     setEmail('');
     setParishName('');
+    setPassword('');
+    setConfirm('');
     setCredentials(null);
     setError(null);
+    setShow(false);
+    setCopied(false);
   };
 
   return (
@@ -93,18 +130,18 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
         </DialogHeader>
 
         {!credentials ? (
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={onSubmit} className="space-y-4" autoComplete="off">
             <div className="space-y-2">
               <Label>Parish name</Label>
-              <Input value={parishName} onChange={(e) => setParishName(e.target.value)} required placeholder="e.g., St. Joseph the Worker Parish" />
+              <Input value={parishName} onChange={(e) => setParishName(e.target.value)} required placeholder="e.g., St. Joseph the Worker Parish" autoComplete="off" />
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="name@parish.ph" />
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="name@parish.ph" autoComplete="off" />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Set password (optional)</Label>
+                <Label>Password <span className="text-destructive">*</span></Label>
                 <button type="button" className="text-xs text-primary inline-flex items-center gap-1" onClick={() => {
                   const p = generateTempPassword();
                   setPassword(p);
@@ -114,13 +151,13 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
                 </button>
               </div>
               <div className="relative">
-                <Input type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" minLength={8} />
+                <Input type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password or click Generate" minLength={8} autoComplete="new-password" required />
                 <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShow(s => !s)} aria-label={show ? 'Hide password' : 'Show password'}>
                   {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <Input type={show ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" minLength={8} />
-              <p className="text-xs text-muted-foreground">Min 8 characters. Leave blank to auto-generate a strong password.</p>
+              <Input type={show ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" minLength={8} autoComplete="new-password" required />
+              <p className="text-xs text-muted-foreground">Required. Min 8 characters. Use the Generate button for a strong password.</p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter>

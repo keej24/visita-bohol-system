@@ -90,6 +90,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
   // Load existing tour
   useEffect(() => {
     loadTour();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [churchId]);
 
   const loadTour = useCallback(async () => {
@@ -204,6 +205,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
 
     // Reset input
     e.target.value = '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [churchId, tour]);
 
   // Upload image to Firebase Storage with compression
@@ -212,6 +214,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
 
     try {
       console.log(`[VirtualTourManager] Starting upload: ${upload.file.name}`);
+      console.log(`[VirtualTourManager] Church ID received: "${churchId}"`);
 
       // Compress image
       setUploadingImages((prev) =>
@@ -237,8 +240,17 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
 
       const fileName = `${Date.now()}-${cleanFileName}`;
 
-      // Firebase Storage handles special characters in paths natively
-      const storagePath = `churches/${churchId}/360/${fileName}`;
+      // Sanitize churchId to create a valid storage path (remove spaces and special characters)
+      // Firebase Storage paths should not contain spaces or special characters
+      const sanitizedChurchId = churchId
+        .replace(/\s+/g, '_')           // Replace spaces with underscores
+        .replace(/[^a-zA-Z0-9._-]/g, '') // Remove special characters except . _ -
+        .toLowerCase();                  // Lowercase for consistency
+
+      // Use the correct storage path that matches Firebase Storage rules
+      const storagePath = `churches/${sanitizedChurchId}/360tours/${fileName}`;
+      console.log('[VirtualTourManager] Original Church ID:', churchId);
+      console.log('[VirtualTourManager] Sanitized Church ID:', sanitizedChurchId);
       console.log('[VirtualTourManager] Upload path:', storagePath);
 
       const storageRef = ref(storage, storagePath);
@@ -314,10 +326,10 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
             await loadTour();
 
             console.log('[VirtualTourManager] ✓✓ Scene uploaded and tour refreshed - should be visible now');
-          } catch (error: any) {
+          } catch (error) {
             console.error('[VirtualTourManager] ✗ Error saving scene to Firestore:', error);
             console.error('[VirtualTourManager] Error details:', {
-              message: error?.message,
+              message: error instanceof Error ? error.message : String(error),
               code: error?.code,
               stack: error?.stack,
             });
@@ -331,17 +343,15 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
             );
 
             // Show alert to user
-            alert(`Failed to save scene "${newScene.title}" to database: ${error?.message || 'Unknown error'}`);
+            alert(`Failed to save scene "${newScene.title}" to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         }
       );
-    } catch (error: any) {
+    } catch (error) {
       console.error('[VirtualTourManager] Upload process error:', error);
       console.error('[VirtualTourManager] Error details:', {
-        name: error?.name,
-        message: error?.message,
-        code: error?.code,
-        stack: error?.stack,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : typeof error,
       });
 
       setUploadingImages((prev) =>
@@ -413,9 +423,10 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         const storageRef = ref(storage, scene.imageUrl);
         await deleteObject(storageRef);
         console.log('[VirtualTourManager] Storage file deleted successfully');
-      } catch (storageError: any) {
+      } catch (storageError) {
         // If file doesn't exist (404), that's fine - it may have been manually deleted
-        if (storageError?.code === 'storage/object-not-found') {
+        const errorCode = storageError && typeof storageError === 'object' && 'code' in storageError ? (storageError as { code: string }).code : null;
+        if (errorCode === 'storage/object-not-found') {
           console.warn('[VirtualTourManager] Storage file not found (already deleted), continuing with Firestore cleanup');
         } else {
           // For other storage errors, log but continue with Firestore deletion
@@ -523,6 +534,8 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
+                {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+                {/* @ts-ignore - Dynamic width for progress bar */}
                 <div
                   className="bg-green-600 h-2 rounded-full transition-all"
                   style={{ width: `${upload.uploadProgress}%` }}
@@ -668,9 +681,9 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
       )}
 
       {/* Preview Modal with Interactive 360° Viewer */}
-      {previewSceneId && (
+      {previewSceneId && tour?.scenes.find((s) => s.id === previewSceneId) && (
         <Preview360Modal
-          scene={tour?.scenes.find((s) => s.id === previewSceneId)!}
+          scene={tour.scenes.find((s) => s.id === previewSceneId)!}
           onClose={() => setPreviewSceneId(null)}
         />
       )}
@@ -682,7 +695,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
 function Preview360Modal({ scene, onClose }: { scene: TourScene; onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const viewerRef = useRef<any>(null);
+  const viewerRef = useRef<{ destroy: () => void; on: (event: string, callback: (...args: unknown[]) => void) => void } | null>(null);
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -699,7 +712,8 @@ function Preview360Modal({ scene, onClose }: { scene: TourScene; onClose: () => 
       }
 
       try {
-        const pannellum = (window as any).pannellum;
+        // Access Pannellum from window object
+        const pannellum = (window as Window & { pannellum?: { viewer: (container: HTMLElement, config: unknown) => { destroy: () => void } } }).pannellum;
 
         if (!pannellum) {
           setError('Pannellum library failed to load');
@@ -792,7 +806,7 @@ function Preview360Modal({ scene, onClose }: { scene: TourScene; onClose: () => 
 
     const loadPannellum = () => {
       // Check if Pannellum is already loaded
-      if ((window as any).pannellum) {
+      if ((window as Window & { pannellum?: unknown }).pannellum) {
         // Small delay to ensure DOM is ready
         setTimeout(initViewer, 100);
         return;
@@ -851,6 +865,7 @@ function Preview360Modal({ scene, onClose }: { scene: TourScene; onClose: () => 
         }
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene.imageUrl, scene.title]);
 
   return (

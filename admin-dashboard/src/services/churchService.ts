@@ -96,53 +96,55 @@ interface FirestoreChurchDoc {
 }
 
 const convertToChurch = (doc: FirestoreChurchDoc): Church => {
-  const data = doc.data();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = doc.data() as any; // Firestore data needs type assertion
   return {
     id: doc.id,
-    name: data.name,
-    fullName: data.fullName,
-    location: data.location,
-    municipality: data.municipality,
-    diocese: data.diocese,
-    foundingYear: data.foundingYear,
-    founders: data.founders,
-    keyFigures: data.keyFigures || [],
+    name: data.name as string,
+    fullName: data.fullName as string,
+    location: data.location as string,
+    municipality: data.municipality as string,
+    diocese: data.diocese as Diocese,
+    foundingYear: data.foundingYear as number,
+    founders: data.founders as string,
+    keyFigures: (data.keyFigures || []) as string[],
     architecturalStyle: data.architecturalStyle,
-    historicalBackground: data.historicalBackground,
-    description: data.description,
+    historicalBackground: data.historicalBackground as string,
+    description: data.description as string,
     classification: data.classification,
     religiousClassification: data.religiousClassification,
-    assignedPriest: data.assignedPriest,
-    massSchedules: data.massSchedules || [],
+    assignedPriest: data.assignedPriest as string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    massSchedules: (data.massSchedules || []) as any[],
     // Support both root level (new) and nested (legacy) coordinates
     coordinates: data.latitude && data.longitude
-      ? { latitude: data.latitude, longitude: data.longitude }
+      ? { latitude: data.latitude as number, longitude: data.longitude as number }
       : data.coordinates,
     contactInfo: data.contactInfo,
-    images: data.images || [],
-    documents: data.documents || [],
-    virtualTour360: data.virtualTour360 || [],
-    heritageDeclaration: data.heritageDeclaration,
-    culturalSignificance: data.culturalSignificance,
-    preservationHistory: data.preservationHistory,
-    restorationHistory: data.restorationHistory,
-    architecturalFeatures: data.architecturalFeatures,
-    heritageInformation: data.heritageInformation,
-    status: data.status,
-    reviewNotes: data.reviewNotes,
-    reviewedBy: data.reviewedBy,
+    images: (data.images || []) as string[],
+    documents: (data.documents || []) as string[],
+    virtualTour: data.virtualTour, // 360° virtual tour managed by VirtualTourService
+    heritageDeclaration: data.heritageDeclaration as string,
+    culturalSignificance: data.culturalSignificance as string,
+    preservationHistory: data.preservationHistory as string,
+    restorationHistory: data.restorationHistory as string,
+    architecturalFeatures: data.architecturalFeatures as string,
+    heritageInformation: data.heritageInformation as string,
+    status: data.status as ChurchStatus,
+    reviewNotes: data.reviewNotes as string,
+    reviewedBy: data.reviewedBy as string,
     reviewedAt: data.reviewedAt?.toDate(),
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
-    createdBy: data.createdBy,
+    createdBy: data.createdBy as string,
     submittedAt: data.submittedAt?.toDate(),
     approvedAt: data.approvedAt?.toDate(),
-    monthlyVisitors: data.monthlyVisitors,
-    visitCount: data.visitCount,
-    averageRating: data.averageRating,
-    tags: data.tags || [],
-    category: data.category,
-    parishId: data.parishId,
+    monthlyVisitors: data.monthlyVisitors as number,
+    visitCount: data.visitCount as number,
+    averageRating: data.averageRating as number,
+    tags: (data.tags || []) as string[],
+    category: data.category as string,
+    parishId: data.parishId as string,
   };
 };
 
@@ -170,7 +172,8 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     contactInfo: formData.contactInfo,
     images: formData.images,
     documents: formData.documents,
-    virtualTour360: formData.virtualTour360,
+    // Note: virtualTour is managed separately by VirtualTourService
+    // and stored at the church document root level
     culturalSignificance: formData.culturalSignificance,
     preservationHistory: formData.preservationHistory,
     restorationHistory: formData.restorationHistory,
@@ -229,8 +232,34 @@ export class ChurchService {
     userId: string
   ): Promise<void> {
     try {
+      // Get current church data to check for classification changes
+      const churchRef = doc(db, CHURCHES_COLLECTION, id);
+      const churchSnapshot = await getDoc(churchRef);
+      const currentChurch = churchSnapshot.data() as Church;
+
       const data = convertToFirestoreData(formData, userId, diocese, true);
-      await updateDoc(doc(db, CHURCHES_COLLECTION, id), data);
+
+      // IMPORTANT: Handle classification changes and status transitions
+      // If church classification changes from heritage (ICP/NCT) to non-heritage
+      // and status is 'under_review', move it back to 'pending' for chancery review
+      const wasHeritage = currentChurch.classification === 'ICP' || currentChurch.classification === 'NCT';
+      const isNowHeritage = data.classification === 'ICP' || data.classification === 'NCT';
+      
+      if (wasHeritage && !isNowHeritage && currentChurch.status === 'under_review') {
+        // Changed from heritage to non-heritage while in museum review
+        // Return to chancery for approval
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (data as any).status = 'pending';
+        console.log(`[ChurchService] Church ${id} classification changed from heritage to non-heritage. Status changed from 'under_review' to 'pending'`);
+      } else if (!wasHeritage && isNowHeritage && currentChurch.status === 'approved') {
+        // Changed from non-heritage to heritage while already approved
+        // Send to museum for heritage validation
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (data as any).status = 'under_review';
+        console.log(`[ChurchService] Church ${id} classification changed from non-heritage to heritage. Status changed from 'approved' to 'under_review'`);
+      }
+
+      await updateDoc(churchRef, data);
     } catch (error) {
       console.error('Error updating church:', error);
       throw new Error('Failed to update church');
@@ -240,7 +269,8 @@ export class ChurchService {
   // Review church submission (Chancery action)
   static async reviewChurch(action: ChurchReviewAction): Promise<void> {
     try {
-      const updateData: Partial<Church> & Record<string, unknown> = {
+      // Use Record for Firestore update - timestamps are Timestamp type in Firestore
+      const updateData: Record<string, unknown> = {
         updatedAt: Timestamp.now(),
         reviewedBy: action.reviewerId,
         reviewedAt: Timestamp.now(),

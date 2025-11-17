@@ -47,6 +47,7 @@ export interface FileUpload {
   name: string;
   type: 'photo' | 'document' | '360' | 'heritage-doc';
   category?: 'exterior' | 'interior' | 'altar' | 'belfry' | 'historical';
+  file?: File; // Original file object for upload
   url?: string;
   uploadDate: string;
   status: 'pending' | 'approved' | 'rejected';

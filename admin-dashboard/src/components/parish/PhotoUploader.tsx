@@ -138,8 +138,8 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             Uploaded Photos ({photos.length}/{maxPhotos})
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {photos.map((photo) => (
-              <div key={photo.id} className="relative group">
+            {photos.map((photo, index) => (
+              <div key={photo.id || `photo-${index}`} className="relative group">
                 <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
                   <img
                     src={photo.url}

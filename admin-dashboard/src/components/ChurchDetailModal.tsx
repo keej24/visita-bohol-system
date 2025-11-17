@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,36 +46,76 @@ export function ChurchDetailModal({
 }: Props) {
   const [editMode, setEditMode] = useState(mode === 'edit');
 
+  // Update editMode when mode prop changes
+  useEffect(() => {
+    setEditMode(mode === 'edit');
+  }, [mode]);
+
   if (!church) return null;
+
+  // Helper function to convert database architectural style to display value
+  // Must match the conversion in ParishDashboard
+  const getArchitecturalStyleDisplay = (style?: string): string => {
+    switch (style?.toLowerCase()) {
+      case 'baroque': return 'Baroque';
+      case 'gothic': return 'Neo-Gothic';
+      case 'romanesque': return 'Byzantine';
+      case 'neoclassical': return 'Neo-Classical';
+      case 'modern': return 'Modern';
+      case 'mixed': return 'Mixed';
+      case 'other':
+      default: return 'Other';
+    }
+  };
+
+  // Helper function to convert database religious classification to display value
+  // Must match the conversion in ParishDashboard
+  const getReligiousClassificationDisplay = (classification?: string): 'None' | 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' => {
+    switch (classification?.toLowerCase()) {
+      case 'diocesan_shrine': return 'Diocesan Shrine';
+      case 'jubilee_church': return 'Jubilee Church';
+      case 'papal_basilica_affinity': return 'Papal Basilica Affinity';
+      case 'none':
+      default: return 'None';
+    }
+  };
 
   // Convert Church to ChurchInfo format for editing
   const convertToChurchInfo = (church: Church): ChurchInfo => {
+    // Use type assertion since Church from Firestore has all these fields
+    // but the TypeScript definition may not be complete
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const churchData = church as any;
+    
     return {
-      churchName: church.name || '',
-      parishName: church.fullName || '',
+      churchName: churchData.name || '',
+      parishName: churchData.fullName || churchData.name || '',
       locationDetails: {
-        streetAddress: church.contactInfo?.address?.split(',')[0] || '',
-        barangay: church.contactInfo?.address?.split(',')[1]?.trim() || '',
-        municipality: church.municipality || '',
+        streetAddress: churchData.location?.split(',')[0] || '',
+        barangay: churchData.location?.split(',')[1]?.trim() || '',
+        municipality: churchData.municipality || '',
         province: 'Bohol'
       },
-      coordinates: church.coordinates ? {
-        lat: church.coordinates.latitude || 0,
-        lng: church.coordinates.longitude || 0
-      } : { lat: 0, lng: 0 },
-      historicalDetails: {
-        foundingYear: church.foundingYear?.toString() || '',
-        founders: church.founders || '',
-        architecturalStyle: church.architecturalStyle || '',
-        historicalBackground: church.historicalBackground || church.description || '',
-        majorHistoricalEvents: church.culturalSignificance || '',
-        heritageClassification: church.classification === 'NCT' ? 'National Cultural Treasures' :
-                               church.classification === 'ICP' ? 'Important Cultural Properties' : 'None',
-        religiousClassification: 'None',
-        supportingDocuments: []
+      coordinates: {
+        lat: churchData.coordinates?.latitude || churchData.latitude || 0,
+        lng: churchData.coordinates?.longitude || churchData.longitude || 0
       },
-      currentParishPriest: church.assignedPriest || '',
-      massSchedules: (church.massSchedules || []).map(schedule => ({
+      historicalDetails: {
+        foundingYear: churchData.foundingYear?.toString() || '',
+        founders: churchData.founders || '',
+        architecturalStyle: getArchitecturalStyleDisplay(churchData.architecturalStyle),
+        historicalBackground: churchData.historicalBackground || churchData.description || '',
+        majorHistoricalEvents: churchData.culturalSignificance || '',
+        heritageClassification: churchData.classification === 'NCT' ? 'National Cultural Treasures' :
+                               churchData.classification === 'ICP' ? 'Important Cultural Properties' : 'None',
+        religiousClassification: getReligiousClassificationDisplay(churchData.religiousClassification) as 'None' | 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity',
+        supportingDocuments: [],
+        architecturalFeatures: churchData.architecturalFeatures || '',
+        heritageInformation: churchData.heritageInformation || ''
+      },
+      currentParishPriest: churchData.assignedPriest || '',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      massSchedules: (churchData.massSchedules || []).map((schedule: any) => ({
         day: schedule.day || '',
         time: schedule.time?.split(' - ')[0] || '',
         endTime: schedule.time?.split(' - ')[1] || '',
@@ -83,27 +123,27 @@ export function ChurchDetailModal({
         isFbLive: schedule.type?.includes('(FB Live)') || false
       })),
       contactInfo: {
-        phone: church.contactInfo?.phone || '',
-        email: church.contactInfo?.email || '',
-        website: '',
-        facebookPage: ''
+        phone: churchData.contactInfo?.phone || '',
+        email: churchData.contactInfo?.email || '',
+        website: churchData.contactInfo?.website || '',
+        facebookPage: churchData.contactInfo?.facebookPage || ''
       },
-      photos: church.images || [],
-      documents: church.documents || [],
-      virtual360Images: church.virtualTour360 || [],
+      photos: churchData.images || [],
+      documents: churchData.documents || [],
+      virtual360Images: churchData.virtualTour360 || [],
 
       // Legacy fields
-      name: church.name || '',
-      location: church.location || '',
-      priest: church.assignedPriest || '',
-      founded: church.foundingYear?.toString() || '',
-      classification: church.classification || '',
-      description: church.description || '',
-      status: church.status || 'draft',
+      name: churchData.name || '',
+      location: churchData.location || '',
+      priest: churchData.assignedPriest || '',
+      founded: churchData.foundingYear?.toString() || '',
+      classification: churchData.classification || '',
+      description: churchData.description || '',
+      status: churchData.status || 'draft',
       capacity: 0,
-      architecturalStyle: church.architecturalStyle || '',
+      architecturalStyle: churchData.architecturalStyle || '',
       patronSaint: '',
-      diocese: church.diocese || 'tagbilaran'
+      diocese: churchData.diocese || 'tagbilaran'
     };
   };
 
@@ -127,6 +167,10 @@ export function ChurchDetailModal({
     onSubmit?.(data);
     setEditMode(false);
   };
+
+  // Cast church to extended type for view mode
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const churchData = church as any;
 
   if (editMode) {
     return (
@@ -181,7 +225,7 @@ export function ChurchDetailModal({
               </DialogTitle>
               <DialogDescription className="flex items-center gap-2 mt-1">
                 <MapPin className="w-4 h-4" />
-                {church.location}
+                {(churchData.location as string) || church.municipality}
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -221,7 +265,7 @@ export function ChurchDetailModal({
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Full Parish Name</label>
-                      <p className="text-sm">{church.fullName || 'Not specified'}</p>
+                      <p className="text-sm">{(churchData.fullName as string) || 'Not specified'}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Municipality</label>
@@ -237,36 +281,36 @@ export function ChurchDetailModal({
 
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Address</label>
-                    <p className="text-sm">{church.location}</p>
+                    <p className="text-sm">{(churchData.location as string) || 'Not specified'}</p>
                   </div>
 
-                  {church.coordinates && (
+                  {churchData.coordinates && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Coordinates</label>
                       <p className="text-sm">
-                        {church.coordinates.latitude}, {church.coordinates.longitude}
+                        {(churchData.coordinates as { latitude: number; longitude: number }).latitude}, {(churchData.coordinates as { latitude: number; longitude: number }).longitude}
                       </p>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
-              {church.contactInfo && (
+              {churchData.contactInfo && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Contact Information</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {church.contactInfo.phone && (
+                    {(churchData.contactInfo as { phone?: string; email?: string }).phone && (
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{church.contactInfo.phone}</span>
+                        <span className="text-sm">{(churchData.contactInfo as { phone: string }).phone}</span>
                       </div>
                     )}
-                    {church.contactInfo.email && (
+                    {(churchData.contactInfo as { phone?: string; email?: string }).email && (
                       <div className="flex items-center gap-2">
                         <Mail className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{church.contactInfo.email}</span>
+                        <span className="text-sm">{(churchData.contactInfo as { email: string }).email}</span>
                       </div>
                     )}
                   </CardContent>
@@ -285,7 +329,7 @@ export function ChurchDetailModal({
                       <label className="text-sm font-medium text-muted-foreground">Founding Year</label>
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{church.foundingYear || 'Not specified'}</span>
+                        <span className="text-sm">{(churchData.foundingYear as number) || 'Not specified'}</span>
                       </div>
                     </div>
                     <div>
@@ -296,33 +340,33 @@ export function ChurchDetailModal({
 
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Classification</label>
-                    <p className="text-sm">
-                      <Badge variant="outline" className="mt-1">
+                    <div className="text-sm mt-1">
+                      <Badge variant="outline">
                         {church.classification === 'NCT' ? 'National Cultural Treasure' :
                          church.classification === 'ICP' ? 'Important Cultural Property' :
                          church.classification || 'Not classified'}
                       </Badge>
-                    </p>
+                    </div>
                   </div>
 
-                  {church.founders && (
+                  {churchData.founders && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Founders</label>
-                      <p className="text-sm">{church.founders}</p>
+                      <p className="text-sm">{churchData.founders as string}</p>
                     </div>
                   )}
 
-                  {church.historicalBackground && (
+                  {churchData.historicalBackground && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Historical Background</label>
-                      <p className="text-sm whitespace-pre-wrap">{church.historicalBackground}</p>
+                      <p className="text-sm whitespace-pre-wrap">{churchData.historicalBackground as string}</p>
                     </div>
                   )}
 
-                  {church.culturalSignificance && (
+                  {churchData.culturalSignificance && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Cultural Significance</label>
-                      <p className="text-sm whitespace-pre-wrap">{church.culturalSignificance}</p>
+                      <p className="text-sm whitespace-pre-wrap">{churchData.culturalSignificance as string}</p>
                     </div>
                   )}
                 </CardContent>
@@ -335,21 +379,21 @@ export function ChurchDetailModal({
                   <CardTitle className="text-lg">Pastoral Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {church.assignedPriest && (
+                  {churchData.assignedPriest && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Assigned Priest</label>
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{church.assignedPriest}</span>
+                        <span className="text-sm">{churchData.assignedPriest as string}</span>
                       </div>
                     </div>
                   )}
 
-                  {church.massSchedules && church.massSchedules.length > 0 && (
+                  {churchData.massSchedules && (churchData.massSchedules as Array<unknown>).length > 0 && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Mass Schedules</label>
                       <div className="space-y-2 mt-2">
-                        {church.massSchedules.map((schedule, index) => (
+                        {(churchData.massSchedules as Array<{ day: string; time: string; type?: string }>).map((schedule, index) => (
                           <div key={index} className="flex items-center gap-2 text-sm">
                             <Clock className="w-4 h-4 text-muted-foreground" />
                             <span className="font-medium">{schedule.day}:</span>
@@ -369,17 +413,17 @@ export function ChurchDetailModal({
             </TabsContent>
 
             <TabsContent value="media" className="space-y-4 mt-4">
-              {church.images && church.images.length > 0 && (
+              {churchData.images && (churchData.images as Array<string>).length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <ImageIcon className="w-5 h-5" />
-                      Images ({church.images.length})
+                      Images ({(churchData.images as Array<string>).length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-3 gap-2">
-                      {church.images.slice(0, 6).map((image, index) => (
+                      {(churchData.images as Array<string>).slice(0, 6).map((image, index) => (
                         <div key={index} className="aspect-square bg-muted rounded border">
                           <img
                             src={image}
@@ -392,23 +436,23 @@ export function ChurchDetailModal({
                         </div>
                       ))}
                     </div>
-                    {church.images.length > 6 && (
+                    {(churchData.images as Array<string>).length > 6 && (
                       <p className="text-sm text-muted-foreground mt-2">
-                        +{church.images.length - 6} more images
+                        +{(churchData.images as Array<string>).length - 6} more images
                       </p>
                     )}
                   </CardContent>
                 </Card>
               )}
 
-              {church.virtualTour360 && church.virtualTour360.length > 0 && (
+              {churchData.virtualTour360 && (churchData.virtualTour360 as Array<unknown>).length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">360° Virtual Tours ({church.virtualTour360.length})</CardTitle>
+                    <CardTitle className="text-lg">360° Virtual Tours ({(churchData.virtualTour360 as Array<unknown>).length})</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {church.virtualTour360.map((tour, index) => (
+                      {(churchData.virtualTour360 as Array<unknown>).map((tour, index) => (
                         <div key={index} className="flex items-center gap-2 p-2 border rounded">
                           <Eye className="w-4 h-4 text-muted-foreground" />
                           <span className="text-sm">360° Tour {index + 1}</span>
@@ -419,17 +463,17 @@ export function ChurchDetailModal({
                 </Card>
               )}
 
-              {church.documents && church.documents.length > 0 && (
+              {churchData.documents && (churchData.documents as Array<unknown>).length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <FileText className="w-5 h-5" />
-                      Documents ({church.documents.length})
+                      Documents ({(churchData.documents as Array<unknown>).length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {church.documents.map((doc, index) => (
+                      {(churchData.documents as Array<unknown>).map((doc, index) => (
                         <div key={index} className="flex items-center gap-2 p-2 border rounded">
                           <FileText className="w-4 h-4 text-muted-foreground" />
                           <span className="text-sm">Document {index + 1}</span>

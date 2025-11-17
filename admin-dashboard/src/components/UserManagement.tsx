@@ -401,6 +401,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
 
   return (
     <div className="space-y-6">
+      {/* Warning: Use CreateParishAccountModal for new accounts */}
+      <Alert className="mb-4 border-amber-300 bg-amber-50">
+        <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="text-amber-900">
+          <strong>Note:</strong> To create new parish accounts, please use the "Add Parish Account" button in the dashboard header or navigation menu. 
+          This page is for viewing and managing existing accounts only.
+        </AlertDescription>
+      </Alert>
+      
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -410,13 +419,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                 Parish Account Management - {diocese.charAt(0).toUpperCase() + diocese.slice(1)} Diocese
               </CardTitle>
               <CardDescription>
-                Manage parish accounts and assignments
+                View and manage existing parish secretary accounts
               </CardDescription>
             </div>
-            <Button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2">
-              <UserPlus className="w-4 h-4" />
-              Add Parish Account
-            </Button>
+            {/* Removed: Add Parish Account button - use CreateParishAccountModal instead */}
           </div>
         </CardHeader>
         <CardContent>
@@ -551,6 +557,20 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       </Card>
 
       {/* Create Parish Secretary Modal */}
+      {/* 
+        DEPRECATED: Create Parish Account Modal
+        This modal is disabled because it has issues with session disruption and document ID generation.
+        Use CreateParishAccountModal component instead (available in dashboard header).
+        
+        Issues with this implementation:
+        1. Uses createUserWithEmailAndPassword on main auth (logs out current user)
+        2. Uses addDoc() which creates random IDs instead of using UID
+        3. Violates Firestore security rules (expects doc ID = UID)
+        
+        Kept here for reference only - DO NOT RE-ENABLE without fixing these issues.
+      */}
+      {/* Modal disabled - see comment above */}
+      {process.env.NODE_ENV === 'never' && (
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -588,6 +608,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Edit Parish Secretary Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>

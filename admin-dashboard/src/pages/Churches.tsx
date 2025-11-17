@@ -111,7 +111,9 @@ const Churches = () => {
   const canCreateChurch = userProfile?.role === 'parish_secretary';
 
   // Convert Church type from @/types/church to @/lib/churches format for the modal
-  const convertChurchForModal = (church: Church | null): import('@/lib/churches').Church | null => {
+  // Returns extended Church object with additional fields for UI display
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const convertChurchForModal = (church: Church | null): any => {
     if (!church) return null;
 
     // Map the classification to the expected format
@@ -122,7 +124,9 @@ const Churches = () => {
       classification = 'non-heritage';
     }
 
-    return {
+    // Type assertion needed because modal requires extra fields not in base Church type
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = {
       id: church.id,
       name: church.name,
       municipality: church.municipality,
@@ -144,7 +148,7 @@ const Churches = () => {
       submittedBy: church.createdBy,
       lastReviewedBy: church.reviewedBy,
       lastReviewNote: church.reviewNotes,
-      // Additional fields for modal display
+      // Additional fields for modal display (not in base Church type, but needed for UI)
       fullName: church.fullName,
       location: church.location,
       coordinates: church.coordinates,
@@ -155,6 +159,8 @@ const Churches = () => {
       founders: church.founders,
       description: church.description,
     };
+    
+    return result;
   };
 
   return (

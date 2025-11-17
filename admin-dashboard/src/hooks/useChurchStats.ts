@@ -94,7 +94,7 @@ export function useChurchStats(diocese: Diocese): ChurchStats {
       (c) => c.classification === 'ICP' || c.classification === 'NCT'
     ).length;
 
-    const pendingStatuses: ChurchStatus[] = ['pending', 'heritage_review'];
+    const pendingStatuses: ChurchStatus[] = ['pending', 'under_review'];
     const pendingCount = churches.filter((c) =>
       pendingStatuses.includes(c.status)
     ).length;
@@ -102,7 +102,7 @@ export function useChurchStats(diocese: Diocese): ChurchStats {
     const approvedCount = churches.filter((c) => c.status === 'approved').length;
 
     return {
-      totalChurches: churches.length,
+      totalChurches: approvedCount, // Only count approved and published churches
       totalParishes: parishCount || 0,
       activeUsers: activeUsersCount || 0,
       heritageCount,
