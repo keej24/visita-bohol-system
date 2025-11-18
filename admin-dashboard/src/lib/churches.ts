@@ -119,19 +119,32 @@ export async function getChurchesByStatus(statuses: ChurchStatus[]): Promise<Chu
 
 export async function createChurch(data: Omit<Church, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: ChurchStatus }) {
   if (!data.parishId) throw new Error('parishId is required to create a church');
+  
+  // Check for duplicate church name within the same municipality and diocese
+  if (data.name && data.municipality) {
+    const col = collection(db, CHURCHES);
+    const duplicateCheck = query(
+      col,
+      where('diocese', '==', data.diocese),
+      where('name', '==', data.name),
+      where('municipality', '==', data.municipality)
+    );
+    const existingChurches = await getDocs(duplicateCheck);
+    
+    if (!existingChurches.empty) {
+      throw new Error(`A church named "${data.name}" already exists in ${data.municipality}, ${data.diocese} diocese. Churches must have unique names within the same municipality.`);
+    }
+  }
+  
   const payload = {
     ...data,
     status: data.status ?? 'pending' as ChurchStatus,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   };
-  // Use parishId as the document ID to ensure one church per parish
-  const ref = doc(db, CHURCHES, data.parishId);
-  const existing = await getDoc(ref);
-  if (existing.exists()) {
-    throw new Error('Church already exists for this parish');
-  }
-  await setDoc(ref, payload);
+  
+  // Use auto-generated ID to allow multiple churches per parish
+  const ref = await addDoc(collection(db, CHURCHES), payload);
   return ref.id;
 }
 

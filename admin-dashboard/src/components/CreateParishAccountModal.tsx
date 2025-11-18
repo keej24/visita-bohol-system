@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 import type { Diocese } from '@/hooks/useAuth';
 import { createAuthUserWithoutAffectingSession, generateTempPassword } from '@/lib/accounts';
+import { generateParishId, formatParishFullName, getMunicipalitiesByDiocese } from '@/lib/parish-utils';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { Copy, Eye, EyeOff, Wand2, CheckCircle2 } from 'lucide-react';
+import { Copy, Eye, EyeOff, Wand2, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface Props {
   diocese: Diocese;
@@ -20,6 +23,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [parishName, setParishName] = useState('');
+  const [municipality, setMunicipality] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
@@ -27,6 +31,198 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [emailWarning, setEmailWarning] = useState<string | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [similarChurches, setSimilarChurches] = useState<Array<{ municipality: string; email: string }>>([]);
+
+  // Real-time duplicate checking
+  const checkForDuplicates = useCallback(async (name: string, mun: string) => {
+    if (!name || !mun) {
+      setDuplicateWarning(null);
+      setSimilarChurches([]);
+      return;
+    }
+
+    setCheckingDuplicate(true);
+    const similar: Array<{ municipality: string; email: string }> = [];
+    
+    try {
+      const parishId = generateParishId(diocese, mun, name);
+      console.log('🔍 Checking for duplicates:', { name, mun, diocese, generatedParishId: parishId });
+      console.log('🎯 Target parish ID we are looking for:', parishId);
+      
+      // Get ALL parish secretary accounts in this diocese
+      const allAccountsCheck = await getDocs(
+        query(
+          collection(db, 'users'),
+          where('diocese', '==', diocese),
+          where('role', '==', 'parish_secretary')
+        )
+      );
+
+      console.log('📋 All accounts in diocese:', allAccountsCheck.size, 'accounts');
+      console.log('📌 Looking for duplicate of:', `${name} in ${mun}`);
+
+      // Check each account
+      for (const doc of allAccountsCheck.docs) {
+        const data = doc.data();
+        console.log('  Checking account:', {
+          email: data.email,
+          parish: data.parish,
+          municipality: data.municipality,
+          parishId: data.parishId,
+          name: data.name
+        });
+        console.log('  📍 Existing parishId:', data.parishId);
+        console.log('  📍 Looking for parishId:', parishId);
+        
+        // Method 1: Direct parishId match (for new accounts)
+        if (data.parishId && data.parishId === parishId) {
+          console.log('  ❌ DUPLICATE FOUND (direct parishId match)!');
+          console.log('  Match details:', {
+            existingParishId: data.parishId,
+            searchingForParishId: parishId,
+            email: data.email
+          });
+          const existingMunicipality = data.municipality || data.parishInfo?.municipality || 'unknown location';
+          setDuplicateWarning(`An account for "${name}" in ${existingMunicipality} already exists (${data.email})`);
+          setCheckingDuplicate(false);
+          setSimilarChurches([]);
+          return;
+        } else if (data.parishId) {
+          console.log('  ℹ️ No match on direct parishId:', {
+            existing: data.parishId,
+            searching: parishId
+          });
+        }
+
+        // Method 2: Check if existing parishId matches when we apply same normalization
+        // This catches accounts created before normalization was updated
+        if (data.parishId) {
+          // Try to regenerate parishId from the stored parish field or name
+          const storedParishName = data.name || data.parish;
+          const storedMunicipality = data.municipality || data.parishInfo?.municipality;
+          
+          // Only check if we have ACTUAL stored municipality data
+          // Don't use fallback to avoid false positives when municipality is different
+          if (storedParishName && storedMunicipality) {
+            const regeneratedId = generateParishId(diocese, storedMunicipality, storedParishName);
+            console.log('  🔄 Regenerated ID from stored name:', regeneratedId, 'vs', parishId);
+            console.log('  🔄 Used municipality:', storedMunicipality, '(stored:', data.municipality, ')');
+            
+            if (regeneratedId === parishId) {
+              console.log('  ❌ DUPLICATE FOUND (regenerated match)!');
+              setDuplicateWarning(`An account for this parish already exists in ${storedMunicipality} (${data.email})`);
+              setCheckingDuplicate(false);
+              setSimilarChurches([]);
+              return;
+            }
+            
+            // Track similar church names in different municipalities
+            if (storedParishName.toLowerCase().includes(name.toLowerCase()) && storedMunicipality !== mun) {
+              similar.push({ municipality: storedMunicipality, email: data.email });
+            }
+          }
+        }
+
+        // Method 3: Legacy accounts without parishId but with municipality info
+        if (!data.parishId && data.parish) {
+          const storedMunicipality = data.municipality || data.parishInfo?.municipality;
+          
+          // Only check if we have ACTUAL stored municipality data
+          // This prevents false positives when the municipality is genuinely different
+          if (storedMunicipality) {
+            const legacyParishId = generateParishId(diocese, storedMunicipality, data.parish);
+            console.log('  🔄 Generated legacy parishId:', legacyParishId, 'vs', parishId);
+            
+            if (legacyParishId === parishId) {
+              console.log('  ❌ DUPLICATE FOUND (legacy match)!');
+              setDuplicateWarning(`An account for this parish already exists in ${storedMunicipality} (${data.email})`);
+              setCheckingDuplicate(false);
+              setSimilarChurches([]);
+              return;
+            }
+            
+            // Track similar church names in different municipalities
+            if (data.parish.toLowerCase().includes(name.toLowerCase()) && storedMunicipality !== mun) {
+              similar.push({ municipality: storedMunicipality, email: data.email });
+            }
+          }
+        }
+      }
+
+      // No duplicates found
+      console.log('✅ No duplicates found');
+      setDuplicateWarning(null);
+      setSimilarChurches(similar);
+    } catch (err) {
+      console.error('❌ Error checking duplicates:', err);
+      setDuplicateWarning(null);
+      setSimilarChurches([]);
+    } finally {
+      setCheckingDuplicate(false);
+    }
+  }, [diocese]);
+
+  // Real-time email duplicate checking
+  const checkEmailDuplicate = useCallback(async (emailToCheck: string) => {
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailToCheck || !emailRegex.test(emailToCheck)) {
+      setEmailWarning(null);
+      return;
+    }
+
+    setCheckingEmail(true);
+    try {
+      const emailLower = emailToCheck.trim().toLowerCase();
+      console.log('🔍 Checking for duplicate email:', emailLower);
+      
+      const emailCheck = await getDocs(
+        query(collection(db, 'users'), where('email', '==', emailLower))
+      );
+
+      if (!emailCheck.empty) {
+        const existingUser = emailCheck.docs[0].data();
+        console.log('  ❌ EMAIL ALREADY EXISTS:', existingUser.email);
+        setEmailWarning(`This email is already registered${existingUser.name ? ` for ${existingUser.name}` : ''}`);
+      } else {
+        console.log('✅ Email is available');
+        setEmailWarning(null);
+      }
+    } catch (err) {
+      console.error('❌ Error checking email:', err);
+      setEmailWarning(null);
+    } finally {
+      setCheckingEmail(false);
+    }
+  }, []);
+
+  // Real-time duplicate checking when parish name or municipality changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (parishName && municipality) {
+        checkForDuplicates(parishName, municipality);
+      }
+    }, 500); // Debounce for 500ms to avoid too many checks while typing
+
+    return () => clearTimeout(timeoutId);
+  }, [parishName, municipality, checkForDuplicates]);
+
+  // Real-time email checking when email changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (email) {
+        checkEmailDuplicate(email);
+      } else {
+        setEmailWarning(null);
+      }
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [email, checkEmailDuplicate]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +230,34 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
     setError(null);
     try {
       if (!userProfile) throw new Error('Not authenticated');
+      
+      // Validate all required fields
+      if (!parishName || !municipality || !email || !password || !confirm) {
+        throw new Error('Please complete all required fields.');
+      }
+      
+      // Validate municipality is selected
+      if (!municipality || municipality.trim().length === 0) {
+        throw new Error('Please select a municipality. This is required to create unique parish identifiers.');
+      }
+      
+      // Generate unique parish ID using diocese + municipality + parish name
+      const parishId = generateParishId(diocese, municipality, parishName);
+      const parishFullName = formatParishFullName(parishName, municipality);
+      
+      // Check if account already exists for this specific parish (not just email)
+      const parishCheck = await getDocs(
+        query(
+          collection(db, 'users'),
+          where('parishId', '==', parishId),
+          where('role', '==', 'parish_secretary'),
+          where('status', '==', 'active')
+        )
+      );
+      
+      if (!parishCheck.empty) {
+        throw new Error(`An active parish account already exists for ${parishFullName}. Only one account per parish is allowed.`);
+      }
       
       // Check if email already exists in Firestore
       const emailLower = email.trim().toLowerCase();
@@ -68,10 +292,25 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
         role: 'parish_secretary',
         name: parishName,
         diocese,
-        parish: parishName,
+        
+        // NEW: Use unique parish identifier
+        parishId: parishId,
+        
+        // NEW: Store structured parish information
+        parishInfo: {
+          name: parishName,
+          municipality: municipality,
+          fullName: parishFullName
+        },
+        
+        // DEPRECATED: Keep for backward compatibility during migration
+        parish: parishId,
+        
+        status: 'active',
         createdAt: serverTimestamp(),
         createdBy: { uid: userProfile.uid, email: userProfile.email, name: userProfile.name },
       });
+      
       setCredentials({ email: emailLower, password: finalPassword });
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to create account';
@@ -110,38 +349,133 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   const reset = () => {
     setEmail('');
     setParishName('');
+    setMunicipality('');
     setPassword('');
     setConfirm('');
     setCredentials(null);
     setError(null);
     setShow(false);
     setCopied(false);
+    setDuplicateWarning(null);
+    setCheckingDuplicate(false);
+    setSimilarChurches([]);
+    setEmailWarning(null);
+    setCheckingEmail(false);
+  };
+
+  const handleOpenChange = (v: boolean) => {
+    // If trying to close and credentials exist but not copied, prevent closing
+    if (!v && credentials && !copied) {
+      setError('Please copy the credentials before closing. You cannot view them again.');
+      return;
+    }
+    setOpen(v);
+    if (!v) reset();
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? <Button size="sm" className="btn-heritage">Add Parish Account</Button>}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle>Create Parish Account</DialogTitle>
-          <DialogDescription>Create a parish secretary account under the {diocese} diocese and share credentials.</DialogDescription>
+          <DialogDescription>Create a parish account under the {diocese} diocese and share credentials.</DialogDescription>
         </DialogHeader>
 
         {!credentials ? (
-          <form onSubmit={onSubmit} className="space-y-4" autoComplete="off">
-            <div className="space-y-2">
-              <Label>Parish name</Label>
-              <Input value={parishName} onChange={(e) => setParishName(e.target.value)} required placeholder="e.g., St. Joseph the Worker Parish" autoComplete="off" />
+          <form onSubmit={onSubmit} className="space-y-3" autoComplete="off">
+            <Alert className="py-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                <strong>Important:</strong> Each parish can have only ONE parish account. 
+                If a parish already has an account, you cannot create another one.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="space-y-1.5">
+              <Label className="text-sm">Parish name *</Label>
+              <Input value={parishName} onChange={(e) => setParishName(e.target.value)} placeholder="e.g., San Isidro Labrador Parish" autoComplete="off" className="h-9" />
+              <p className="text-xs text-muted-foreground">
+                System treats "St." and "Saint", "Sto." and "Santo" as the same.
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="name@parish.ph" autoComplete="off" />
+            
+            <div className="space-y-1.5">
+              <Label className="text-sm">Municipality *</Label>
+              <Select value={municipality} onValueChange={setMunicipality}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select municipality" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getMunicipalitiesByDiocese(diocese).map((mun) => (
+                    <SelectItem key={mun} value={mun}>
+                      {mun}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-2">
+            
+            {/* Duplicate Warning - Shows in real-time */}
+            {checkingDuplicate && parishName && municipality && (
+              <Alert className="bg-gray-50 border-gray-200 py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                <AlertDescription className="text-sm text-gray-900">
+                  Checking for existing accounts...
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {duplicateWarning && (
+              <Alert variant="destructive" className="py-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  {duplicateWarning}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {parishName && municipality && !checkingDuplicate && !duplicateWarning && (
+              <Alert className="bg-blue-50 border-blue-200 py-2">
+                <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-sm text-blue-900">
+                  <strong>Account will be created for:</strong><br />
+                  {formatParishFullName(parishName, municipality)}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="space-y-1.5">
+              <Label className="text-sm">Email *</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@parish.ph" autoComplete="off" className="h-9" />
+              
+              {/* Email validation feedback */}
+              {checkingEmail && email && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Checking email availability...</span>
+                </div>
+              )}
+              
+              {emailWarning && (
+                <div className="flex items-center gap-1.5 text-xs text-destructive">
+                  <AlertTriangle className="h-3 w-3" />
+                  <span>{emailWarning}</span>
+                </div>
+              )}
+              
+              {email && !checkingEmail && !emailWarning && email.includes('@') && (
+                <div className="flex items-center gap-1.5 text-xs text-green-600">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>Email is available</span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label>Password <span className="text-destructive">*</span></Label>
+                <Label className="text-sm">Password <span className="text-destructive">*</span></Label>
                 <button type="button" className="text-xs text-primary inline-flex items-center gap-1" onClick={() => {
                   const p = generateTempPassword();
                   setPassword(p);
@@ -151,43 +485,138 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
                 </button>
               </div>
               <div className="relative">
-                <Input type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password or click Generate" minLength={8} autoComplete="new-password" required />
+                <Input type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password or click Generate" minLength={8} autoComplete="new-password" className="h-9 pr-9" />
                 <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShow(s => !s)} aria-label={show ? 'Hide password' : 'Show password'}>
                   {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <Input type={show ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" minLength={8} autoComplete="new-password" required />
-              <p className="text-xs text-muted-foreground">Required. Min 8 characters. Use the Generate button for a strong password.</p>
+              <Input type={show ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" minLength={8} autoComplete="new-password" className="h-9" />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <DialogFooter>
-              <Button type="submit" disabled={creating} className="btn-heritage w-full">{creating ? 'Creating…' : 'Create Account'}</Button>
+            
+            {/* Preview/Confirmation Banner - Shows all details before submission */}
+            {parishName && municipality && email && password && confirm && !duplicateWarning && !emailWarning && (
+              <Alert className="bg-amber-50 border-amber-500 border-2 py-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                <AlertDescription>
+                  <p className="font-semibold text-amber-900 mb-3">⚠️ Please review these details carefully before creating the account:</p>
+                  
+                  <div className="bg-white rounded-lg p-3 space-y-2 border border-amber-200">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-medium text-gray-600 uppercase">Parish Name:</span>
+                      <span className="text-sm font-semibold text-gray-900 text-right">{parishName}</span>
+                    </div>
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-medium text-gray-600 uppercase">Municipality:</span>
+                      <span className="text-sm font-semibold text-gray-900 text-right">{municipality}</span>
+                    </div>
+                    <div className="border-t border-gray-200 my-2"></div>
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-medium text-gray-600 uppercase">Email:</span>
+                      <span className="text-sm font-mono text-gray-900 text-right break-all">{email}</span>
+                    </div>
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-medium text-gray-600 uppercase">Password:</span>
+                      <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded text-gray-900">{password}</code>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {error && (
+              <Alert variant="destructive" className="py-3">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="font-medium">
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+            <DialogFooter className="pt-2">
+              <Button 
+                type="submit" 
+                disabled={creating || checkingDuplicate || !!duplicateWarning || checkingEmail || !!emailWarning} 
+                className="btn-heritage w-full h-9"
+              >
+                {creating ? 'Creating…' : (checkingDuplicate || checkingEmail) ? 'Checking...' : 'Create Account'}
+              </Button>
             </DialogFooter>
           </form>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm">Account created. Share credentials securely with the parish secretary.</p>
-            <div className="p-3 rounded border bg-secondary/40 text-sm">
-              <div>Email: <code className="px-1 bg-background rounded">{credentials.email}</code></div>
-              <div>Temp Password: <code className="px-1 bg-background rounded font-semibold">{credentials.password}</code></div>
-              <div className="mt-2">Login URL: <code className="px-1 bg-background rounded">{`${window.location.origin}/login`}</code></div>
-              <div className="mt-2 flex items-center gap-2">
-                <Button size="sm" variant="secondary" onClick={copy} aria-live="polite">
-                  {copied ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 mr-1 text-success" /> Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 mr-1" /> Copy Details
-                    </>
-                  )}
-                </Button>
-                {copied && <span className="text-xs text-success">Details copied</span>}
+            <Alert className="bg-green-50 border-green-200 py-3">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-900">
+                <strong>Account created successfully!</strong> Share credentials securely with the parish secretary.
+              </AlertDescription>
+            </Alert>
+            
+            <Alert className="bg-amber-50 border-amber-200 py-3">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-900 text-sm">
+                <strong>Important:</strong> Make sure to copy these credentials now. 
+                For security reasons, the password cannot be viewed again. However, you can always send a password reset email later if needed.
+              </AlertDescription>
+            </Alert>            <div className="p-3 rounded border bg-secondary/40 text-sm space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Email:</span>
+                <code className="px-2 py-1 bg-background rounded">{credentials.email}</code>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Temp Password:</span>
+                <code className="px-2 py-1 bg-background rounded font-semibold">{credentials.password}</code>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Login URL:</span>
+                <code className="px-2 py-1 bg-background rounded text-xs">{`${window.location.origin}/login`}</code>
               </div>
             </div>
+            
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={copy} className="flex-1" aria-live="polite">
+                {copied ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 mr-1 text-success" /> Copied to Clipboard
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-1" /> Copy All Details
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {copied && (
+              <Alert className="bg-blue-50 border-blue-200 py-2">
+                <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-900 text-xs">
+                  Credentials copied! You can now paste them in an email or document to share with the parish secretary.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {error && (
+              <Alert variant="destructive" className="py-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <DialogFooter>
-              <Button onClick={() => setOpen(false)} className="w-full">Done</Button>
+              <Button 
+                onClick={() => {
+                  if (!copied) {
+                    setError('Please copy the credentials before closing. You cannot view them again.');
+                    return;
+                  }
+                  setOpen(false);
+                }} 
+                disabled={!copied}
+                className="w-full btn-heritage"
+              >
+                {copied ? 'Done' : 'Copy Credentials First'}
+              </Button>
             </DialogFooter>
           </div>
         )}

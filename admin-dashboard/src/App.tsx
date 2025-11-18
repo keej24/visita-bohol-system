@@ -62,7 +62,8 @@ import {
   LazyFeedback,               // Feedback Moderation Page
   LazyAccountSettings,        // User Account Settings Page
   LazyApprovedChurches,       // Approved Churches List (for Museum)
-  LazyUserManagement          // User Management Page (create/edit users)
+  LazyUserManagement,         // User Management Page (create/edit users)
+  LazyMigrateAccounts         // Parish Account Migration Tool
 } from "@/components/LazyComponents";
 
 // ===========================
@@ -318,6 +319,22 @@ const App = () => (
               <ProtectedRoute allowedRoles={['chancery_office']}>
                 <Suspense fallback={<PageLoadingFallback />}>
                   <LazyUserManagement />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            
+            {/* 
+              MIGRATION TOOL PAGE (/migrate-accounts)
+              
+              WHO: Only chancery_office
+              WHAT: Migrate legacy parish accounts to new unique identifier system
+              
+              IMPORTANT: One-time migration tool to update old accounts
+            */}
+            <Route path="/migrate-accounts" element={
+              <ProtectedRoute allowedRoles={['chancery_office']}>
+                <Suspense fallback={<PageLoadingFallback />}>
+                  <LazyMigrateAccounts />
                 </Suspense>
               </ProtectedRoute>
             } />

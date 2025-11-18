@@ -45,7 +45,9 @@ const AccountSettings = () => {
     email: '',
     firstName: '',
     lastName: '',
-    password: ''
+    password: '',
+    currentPassword: '',
+    confirmPassword: ''
   });
 
   // Validate phone number
@@ -99,6 +101,19 @@ const AccountSettings = () => {
     return '';
   };
 
+  // Validate current password
+  const validateCurrentPassword = (password: string): string => {
+    if (!password) return 'Current password is required';
+    return '';
+  };
+
+  // Validate password confirmation
+  const validatePasswordConfirmation = (newPass: string, confirmPass: string): string => {
+    if (!confirmPass) return 'Please confirm your new password';
+    if (newPass !== confirmPass) return "New password and confirmation don't match";
+    return '';
+  };
+
   const handleProfileUpdate = async () => {
     if (!user || !userProfile) {
       toast({
@@ -121,19 +136,22 @@ const AccountSettings = () => {
         email: emailError,
         firstName: firstNameError,
         lastName: lastNameError,
-        password: ''
+        password: '',
+        currentPassword: '',
+        confirmPassword: ''
       });
       
       toast({
         title: 'Validation Error',
-        description: 'Please fix the errors in the form',
+        description: 'Please complete all required fields',
         variant: 'destructive'
       });
       return;
     }
 
     // Clear errors
-    setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '' });
+    // Clear errors
+    setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '', currentPassword: '', confirmPassword: '' });
 
     setIsLoading(true);
     try {
@@ -220,7 +238,7 @@ const AccountSettings = () => {
 
       const authError = error as { code?: string };
       if (authError.code === 'auth/wrong-password') {
-        errorMessage = 'Current password is incorrect';
+        errorMessage = 'Current password is not correct';
       } else if (authError.code === 'auth/weak-password') {
         errorMessage = 'Password is too weak. Please choose a stronger password.';
       } else if (authError.code === 'auth/requires-recent-login') {
@@ -254,12 +272,14 @@ const AccountSettings = () => {
           email: emailError,
           firstName: firstNameError,
           lastName: lastNameError,
-          password: ''
+          password: '',
+          currentPassword: '',
+          confirmPassword: ''
         });
         
         toast({
           title: 'Validation Error',
-          description: 'Please fix the errors in the form',
+          description: 'Please complete all required fields',
           variant: 'destructive'
         });
         setIsLoading(false);
@@ -267,41 +287,56 @@ const AccountSettings = () => {
       }
 
       // Clear errors
-      setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '' });
+      setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '', currentPassword: '', confirmPassword: '' });
       
       // Only update password if password fields are filled
       const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
       
       if (hasPasswordData) {
-        // Validate all password fields are filled
-        if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+        // Validate current password
+        const currentPasswordError = validateCurrentPassword(passwordData.currentPassword);
+        if (currentPasswordError) {
+          setErrors(prev => ({ ...prev, currentPassword: currentPasswordError }));
           toast({
-            title: 'Error',
-            description: 'Please fill in all password fields or leave them blank to skip password change',
+            title: 'Validation Error',
+            description: currentPasswordError,
             variant: 'destructive'
           });
           setIsLoading(false);
           return;
         }
-        
-        // Validate password match
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
-          toast({
-            title: 'Error',
-            description: 'New passwords do not match',
-            variant: 'destructive'
-          });
-          setIsLoading(false);
-          return;
-        }
-        
-        // Validate password strength
-        const passwordError = validatePassword(passwordData.newPassword);
-        if (passwordError) {
-          setErrors(prev => ({ ...prev, password: passwordError }));
+
+        // Validate new password
+        const newPasswordError = validatePassword(passwordData.newPassword);
+        if (newPasswordError) {
+          setErrors(prev => ({ ...prev, password: newPasswordError }));
           toast({
             title: 'Invalid Password',
-            description: passwordError,
+            description: newPasswordError,
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Validate password confirmation
+        const confirmPasswordError = validatePasswordConfirmation(passwordData.newPassword, passwordData.confirmPassword);
+        if (confirmPasswordError) {
+          setErrors(prev => ({ ...prev, confirmPassword: confirmPasswordError }));
+          toast({
+            title: 'Validation Error',
+            description: confirmPasswordError,
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Check if new password is same as current
+        if (passwordData.newPassword === passwordData.currentPassword) {
+          toast({
+            title: 'Invalid Password',
+            description: 'New password must be different from current password',
             variant: 'destructive'
           });
           setIsLoading(false);
@@ -343,7 +378,7 @@ const AccountSettings = () => {
 
           const authError = error as { code?: string };
           if (authError.code === 'auth/wrong-password') {
-            errorMessage = 'Current password is incorrect';
+            errorMessage = 'Current password is not correct';
           } else if (authError.code === 'auth/weak-password') {
             errorMessage = 'Password is too weak. Please choose a stronger password.';
           } else if (authError.code === 'auth/requires-recent-login') {
@@ -395,6 +430,9 @@ const AccountSettings = () => {
     
     // Clear password data
     setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    
+    // Clear all errors
+    setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '', currentPassword: '', confirmPassword: '' });
     
     // Exit edit mode
     setIsEditingProfile(false);
@@ -659,9 +697,15 @@ const AccountSettings = () => {
                       id="currentPassword"
                       type={showPassword ? "text" : "password"}
                       value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                      className="mt-1 pr-10"
+                      onChange={(e) => {
+                        setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }));
+                        if (errors.currentPassword) {
+                          setErrors(prev => ({ ...prev, currentPassword: '' }));
+                        }
+                      }}
+                      className={`mt-1 pr-10 ${errors.currentPassword ? 'border-red-500 focus:ring-red-500' : ''}`}
                       placeholder="Enter current password"
+                      autoComplete="current-password"
                     />
                     <Button
                       type="button"
@@ -669,10 +713,14 @@ const AccountSettings = () => {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
+                  {errors.currentPassword && (
+                    <p className="text-xs text-red-600 mt-1">{errors.currentPassword}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -689,8 +737,14 @@ const AccountSettings = () => {
                             setErrors(prev => ({ ...prev, password: validatePassword(e.target.value) }));
                           }
                         }}
+                        onBlur={(e) => {
+                          if (e.target.value) {
+                            setErrors(prev => ({ ...prev, password: validatePassword(e.target.value) }));
+                          }
+                        }}
                         className={`mt-1 pr-10 ${errors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
                         placeholder="Enter new password"
+                        autoComplete="new-password"
                       />
                       <Button
                         type="button"
@@ -698,6 +752,7 @@ const AccountSettings = () => {
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                         onClick={() => setShowNewPassword(!showNewPassword)}
+                        tabIndex={-1}
                       >
                         {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
@@ -712,11 +767,28 @@ const AccountSettings = () => {
                       id="confirmPassword"
                       type="password"
                       value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className={`mt-1 ${passwordData.newPassword && passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword ? 'border-red-500 focus:ring-red-500' : ''}`}
+                      onChange={(e) => {
+                        setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }));
+                        if (errors.confirmPassword) {
+                          setErrors(prev => ({ ...prev, confirmPassword: '' }));
+                        }
+                      }}
+                      onBlur={(e) => {
+                        if (passwordData.newPassword && e.target.value) {
+                          setErrors(prev => ({ 
+                            ...prev, 
+                            confirmPassword: validatePasswordConfirmation(passwordData.newPassword, e.target.value) 
+                          }));
+                        }
+                      }}
+                      className={`mt-1 ${errors.confirmPassword || (passwordData.newPassword && passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword) ? 'border-red-500 focus:ring-red-500' : ''}`}
                       placeholder="Confirm new password"
+                      autoComplete="new-password"
                     />
-                    {passwordData.newPassword && passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
+                    {errors.confirmPassword && (
+                      <p className="text-xs text-red-600 mt-1">{errors.confirmPassword}</p>
+                    )}
+                    {!errors.confirmPassword && passwordData.newPassword && passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
                       <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
                     )}
                   </div>

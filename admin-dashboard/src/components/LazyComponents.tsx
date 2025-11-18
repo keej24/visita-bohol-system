@@ -21,6 +21,9 @@ export const LazyFeedback = lazy(() => import('../pages/Feedback'));
 export const LazyAccountSettings = lazy(() => import('../pages/AccountSettings'));
 export const LazyApprovedChurches = lazy(() => import('../pages/ApprovedChurches'));
 export const LazyUserManagement = lazy(() => import('../pages/UserManagementPage'));
+export const LazyMigrateAccounts = lazy(() => import('../pages/MigrateParishAccounts').then(module => ({
+  default: module.MigrateParishAccounts
+})));
 
 // Form components - lazy loaded when needed
 export const LazyChurchForm = lazy(() =>

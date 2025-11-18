@@ -88,7 +88,20 @@ export interface UserProfile {
   role: UserRole;
   name: string;
   diocese: Diocese;
-  parish?: string;  // Optional: only parish_secretary has this
+  
+  // NEW: Unique parish identifier (replaces parish name)
+  parishId?: string;  // e.g., "tagbilaran_alburquerque_san_isidro_labrador_parish"
+  
+  // NEW: Structured parish information
+  parishInfo?: {
+    name: string;        // e.g., "San Isidro Labrador Parish"
+    municipality: string; // e.g., "Alburquerque"
+    fullName: string;    // e.g., "San Isidro Labrador Parish, Alburquerque"
+  };
+  
+  // DEPRECATED: Legacy field for backward compatibility
+  parish?: string;  // Will be migrated to parishId
+  
   createdAt: Date;
   lastLoginAt: Date;
 }
@@ -192,7 +205,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             role: data.role,
             name: data.name,
             diocese: data.diocese,
-            parish: data.parish,
+            
+            // NEW: Support new parish ID structure
+            parishId: data.parishId,
+            parishInfo: data.parishInfo,
+            
+            // DEPRECATED: Maintain backward compatibility
+            // If parishId doesn't exist, use old parish field
+            parish: data.parishId || data.parish,
+            
             createdAt: data.createdAt?.toDate(),
             lastLoginAt: new Date(),
           });

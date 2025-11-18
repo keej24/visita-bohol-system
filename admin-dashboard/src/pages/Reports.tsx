@@ -875,7 +875,7 @@ const Reports = () => {
                 </div>
 
                 {/* Export Error Messages */}
-                {(!engagementMetrics || !dioceseAnalytics) && !dateRangeError && (
+                {(!engagementMetrics || !dioceseAnalytics) && !dateRangeError && isLoading && (
                   <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <span className="text-blue-600 text-sm font-medium">ℹ️ Loading data...</span>
                   </div>
@@ -883,20 +883,82 @@ const Reports = () => {
 
                 {/* Date Range Error Message */}
                 {dateRangeError && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <span className="text-red-600 text-sm font-medium">⚠️ {dateRangeError}</span>
+                  <div className="flex flex-col gap-3 p-4 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex items-start gap-2">
+                      <span className="text-red-600 text-sm font-medium">⚠️ {dateRangeError}</span>
+                    </div>
+                    <p className="text-sm text-red-600">
+                      Please adjust your date range. The start date must be on or before the end date.
+                    </p>
                   </div>
                 )}
 
                 {/* No Data Message */}
-                {!dateRangeError && noDataMessage && (
-                  <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <span className="text-yellow-700 text-sm font-medium">ℹ️ {noDataMessage}</span>
+                {!dateRangeError && !isLoading && engagementMetrics && dioceseAnalytics && !hasExportableData && (
+                  <div className="flex flex-col gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <div className="flex items-start gap-2">
+                      <span className="text-yellow-700 text-sm font-medium">ℹ️ No data to export with current filters</span>
+                    </div>
+                    <p className="text-sm text-yellow-700">
+                      There are no visitors or feedback records for the selected date range ({formatDate(startDate, 'MMM dd, yyyy')} - {formatDate(endDate, 'MMM dd, yyyy')}).
+                    </p>
+                    <div className="flex gap-3">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setStartDate(subMonths(new Date(), 6));
+                          setEndDate(new Date());
+                        }}
+                      >
+                        Reset to Last 6 Months
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setActiveTab('church_summary')}
+                      >
+                        View Church Summary Report
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* Show comprehensive "No data" state when filters result in no data */}
+            {!dateRangeError && !isLoading && engagementMetrics && dioceseAnalytics && !hasExportableData ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <BarChart3 className="w-16 h-16 mx-auto text-muted-foreground mb-4 opacity-50" />
+                  <h3 className="text-lg font-semibold mb-2">No Analytics Data Available</h3>
+                  <p className="text-muted-foreground mb-6">
+                    There are no visitor or feedback records for the selected date range:<br />
+                    <strong>{formatDate(startDate, 'MMMM dd, yyyy')} - {formatDate(endDate, 'MMMM dd, yyyy')}</strong>
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button 
+                      variant="default" 
+                      onClick={() => {
+                        setStartDate(subMonths(new Date(), 6));
+                        setEndDate(new Date());
+                      }}
+                    >
+                      <Filter className="w-4 h-4 mr-2" />
+                      Reset to Last 6 Months
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setActiveTab('church_summary')}
+                    >
+                      <Building2 className="w-4 h-4 mr-2" />
+                      View Church Summary Report
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
             {/* Visitor Trends Chart */}
             <Card>
               <CardHeader>
@@ -1057,6 +1119,8 @@ const Reports = () => {
                   </div>
                 </CardContent>
               </Card>
+            )}
+              </>
             )}
           </TabsContent>
 

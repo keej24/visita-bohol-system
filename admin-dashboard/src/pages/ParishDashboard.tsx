@@ -215,11 +215,14 @@ const ParishDashboard = () => {
 
   // Load existing church data from Firebase
   useEffect(() => {
-    if (userProfile && userProfile.parish) {
+    if (userProfile && (userProfile.parishId || userProfile.parish)) {
       setIsLoading(true);
 
-      // Try to load existing church data using parish name as document ID
-      ChurchService.getChurch(userProfile.parish)
+      // Use new parishId if available, fallback to legacy parish field
+      const churchIdentifier = userProfile.parishId || userProfile.parish;
+
+      // Try to load existing church data using parish ID as document ID
+      ChurchService.getChurch(churchIdentifier!)
         .then((church) => {
           if (church) {
             // Church exists in Firebase - load the data
@@ -235,10 +238,11 @@ const ParishDashboard = () => {
             }
           } else {
             // No existing church - initialize with default data but don't show form yet
+            const displayName = userProfile.parishInfo?.fullName || userProfile.parish || '';
             setChurchInfo(prev => ({
               ...prev,
-              churchName: userProfile.parish,
-              name: userProfile.parish,
+              churchName: displayName,
+              name: displayName,
               diocese: userProfile.diocese
             }));
             setShowProfileForm(false); // Changed to false - user must click "Add Profile" button
@@ -247,10 +251,11 @@ const ParishDashboard = () => {
         .catch((error) => {
           console.error('Error loading church data:', error);
           // Fallback to default initialization
+          const displayName = userProfile.parishInfo?.fullName || userProfile.parish || '';
           setChurchInfo(prev => ({
             ...prev,
-            churchName: userProfile.parish,
-            name: userProfile.parish,
+            churchName: displayName,
+            name: displayName,
             diocese: userProfile.diocese
           }));
           setShowProfileForm(false); // Changed to false - user must click "Add Profile" button
@@ -263,14 +268,16 @@ const ParishDashboard = () => {
 
   // Set up real-time listener for church updates
   useEffect(() => {
-    if (!userProfile?.parish) return;
+    if (!userProfile?.parishId && !userProfile?.parish) return;
 
+    // Use new parishId if available, fallback to legacy parish field
+    const churchIdentifier = userProfile.parishId || userProfile.parish;
     let previousStatus: string | null = null;
 
     const unsubscribe = ChurchService.subscribeToChurches(
       (churches) => {
         // Find our parish's church in the results
-        const parishChurch = churches.find(church => church.id === userProfile.parish);
+        const parishChurch = churches.find(church => church.id === churchIdentifier);
         if (parishChurch) {
           // Check if status changed to show notification
           if (previousStatus && previousStatus !== parishChurch.status) {
@@ -583,11 +590,13 @@ const ParishDashboard = () => {
 
       if (isInitialSubmission) {
         // Create new church in Firebase using parish ID as document ID
+        const parishIdentifier = userProfile.parishId || userProfile.parish;
+        
         const newChurchId = await ChurchService.createChurch(
           formData,
           userProfile.diocese,
           userProfile.uid,
-          userProfile.parish // Use parish name as document ID
+          parishIdentifier // Use unique parish ID as document ID
         );
 
         setChurchId(newChurchId);

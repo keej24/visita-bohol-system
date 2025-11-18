@@ -208,18 +208,30 @@ export class ChurchService {
     try {
       const data = convertToFirestoreData(formData, userId, diocese);
 
-      // Use parish ID as document ID if provided (for parish secretaries)
-      if (parishId) {
-        const docRef = doc(db, CHURCHES_COLLECTION, parishId);
-        await setDoc(docRef, data);
-        return parishId;
-      } else {
-        // Auto-generate ID for chancery office submissions
-        const docRef = await addDoc(collection(db, CHURCHES_COLLECTION), data);
-        return docRef.id;
+      // Check for duplicate church name within the same municipality and diocese
+      if (data.name && data.municipality) {
+        const duplicateCheck = query(
+          collection(db, CHURCHES_COLLECTION),
+          where('diocese', '==', diocese),
+          where('name', '==', data.name),
+          where('municipality', '==', data.municipality)
+        );
+        const existingChurches = await getDocs(duplicateCheck);
+        
+        if (!existingChurches.empty) {
+          throw new Error(`A church named "${data.name}" already exists in ${data.municipality}. Please use a different name or verify if this church is already registered.`);
+        }
       }
+
+      // Always use auto-generated ID to allow multiple churches per parish
+      const docRef = await addDoc(collection(db, CHURCHES_COLLECTION), data);
+      return docRef.id;
     } catch (error) {
       console.error('Error creating church:', error);
+      // Re-throw the error with its original message if it's a duplicate check error
+      if (error instanceof Error && error.message.includes('already exists')) {
+        throw error;
+      }
       throw new Error('Failed to create church');
     }
   }
@@ -238,6 +250,29 @@ export class ChurchService {
       const currentChurch = churchSnapshot.data() as Church;
 
       const data = convertToFirestoreData(formData, userId, diocese, true);
+
+      // Check for duplicate church name if name or municipality is being changed
+      if (data.name && data.municipality) {
+        const nameChanged = data.name !== currentChurch.name;
+        const municipalityChanged = data.municipality !== currentChurch.municipality;
+        
+        if (nameChanged || municipalityChanged) {
+          const duplicateCheck = query(
+            collection(db, CHURCHES_COLLECTION),
+            where('diocese', '==', diocese),
+            where('name', '==', data.name),
+            where('municipality', '==', data.municipality)
+          );
+          const existingChurches = await getDocs(duplicateCheck);
+          
+          // Filter out the current church being updated
+          const otherChurches = existingChurches.docs.filter(doc => doc.id !== id);
+          
+          if (otherChurches.length > 0) {
+            throw new Error(`A church named "${data.name}" already exists in ${data.municipality}. Please use a different name or verify if this church is already registered.`);
+          }
+        }
+      }
 
       // IMPORTANT: Handle classification changes and status transitions
       // If church classification changes from heritage (ICP/NCT) to non-heritage

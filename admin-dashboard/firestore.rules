@@ -95,19 +95,18 @@ service cloud.firestore {
       // Everyone can read church data (public information)
       allow read: if true;
       
-  // Parish secretaries can create exactly one church in their diocese,
-  // with doc ID equal to their parish ID, and only if it does not exist yet
+  // Parish secretaries can create churches in their diocese for their parish
+  // Multiple churches per parish are allowed (e.g., different municipalities)
   allow create: if isParishSecretary() &&
            request.resource.data.diocese == getUserData().diocese &&
-           getUserData().parish == churchId &&
-           // ensure not overwriting existing
-           !exists(/databases/$(database)/documents/churches/$(churchId));
+           request.resource.data.parishId == getUserData().parishId;
 
-  // Parish secretaries can update their own parish church only (cannot change diocese)
+  // Parish secretaries can update churches that belong to their parish
   allow update: if isParishSecretary() &&
-           churchId == getUserData().parish &&
+           resource.data.parishId == getUserData().parishId &&
            resource.data.diocese == getUserData().diocese &&
-           request.resource.data.diocese == resource.data.diocese;
+           request.resource.data.diocese == resource.data.diocese &&
+           request.resource.data.parishId == resource.data.parishId;
 
   // Chancery office can create churches in their diocese
   allow create: if isChanceryOffice() && request.resource.data.diocese == getUserData().diocese;
@@ -216,9 +215,8 @@ service cloud.firestore {
       // Chancery office can read ALL feedback in their diocese (for reports and moderation)
       allow read: if isChanceryOffice();
 
-      // Parish secretaries can read feedback for churches in their diocese
-      allow read: if isParishSecretary() &&
-                     get(/databases/$(database)/documents/churches/$(resource.data.church_id)).data.diocese == getUserData().diocese;
+      // Parish secretaries can read all feedback (client-side filtering by diocese)
+      allow read: if isParishSecretary();
 
       // Chancery office and parish secretaries can moderate feedback for churches in their diocese
       allow update: if (isChanceryOffice() || isParishSecretary()) &&

@@ -18,6 +18,9 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { db, auth } from '@/lib/firebase';
 
 interface ParishAccountProps {
   onClose: () => void;
@@ -27,8 +30,9 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
   onClose
 }) => {
   const { toast } = useToast();
-  const { userProfile } = useAuth();
+  const { userProfile, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
@@ -46,6 +50,61 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Validation states
+  const [errors, setErrors] = useState({
+    phone: '',
+    email: '',
+    password: '',
+    currentPassword: '',
+    confirmPassword: ''
+  });
+
+  // Validation functions
+  const validatePassword = (password: string): boolean => {
+    if (!password) return false;
+    
+    const hasMinLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    return hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar;
+  };
+
+  const validateCurrentPassword = (): boolean => {
+    if (!passwordData.currentPassword) {
+      setErrors(prev => ({ ...prev, currentPassword: 'Please complete all required fields' }));
+      return false;
+    }
+    setErrors(prev => ({ ...prev, currentPassword: '' }));
+    return true;
+  };
+
+  const validatePasswordConfirmation = (): boolean => {
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      setErrors(prev => ({ ...prev, confirmPassword: 'Please complete all required fields' }));
+      return false;
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setErrors(prev => ({ ...prev, confirmPassword: "New password and confirmation don't match" }));
+      return false;
+    }
+    
+    setErrors(prev => ({ ...prev, confirmPassword: '' }));
+    return true;
+  };
+
+  // Check password requirements
+  const passwordRequirements = {
+    minLength: passwordData.newPassword.length >= 8,
+    hasUpperCase: /[A-Z]/.test(passwordData.newPassword),
+    hasLowerCase: /[a-z]/.test(passwordData.newPassword),
+    hasNumber: /[0-9]/.test(passwordData.newPassword),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(passwordData.newPassword)
+  };
 
   const handleProfileSave = () => {
     // Validate required fields
@@ -151,121 +210,204 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
   };
 
   // Combined update handler for both profile and password
-  const handleCombinedUpdate = () => {
-    // First validate and save profile
-    const requiredFields = [
-      { value: profileData.email, name: 'Email' },
-      { value: profileData.phone, name: 'Phone' }
-    ];
+  const handleCombinedUpdate = async () => {
+    setIsLoading(true);
+    
+    try {
+      // First validate and save profile
+      const requiredFields = [
+        { value: profileData.email, name: 'Email' },
+        { value: profileData.phone, name: 'Phone' }
+      ];
 
-    const emptyFields = requiredFields.filter(field => !field.value.trim());
+      const emptyFields = requiredFields.filter(field => !field.value.trim());
 
-    if (emptyFields.length > 0) {
-      toast({ 
-        title: "Validation Error", 
-        description: "Please complete all required fields.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(profileData.email)) {
-      toast({ 
-        title: "Invalid Email", 
-        description: "Please enter a valid email address.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Phone validation
-    if (profileData.phone && profileData.phone.trim()) {
-      const phoneRegex = /^[\d\s\-()+]+$/;
-      if (!phoneRegex.test(profileData.phone)) {
-        toast({ 
-          title: "Invalid Phone Number", 
-          description: "Please enter a valid phone number (numbers, spaces, hyphens, parentheses, and + allowed)",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const digitCount = profileData.phone.replace(/\D/g, '').length;
-      if (digitCount < 7) {
-        toast({ 
-          title: "Invalid Phone Number", 
-          description: "Phone number must contain at least 7 digits",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (digitCount > 15) {
-        toast({ 
-          title: "Invalid Phone Number", 
-          description: "Phone number cannot exceed 15 digits",
-          variant: "destructive"
-        });
-        return;
-      }
-    }
-
-    // Check if password fields have data
-    const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
-
-    if (hasPasswordData) {
-      // Validate all password fields are filled
-      if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      if (emptyFields.length > 0) {
         toast({ 
           title: "Validation Error", 
-          description: "Please fill in all password fields or leave them blank to skip password change",
+          description: "Please complete all required fields",
           variant: "destructive"
         });
+        setIsLoading(false);
         return;
       }
 
-      // Validate password match
-      if (passwordData.newPassword !== passwordData.confirmPassword) {
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(profileData.email)) {
         toast({ 
-          title: "Password Mismatch", 
-          description: "New password and confirmation don't match.",
+          title: "Invalid Email", 
+          description: "Please enter a valid email address",
           variant: "destructive"
         });
+        setIsLoading(false);
         return;
       }
 
-      // Validate password length
-      if (passwordData.newPassword.length < 8) {
+      // Phone validation
+      if (profileData.phone && profileData.phone.trim()) {
+        const phoneRegex = /^[\d\s\-()+]+$/;
+        if (!phoneRegex.test(profileData.phone)) {
+          toast({ 
+            title: "Invalid Phone Number", 
+            description: "Please enter a valid phone number (numbers, spaces, hyphens, parentheses, and + allowed)",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        const digitCount = profileData.phone.replace(/\D/g, '').length;
+        if (digitCount < 7) {
+          toast({ 
+            title: "Invalid Phone Number", 
+            description: "Phone number must contain at least 7 digits",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        if (digitCount > 15) {
+          toast({ 
+            title: "Invalid Phone Number", 
+            description: "Phone number cannot exceed 15 digits",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Check if password fields have data
+      const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
+
+      if (hasPasswordData) {
+        // Validate all password fields are filled
+        if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+          toast({ 
+            title: "Validation Error", 
+            description: "Please complete all required fields",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Validate password requirements
+        if (!validatePassword(passwordData.newPassword)) {
+          setErrors(prev => ({ ...prev, password: 'Please complete all required fields' }));
+          toast({ 
+            title: "Validation Error", 
+            description: "Please complete all required fields",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Validate password match
+        if (!validatePasswordConfirmation()) {
+          toast({ 
+            title: "Password Mismatch", 
+            description: "New password and confirmation don't match",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Update password via Firebase Auth
+        if (user) {
+          try {
+            // Re-authenticate user before password change
+            const credential = EmailAuthProvider.credential(
+              user.email!,
+              passwordData.currentPassword
+            );
+            
+            await reauthenticateWithCredential(user, credential);
+            
+            // Update password
+            await updatePassword(user, passwordData.newPassword);
+            
+            // Clear password fields
+            setPasswordData({
+              currentPassword: '',
+              newPassword: '',
+              confirmPassword: ''
+            });
+
+            toast({ 
+              title: "Account Updated", 
+              description: "Your profile and password have been updated successfully!" 
+            });
+          } catch (error: unknown) {
+            console.error('Password update error:', error);
+            
+            if (error && typeof error === 'object' && 'code' in error) {
+              const firebaseError = error as { code: string };
+              
+              if (firebaseError.code === 'auth/wrong-password') {
+                setErrors(prev => ({ ...prev, currentPassword: 'Current password is not correct' }));
+                toast({ 
+                  title: "Authentication Error", 
+                  description: "Current password is not correct",
+                  variant: "destructive"
+                });
+              } else if (firebaseError.code === 'auth/weak-password') {
+                setErrors(prev => ({ ...prev, password: 'Please complete all required fields' }));
+                toast({ 
+                  title: "Weak Password", 
+                  description: "Please complete all required fields",
+                  variant: "destructive"
+                });
+              } else if (firebaseError.code === 'auth/requires-recent-login') {
+                toast({ 
+                  title: "Re-authentication Required", 
+                  description: "Please log out and log in again before changing your password",
+                  variant: "destructive"
+                });
+              } else {
+                const errorMessage = error && typeof error === 'object' && 'message' in error 
+                  ? String(error.message) 
+                  : "Failed to update password. Please try again.";
+                toast({ 
+                  title: "Error", 
+                  description: errorMessage,
+                  variant: "destructive"
+                });
+              }
+            } else {
+              toast({ 
+                title: "Error", 
+                description: "Failed to update password. Please try again.",
+                variant: "destructive"
+              });
+            }
+            setIsLoading(false);
+            return;
+          }
+        }
+      } else {
+        // Profile only updated
         toast({ 
-          title: "Password Too Short", 
-          description: "Password must be at least 8 characters long.",
-          variant: "destructive"
+          title: "Profile Updated", 
+          description: "Your profile information has been saved successfully" 
         });
-        return;
       }
 
-      // Both profile and password updated
+      setIsEditing(false);
+    } catch (error: unknown) {
+      console.error('Update error:', error);
       toast({ 
-        title: "Account Updated", 
-        description: "Your profile and password have been updated successfully!" 
+        title: "Error", 
+        description: (error as Error).message || "Failed to update account. Please try again.",
+        variant: "destructive"
       });
-      
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-    } else {
-      // Profile only updated
-      toast({ 
-        title: "Profile Updated", 
-        description: "Your profile information has been saved successfully." 
-      });
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsEditing(false);
   };
 
   // Cancel edit and reset all changes
@@ -428,8 +570,11 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                     id="currentPassword"
                     type={showCurrentPassword ? "text" : "password"}
                     value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                    className="mt-1 pr-10"
+                    onChange={(e) => {
+                      setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }));
+                      setErrors(prev => ({ ...prev, currentPassword: '' }));
+                    }}
+                    className={`mt-1 pr-10 ${errors.currentPassword ? 'border-red-500' : ''}`}
                     placeholder="Enter current password"
                   />
                   <Button
@@ -446,6 +591,9 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                     )}
                   </Button>
                 </div>
+                {errors.currentPassword && (
+                  <p className="text-red-500 text-sm mt-1">{errors.currentPassword}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -456,8 +604,11 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                       id="newPassword"
                       type={showNewPassword ? "text" : "password"}
                       value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                      className="mt-1 pr-10"
+                      onChange={(e) => {
+                        setPasswordData(prev => ({ ...prev, newPassword: e.target.value }));
+                        setErrors(prev => ({ ...prev, password: '' }));
+                      }}
+                      className={`mt-1 pr-10 ${errors.password ? 'border-red-500' : ''}`}
                       placeholder="Enter new password"
                     />
                     <Button
@@ -474,6 +625,9 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                       )}
                     </Button>
                   </div>
+                  {errors.password && (
+                    <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="confirmPassword">Confirm New Password</Label>
@@ -481,36 +635,60 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                     id="confirmPassword"
                     type="password"
                     value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    className="mt-1"
+                    onChange={(e) => {
+                      setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }));
+                      setErrors(prev => ({ ...prev, confirmPassword: '' }));
+                    }}
+                    className={`mt-1 ${errors.confirmPassword ? 'border-red-500' : ''}`}
                     placeholder="Confirm new password"
                   />
+                  {errors.confirmPassword && (
+                    <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>
+                  )}
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Password Requirements:</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• At least 8 characters long</li>
-                  <li>• Contains uppercase and lowercase letters</li>
-                  <li>• Contains at least one number</li>
-                  <li>• Contains at least one special character</li>
-                </ul>
-              </div>
+              {passwordData.newPassword && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Password Requirements:</h4>
+                  <ul className="text-sm space-y-1">
+                    <li className={passwordRequirements.minLength ? 'text-green-600' : 'text-gray-600'}>
+                      {passwordRequirements.minLength ? '✓' : '•'} At least 8 characters long
+                    </li>
+                    <li className={passwordRequirements.hasUpperCase ? 'text-green-600' : 'text-gray-600'}>
+                      {passwordRequirements.hasUpperCase ? '✓' : '•'} Contains uppercase letter
+                    </li>
+                    <li className={passwordRequirements.hasLowerCase ? 'text-green-600' : 'text-gray-600'}>
+                      {passwordRequirements.hasLowerCase ? '✓' : '•'} Contains lowercase letter
+                    </li>
+                    <li className={passwordRequirements.hasNumber ? 'text-green-600' : 'text-gray-600'}>
+                      {passwordRequirements.hasNumber ? '✓' : '•'} Contains at least one number
+                    </li>
+                    <li className={passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-gray-600'}>
+                      {passwordRequirements.hasSpecialChar ? '✓' : '•'} Contains at least one special character
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
           {/* Save/Cancel Buttons (only visible in edit mode) */}
           {isEditing && (
             <div className="flex gap-3 pt-4">
-              <Button onClick={handleCombinedUpdate} className="flex-1">
+              <Button 
+                onClick={handleCombinedUpdate} 
+                className="flex-1"
+                disabled={isLoading}
+              >
                 <Save className="w-4 h-4 mr-2" />
-                Save Changes
+                {isLoading ? 'Saving...' : 'Save Changes'}
               </Button>
               <Button 
                 variant="outline" 
                 onClick={handleCancelEdit}
                 className="flex-1"
+                disabled={isLoading}
               >
                 Cancel
               </Button>

@@ -72,13 +72,14 @@ export class DioceseAnalyticsService {
     endDate?: Date
   ): Promise<DioceseAnalytics> {
     try {
-      console.log(`🔍 Fetching churches for diocese: ${diocese}`);
+      console.log(`🔍 Fetching approved churches for diocese: ${diocese}`);
 
-      // Fetch all churches in the diocese
+      // Fetch only approved churches in the diocese
       const churchesRef = collection(db, 'churches');
       const churchesQuery = query(
         churchesRef,
-        where('diocese', '==', diocese)
+        where('diocese', '==', diocese),
+        where('status', '==', 'approved')
       );
       const churchesSnapshot = await getDocs(churchesQuery);
 
@@ -141,21 +142,64 @@ export class DioceseAnalyticsService {
         }
       });
 
-      // Get feedback for all churches
+      // Get feedback for all churches (filtered by date range if provided)
       const feedbackRef = collection(db, 'feedback');
       const feedbackQuery = query(
         feedbackRef,
-        where('status', '==', 'published')
+        where('status', '==', 'published'),
+        orderBy('date_submitted', 'desc')
       );
+
       const feedbackSnapshot = await getDocs(feedbackQuery);
       const feedbackList: any[] = [];
       feedbackSnapshot.forEach(doc => {
         const data = doc.data();
-        const church = churches.find(c => c.id === data.church_id);
+        // Match feedback by ID or by church name (feedback might use church name as ID)
+        const church = churches.find(c => 
+          c.id === data.church_id || 
+          c.id === data.churchId ||
+          c.churchName === data.church_id ||
+          c.name === data.church_id ||
+          (c.basicInfo?.churchName === data.church_id)
+        );
         if (church) {
-          feedbackList.push({ id: doc.id, ...data });
+          // Apply date filtering in-memory if date range is provided
+          if (startDate && endDate && data.date_submitted) {
+            const feedbackDate = data.date_submitted.toDate();
+            if (feedbackDate >= startDate && feedbackDate <= endDate) {
+              feedbackList.push({ id: doc.id, ...data });
+            }
+          } else if (!startDate && !endDate) {
+            // No date filter, include all
+            feedbackList.push({ id: doc.id, ...data });
+          }
         }
       });
+
+      console.log(`📊 Diocese Analytics: Feedback filtering - Total published: ${feedbackSnapshot.size}, Matched churches: ${feedbackList.length}, Date range: ${startDate?.toLocaleDateString()} - ${endDate?.toLocaleDateString()}`);
+      if (feedbackList.length > 0) {
+        console.log('✅ Sample matched feedback:', { 
+          id: feedbackList[0].id, 
+          church_id: feedbackList[0].church_id, 
+          rating: feedbackList[0].rating,
+          date: feedbackList[0].date_submitted?.toDate?.()
+        });
+        console.log(`✅ Total ratings found: ${feedbackList.length}, Avg rating: ${(feedbackList.reduce((sum, f) => sum + (f.rating || 0), 0) / feedbackList.length).toFixed(1)}`);
+      } else {
+        console.log('⚠️ No feedback found. Total churches:', churches.length, 'Church IDs:', churches.map(c => c.id));
+        if (feedbackSnapshot.size > 0) {
+          const firstFeedback = feedbackSnapshot.docs[0].data();
+          console.log('❌ Sample feedback from DB (not matched):', {
+            church_id: firstFeedback.church_id,
+            churchId: firstFeedback.churchId,
+            status: firstFeedback.status,
+            rating: firstFeedback.rating,
+            date: firstFeedback.date_submitted?.toDate?.()
+          });
+          console.log('🔍 Looking for church with ID:', firstFeedback.church_id || firstFeedback.churchId);
+          console.log('🔍 Available church IDs:', churches.map(c => ({ id: c.id, name: c.churchName || c.name })));
+        }
+      }
 
       // Calculate statistics
       const totalChurches = churches.length;
@@ -190,7 +234,13 @@ export class DioceseAnalyticsService {
       // All churches with visitor counts (sorted by visitor count)
       const churchVisitorCounts = churches.map(church => {
         const churchVisitors = visitorLogs.filter(v => v.church_id === church.id).length;
-        const churchFeedback = feedbackList.filter(f => f.church_id === church.id);
+        // Match feedback by ID or church name
+        const churchFeedback = feedbackList.filter(f => 
+          f.church_id === church.id || 
+          f.church_id === church.churchName ||
+          f.church_id === church.name ||
+          f.church_id === church.basicInfo?.churchName
+        );
         const churchAvgRating = churchFeedback.length > 0
           ? churchFeedback.reduce((sum, f) => sum + (f.rating || 0), 0) / churchFeedback.length
           : 0;
@@ -387,17 +437,27 @@ export class DioceseAnalyticsService {
         }
       ];
 
-      // Get feedback for rating distribution
+      // Get feedback for rating distribution (filtered by date range in-memory)
       const feedbackRef = collection(db, 'feedback');
       const feedbackQuery = query(
         feedbackRef,
-        where('status', '==', 'published')
+        where('status', '==', 'published'),
+        orderBy('date_submitted', 'desc')
       );
       const feedbackSnapshot = await getDocs(feedbackQuery);
       const feedbackList: any[] = [];
       feedbackSnapshot.forEach(doc => {
-        feedbackList.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        // Apply date filtering in-memory
+        if (data.date_submitted) {
+          const feedbackDate = data.date_submitted.toDate();
+          if (feedbackDate >= startDate && feedbackDate <= endDate) {
+            feedbackList.push({ id: doc.id, ...data });
+          }
+        }
       });
+
+      console.log(`📊 Engagement Metrics: Feedback filtering - Total: ${feedbackSnapshot.size}, Filtered: ${feedbackList.length}, Date range: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
 
       // Rating distribution
       const ratingCounts = feedbackList.reduce((acc, f) => {
@@ -415,7 +475,11 @@ export class DioceseAnalyticsService {
 
       // Feedback by municipality
       const churchesRef = collection(db, 'churches');
-      const churchesQuery = query(churchesRef, where('diocese', '==', diocese));
+      const churchesQuery = query(
+        churchesRef, 
+        where('diocese', '==', diocese),
+        where('status', '==', 'approved')
+      );
       const churchesSnapshot = await getDocs(churchesQuery);
       const churches: any[] = [];
       churchesSnapshot.forEach(doc => {
@@ -423,7 +487,13 @@ export class DioceseAnalyticsService {
       });
 
       const feedbackByMunicipality = feedbackList.reduce((acc, f) => {
-        const church = churches.find(c => c.id === f.church_id);
+        // Match feedback by ID or church name
+        const church = churches.find(c => 
+          c.id === f.church_id || 
+          c.churchName === f.church_id ||
+          c.name === f.church_id ||
+          c.basicInfo?.churchName === f.church_id
+        );
         if (church) {
           const municipality = church.locationDetails?.municipality || church.municipality || 'Unknown';
           acc[municipality] = (acc[municipality] || 0) + 1;

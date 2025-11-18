@@ -58,7 +58,7 @@ const UserManagementPage: React.FC = () => {
               )}
             >
               <UserCog className="w-4 h-4" />
-              Admin Users
+              Parish Users
               <span className="ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">
                 Staff
               </span>

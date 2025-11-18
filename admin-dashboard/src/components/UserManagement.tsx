@@ -8,16 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { collection, query, where, getDocs, doc, updateDoc, addDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc, orderBy } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { useAuth, type Diocese } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { generateParishId, formatParishFullName, getMunicipalitiesByDiocese } from '@/lib/parish-utils';
 import {
   Users,
   Plus,
-  Edit,
-  Trash2,
   Mail,
   Shield,
   AlertTriangle,
@@ -27,7 +26,9 @@ import {
   UserPlus,
   Key,
   UserX,
-  UserCheck
+  UserCheck,
+  RefreshCw,
+  Info
 } from 'lucide-react';
 
 interface UserAccount {
@@ -63,101 +64,117 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAccountViewOpen, setIsAccountViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending'>('all');
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [userToToggle, setUserToToggle] = useState<UserAccount | null>(null);
 
   // New user form state (Parish Secretary only)
   const [newUser, setNewUser] = useState({
     name: '',
-    email: ''
+    email: '',
+    municipality: '' // NEW: Required to create unique parish ID
   });
 
   // Load users and parishes
-  useEffect(() => {
-    const loadData = async () => {
-      if (!userProfile?.diocese) return;
+  const loadData = async () => {
+    if (!userProfile?.diocese) return;
 
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
 
-        // Load parish secretary users from the diocese only
-        const usersRef = collection(db, 'users');
-        const usersQuery = query(
-          usersRef,
-          where('diocese', '==', diocese),
-          where('role', '==', 'parish_secretary'),
-          orderBy('createdAt', 'desc')
-        );
+      // Load parish secretary users from the diocese only
+      const usersRef = collection(db, 'users');
+      const usersQuery = query(
+        usersRef,
+        where('diocese', '==', diocese),
+        where('role', '==', 'parish_secretary'),
+        orderBy('createdAt', 'desc')
+      );
 
-        const usersSnapshot = await getDocs(usersQuery);
-        const userData: UserAccount[] = [];
+      const usersSnapshot = await getDocs(usersQuery);
+      const userData: UserAccount[] = [];
 
-        usersSnapshot.forEach((doc) => {
-          const data = doc.data();
-          // Only include parish secretary accounts
-          if (data.role === 'parish_secretary') {
-            userData.push({
-              id: doc.id,
-              uid: data.uid || doc.id,
-              name: data.name || 'Unknown User',
-              email: data.email || '',
-              role: data.role,
-              diocese: data.diocese,
-              parish: data.parish,
-              status: data.status || 'active',
-              createdAt: data.createdAt?.toDate() || new Date(),
-              lastLogin: data.lastLogin?.toDate(),
-              createdBy: data.createdBy || 'system'
-            });
-          }
-        });
-
-        setUsers(userData);
-
-        // Load parishes (simplified - could come from churches collection)
-        const churchesRef = collection(db, 'churches');
-        const churchesQuery = query(
-          churchesRef,
-          where('diocese', '==', diocese)
-        );
-
-        const churchesSnapshot = await getDocs(churchesQuery);
-        const parishData: Parish[] = [];
-
-        churchesSnapshot.forEach((doc) => {
-          const data = doc.data();
-          parishData.push({
+      usersSnapshot.forEach((doc) => {
+        const data = doc.data();
+        // Only include parish secretary accounts
+        if (data.role === 'parish_secretary') {
+          userData.push({
             id: doc.id,
-            name: data.name || data.fullName || 'Unknown Parish',
-            location: data.municipality || data.location || 'Unknown Location',
-            assignedSecretary: data.assignedSecretary
+            uid: data.uid || doc.id,
+            name: data.name || 'Unknown User',
+            email: data.email || '',
+            role: data.role,
+            diocese: data.diocese,
+            parish: data.parish,
+            status: data.status || 'active',
+            createdAt: data.createdAt?.toDate() || new Date(),
+            lastLogin: data.lastLogin?.toDate(),
+            createdBy: data.createdBy || 'system'
           });
+        }
+      });
+
+      setUsers(userData);
+
+      // Load parishes (simplified - could come from churches collection)
+      const churchesRef = collection(db, 'churches');
+      const churchesQuery = query(
+        churchesRef,
+        where('diocese', '==', diocese)
+      );
+
+      const churchesSnapshot = await getDocs(churchesQuery);
+      const parishData: Parish[] = [];
+
+      churchesSnapshot.forEach((doc) => {
+        const data = doc.data();
+        parishData.push({
+          id: doc.id,
+          name: data.name || data.fullName || 'Unknown Parish',
+          location: data.municipality || data.location || 'Unknown Location',
+          assignedSecretary: data.assignedSecretary
         });
+      });
 
-        setParishes(parishData);
+      setParishes(parishData);
 
-      } catch (error) {
-        console.error('Error loading user data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load user accounts",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load user accounts",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadData();
-  }, [diocese, userProfile, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diocese, userProfile]);
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+    toast({
+      title: "Refreshed",
+      description: "User list has been updated",
+    });
+  };
 
   const handleCreateUser = async () => {
-    if (!newUser.name || !newUser.email) {
+    if (!newUser.name || !newUser.email || !newUser.municipality) {
       toast({
         title: "Validation Error",
-        description: "Please complete all required fields",
+        description: "Please complete all required fields (Parish Name, Municipality, and Email)",
         variant: "destructive"
       });
       return;
@@ -168,7 +185,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
     if (!emailRegex.test(newUser.email)) {
       toast({
         title: "Validation Error",
-        description: "Invalid input format",
+        description: "Invalid email format",
         variant: "destructive"
       });
       return;
@@ -176,6 +193,30 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
 
     try {
       setSubmitting(true);
+
+      // Generate unique parish ID using diocese + municipality + parish name
+      const parishId = generateParishId(diocese, newUser.municipality, newUser.name);
+      const parishFullName = formatParishFullName(newUser.name, newUser.municipality);
+
+      // Check if account already exists for this specific parish
+      const existingAccountQuery = query(
+        collection(db, 'users'),
+        where('parishId', '==', parishId),
+        where('role', '==', 'parish_secretary'),
+        where('status', '==', 'active')
+      );
+
+      const existingAccounts = await getDocs(existingAccountQuery);
+
+      if (!existingAccounts.empty) {
+        toast({
+          title: "Account Already Exists",
+          description: `An active parish account already exists for ${parishFullName}. Only one account per parish is allowed.`,
+          variant: "destructive"
+        });
+        setSubmitting(false);
+        return;
+      }
 
       // Create temporary password (user will need to reset)
       const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
@@ -185,14 +226,26 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       const user = userCredential.user;
 
       // Create user document in Firestore (Parish Secretary only)
-      // Use parish name as the parish reference
       const userData = {
         uid: user.uid,
         name: newUser.name,
         email: newUser.email,
         role: 'parish_secretary',
         diocese: diocese,
-        parish: newUser.name, // Use parish name as parish reference
+        
+        // NEW: Use unique parish identifier
+        parishId: parishId,
+        
+        // NEW: Store structured parish information
+        parishInfo: {
+          name: newUser.name,
+          municipality: newUser.municipality,
+          fullName: parishFullName
+        },
+        
+        // DEPRECATED: Keep for backward compatibility during migration
+        parish: parishId,
+        
         status: 'active',
         createdAt: new Date(),
         createdBy: userProfile?.uid || 'system'
@@ -205,11 +258,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
 
       toast({
         title: "Success",
-        description: "User account created. Password reset email sent to user.",
+        description: `Parish account created for ${parishFullName}. Password reset email sent.`,
       });
 
       // Reset form and close modal
-      setNewUser({ name: '', email: '' });
+      setNewUser({ name: '', email: '', municipality: '' });
       setIsCreateModalOpen(false);
 
       // Reload users
@@ -223,9 +276,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       let displayMessage = errorMessage;
 
       if (errorMessage.includes('auth/email-already-in-use')) {
-        displayMessage = 'Username already exists. Please choose another.';
+        displayMessage = 'Email address already in use. Please use a different email.';
       } else if (errorMessage.includes('auth/invalid-email')) {
-        displayMessage = 'Invalid input format';
+        displayMessage = 'Invalid email format';
       } else if (errorMessage.includes('auth/weak-password')) {
         displayMessage = 'Password is too weak. Please use a stronger password.';
       } else if (errorMessage.includes('auth/operation-not-allowed')) {
@@ -246,63 +299,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
     }
   };
 
-  const handleUpdateUser = async () => {
-    if (!selectedUser) return;
+  const handleToggleUserStatus = async () => {
+    if (!userToToggle) return;
 
-    // Validate required fields
-    if (!selectedUser.name || !selectedUser.name.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Invalid input format",
-        variant: "destructive"
-      });
-      return;
-    }
+    const newStatus = userToToggle.status === 'active' ? 'inactive' : 'active';
+    const action = newStatus === 'active' ? 'activate' : 'deactivate';
 
     try {
       setSubmitting(true);
 
-      const userRef = doc(db, 'users', selectedUser.id);
-      await updateDoc(userRef, {
-        name: selectedUser.name.trim(),
-        parish: selectedUser.parish,
-        status: selectedUser.status,
-        updatedAt: new Date()
-      });
-
-      toast({
-        title: "Success",
-        description: "User account updated successfully",
-      });
-
-      setIsEditModalOpen(false);
-      setSelectedUser(null);
-
-      // Reload users
-      window.location.reload();
-
-    } catch (error) {
-      console.error('Error updating user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update user account",
-        variant: "destructive"
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleToggleUserStatus = async (user: UserAccount) => {
-    const newStatus = user.status === 'active' ? 'inactive' : 'active';
-    const action = newStatus === 'active' ? 'activate' : 'deactivate';
-
-    if (!confirm(`Are you sure you want to ${action} the account for ${user.name}?`)) {
-      return;
-    }
-
-    try {
-      const userRef = doc(db, 'users', user.id);
+      const userRef = doc(db, 'users', userToToggle.id);
       await updateDoc(userRef, {
         status: newStatus,
         updatedAt: new Date(),
@@ -314,6 +320,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
         description: `User account ${action}d successfully`,
       });
 
+      setIsStatusDialogOpen(false);
+      setUserToToggle(null);
+
       // Reload users
       window.location.reload();
 
@@ -324,23 +333,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
         description: `Failed to ${action} user account`,
         variant: "destructive"
       });
-    }
-  };
-
-  const handleSendPasswordReset = async (email: string) => {
-    try {
-      await sendPasswordResetEmail(auth, email);
-      toast({
-        title: "Success",
-        description: "Password reset email sent",
-      });
-    } catch (error) {
-      console.error('Error sending password reset:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send password reset email",
-        variant: "destructive"
-      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -401,15 +395,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
 
   return (
     <div className="space-y-6">
-      {/* Warning: Use CreateParishAccountModal for new accounts */}
-      <Alert className="mb-4 border-amber-300 bg-amber-50">
-        <AlertTriangle className="h-4 w-4 text-amber-600" />
-        <AlertDescription className="text-amber-900">
-          <strong>Note:</strong> To create new parish accounts, please use the "Add Parish Account" button in the dashboard header or navigation menu. 
-          This page is for viewing and managing existing accounts only.
-        </AlertDescription>
-      </Alert>
-      
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -474,6 +459,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
+            <Button 
+              variant="outline" 
+              size="default"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Refresh user list - Click after deleting accounts from Firebase Console"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
 
           {/* Users List */}
@@ -522,29 +517,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleSendPasswordReset(user.email)}
-                          title="Send Password Reset"
-                        >
-                          <Key className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
                           onClick={() => {
                             setSelectedUser(user);
-                            setIsEditModalOpen(true);
+                            setIsAccountViewOpen(true);
                           }}
+                          title="View Account Details"
                         >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleUserStatus(user)}
-                          className={user.status === 'active' ? "text-red-600 hover:text-red-700" : "text-green-600 hover:text-green-700"}
-                          title={user.status === 'active' ? 'Deactivate Account' : 'Activate Account'}
-                        >
-                          {user.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                          <Info className="w-4 h-4 mr-1" />
+                          View
                         </Button>
                       </div>
                     </div>
@@ -580,15 +560,59 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Important:</strong> Each parish can have only ONE parish account. 
+                If a parish already has an account, you cannot create another one.
+              </AlertDescription>
+            </Alert>
+            
             <div>
-              <Label htmlFor="name">Parish Name</Label>
+              <Label htmlFor="name">Parish Name *</Label>
               <Input
                 id="name"
                 value={newUser.name}
                 onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., St. Joseph the Worker Parish"
+                placeholder="e.g., San Isidro Labrador Parish"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the full parish name (e.g., "San Isidro Labrador Parish", "Santo Niño Parish")
+              </p>
             </div>
+            
+            <div>
+              <Label htmlFor="municipality">Municipality *</Label>
+              <Select
+                value={newUser.municipality}
+                onValueChange={(value) => setNewUser(prev => ({ ...prev, municipality: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select municipality" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getMunicipalitiesByDiocese(diocese).map((municipality) => (
+                    <SelectItem key={municipality} value={municipality}>
+                      {municipality}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                This ensures parishes with the same name in different locations are kept separate
+              </p>
+            </div>
+            
+            {newUser.name && newUser.municipality && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <CheckCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-900">
+                  <strong>Account will be created for:</strong><br />
+                  {formatParishFullName(newUser.name, newUser.municipality)}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div>
               <Label htmlFor="email">Parish Email Address</Label>
               <Input
@@ -610,53 +634,173 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       </Dialog>
       )}
 
-      {/* Edit Parish Secretary Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+      {/* Account View Dialog */}
+      <Dialog open={isAccountViewOpen} onOpenChange={setIsAccountViewOpen}>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Edit Parish Account</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-600" />
+              Account Details
+            </DialogTitle>
             <DialogDescription>
-              Update parish account information and settings.
+              View and manage parish secretary account
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="editName">Parish Name</Label>
-                <Input
-                  id="editName"
-                  value={selectedUser.name}
-                  onChange={(e) => setSelectedUser(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
-                />
+              {/* Account Information Card */}
+              <div className="bg-gray-50 p-4 rounded-lg space-y-3 border border-gray-200">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-3">
+                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Parish Name</p>
+                    <p className="text-base font-semibold text-gray-900">{selectedUser.name}</p>
+                  </div>
+                  
+                  <div className="col-span-3">
+                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Email Address</p>
+                    <p className="text-sm font-mono text-gray-900 break-all">{selectedUser.email}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Status</p>
+                    <Badge className={selectedUser.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                      {selectedUser.status}
+                    </Badge>
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Diocese</p>
+                    <p className="text-sm text-gray-900 capitalize">{selectedUser.diocese}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Role</p>
+                    <p className="text-sm text-gray-900">Parish Secretary</p>
+                  </div>
+                  
+                  <div className="col-span-3">
+                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Created</p>
+                    <p className="text-sm text-gray-700">
+                      {selectedUser.createdAt.toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="editEmail">Parish Email Address</Label>
-                <Input
-                  id="editEmail"
-                  value={selectedUser.email}
-                  disabled
-                  className="bg-gray-50"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
-              </div>
-              <div>
-                <Label htmlFor="editStatus">Status</Label>
-                <Select value={selectedUser.status} onValueChange={(value) => setSelectedUser(prev => prev ? ({ ...prev, status: value as 'active' | 'inactive' | 'pending' }) : null)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant={selectedUser.status === 'active' ? 'destructive' : 'default'}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setUserToToggle(selectedUser);
+                    setIsAccountViewOpen(false);
+                    setIsStatusDialogOpen(true);
+                  }}
+                >
+                  {selectedUser.status === 'active' ? (
+                    <>
+                      <UserX className="w-4 h-4 mr-2" />
+                      Deactivate Account
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="w-4 h-4 mr-2" />
+                      Activate Account
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdateUser} disabled={submitting}>
-              {submitting ? 'Updating...' : 'Update Parish'}
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsAccountViewOpen(false);
+                setSelectedUser(null);
+              }}
+            >
+              Exit Account View
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Status Change Confirmation Dialog */}
+      <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {userToToggle?.status === 'active' ? (
+                <>
+                  <UserX className="w-5 h-5 text-red-600" />
+                  Deactivate Account
+                </>
+              ) : (
+                <>
+                  <UserCheck className="w-5 h-5 text-green-600" />
+                  Activate Account
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {userToToggle?.status === 'active' 
+                ? 'This will prevent the user from accessing their account.'
+                : 'This will restore the user\'s access to their account.'}
+            </DialogDescription>
+          </DialogHeader>
+          {userToToggle && (
+            <div className="space-y-4">
+              <Alert>
+                <AlertDescription>
+                  Are you sure you want to {userToToggle.status === 'active' ? 'deactivate' : 'activate'} this account?
+                </AlertDescription>
+              </Alert>
+              
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <div>
+                  <span className="text-sm font-semibold">Parish Name:</span>
+                  <span className="text-sm ml-2">{userToToggle.name}</span>
+                </div>
+                <div>
+                  <span className="text-sm font-semibold">Email:</span>
+                  <span className="text-sm ml-2">{userToToggle.email}</span>
+                </div>
+                <div>
+                  <span className="text-sm font-semibold">Current Status:</span>
+                  <Badge className={`ml-2 ${userToToggle.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {userToToggle.status}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsStatusDialogOpen(false);
+                setUserToToggle(null);
+              }}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant={userToToggle?.status === 'active' ? 'destructive' : 'default'}
+              onClick={handleToggleUserStatus} 
+              disabled={submitting}
+            >
+              {submitting 
+                ? (userToToggle?.status === 'active' ? 'Deactivating...' : 'Activating...') 
+                : (userToToggle?.status === 'active' ? 'Deactivate Account' : 'Activate Account')}
             </Button>
           </DialogFooter>
         </DialogContent>
