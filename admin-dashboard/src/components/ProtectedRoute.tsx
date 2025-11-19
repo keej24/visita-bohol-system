@@ -114,6 +114,13 @@ export const ProtectedRoute = ({
     return <Navigate to="/login" replace />;
   }
 
+  // STEP 2.5: Check if user account is inactive
+  // Even if logged in, inactive accounts should be logged out
+  if (userProfile && userProfile.status === 'inactive') {
+    // This will trigger the auth state listener to log them out
+    return <Navigate to="/login" state={{ message: 'Your account has been deactivated. Please contact the administrator.' }} replace />;
+  }
+
   // STEP 3: Check role-based authorization
   // If specific roles are required, check if user's role matches
   // Example: allowedRoles = ['chancery_office'] but user is 'parish_secretary'

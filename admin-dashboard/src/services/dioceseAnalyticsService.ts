@@ -2,6 +2,82 @@ import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/
 import { db } from '@/lib/firebase';
 import { Diocese } from '@/contexts/AuthContext';
 
+// Internal visitor log type
+interface VisitorLog {
+  id?: string;
+  church_id?: string;
+  visit_date?: Timestamp | { seconds: number };
+  user_id?: string;
+  visit_status?: string;
+  [key: string]: unknown;
+}
+
+// Internal feedback type
+interface FeedbackDocument {
+  id?: string;
+  church_id?: string;
+  rating?: number;
+  date_submitted?: Timestamp | { toDate?(): Date; seconds?: number };
+  [key: string]: unknown;
+}
+
+// Internal church data type from Firestore
+interface ChurchDocument {
+  id: string;
+  name?: string;
+  churchName?: string;
+  classification?: 'NCT' | 'ICP' | 'non_heritage' | string;
+  heritageClassification?: 'NCT' | 'ICP' | 'non_heritage' | string;
+  municipality?: string;
+  foundingYear?: string | number;
+  status?: string;
+  createdAt?: Timestamp | { toDate(): Date };
+  founders?: string[];
+  architecturalStyle?: string;
+  majorEvents?: string[];
+  preservationHistory?: string[];
+  longitude?: number;
+  latitude?: number;
+  basicInfo?: {
+    churchName?: string;
+    diocese?: string;
+  };
+  locationDetails?: {
+    municipality?: string;
+    coordinates?: {
+      latitude?: number;
+      longitude?: number;
+    };
+  };
+  coordinates?: {
+    latitude?: number;
+    longitude?: number;
+  };
+  location?: {
+    coordinates?: {
+      latitude?: number;
+      longitude?: number;
+    };
+  };
+  historicalDetails?: {
+    foundingYear?: string | number;
+    founders?: string[];
+    architecturalStyle?: string;
+    majorEvents?: string[];
+    preservationHistory?: string[];
+  };
+  historicalBackground?: {
+    foundingYear?: string | number;
+    founders?: string[];
+    majorEvents?: string[];
+    preservationHistory?: string[];
+  };
+  architecture?: {
+    style?: string;
+  };
+  [key: string]: unknown;
+}
+
 export interface ChurchSummaryData {
   id: string;
   name: string;
@@ -85,6 +161,8 @@ export class DioceseAnalyticsService {
 
       console.log(`📥 Firestore returned ${churchesSnapshot.size} documents`);
 
+      const churches: ChurchDocument[] = [];
+
       // If no results with 'diocese' field, try alternate field names
       if (churchesSnapshot.empty) {
         console.log('⚠️ No churches found with "diocese" field, trying alternate queries...');
@@ -95,14 +173,16 @@ export class DioceseAnalyticsService {
 
         if (!altSnapshot.empty) {
           console.log(`✅ Found ${altSnapshot.size} churches using "basicInfo.diocese" field`);
-          return this.processChurchData(altSnapshot, startDate, endDate);
+          // Use alternate snapshot
+          altSnapshot.forEach(doc => {
+            churches.push({ id: doc.id, ...doc.data() } as ChurchDocument);
+          });
         }
+      } else {
+        churchesSnapshot.forEach(doc => {
+          churches.push({ id: doc.id, ...doc.data() } as ChurchDocument);
+        });
       }
-
-      const churches: any[] = [];
-      churchesSnapshot.forEach(doc => {
-        churches.push({ id: doc.id, ...doc.data() });
-      });
 
       console.log(`📊 Diocese Analytics: Found ${churches.length} churches in ${diocese} diocese`);
       if (churches.length > 0) {
@@ -132,13 +212,13 @@ export class DioceseAnalyticsService {
       }
 
       const visitorSnapshot = await getDocs(visitorQuery);
-      const visitorLogs: any[] = [];
+      const visitorLogs: VisitorLog[] = [];
       visitorSnapshot.forEach(doc => {
         const data = doc.data();
         const church = churches.find(c => c.id === data.church_id);
         // Only count validated in-person visits (user was within church vicinity)
         if (church && data.visit_status === 'validated') {
-          visitorLogs.push({ id: doc.id, ...data });
+          visitorLogs.push({ id: doc.id, ...data } as VisitorLog);
         }
       });
 
@@ -151,7 +231,7 @@ export class DioceseAnalyticsService {
       );
 
       const feedbackSnapshot = await getDocs(feedbackQuery);
-      const feedbackList: any[] = [];
+      const feedbackList: FeedbackDocument[] = [];
       feedbackSnapshot.forEach(doc => {
         const data = doc.data();
         // Match feedback by ID or by church name (feedback might use church name as ID)
@@ -247,16 +327,22 @@ export class DioceseAnalyticsService {
 
         // Extract founding year from various possible field locations
         const foundingYear =
-          parseInt(church.historicalDetails?.foundingYear) ||
-          parseInt(church.foundingYear) ||
-          parseInt(church.historicalBackground?.foundingYear) ||
+          (typeof church.historicalDetails?.foundingYear === 'number' 
+            ? church.historicalDetails.foundingYear 
+            : parseInt(String(church.historicalDetails?.foundingYear || ''))) ||
+          (typeof church.foundingYear === 'number'
+            ? church.foundingYear
+            : parseInt(String(church.foundingYear || ''))) ||
+          (typeof church.historicalBackground?.foundingYear === 'number'
+            ? church.historicalBackground.foundingYear
+            : parseInt(String(church.historicalBackground?.foundingYear || ''))) ||
           1900;
 
         // Extract founders from various possible field locations
         const founders =
           church.historicalDetails?.founders ||
           church.historicalBackground?.founders ||
-          church.founders ||
+          (church.founders as string[] | undefined) ||
           [];
 
         // Extract architectural style
@@ -298,13 +384,13 @@ export class DioceseAnalyticsService {
         return {
           id: church.id,
           name: church.churchName || church.name || church.basicInfo?.churchName || 'Unknown Church',
-          municipality: church.locationDetails?.municipality || church.municipality || church.location?.municipality || 'Unknown',
+          municipality: church.locationDetails?.municipality || church.municipality || 'Unknown',
           foundingYear,
-          classification: church.classification || church.heritageClassification || 'non_heritage',
+          classification: (church.classification || church.heritageClassification || 'non_heritage') as 'NCT' | 'ICP' | 'non_heritage',
           visitorCount: churchVisitors,
           avgRating: Math.round(churchAvgRating * 10) / 10,
           feedbackCount: churchFeedback.length,
-          status: church.status || 'active',
+          status: (church.status || 'active') as string,
           coordinates,
           founders,
           architecturalStyle,
@@ -318,7 +404,7 @@ export class DioceseAnalyticsService {
 
       // Sort ALL churches by visitor count (not just top 10)
       const topChurches = churchVisitorCounts
-        .sort((a, b) => b.visitorCount - a.visitorCount);
+        .sort((a, b) => b.visitorCount - a.visitorCount) as ChurchSummaryData[];
 
       // Recent activity metrics
       const pendingChurches = churches.filter(c => c.status === 'pending_review').length;
@@ -402,23 +488,23 @@ export class DioceseAnalyticsService {
       );
 
       const visitorSnapshot = await getDocs(visitorQuery);
-      const visitorLogs: any[] = [];
+      const visitorLogs: VisitorLog[] = [];
       visitorSnapshot.forEach(doc => {
         const data = doc.data();
         // Only count validated in-person visits (user was within church vicinity)
         if (data.visit_status === 'validated') {
-          visitorLogs.push({ id: doc.id, ...data });
+          visitorLogs.push({ id: doc.id, ...data } as VisitorLog);
         }
       });
 
       // Calculate peak periods by time of day
       const timeOfDayCounts = visitorLogs.reduce((acc, log) => {
-        const timeOfDay = log.time_of_day || 'afternoon';
+        const timeOfDay = (log.time_of_day as string) || 'afternoon';
         acc[timeOfDay] = (acc[timeOfDay] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
-      const maxCount = Math.max(...Object.values(timeOfDayCounts));
+      const maxCount = Math.max(...Object.values(timeOfDayCounts) as number[]);
       const peakVisitingPeriods = [
         {
           period: 'Morning (6AM - 12PM)',
@@ -445,14 +531,14 @@ export class DioceseAnalyticsService {
         orderBy('date_submitted', 'desc')
       );
       const feedbackSnapshot = await getDocs(feedbackQuery);
-      const feedbackList: any[] = [];
+      const feedbackList: FeedbackDocument[] = [];
       feedbackSnapshot.forEach(doc => {
         const data = doc.data();
         // Apply date filtering in-memory
         if (data.date_submitted) {
-          const feedbackDate = data.date_submitted.toDate();
+          const feedbackDate = (data.date_submitted as Timestamp).toDate();
           if (feedbackDate >= startDate && feedbackDate <= endDate) {
-            feedbackList.push({ id: doc.id, ...data });
+            feedbackList.push({ id: doc.id, ...data } as FeedbackDocument);
           }
         }
       });
@@ -481,9 +567,9 @@ export class DioceseAnalyticsService {
         where('status', '==', 'approved')
       );
       const churchesSnapshot = await getDocs(churchesQuery);
-      const churches: any[] = [];
+      const churches: ChurchDocument[] = [];
       churchesSnapshot.forEach(doc => {
-        churches.push({ id: doc.id, ...doc.data() });
+        churches.push({ id: doc.id, ...doc.data() } as ChurchDocument);
       });
 
       const feedbackByMunicipality = feedbackList.reduce((acc, f) => {
@@ -552,16 +638,16 @@ export class DioceseAnalyticsService {
   /**
    * Calculate monthly visitor counts
    */
-  private static calculateMonthlyVisitors(visitorLogs: any[]): Array<{ month: string; visitors: number }> {
+  private static calculateMonthlyVisitors(visitorLogs: VisitorLog[]): Array<{ month: string; visitors: number }> {
     const monthCounts = visitorLogs.reduce((acc, log) => {
-      const date = log.visit_date?.toDate() || new Date();
+      const date = (log.visit_date as Timestamp)?.toDate() || new Date();
       const monthKey = `${date.toLocaleString('default', { month: 'long' })} ${date.getFullYear()}`;
       acc[monthKey] = (acc[monthKey] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     return Object.entries(monthCounts)
-      .map(([month, visitors]) => ({ month, visitors }))
+      .map(([month, visitors]) => ({ month, visitors: visitors as number }))
       .sort((a, b) => {
         const dateA = new Date(a.month);
         const dateB = new Date(b.month);

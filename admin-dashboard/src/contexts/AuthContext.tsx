@@ -88,6 +88,7 @@ export interface UserProfile {
   role: UserRole;
   name: string;
   diocese: Diocese;
+  status?: 'active' | 'inactive' | 'pending';  // Account status
   
   // NEW: Unique parish identifier (replaces parish name)
   parishId?: string;  // e.g., "tagbilaran_alburquerque_san_isidro_labrador_parish"
@@ -199,12 +200,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (userDoc.exists()) {
           const data = userDoc.data();
+          
+          // Check if account is inactive
+          if (data.status === 'inactive') {
+            console.warn('[AuthContext] Account is inactive:', user.email);
+            await signOut(auth);
+            setUserProfile(null);
+            setLoading(false);
+            throw new Error('Your account has been deactivated. Please contact the administrator.');
+          }
+          
           setUserProfile({
             uid: user.uid,
             email: user.email!,
             role: data.role,
             name: data.name,
             diocese: data.diocese,
+            status: data.status || 'active',  // Default to active for legacy accounts
             
             // NEW: Support new parish ID structure
             parishId: data.parishId,
@@ -230,6 +242,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 uid: user.uid,
                 email: user.email!,
                 ...profileData,
+                status: 'active',  // New accounts are active by default
                 createdAt: new Date(),
               });
 
@@ -241,8 +254,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             } catch (createError) {
               console.error('[AuthContext] Error creating profile for known account:', createError);
               console.error('[AuthContext] Error details:', {
-                code: (createError as any)?.code,
-                message: (createError as any)?.message,
+                code: (createError as { code?: string })?.code,
+                message: (createError as { message?: string })?.message,
                 email: user.email
               });
               setProfileCreating(false);

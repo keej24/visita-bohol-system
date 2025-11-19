@@ -109,7 +109,9 @@ const Login = () => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to login';
 
       // Translate Firebase errors to user-friendly messages
-      if (errorMessage.includes('auth/invalid-credential') ||
+      if (errorMessage.includes('deactivated') || errorMessage.includes('inactive')) {
+        setError('Your account has been deactivated. Please contact the administrator.');
+      } else if (errorMessage.includes('auth/invalid-credential') ||
           errorMessage.includes('auth/wrong-password') ||
           errorMessage.includes('auth/user-not-found') ||
           errorMessage.includes('auth/invalid-login-credentials')) {
