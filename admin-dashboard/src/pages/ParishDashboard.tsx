@@ -46,7 +46,12 @@ const ParishDashboard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingChurch, setExistingChurch] = useState<Church | null>(null);
-  const [dismissedApprovedBanner, setDismissedApprovedBanner] = useState(false);
+  
+  // Load dismissed state from localStorage
+  const [dismissedApprovedBanner, setDismissedApprovedBanner] = useState(() => {
+    const key = `dismissed_approval_banner_${userProfile?.parish || userProfile?.email}`;
+    return localStorage.getItem(key) === 'true';
+  });
 
   // Core church data
   const [churchInfo, setChurchInfo] = useState<ChurchInfo>(() => ({
@@ -1078,7 +1083,11 @@ const ParishDashboard = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setDismissedApprovedBanner(true)}
+                onClick={() => {
+                  const key = `dismissed_approval_banner_${userProfile?.parish || userProfile?.email}`;
+                  localStorage.setItem(key, 'true');
+                  setDismissedApprovedBanner(true);
+                }}
                 className="text-green-600 hover:text-green-700 hover:bg-green-100 flex-shrink-0"
               >
                 <X className="w-4 h-4" />

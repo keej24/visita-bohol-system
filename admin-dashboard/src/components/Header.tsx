@@ -7,7 +7,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { NotificationDropdown } from "@/components/NotificationDropdown";
+// TODO: Re-enable when notification system is fully implemented
+// import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
@@ -65,10 +66,10 @@ export function Header({ setActiveTab }: HeaderProps) {
           </div>
         </div>
 
-        {/* Right side - Notifications and Profile */}
+        {/* Right side - Profile */}
         <div className="flex items-center gap-4">
-          {/* Notifications - Dynamic Dropdown */}
-          {!isParish && <NotificationDropdown />}
+          {/* TODO: Re-enable notification bell when backend is fully implemented */}
+          {/* {!isParish && <NotificationDropdown />} */}
 
           {/* Profile Menu */}
           <DropdownMenu>

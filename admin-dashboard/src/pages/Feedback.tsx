@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -12,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
   DialogFooter
 } from '@/components/ui/dialog';
 import {
@@ -33,9 +31,9 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { FeedbackService, type FeedbackItem as ServiceFeedbackItem } from '@/services/feedbackService';
+import { FeedbackService } from '@/services/feedbackService';
 
 // Define feedback type with church name
 interface FeedbackItem {
@@ -138,19 +136,11 @@ const FeedbackReports = () => {
             ? churchIdOrName 
             : churchNameToIdMap.get(churchIdOrName) || churchIdOrName;
 
-          // Fetch user name if available
-          let userName = 'Anonymous';
-          if (data.pub_user_id) {
-            try {
-              const userDoc = await getDoc(doc(db, 'users', data.pub_user_id));
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                userName = userData.displayName || userData.name || 'Anonymous';
-              }
-            } catch (error) {
-              console.error('Error fetching user name:', error);
-            }
-          }
+          // Always show as Anonymous for privacy protection
+          const userName = 'Anonymous';
+          
+          // Note: User identity is protected in feedback to encourage honest reviews
+          // Original code that fetched actual names has been removed for privacy
 
           allFeedback.push({
             id: feedbackDoc.id,

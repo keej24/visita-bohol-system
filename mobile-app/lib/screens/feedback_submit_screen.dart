@@ -41,7 +41,8 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
     // Get current user from AuthService before any async operations
     final authService = Provider.of<AuthService>(context, listen: false);
     final currentUser = authService.currentUser;
-    final userId = currentUser?.uid ?? 'anonymous-${DateTime.now().millisecondsSinceEpoch}';
+    final userId = currentUser?.uid ??
+        'anonymous-${DateTime.now().millisecondsSinceEpoch}';
     final userName = currentUser?.displayName ?? 'Anonymous';
 
     // Show loading indicator
@@ -84,7 +85,8 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
       }
     }
 
-    debugPrint('📊 Successfully uploaded ${photoUrls.length} photos out of ${_photos.length}');
+    debugPrint(
+        '📊 Successfully uploaded ${photoUrls.length} photos out of ${_photos.length}');
 
     final fb = FeedbackModel(
       id: const Uuid().v4(),
@@ -182,106 +184,9 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            _SectionCard(
-              title: 'Select Category',
-              icon: Icons.category,
-              iconColor: const Color(0xFF059669),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'What aspect of your visit would you like to share about?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF6B7280),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ...FeedbackCategory.values.map((category) {
-                    final isSelected = _selectedCategory == category;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () =>
-                              setState(() => _selectedCategory = category),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFF059669)
-                                      .withValues(alpha: 0.1)
-                                  : Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected
-                                    ? const Color(0xFF059669)
-                                    : Colors.grey.shade300,
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? const Color(0xFF059669)
-                                        : Colors.grey.shade400,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    _getCategoryIcon(category),
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        category.label,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: isSelected
-                                              ? const Color(0xFF059669)
-                                              : const Color(0xFF1A1A1A),
-                                        ),
-                                      ),
-                                      Text(
-                                        category.description,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (isSelected)
-                                  const Icon(
-                                    Icons.check_circle,
-                                    color: Color(0xFF059669),
-                                    size: 20,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+            // Category selection removed - always defaults to General
+            // All feedback will be submitted as "General Review"
+
             _SectionCard(
               title: 'Write Your Review',
               icon: Icons.edit_note,
@@ -422,18 +327,7 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
     }
   }
 
-  IconData _getCategoryIcon(FeedbackCategory category) {
-    switch (category) {
-      case FeedbackCategory.general:
-        return Icons.chat_bubble_outline;
-      case FeedbackCategory.accessibility:
-        return Icons.accessibility;
-      case FeedbackCategory.facilities:
-        return Icons.business;
-      case FeedbackCategory.experience:
-        return Icons.sentiment_very_satisfied;
-    }
-  }
+  // Category icon helper removed - category selection no longer visible
 }
 
 class _SectionCard extends StatelessWidget {

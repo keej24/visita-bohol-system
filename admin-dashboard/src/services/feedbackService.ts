@@ -396,7 +396,7 @@ export class FeedbackService {
       // Handle field name variations (snake_case vs camelCase)
       church_id: data.church_id || data.churchId || '',
       pub_user_id: data.pub_user_id || data.userId || '',
-      userName: data.userName || data.user_name || 'Anonymous',
+      userName: 'Anonymous', // Always anonymous for privacy protection
       rating: data.rating || 5,
       subject: data.subject || 'Review',
       comment: data.comment || data.message || '',
