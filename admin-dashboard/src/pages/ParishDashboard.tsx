@@ -523,6 +523,20 @@ const ParishDashboard = () => {
     try {
       const formData = convertToFormData(data);
       
+      // Save contact phone number to user profile
+      if (data.contactInfo?.phone && userProfile?.uid) {
+        try {
+          const userDocRef = doc(db, 'users', userProfile.uid);
+          await updateDoc(userDocRef, {
+            phoneNumber: data.contactInfo.phone
+          });
+          console.log('✅ Phone number synced to user profile');
+        } catch (error) {
+          console.error('Error syncing phone to user profile:', error);
+          // Don't fail the whole operation if this fails
+        }
+      }
+      
       if (existingChurch) {
         // Update existing church as draft - manually set status to draft
         const docRef = doc(db, 'churches', existingChurch.id);
@@ -592,6 +606,20 @@ const ParishDashboard = () => {
     try {
       const formData = convertToFormData(data);
       const isInitialSubmission = !existingChurch;
+
+      // Save contact phone number to user profile
+      if (data.contactInfo?.phone && userProfile?.uid) {
+        try {
+          const userDocRef = doc(db, 'users', userProfile.uid);
+          await updateDoc(userDocRef, {
+            phoneNumber: data.contactInfo.phone
+          });
+          console.log('✅ Phone number synced to user profile');
+        } catch (error) {
+          console.error('Error syncing phone to user profile:', error);
+          // Don't fail the whole operation if this fails
+        }
+      }
 
       if (isInitialSubmission) {
         // Create new church in Firebase using parish ID as document ID
@@ -1051,11 +1079,13 @@ const ParishDashboard = () => {
         setActiveTab={setActiveTab}
         churchApproved={false}
       >
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-600" />
-            <h3 className="text-lg font-semibold text-indigo-900 mb-2">Loading Church Data</h3>
-            <p className="text-slate-600">Syncing your church information...</p>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-foreground">Loading Dashboard...</p>
+              <p className="text-sm text-muted-foreground">Syncing your church information</p>
+            </div>
           </div>
         </div>
       </Layout>
@@ -1142,10 +1172,6 @@ const ParishDashboard = () => {
         <ParishFeedback
           churchName={churchInfo.churchName || churchInfo.name || 'Your Parish'}
           churchId={userProfile?.parish || ''}
-          onClose={() => {
-            setShowFeedback(false);
-            setActiveTab('overview');
-          }}
         />
       ) : showProfileForm ? (
         <ChurchProfileForm

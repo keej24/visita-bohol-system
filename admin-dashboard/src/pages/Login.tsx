@@ -104,6 +104,18 @@ const Login = () => {
 
     try {
       await login(email, password);
+      
+      // Show success toast
+      toast({
+        title: "Login Successful",
+        description: "Welcome back! Redirecting to your dashboard...",
+        duration: 5000,
+      });
+      
+      // Wait to show the loading overlay and toast
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Navigate to dashboard
       navigate('/');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to login';
@@ -133,7 +145,34 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-heritage-cream p-4">
+    <>
+      {/* Login Loading Overlay - Shows while logging in */}
+      {loading && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-card border border-border rounded-lg p-8 shadow-2xl max-w-md w-full mx-4">
+            <div className="flex flex-col items-center space-y-6">
+              {/* Animated Spinner */}
+              <div className="relative">
+                <Loader2 className="w-16 h-16 animate-spin text-primary" />
+                <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-primary/20"></div>
+              </div>
+              
+              {/* Message */}
+              <div className="text-center space-y-2">
+                <h3 className="text-2xl font-bold text-foreground">Logging In</h3>
+                <p className="text-muted-foreground">
+                  Authenticating your credentials...
+                </p>
+                <p className="text-sm text-muted-foreground/80 pt-2">
+                  Please wait
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="min-h-screen flex items-center justify-center bg-heritage-cream p-4">
       <Card className="w-full max-w-md heritage-card">
         <CardHeader className="text-center">
           <div className="mx-auto w-16 h-16 bg-primary rounded-full flex items-center justify-center mb-4">
@@ -287,6 +326,7 @@ const Login = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 };
 

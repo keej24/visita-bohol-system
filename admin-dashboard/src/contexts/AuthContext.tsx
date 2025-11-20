@@ -103,6 +103,9 @@ export interface UserProfile {
   // DEPRECATED: Legacy field for backward compatibility
   parish?: string;  // Will be migrated to parishId
   
+  // Contact information
+  phoneNumber?: string;  // Parish contact number (editable in account settings)
+  
   createdAt: Date;
   lastLoginAt: Date;
 }
@@ -134,6 +137,7 @@ interface AuthContextType {
   profileCreating: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
   hasRole: (role: UserRole) => boolean;
   hasAnyRole: (roles: UserRole[]) => boolean;
   hasAccess: (targetDiocese?: Diocese, targetParish?: string) => boolean;
@@ -226,6 +230,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // If parishId doesn't exist, use old parish field
             parish: data.parishId || data.parish,
             
+            // Contact information
+            phoneNumber: data.phoneNumber,
+            
             createdAt: data.createdAt?.toDate(),
             lastLoginAt: new Date(),
           });
@@ -317,6 +324,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await signOut(auth);
   };
 
+  const refreshUserProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setUserProfile({
+          uid: user.uid,
+          email: user.email!,
+          role: data.role,
+          name: data.name,
+          diocese: data.diocese,
+          status: data.status || 'active',
+          parishId: data.parishId,
+          parishInfo: data.parishInfo,
+          parish: data.parishId || data.parish,
+          phoneNumber: data.phoneNumber,
+          createdAt: data.createdAt?.toDate?.() || new Date(),
+          lastLoginAt: data.lastLoginAt?.toDate?.() || new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing user profile:', error);
+    }
+  };
+
   const hasRole = (role: UserRole): boolean => {
     return userProfile?.role === role;
   };
@@ -394,6 +428,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     profileCreating,
     login,
     logout,
+    refreshUserProfile,
     hasRole,
     hasAnyRole,
     hasAccess,

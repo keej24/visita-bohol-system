@@ -1,4 +1,4 @@
-import { User, ChevronDown, LogOut, Church as ChurchIcon } from "lucide-react";
+import { User, ChevronDown, LogOut, Church as ChurchIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 // TODO: Re-enable when notification system is fully implemented
 // import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { ChurchService } from "@/services/churchService";
+import { useToast } from "@/hooks/use-toast";
 
 interface HeaderProps {
   activeTab?: string;
@@ -19,23 +21,101 @@ interface HeaderProps {
 
 export function Header({ setActiveTab }: HeaderProps) {
   const { userProfile, logout } = useAuth();
-  const navigate = useNavigate();
+  const { toast } = useToast();
   const isParish = userProfile?.role === 'parish_secretary';
+  const [parishName, setParishName] = useState<string>('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Fetch parish church name for parish secretaries
+  useEffect(() => {
+    const fetchParishName = async () => {
+      if (isParish && userProfile?.parish && userProfile?.diocese) {
+        try {
+          const churches = await ChurchService.getChurches({
+            diocese: userProfile.diocese
+          });
+          
+          // Find the church matching the parish ID
+          const parishChurch = churches.find(church => church.id === userProfile.parish);
+          
+          if (parishChurch) {
+            setParishName(parishChurch.fullName || parishChurch.name || userProfile.parish);
+          } else {
+            setParishName(userProfile.parish);
+          }
+        } catch (error) {
+          console.error('Error fetching parish name:', error);
+          setParishName(userProfile.parish);
+        }
+      }
+    };
+
+    fetchParishName();
+  }, [isParish, userProfile?.parish, userProfile?.diocese]);
 
   const handleSignOut = async () => {
+    if (isLoggingOut) return; // Prevent multiple clicks
+    
+    setIsLoggingOut(true);
+    
     try {
+      // Show success toast immediately
+      toast({
+        title: "Logged Out Successfully",
+        description: "You have been securely logged out. See you next time!",
+        duration: 5000, // Show for 5 seconds
+      });
+      
+      // Wait longer to ensure user sees the message
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Perform logout - ProtectedRoute will handle redirect automatically
       await logout();
-      navigate('/login');
+      
     } catch (error) {
       console.error('Error signing out:', error);
+      setIsLoggingOut(false);
+      toast({
+        title: "Logout Failed",
+        description: "There was an error logging out. Please try again.",
+        variant: "destructive"
+      });
     }
   };
+  
   return (
-    <header className={
-      isParish
-        ? "border-b border-border px-6 py-4 bg-gradient-to-r from-primary/5 to-accent/5"
-        : "bg-card border-b border-border px-6 py-4"
-    }>
+    <>
+      {/* Logout Overlay - Shows while logging out */}
+      {isLoggingOut && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-card border border-border rounded-lg p-8 shadow-2xl max-w-md w-full mx-4">
+            <div className="flex flex-col items-center space-y-6">
+              {/* Animated Spinner */}
+              <div className="relative">
+                <Loader2 className="w-16 h-16 animate-spin text-primary" />
+                <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-primary/20"></div>
+              </div>
+              
+              {/* Message */}
+              <div className="text-center space-y-2">
+                <h3 className="text-2xl font-bold text-foreground">Logging Out</h3>
+                <p className="text-muted-foreground">
+                  Securely ending your session...
+                </p>
+                <p className="text-sm text-muted-foreground/80 pt-2">
+                  Thank you for using VISITA
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <header className={
+        isParish
+          ? "border-b border-border px-6 py-4 bg-gradient-to-r from-primary/5 to-accent/5"
+          : "bg-card border-b border-border px-6 py-4"
+      }>
       <div className="flex items-center justify-between">
         {/* Left side - Title */}
         <div className="flex items-start gap-3">
@@ -56,7 +136,7 @@ export function Header({ setActiveTab }: HeaderProps) {
             {isParish && (
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="outline" className="text-xs">
-                  {userProfile?.parish || 'Parish'}
+                  {parishName || userProfile?.parish || 'Parish'}
                 </Badge>
                 {userProfile?.diocese && (
                   <Badge variant="secondary" className="text-xs">Diocese of {userProfile.diocese}</Badge>
@@ -94,14 +174,25 @@ export function Header({ setActiveTab }: HeaderProps) {
               <DropdownMenuItem
                 className="text-destructive cursor-pointer"
                 onClick={handleSignOut}
+                disabled={isLoggingOut}
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Logging out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </>
+                )}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
     </header>
+    </>
   );
 }

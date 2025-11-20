@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -11,35 +11,25 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MessageSquare,
   Star,
   Search,
   AlertTriangle,
   Eye,
-  ArrowLeft,
-  TrendingUp,
-  Users,
-  ThumbsUp,
   Loader2,
   EyeOff
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+
 import { FeedbackService, FeedbackItem as FeedbackServiceItem } from '@/services/feedbackService';
 
 interface ParishFeedbackProps {
   churchName: string;
   churchId: string;
-  onClose: () => void;
 }
 
 // Use FeedbackItem from service
@@ -49,14 +39,12 @@ type FeedbackItem = FeedbackServiceItem & {
 
 export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
   churchName,
-  churchId,
-  onClose
+  churchId
 }) => {
   const { userProfile } = useAuth();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'published' | 'hidden'>('published');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [ratingFilter, setRatingFilter] = useState<string>('all');
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -81,7 +69,7 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
     return () => unsubscribe();
   }, [churchId, churchName]);
 
-  // Filter feedback
+  // Filter feedback based on active tab and search
   const filteredFeedback = useMemo(() => {
     return feedbackData.filter(feedback => {
       const matchesSearch =
@@ -89,23 +77,30 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
         feedback.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
         feedback.userName.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesStatus = statusFilter === 'all' || feedback.status === statusFilter;
-      const matchesRating = ratingFilter === 'all' || feedback.rating.toString() === ratingFilter;
+      const matchesStatus = feedback.status === activeTab;
 
-      return matchesSearch && matchesStatus && matchesRating;
+      return matchesSearch && matchesStatus;
     });
-  }, [feedbackData, searchTerm, statusFilter, ratingFilter]);
+  }, [feedbackData, searchTerm, activeTab]);
 
-  // Calculate stats
+  // Calculate stats based on active tab
   const stats = useMemo(() => {
-    const published = feedbackData.filter(f => f.status === 'published').length;
-    const hidden = feedbackData.filter(f => f.status === 'hidden').length;
-    const avgRating = feedbackData.length > 0
-      ? (feedbackData.reduce((sum, f) => sum + f.rating, 0) / feedbackData.length).toFixed(1)
+    const published = feedbackData.filter(f => f.status === 'published');
+    const hidden = feedbackData.filter(f => f.status === 'hidden');
+    
+    const currentData = activeTab === 'published' ? published : hidden;
+    const avgRating = currentData.length > 0
+      ? (currentData.reduce((sum, f) => sum + f.rating, 0) / currentData.length).toFixed(1)
       : '0';
 
-    return { published, hidden, avgRating, total: feedbackData.length };
-  }, [feedbackData]);
+    return { 
+      published: published.length, 
+      hidden: hidden.length, 
+      avgRating, 
+      total: feedbackData.length,
+      currentCount: currentData.length
+    };
+  }, [feedbackData, activeTab]);
 
   // Handle moderation actions
   const handleModerationRequest = (feedbackId: string, action: 'hide' | 'publish') => {
@@ -159,125 +154,87 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="hover:bg-gray-100"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Overview
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <MessageSquare className="w-6 h-6 text-green-600" />
-              Visitor Feedback
-            </h1>
-            <p className="text-gray-600">Monitor and moderate feedback for {churchName}</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <MessageSquare className="w-6 h-6 text-green-600" />
+            Visitor Feedback
+          </h1>
+          <p className="text-gray-600">Monitor and moderate feedback for {churchName}</p>
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Total Feedback
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-            <p className="text-xs text-gray-500">All time</p>
-          </CardContent>
-        </Card>
+      {/* Tabs for Published/Hidden */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'published' | 'hidden')} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="published">
+            Published {stats.published > 0 && `(${stats.published})`}
+          </TabsTrigger>
+          <TabsTrigger value="hidden">
+            Hidden {stats.hidden > 0 && `(${stats.hidden})`}
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <ThumbsUp className="w-4 h-4" />
-              Published
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.published}</div>
-            <p className="text-xs text-gray-500">Visible to public</p>
-          </CardContent>
-        </Card>
+        {/* Published Tab */}
+        <TabsContent value="published" className="space-y-6 mt-6">
+          {/* Statistics Cards - Published Tab */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <MessageSquare className="w-4 h-4 text-green-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Published</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.published}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              Hidden
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.hidden}</div>
-            <p className="text-xs text-gray-500">Moderated</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Hidden</p>
+                    <p className="text-2xl font-bold text-orange-600">{stats.hidden}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Avg Rating
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{stats.avgRating}</div>
-            <div className="flex gap-1 mt-1">
-              {renderStars(Math.round(parseFloat(stats.avgRating)))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Feedback Management</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search feedback, users, or subjects..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="hidden">Hidden</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={ratingFilter} onValueChange={setRatingFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Rating" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Ratings</SelectItem>
-                <SelectItem value="5">5 Stars</SelectItem>
-                <SelectItem value="4">4 Stars</SelectItem>
-                <SelectItem value="3">3 Stars</SelectItem>
-                <SelectItem value="2">2 Stars</SelectItem>
-                <SelectItem value="1">1 Star</SelectItem>
-              </SelectContent>
-            </Select>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Star className="w-4 h-4 text-yellow-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
+                    <p className="text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Feedback List */}
+          {/* Filters - Published Tab */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search feedback..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Published Feedback List */}
           <div className="space-y-4">
             {isLoading ? (
               <div className="text-center py-8">
@@ -287,7 +244,7 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
             ) : filteredFeedback.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No feedback matches your current filters.</p>
+                <p>No published feedback found.</p>
               </div>
             ) : (
               filteredFeedback.map((feedback) => (
@@ -360,35 +317,183 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
                         <Eye className="w-4 h-4 mr-1" />
                         View
                       </Button>
-                      {feedback.status === 'published' ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleModerationRequest(feedback.id, 'hide')}
-                          className="text-orange-600 border-orange-200 hover:bg-orange-50"
-                        >
-                          <EyeOff className="w-4 h-4 mr-1" />
-                          Hide
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleModerationRequest(feedback.id, 'publish')}
-                          className="text-green-600 border-green-200 hover:bg-green-50"
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Unhide
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleModerationRequest(feedback.id, 'hide')}
+                        className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                      >
+                        <EyeOff className="w-4 h-4 mr-1" />
+                        Hide
+                      </Button>
                     </div>
                   </div>
                 </div>
               ))
             )}
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        {/* Hidden Tab */}
+        <TabsContent value="hidden" className="space-y-6 mt-6">
+          {/* Statistics Cards - Hidden Tab */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <MessageSquare className="w-4 h-4 text-green-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Published</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.published}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Hidden</p>
+                    <p className="text-2xl font-bold text-orange-600">{stats.hidden}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Star className="w-4 h-4 text-yellow-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
+                    <p className="text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters - Hidden Tab */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search hidden feedback..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Hidden Feedback List */}
+          <div className="space-y-4">
+            {isLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-primary" />
+                <p className="text-gray-500">Loading feedback...</p>
+              </div>
+            ) : filteredFeedback.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No hidden feedback found.</p>
+              </div>
+            ) : (
+              filteredFeedback.map((feedback) => (
+                <div key={feedback.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-semibold text-gray-900">{feedback.subject}</h4>
+                        <div className="flex gap-1">
+                          {renderStars(feedback.rating)}
+                        </div>
+                        <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'}>
+                          {feedback.status}
+                        </Badge>
+                      </div>
+                      <p className="text-gray-600 mb-2 line-clamp-2">{feedback.message}</p>
+
+                      {/* Display photos if available */}
+                      {feedback.photos && feedback.photos.length > 0 && (
+                        <div className="flex gap-2 mb-2 flex-wrap">
+                          {feedback.photos.slice(0, 3).map((photoUrl, index) => (
+                            <img
+                              key={index}
+                              src={photoUrl}
+                              alt={`Feedback photo ${index + 1}`}
+                              className="w-20 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                              onClick={() => window.open(photoUrl, '_blank')}
+                            />
+                          ))}
+                          {feedback.photos.length > 3 && (
+                            <div className="w-20 h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-sm font-medium">
+                              +{feedback.photos.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span>By: {feedback.userName}</span>
+                        <span>•</span>
+                        <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
+                        {feedback.photos && feedback.photos.length > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {feedback.photos.length} photo{feedback.photos.length === 1 ? '' : 's'}
+                            </span>
+                          </>
+                        )}
+                        {feedback.moderatedAt && (
+                          <>
+                            <span>•</span>
+                            <span>Moderated by {feedback.moderatedBy}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFeedback(feedback);
+                          setShowDetailsDialog(true);
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleModerationRequest(feedback.id, 'publish')}
+                        className="text-green-600 border-green-200 hover:bg-green-50"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        Unhide
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>

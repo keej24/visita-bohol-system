@@ -8,6 +8,7 @@ import { ChurchDetailModal } from '@/components/ChurchDetailModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChurchStats } from '@/hooks/useChurchStats';
 import { useToast } from '@/components/ui/use-toast';
+import { Loader2 } from 'lucide-react';
 import type { Diocese } from '@/contexts/AuthContext';
 import type { Church } from '@/lib/churches';
 import { ChurchInfo } from '@/components/parish/types';
@@ -172,6 +173,17 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
 
   return (
     <Layout>
+      {churchStats.isLoading ? (
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-foreground">Loading Dashboard...</p>
+              <p className="text-sm text-muted-foreground">Please wait while we fetch your data</p>
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="space-y-6 max-w-6xl mx-auto">
         {/* Diocese Header */}
         <ErrorBoundary>
@@ -222,6 +234,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
             </div>
         </div>
       </div>
+      )}
 
       {/* Church Detail Modal */}
       <ChurchDetailModal

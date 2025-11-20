@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
+import { ChurchService } from '@/services/churchService';
 
 interface ParishAccountProps {
   onClose: () => void;
@@ -30,19 +31,88 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
   onClose
 }) => {
   const { toast } = useToast();
-  const { userProfile, user } = useAuth();
+  const { userProfile, user, refreshUserProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [parishName, setParishName] = useState<string>('Loading...');
 
-  // Profile form state
+  // Profile form state - Initialize from userProfile
   const [profileData, setProfileData] = useState({
-    parishName: userProfile?.parish || userProfile?.name || 'St. Mary\'s Parish',
+    parishName: 'Loading...',
     email: userProfile?.email || '',
-    phone: '',
-    diocese: 'Diocese of Tagbilaran'
+    phone: userProfile?.phoneNumber || '',
+    diocese: userProfile?.diocese 
+      ? `Diocese of ${userProfile.diocese.charAt(0).toUpperCase() + userProfile.diocese.slice(1)}`
+      : 'Diocese of Tagbilaran'
   });
+
+  // Sync email and phone from userProfile on mount and when it changes
+  useEffect(() => {
+    if (userProfile) {
+      console.log('🔍 [ParishAccount] UserProfile loaded:', {
+        email: userProfile.email,
+        phoneNumber: userProfile.phoneNumber,
+        hasPhone: !!userProfile.phoneNumber
+      });
+      
+      setProfileData(prev => ({
+        ...prev,
+        email: userProfile.email || prev.email,
+        phone: userProfile.phoneNumber || prev.phone
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile?.email, userProfile?.phoneNumber]);
+
+  // Fetch parish name from church document
+  useEffect(() => {
+    const fetchParishName = async () => {
+      if (userProfile?.parish && userProfile?.diocese) {
+        try {
+          console.log('🔍 [ParishAccount] Fetching church data for parish:', userProfile.parish);
+          
+          const churches = await ChurchService.getChurches({
+            diocese: userProfile.diocese
+          });
+          
+          console.log('📋 [ParishAccount] Found churches:', churches.length);
+          
+          // Find the church matching the parish ID
+          const parishChurch = churches.find(church => church.id === userProfile.parish);
+          
+          if (parishChurch) {
+            console.log('✅ [ParishAccount] Found parish church:', {
+              name: parishChurch.fullName || parishChurch.name,
+              hasContactInfo: !!parishChurch.contactInfo,
+              phone: parishChurch.contactInfo?.phone
+            });
+            
+            const name = parishChurch.fullName || parishChurch.name || userProfile.parish;
+            setParishName(name);
+            setProfileData(prev => ({ ...prev, parishName: name }));
+            
+            // Sync church phone to form if available
+            if (parishChurch.contactInfo?.phone) {
+              console.log('📞 [ParishAccount] Syncing phone from church:', parishChurch.contactInfo.phone);
+              setProfileData(prev => ({ ...prev, phone: parishChurch.contactInfo.phone || prev.phone }));
+            }
+          } else {
+            console.warn('⚠️ [ParishAccount] Church not found for parish ID:', userProfile.parish);
+            setParishName(userProfile.parish);
+            setProfileData(prev => ({ ...prev, parishName: userProfile.parish }));
+          }
+        } catch (error) {
+          console.error('❌ [ParishAccount] Error fetching parish name:', error);
+          setParishName(userProfile.parish);
+          setProfileData(prev => ({ ...prev, parishName: userProfile.parish }));
+        }
+      }
+    };
+
+    fetchParishName();
+  }, [userProfile?.parish, userProfile?.diocese]);
 
   // Password form state
   const [passwordData, setPasswordData] = useState({
@@ -279,6 +349,24 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
         }
       }
 
+      // Update user profile in Firestore with phone number
+      if (user && userProfile) {
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          await updateDoc(userDocRef, {
+            phoneNumber: profileData.phone
+          });
+          
+          console.log('✅ Phone number saved to user profile');
+          
+          // Refresh user profile to get the updated phone number
+          await refreshUserProfile();
+        } catch (error) {
+          console.error('Error updating user profile:', error);
+          // Don't fail the whole operation if this fails
+        }
+      }
+
       // Check if password fields have data
       const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
 
@@ -509,15 +597,12 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                     id="email"
                     type="email"
                     value={profileData.email}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                    disabled={!isEditing}
-                    className={`mt-1 pl-10 ${isEditing && !profileData.email.trim() ? 'border-red-500 focus:ring-red-500' : ''}`}
+                    disabled
+                    className="mt-1 pl-10 bg-gray-50"
                     placeholder="parish@example.com"
                   />
                 </div>
-                {isEditing && !profileData.email.trim() && (
-                  <p className="text-xs text-red-600 mt-1">Email is required</p>
-                )}
+                <p className="text-xs text-gray-500 mt-1">Contact admin to change email address</p>
               </div>
               <div>
                 <Label htmlFor="phone" className="flex items-center gap-1">

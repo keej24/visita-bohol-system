@@ -297,6 +297,21 @@ const MuseumResearcherDashboard = () => {
     return colors[classification as keyof typeof colors] || 'bg-secondary text-secondary-foreground';
   };
 
+  // Show loading state
+  if (isLoading || isApprovedLoading) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+          <div className="text-center space-y-2">
+            <p className="text-lg font-medium text-gray-900">Loading Dashboard...</p>
+            <p className="text-sm text-gray-500">Fetching heritage review data</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-6">

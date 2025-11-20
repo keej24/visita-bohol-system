@@ -465,7 +465,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     debugPrint('🔍 Filtered for visit churches: ${forVisitChurches.length}');
 
+    // Debug: Find missing church IDs
+    if (forVisitChurches.length < profile.forVisitChurches.length) {
+      final foundIds = forVisitChurches.map((c) => c.id).toSet();
+      final missingIds = profile.forVisitChurches
+          .where((id) => !foundIds.contains(id))
+          .toList();
+      debugPrint('⚠️ Missing churches from For Visit list: $missingIds');
+      debugPrint(
+          '   These churches may be pending approval, deleted, or have a different status.');
+
+      // Clean up missing IDs from profile
+      if (missingIds.isNotEmpty) {
+        debugPrint(
+            '🧹 Cleaning up ${missingIds.length} invalid church IDs from profile...');
+        final profileService = context.read<ProfileService>();
+
+        // Remove invalid IDs
+        for (String missingId in missingIds) {
+          await profileService.toggleForVisitChurch(missingId);
+        }
+
+        // Show notification to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Removed ${missingIds.length} unavailable church${missingIds.length > 1 ? 'es' : ''} from your list'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
+
     if (!mounted) return;
+
+    // Show empty message if no valid churches found
+    if (forVisitChurches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'No available churches in your wishlist. Previously saved churches may be pending approval.'),
+          backgroundColor: Color(0xFFD97706),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
 
     Navigator.push(
       context,

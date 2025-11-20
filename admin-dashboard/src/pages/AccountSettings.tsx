@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 
 import { db, auth } from '@/lib/firebase';
 
 const AccountSettings = () => {
-  const { userProfile, user } = useAuth();
+  const { userProfile, user, refreshUserProfile } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const isSystemAccount = userProfile?.email ? isPreconfiguredAccount(userProfile.email) : false;
@@ -27,11 +27,29 @@ const AccountSettings = () => {
     firstName: userProfile?.name?.split(' ')[0] || '',
     lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
     email: userProfile?.email || '',
-    phone: '',
+    phone: userProfile?.phoneNumber || '',
     address: '',
     office: userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : 'Chancery Office',
     diocese: userProfile?.diocese || 'tagbilaran'
   });
+
+  // Sync phone number from userProfile when it changes
+  useEffect(() => {
+    if (userProfile) {
+      console.log('🔍 [AccountSettings] UserProfile loaded:', {
+        email: userProfile.email,
+        phoneNumber: userProfile.phoneNumber,
+        hasPhone: !!userProfile.phoneNumber
+      });
+      
+      setProfileData(prev => ({
+        ...prev,
+        email: userProfile.email || prev.email,
+        phone: userProfile.phoneNumber || prev.phone
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile?.email, userProfile?.phoneNumber]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -158,7 +176,7 @@ const AccountSettings = () => {
       // Update Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
       const updateData: Record<string, string | null> = {
-        phone: profileData.phone || null,
+        phoneNumber: profileData.phone || null, // Use phoneNumber to match other components
         address: profileData.address || null,
       };
 
@@ -170,6 +188,11 @@ const AccountSettings = () => {
       }
 
       await updateDoc(userDocRef, updateData);
+      
+      console.log('✅ Phone number saved to user profile');
+      
+      // Refresh user profile to get the updated phone number
+      await refreshUserProfile();
 
       toast({
         title: 'Success',
@@ -624,19 +647,11 @@ const AccountSettings = () => {
                           id="email"
                           type="email"
                           value={profileData.email}
-                          onChange={(e) => {
-                            setProfileData(prev => ({ ...prev, email: e.target.value }));
-                            if (errors.email) {
-                              setErrors(prev => ({ ...prev, email: validateEmail(e.target.value) }));
-                            }
-                          }}
-                          disabled={!isEditingProfile}
-                          className={`mt-1 pl-10 ${errors.email && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                          disabled
+                          className="mt-1 pl-10 bg-gray-50"
                         />
                       </div>
-                      {errors.email && isEditingProfile && (
-                        <p className="text-xs text-red-600 mt-1">{errors.email}</p>
-                      )}
+                      <p className="text-xs text-gray-500 mt-1">Contact admin to change email address</p>
                     </div>
                     <div>
                       <Label htmlFor="phone">Phone Number</Label>

@@ -26,6 +26,7 @@ import {
   Search,
   AlertTriangle,
   Eye,
+  EyeOff,
   Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -367,10 +368,10 @@ const FeedbackReports = () => {
                   <Card>
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-2">
-                        <Star className="w-4 h-4 text-yellow-600" />
+                        <AlertTriangle className="w-4 h-4 text-orange-600" />
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
-                          <p className="text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
+                          <p className="text-sm font-medium text-muted-foreground">Hidden</p>
+                          <p className="text-2xl font-bold text-orange-600">{stats.hiddenCount}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -379,10 +380,10 @@ const FeedbackReports = () => {
                   <Card>
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-2">
-                        <MessageSquare className="w-4 h-4 text-blue-600" />
+                        <Star className="w-4 h-4 text-yellow-600" />
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Results Shown</p>
-                          <p className="text-2xl font-bold text-blue-600">{filteredFeedback.length}</p>
+                          <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
+                          <p className="text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -411,101 +412,102 @@ const FeedbackReports = () => {
                 {/* Feedback List - Published Tab */}
                 <div className="space-y-4">
               {filteredFeedback.map((feedback) => (
-                <Card key={feedback.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-semibold text-lg">{feedback.subject}</h3>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                              <span>{feedback.userName} • {feedback.churchName}</span>
-                              <div className="flex items-center gap-1">
-                                {renderStars(feedback.rating)}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge className={getStatusColor(feedback.status)}>
-                            {feedback.status.replace('_', ' ')}
-                          </Badge>
+                <div key={feedback.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-semibold text-gray-900">{feedback.subject}</h4>
+                        <div className="flex gap-1">
+                          {renderStars(feedback.rating)}
                         </div>
-
-                        <p className="text-muted-foreground">{feedback.message}</p>
-
-                        {/* Display photos if available */}
-                        {feedback.photos && feedback.photos.length > 0 && (
-                          <div className="flex gap-2 mt-2 flex-wrap">
-                            {feedback.photos.slice(0, 3).map((photoUrl, index) => (
-                              <img
-                                key={index}
-                                src={photoUrl}
-                                alt={`Feedback photo ${index + 1}`}
-                                className="w-20 h-20 object-cover rounded border cursor-pointer hover:opacity-75 transition-opacity"
-                                onClick={() => window.open(photoUrl, '_blank')}
-                              />
-                            ))}
-                            {feedback.photos.length > 3 && (
-                              <div className="w-20 h-20 bg-muted rounded border flex items-center justify-center text-muted-foreground text-sm font-medium">
-                                +{feedback.photos.length - 3}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {feedback.moderatedAt && (
-                          <div className="bg-muted/50 p-3 rounded-lg">
-                            <p className="text-sm font-medium text-muted-foreground mb-1">
-                              Moderated by {feedback.moderatedBy} on {new Date(feedback.moderatedAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
-                        </div>
+                        <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'}>
+                          {feedback.status}
+                        </Badge>
                       </div>
+                      <p className="text-gray-600 mb-2 line-clamp-2">{feedback.message}</p>
 
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedFeedback(feedback);
-                            setShowDetailsDialog(true);
-                          }}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View
-                        </Button>
+                      {/* Display photos if available */}
+                      {feedback.photos && feedback.photos.length > 0 && (
+                        <div className="flex gap-2 mb-2 flex-wrap">
+                          {feedback.photos.slice(0, 3).map((photoUrl, index) => (
+                            <img
+                              key={index}
+                              src={photoUrl}
+                              alt={`Feedback photo ${index + 1}`}
+                              className="w-20 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                              onClick={() => window.open(photoUrl, '_blank')}
+                            />
+                          ))}
+                          {feedback.photos.length > 3 && (
+                            <div className="w-20 h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-sm font-medium">
+                              +{feedback.photos.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                        {feedback.status === 'published' && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleModerationRequest(feedback.id, 'hide')}
-                          >
-                            <AlertTriangle className="w-4 h-4 mr-2" />
-                            Hide
-                          </Button>
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span>By: {feedback.userName}</span>
+                        <span>•</span>
+                        <span>{feedback.churchName}</span>
+                        <span>•</span>
+                        <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
+                        {feedback.photos && feedback.photos.length > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {feedback.photos.length} photo{feedback.photos.length === 1 ? '' : 's'}
+                            </span>
+                          </>
+                        )}
+                        {feedback.moderatedAt && (
+                          <>
+                            <span>•</span>
+                            <span>Moderated by {feedback.moderatedBy}</span>
+                          </>
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex gap-2 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFeedback(feedback);
+                          setShowDetailsDialog(true);
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View
+                      </Button>
+                      {feedback.status === 'published' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleModerationRequest(feedback.id, 'hide')}
+                          className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                        >
+                          <EyeOff className="w-4 h-4 mr-1" />
+                          Hide
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ))}
 
                   {filteredFeedback.length === 0 && (
-                    <Card>
-                      <CardContent className="p-8 text-center">
-                        <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">No published feedback found</h3>
-                        <p className="text-muted-foreground">
-                          {searchTerm
-                            ? 'Try adjusting your search to see more results.'
-                            : 'No published feedback available.'}
-                        </p>
-                      </CardContent>
-                    </Card>
+                    <div className="text-center py-8 text-gray-500">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>
+                        {searchTerm
+                          ? 'No published feedback matches your search.'
+                          : 'No published feedback available.'}
+                      </p>
+                    </div>
                   )}
                 </div>
               </TabsContent>
@@ -517,10 +519,22 @@ const FeedbackReports = () => {
                   <Card>
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-2">
-                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                        <MessageSquare className="w-4 h-4 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Published</p>
+                          <p className="text-2xl font-bold text-green-600">{stats.publishedCount}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-orange-600" />
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Total Hidden</p>
-                          <p className="text-2xl font-bold text-red-600">{stats.total}</p>
+                          <p className="text-2xl font-bold text-orange-600">{stats.total}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -533,18 +547,6 @@ const FeedbackReports = () => {
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
                           <p className="text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <MessageSquare className="w-4 h-4 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Results Shown</p>
-                          <p className="text-2xl font-bold text-blue-600">{filteredFeedback.length}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -573,90 +575,100 @@ const FeedbackReports = () => {
                 {/* Feedback List - Hidden Tab */}
                 <div className="space-y-4">
                   {filteredFeedback.map((feedback) => (
-                    <Card key={feedback.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="flex-1 space-y-3">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <h3 className="font-semibold text-lg">{feedback.subject}</h3>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                                  <span>{feedback.userName} • {feedback.churchName}</span>
-                                  <div className="flex items-center gap-1">
-                                    {renderStars(feedback.rating)}
-                                  </div>
-                                </div>
-                              </div>
-                              <Badge className={getStatusColor(feedback.status)}>
-                                {feedback.status.replace('_', ' ')}
-                              </Badge>
+                    <div key={feedback.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-gray-900">{feedback.subject}</h4>
+                            <div className="flex gap-1">
+                              {renderStars(feedback.rating)}
                             </div>
-
-                            <p className="text-muted-foreground">{feedback.message}</p>
-
-                            {/* Display photos if available */}
-                            {feedback.photos && feedback.photos.length > 0 && (
-                              <div className="flex gap-2 mt-2 flex-wrap">
-                                {feedback.photos.slice(0, 3).map((photoUrl, index) => (
-                                  <img
-                                    key={index}
-                                    src={photoUrl}
-                                    alt={`Feedback photo ${index + 1}`}
-                                    className="w-20 h-20 object-cover rounded border cursor-pointer hover:opacity-75 transition-opacity"
-                                    onClick={() => window.open(photoUrl, '_blank')}
-                                  />
-                                ))}
-                                {feedback.photos.length > 3 && (
-                                  <div className="w-20 h-20 bg-muted rounded border flex items-center justify-center text-muted-foreground text-sm font-medium">
-                                    +{feedback.photos.length - 3}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {feedback.moderatedAt && (
-                              <div className="bg-muted/50 p-3 rounded-lg">
-                                <p className="text-sm font-medium text-muted-foreground mb-1">
-                                  Moderated by {feedback.moderatedBy} on {new Date(feedback.moderatedAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                            )}
-
-                            <div className="flex items-center justify-between text-sm text-muted-foreground">
-                              <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
-                            </div>
+                            <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'}>
+                              {feedback.status}
+                            </Badge>
                           </div>
+                          <p className="text-gray-600 mb-2 line-clamp-2">{feedback.message}</p>
 
-                          <div className="flex flex-col gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedFeedback(feedback);
-                                setShowDetailsDialog(true);
-                              }}
-                            >
-                              <Eye className="w-4 h-4 mr-2" />
-                              View
-                            </Button>
+                          {/* Display photos if available */}
+                          {feedback.photos && feedback.photos.length > 0 && (
+                            <div className="flex gap-2 mb-2 flex-wrap">
+                              {feedback.photos.slice(0, 3).map((photoUrl, index) => (
+                                <img
+                                  key={index}
+                                  src={photoUrl}
+                                  alt={`Feedback photo ${index + 1}`}
+                                  className="w-20 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                                  onClick={() => window.open(photoUrl, '_blank')}
+                                />
+                              ))}
+                              {feedback.photos.length > 3 && (
+                                <div className="w-20 h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-sm font-medium">
+                                  +{feedback.photos.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span>By: {feedback.userName}</span>
+                            <span>•</span>
+                            <span>{feedback.churchName}</span>
+                            <span>•</span>
+                            <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
+                            {feedback.photos && feedback.photos.length > 0 && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  {feedback.photos.length} photo{feedback.photos.length === 1 ? '' : 's'}
+                                </span>
+                              </>
+                            )}
+                            {feedback.moderatedAt && (
+                              <>
+                                <span>•</span>
+                                <span>Moderated by {feedback.moderatedBy}</span>
+                              </>
+                            )}
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedFeedback(feedback);
+                              setShowDetailsDialog(true);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleModerationRequest(feedback.id, 'publish')}
+                            className="text-green-600 border-green-200 hover:bg-green-50"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            Unhide
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   ))}
 
                   {filteredFeedback.length === 0 && (
-                    <Card>
-                      <CardContent className="p-8 text-center">
-                        <AlertTriangle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">No hidden feedback found</h3>
-                        <p className="text-muted-foreground">
-                          {searchTerm
-                            ? 'Try adjusting your search to see more results.'
-                            : 'No hidden feedback available.'}
-                        </p>
-                      </CardContent>
-                    </Card>
+                    <div className="text-center py-8 text-gray-500">
+                      <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>
+                        {searchTerm
+                          ? 'No hidden feedback matches your search.'
+                          : 'No hidden feedback available.'}
+                      </p>
+                    </div>
                   )}
                 </div>
               </TabsContent>

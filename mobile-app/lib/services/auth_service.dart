@@ -66,7 +66,8 @@ class AuthService extends ChangeNotifier {
       return result.user;
     } on FirebaseAuthException catch (e) {
       errorMessage = _getFriendlyErrorMessage(e.code);
-      debugPrint('❌ AuthService: FirebaseAuthException - Code: ${e.code}, Message: ${e.message}');
+      debugPrint(
+          '❌ AuthService: FirebaseAuthException - Code: ${e.code}, Message: ${e.message}');
       debugPrint('❌ AuthService: Setting errorMessage to: $errorMessage');
       _isLoading = false;
       // Don't call notifyListeners() here to prevent AuthWrapper rebuild
@@ -79,7 +80,8 @@ class AuthService extends ChangeNotifier {
       // Don't call notifyListeners() here to prevent AuthWrapper rebuild
       return null;
     } finally {
-      debugPrint('🔑 AuthService: Sign in completed. errorMessage: $errorMessage');
+      debugPrint(
+          '🔑 AuthService: Sign in completed. errorMessage: $errorMessage');
     }
   }
 
@@ -104,14 +106,84 @@ class AuthService extends ChangeNotifier {
 
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
+      debugPrint('📧 Sending password reset email to: $email');
+      debugPrint('   Project: visitaproject-5cd9f');
+      debugPrint('   Auth Domain: visitaproject-5cd9f.firebaseapp.com');
+
+      // Configure ActionCodeSettings to handle password reset properly
+      // This helps with mobile deep linking and better user experience
+      final actionCodeSettings = ActionCodeSettings(
+        // Use the default Firebase domain which is always authorized
+        url: 'https://visitaproject-5cd9f.firebaseapp.com',
+        // Don't try to handle in app - let it open in browser
+        // This is more reliable for password reset
+        handleCodeInApp: false,
+        // Include iOS bundle ID for better deep link support
+        iOSBundleId: 'com.example.visitaMobile',
+        // Include Android package name
+        androidPackageName: 'com.example.visita_mobile',
+        // Don't force app installation
+        androidInstallApp: false,
+        // Minimum version (optional)
+        androidMinimumVersion: '1.0.0',
+      );
+
+      await _auth.sendPasswordResetEmail(
+        email: email,
+        actionCodeSettings: actionCodeSettings,
+      );
+
+      debugPrint('✅ Password reset email sent successfully');
+      debugPrint('   Link will open in browser for reliable password reset');
+      debugPrint('');
+      debugPrint('⚠️  IMPORTANT FOR USER:');
+      debugPrint('   1. Check your email (including spam folder)');
+      debugPrint('   2. Use incognito/private browsing to open the link');
+      debugPrint('   3. Click the link ONCE only');
+      debugPrint('   4. Complete password reset immediately');
+      debugPrint('   5. Link expires in 1 hour');
+      debugPrint('');
     } catch (e) {
-      debugPrint('Password reset error: $e');
+      debugPrint('❌ Password reset error: $e');
+
+      // Provide user-friendly error messages
+      String errorMessage = 'Failed to send password reset email.';
+
+      if (e.toString().contains('user-not-found')) {
+        errorMessage = 'No account found with this email address.';
+      } else if (e.toString().contains('invalid-email')) {
+        errorMessage = 'Invalid email address.';
+      } else if (e.toString().contains('too-many-requests')) {
+        errorMessage = 'Too many requests. Please try again in a few minutes.';
+        debugPrint('⚠️  Too many password reset attempts detected.');
+        debugPrint('   This is a security measure. Please wait 5-10 minutes.');
+      } else if (e.toString().contains('network-request-failed')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (e.toString().contains('unauthorized-domain') ||
+          e.toString().contains('invalid-continue-uri')) {
+        errorMessage = 'Configuration error. Using default settings instead.';
+        debugPrint('⚠️  Domain authorization issue detected.');
+        debugPrint('   Falling back to default Firebase configuration.');
+
+        // Retry without custom ActionCodeSettings
+        try {
+          await _auth.sendPasswordResetEmail(email: email);
+          debugPrint('✅ Retry successful with default configuration');
+          return; // Success on retry
+        } catch (retryError) {
+          debugPrint('❌ Retry also failed: $retryError');
+          errorMessage =
+              'Failed to send password reset email. Please try again later.';
+        }
+      }
+
+      throw Exception(errorMessage);
     }
   }
 
   /// Update user password with re-authentication
-  Future<void> updatePassword(String currentPassword, String newPassword) async {
+  Future<void> updatePassword(
+      String currentPassword, String newPassword) async {
     try {
       final user = _auth.currentUser;
       if (user == null || user.email == null) {
