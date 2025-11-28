@@ -224,7 +224,7 @@ export const backgroundSync = {
   // Sync critical data in background
   syncCriticalData: (queryClient: QueryClient, diocese: string) => {
     const criticalQueries = [
-      queryKeys.churches.dioceseStatus(diocese, ['pending', 'needs_revision', 'heritage_review']),
+      queryKeys.churches.dioceseStatus(diocese, ['pending', 'heritage_review']),
       queryKeys.announcements.diocese(diocese),
     ];
     

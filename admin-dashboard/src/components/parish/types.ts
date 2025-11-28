@@ -50,7 +50,7 @@ export interface FileUpload {
   file?: File; // Original file object for upload
   url?: string;
   uploadDate: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved';
   fileSize?: number;
   description?: string;
 }
@@ -66,7 +66,7 @@ export interface Virtual360Image {
   isValid?: boolean;
   error?: string;
   uploadDate: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved';
   category: 'interior' | 'exterior' | 'altar' | 'entrance' | 'grounds';
   aspectRatio?: number;
   dimensions?: { width: number; height: number };
@@ -132,7 +132,7 @@ export interface PhotoItem {
   name: string;
   type: 'photo' | 'document' | '360';
   uploadDate: string;
-  status: 'approved' | 'pending' | 'rejected';
+  status: 'approved' | 'pending';
   description?: string;
   fileSize?: number;
   url?: string;

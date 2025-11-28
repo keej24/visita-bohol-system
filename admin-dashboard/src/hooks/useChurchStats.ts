@@ -94,7 +94,7 @@ export function useChurchStats(diocese: Diocese): ChurchStats {
       (c) => c.classification === 'ICP' || c.classification === 'NCT'
     ).length;
 
-    const pendingStatuses: ChurchStatus[] = ['pending', 'under_review'];
+    const pendingStatuses: ChurchStatus[] = ['pending', 'heritage_review'];
     const pendingCount = churches.filter((c) =>
       pendingStatuses.includes(c.status)
     ).length;

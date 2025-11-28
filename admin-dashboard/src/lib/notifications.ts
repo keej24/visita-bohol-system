@@ -145,8 +145,6 @@ export class NotificationService {
 
       if (toStatus === 'heritage_review') {
         notificationType = 'heritage_review_assigned';
-      } else if (toStatus === 'needs_revision') {
-        notificationType = 'revision_requested';
       } else if (toStatus === 'approved') {
         notificationType = 'church_approved';
       }

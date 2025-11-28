@@ -61,13 +61,15 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
     const unsubscribe = FeedbackService.subscribeToFeedbackByChurch(
       churchId,
       (feedback) => {
+        // churchName is only used for display, not for subscription logic
         setFeedbackData(feedback.map(f => ({ ...f, churchName })));
         setIsLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [churchId, churchName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [churchId]); // Only re-subscribe when churchId changes, not churchName
 
   // Filter feedback based on active tab and search
   const filteredFeedback = useMemo(() => {

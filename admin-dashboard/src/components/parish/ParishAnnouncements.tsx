@@ -110,11 +110,20 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
     }
   }, [userProfile?.diocese, userProfile?.uid, churchId, toast]);
 
+  // Track if archived tab has been visited
+  const [hasLoadedArchived, setHasLoadedArchived] = useState(false);
+
   useEffect(() => {
     loadAnnouncements();
-    // Load archived announcements immediately for the count
-    loadArchivedAnnouncements();
-  }, [loadAnnouncements, loadArchivedAnnouncements]);
+  }, [loadAnnouncements]);
+
+  // Lazy load archived announcements when tab is first accessed
+  useEffect(() => {
+    if (activeTab === 'archived' && !hasLoadedArchived) {
+      loadArchivedAnnouncements();
+      setHasLoadedArchived(true);
+    }
+  }, [activeTab, hasLoadedArchived, loadArchivedAnnouncements]);
 
   // Handle view announcement
   const handleViewAnnouncement = (announcement: Announcement) => {

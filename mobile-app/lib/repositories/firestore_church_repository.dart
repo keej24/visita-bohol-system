@@ -11,6 +11,7 @@
 /// - Handle Firestore-specific errors
 /// - Filter out non-public churches (only show approved)
 /// - Provide debug logging for troubleshooting
+/// - Cache results for offline support
 ///
 /// INTEGRATION POINTS:
 /// - Extends abstract ChurchRepository class
@@ -25,6 +26,7 @@
 /// - Async/Await: Handle asynchronous database queries
 /// - Query Filtering: Server-side filtering for efficiency
 /// - Error Handling: Catch and wrap Firestore errors
+/// - Caching: Local cache for offline support
 ///
 /// SECURITY:
 /// - Reads only approved churches (status = 'approved')
@@ -35,12 +37,7 @@
 /// - Uses compound queries (where + where) for filtering
 /// - Server-side filtering reduces data transfer
 /// - Client-side search for fields Firestore can't index
-///
-/// WHY IMPORTANT:
-/// - Separates data access from business logic
-/// - Makes testing easier (can mock repository)
-/// - Centralizes Firestore query logic
-/// - Consistent error handling
+/// - Local caching reduces network requests
 
 import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore SDK
 import 'package:flutter/foundation.dart'; // debugPrint utility
@@ -51,6 +48,9 @@ import '../models/church_status.dart'; // Status constants
 import '../models/enums.dart'; // Enums for classifications
 // Abstract base repository
 import 'church_repository.dart';
+// Local cache service
+import '../services/local_data_service.dart';
+import '../services/query_cache_service.dart';
 
 /// Firestore Church Repository
 ///
@@ -60,6 +60,13 @@ class FirestoreChurchRepository extends ChurchRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const String _churchesCollection = 'churches';
   static const String _massSchedulesCollection = 'mass_schedules';
+
+  // Services for caching
+  final LocalDataService _localDataService = LocalDataService();
+  final QueryCacheService _queryCache = QueryCacheService();
+
+  // Cache key for approved churches
+  static const String _cacheKeyApproved = 'churches_approved';
 
   /// =============================================================================
   /// GET ALL APPROVED CHURCHES
@@ -90,6 +97,13 @@ class FirestoreChurchRepository extends ChurchRepository {
   @override
   Future<List<Church>> getAll() async {
     try {
+      // Check in-memory cache first
+      final cached = _queryCache.get<List<Church>>(_cacheKeyApproved);
+      if (cached != null && cached.isNotEmpty) {
+        debugPrint('⚡ [CHURCH REPO] Cache hit: ${cached.length} churches');
+        return cached;
+      }
+
       debugPrint(
           '🔍 [CHURCH REPO] Querying churches with status=${ChurchStatus.approved}');
 
@@ -178,11 +192,28 @@ class FirestoreChurchRepository extends ChurchRepository {
         }
       }).toList();
 
+      // Cache results for future requests
+      _queryCache.set(_cacheKeyApproved, churches,
+          duration: const Duration(minutes: 5));
+
+      // Also persist to local storage for offline support
+      _localDataService.cacheChurches(churches);
+
       debugPrint(
           '✅ [CHURCH REPO] Successfully returned ${churches.length} churches');
       return churches;
     } catch (e) {
       debugPrint('💥 [CHURCH REPO] Error in getAll(): $e');
+
+      // Fallback to local cache on network error
+      debugPrint('📱 [CHURCH REPO] Attempting to load from local cache...');
+      final localChurches = await _localDataService.loadChurches();
+      if (localChurches.isNotEmpty) {
+        debugPrint(
+            '✅ [CHURCH REPO] Loaded ${localChurches.length} churches from local cache');
+        return localChurches;
+      }
+
       throw Exception('Failed to fetch churches: $e');
     }
   }

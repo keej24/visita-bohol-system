@@ -62,7 +62,7 @@ export const PaginatedChurchList: React.FC<PaginatedChurchListProps> = ({
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'heritage_review': return 'bg-blue-100 text-blue-800';
-      case 'needs_revision': return 'bg-red-100 text-red-800';
+      case 'under_review': return 'bg-orange-100 text-orange-800';
       case 'approved': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -90,7 +90,7 @@ export const PaginatedChurchList: React.FC<PaginatedChurchListProps> = ({
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {['pending', 'heritage_review', 'needs_revision', 'approved'].map(status => (
+            {['pending', 'heritage_review', 'approved'].map(status => (
               <Button
                 key={status}
                 variant={statusFilter.includes(status) ? 'default' : 'outline'}
@@ -198,7 +198,7 @@ export const InfiniteScrollChurchList: React.FC<PaginatedChurchListProps> = ({
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {['pending', 'heritage_review', 'needs_revision', 'approved'].map(status => (
+            {['pending', 'heritage_review', 'approved'].map(status => (
               <Button
                 key={status}
                 variant={statusFilter.includes(status) ? 'default' : 'outline'}
@@ -271,7 +271,7 @@ const ChurchCard: React.FC<ChurchCardProps> = ({ church, className }) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'heritage_review': return 'bg-blue-100 text-blue-800';
-      case 'needs_revision': return 'bg-red-100 text-red-800';
+      case 'under_review': return 'bg-orange-100 text-orange-800';
       case 'approved': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -405,7 +405,7 @@ const CompactChurchCard: React.FC<{ church: Church }> = ({ church }) => {
     switch (status) {
       case 'pending': return 'bg-yellow-500';
       case 'heritage_review': return 'bg-blue-500';
-      case 'needs_revision': return 'bg-red-500';
+      case 'under_review': return 'bg-orange-500';
       case 'approved': return 'bg-green-500';
       default: return 'bg-gray-500';
     }

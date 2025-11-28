@@ -1,4 +1,4 @@
-export type ChurchStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'under_review' | 'needs_revision';
+export type ChurchStatus = 'draft' | 'pending' | 'approved' | 'under_review' | 'heritage_review';
 export type ChurchClassification = 'ICP' | 'NCT' | 'non_heritage' | 'parish_church' | 'pilgrimage_site' | 'historical_shrine';
 export type ArchitecturalStyle = 'baroque' | 'gothic' | 'romanesque' | 'neoclassical' | 'modern' | 'mixed' | 'other';
 export type ReligiousClassification = 'diocesan_shrine' | 'jubilee_church' | 'papal_basilica_affinity' | 'none';
@@ -124,7 +124,7 @@ export interface ChurchFilters {
 
 export interface ChurchReviewAction {
   churchId: string;
-  action: 'approve' | 'reject' | 'request_revision' | 'forward_to_museum';
+  action: 'approve' | 'forward_to_museum';
   notes?: string;
   reviewerId: string;
 }
@@ -133,9 +133,8 @@ export interface ChurchStats {
   total: number;
   pending: number;
   approved: number;
-  rejected: number;
   underReview: number;
-  needsRevision: number;
+  heritageReview: number;
   byClassification: Record<ChurchClassification, number>;
   byMunicipality: Record<string, number>;
   recentSubmissions: number;

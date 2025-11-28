@@ -655,13 +655,22 @@ export class PDFExportService {
       {} as Record<string, number>
     );
 
+    // Format time periods with proper labels
+    const timeLabels: Record<string, string> = {
+      morning: 'Morning (6AM-12PM)',
+      afternoon: 'Afternoon (12PM-6PM)',
+      evening: 'Evening (6PM-10PM)'
+    };
+
+    const totalVisitors = analyticsData.visitorLogs.length || 1;
+
     autoTable(doc, {
       startY: yPos,
       head: [['Time of Day', 'Visitor Count', 'Percentage']],
       body: Object.entries(timeBreakdown).map(([time, count]) => [
-        time.charAt(0).toUpperCase() + time.slice(1),
+        timeLabels[time] || time.charAt(0).toUpperCase() + time.slice(1),
         count.toString(),
-        `${((count / analyticsData.visitorLogs.length) * 100).toFixed(1)}%`,
+        `${((count / totalVisitors) * 100).toFixed(1)}%`,
       ]),
       theme: 'grid',
       headStyles: { fillColor: [59, 130, 246] },
@@ -684,6 +693,292 @@ export class PDFExportService {
 
     // Save
     const fileName = `${churchName.replace(/\s+/g, '_')}_Analytics_${new Date().getFullYear()}.pdf`;
+    doc.save(fileName);
+  }
+
+  /**
+   * Export Diocese Engagement Analytics Report as PDF
+   * Uses real engagement metrics data from Firestore
+   */
+  static async exportDioceseEngagementReport(
+    dioceseName: string,
+    analytics: {
+      totalVisitors: number;
+      totalFeedback: number;
+      avgRating: number;
+      totalChurches: number;
+      visitorsByMonth: Array<{ month: string; visitors: number }>;
+      topChurches: Array<{
+        name: string;
+        municipality: string;
+        visitorCount: number;
+        avgRating: number;
+        feedbackCount: number;
+      }>;
+    },
+    engagementMetrics: {
+      peakVisitingPeriods: Array<{ period: string; visitors: number; peak: boolean }>;
+      ratingDistribution: Array<{ rating: number; count: number; percentage: number }>;
+      topRatedChurches: Array<{ name: string; rating: number; feedbackCount: number }>;
+    },
+    dateRange: { start: Date; end: Date }
+  ): Promise<void> {
+    const doc = new jsPDF();
+    let yPos = 20;
+
+    // Header
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, 210, 45, 'F');
+
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('Engagement & Feedback Analytics Report', 105, 22, { align: 'center' });
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${dioceseName} Diocese`, 105, 34, { align: 'center' });
+
+    doc.setTextColor(0, 0, 0);
+    yPos = 55;
+
+    // Report period
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+      `Report Period: ${dateRange.start.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} - ${dateRange.end.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      105,
+      yPos,
+      { align: 'center' }
+    );
+    yPos += 5;
+    doc.text(
+      `Generated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      105,
+      yPos,
+      { align: 'center' }
+    );
+    doc.setTextColor(0, 0, 0);
+    yPos += 15;
+
+    // Summary Statistics
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(59, 130, 246);
+    doc.text('Summary Statistics', 20, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 7;
+
+    const daysDiff = Math.max(1, Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)));
+    const avgDailyVisitors = Math.round(analytics.totalVisitors / daysDiff);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Metric', 'Value']],
+      body: [
+        ['Total Churches', analytics.totalChurches.toString()],
+        ['Total Visitors', analytics.totalVisitors.toLocaleString()],
+        ['Average Daily Visitors', avgDailyVisitors.toLocaleString()],
+        ['Total Feedback', analytics.totalFeedback.toLocaleString()],
+        ['Average Rating', `${analytics.avgRating.toFixed(1)} / 5.0`],
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 4 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 }, 1: { cellWidth: 100 } },
+      margin: { left: 20, right: 20 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+
+    // Peak Visiting Periods (Real data from Firestore)
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(59, 130, 246);
+    doc.text('Visitor Activity by Time of Day', 20, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 7;
+
+    const totalPeriodVisitors = engagementMetrics.peakVisitingPeriods.reduce((sum, p) => sum + p.visitors, 0) || 1;
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Time Period', 'Visitors', 'Percentage', 'Status']],
+      body: engagementMetrics.peakVisitingPeriods.map(period => [
+        period.period,
+        period.visitors.toLocaleString(),
+        `${Math.round((period.visitors / totalPeriodVisitors) * 100)}%`,
+        period.peak ? '★ Peak' : ''
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 4 },
+      columnStyles: { 
+        0: { cellWidth: 55 }, 
+        1: { cellWidth: 35, halign: 'right' }, 
+        2: { cellWidth: 35, halign: 'right' },
+        3: { cellWidth: 30, halign: 'center', textColor: [234, 179, 8] }
+      },
+      margin: { left: 20, right: 20 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+
+    // Rating Distribution (Real data from Firestore)
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(59, 130, 246);
+    doc.text('Rating Distribution', 20, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 7;
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Rating', 'Count', 'Percentage']],
+      body: engagementMetrics.ratingDistribution
+        .sort((a, b) => b.rating - a.rating)
+        .map(r => [
+          '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating),
+          r.count.toString(),
+          `${r.percentage}%`
+        ]),
+      theme: 'grid',
+      headStyles: { fillColor: [234, 179, 8], textColor: 0, fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 4 },
+      columnStyles: { 
+        0: { cellWidth: 70 }, 
+        1: { cellWidth: 40, halign: 'right' }, 
+        2: { cellWidth: 40, halign: 'right' }
+      },
+      margin: { left: 20, right: 20 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+
+    // Monthly Visitor Trends
+    if (analytics.visitorsByMonth.length > 0) {
+      if (yPos > 200) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(59, 130, 246);
+      doc.text('Monthly Visitor Trends', 20, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 7;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Month', 'Visitors']],
+        body: analytics.visitorsByMonth.map(m => [
+          m.month,
+          m.visitors.toLocaleString()
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 4 },
+        columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 50, halign: 'right' } },
+        margin: { left: 20, right: 20 },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    // Top Churches by Engagement
+    if (yPos > 180) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(59, 130, 246);
+    doc.text('Top 10 Churches by Visitor Engagement', 20, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 7;
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['#', 'Church Name', 'Municipality', 'Visitors', 'Rating', 'Feedback']],
+      body: analytics.topChurches.slice(0, 10).map((church, index) => [
+        (index + 1).toString(),
+        church.name,
+        church.municipality,
+        church.visitorCount.toLocaleString(),
+        church.avgRating.toFixed(1),
+        church.feedbackCount.toString()
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: { 
+        0: { cellWidth: 10 },
+        1: { cellWidth: 50 }, 
+        2: { cellWidth: 35 }, 
+        3: { cellWidth: 25, halign: 'right' },
+        4: { cellWidth: 20, halign: 'center' },
+        5: { cellWidth: 22, halign: 'right' }
+      },
+      margin: { left: 20, right: 20 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+
+    // Top Rated Churches
+    if (engagementMetrics.topRatedChurches.length > 0) {
+      if (yPos > 220) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(59, 130, 246);
+      doc.text('Top Rated Churches', 20, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 7;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Church Name', 'Rating', 'Feedback Count']],
+        body: engagementMetrics.topRatedChurches.map(church => [
+          church.name,
+          `${church.rating.toFixed(1)} / 5.0`,
+          church.feedbackCount.toString()
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 4 },
+        columnStyles: { 
+          0: { cellWidth: 90 }, 
+          1: { cellWidth: 35, halign: 'center' }, 
+          2: { cellWidth: 35, halign: 'right' }
+        },
+        margin: { left: 20, right: 20 },
+      });
+    }
+
+    // Footer on all pages
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, 282, 190, 282);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120, 120, 120);
+      doc.text(`${dioceseName} Diocese Engagement Report`, 20, 287);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 287, { align: 'center' });
+      doc.text(`Page ${i} of ${pageCount}`, 190, 287, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // Save
+    const fileName = `${dioceseName.replace(/\s+/g, '_')}_Diocese_Engagement_Analytics_${new Date().getFullYear()}.pdf`;
     doc.save(fileName);
   }
 }

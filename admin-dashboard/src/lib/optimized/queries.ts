@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { 
   getChurchesByDiocese, 
   getChurchesByStatus,
@@ -8,6 +8,11 @@ import {
 } from '@/lib/churches';
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
 import { notificationService, type Notification } from '@/lib/notifications';
+import { useCallback, useRef, useEffect } from 'react';
+
+// =============================================================================
+// QUERY KEYS FACTORY - Centralized key management for cache invalidation
+// =============================================================================
 
 // Query Keys Factory
 export const churchKeys = {
@@ -16,7 +21,23 @@ export const churchKeys = {
   status: (statuses: ChurchStatus[]) => [...churchKeys.all, 'status', ...statuses] as const,
   dioceseStatus: (diocese: Diocese, statuses: ChurchStatus[]) => 
     [...churchKeys.diocese(diocese), 'status', ...statuses] as const,
+  single: (id: string) => [...churchKeys.all, 'single', id] as const,
+  paginated: (diocese: Diocese, page: number) => 
+    [...churchKeys.diocese(diocese), 'page', page] as const,
 } as const;
+
+// Analytics Keys Factory
+export const analyticsKeys = {
+  all: ['analytics'] as const,
+  diocese: (diocese: Diocese) => [...analyticsKeys.all, 'diocese', diocese] as const,
+  engagement: (diocese: Diocese, startDate: string, endDate: string) => 
+    [...analyticsKeys.diocese(diocese), 'engagement', startDate, endDate] as const,
+  feedback: (diocese: Diocese) => [...analyticsKeys.diocese(diocese), 'feedback'] as const,
+} as const;
+
+// =============================================================================
+// OPTIMIZED CHURCH QUERIES - With better caching and stale time management
+// =============================================================================
 
 // Optimized Church Queries
 export const useChurches = (diocese: Diocese, enabled = true) => {
@@ -49,7 +70,7 @@ export const useChurchesByStatus = (statuses: ChurchStatus[], enabled = true) =>
 };
 
 export const usePendingChurches = (diocese: Diocese, enabled = true) => {
-  const pendingStatuses: ChurchStatus[] = ['pending', 'needs_revision', 'heritage_review'];
+  const pendingStatuses: ChurchStatus[] = ['pending', 'heritage_review'];
   
   return useQuery({
     queryKey: churchKeys.dioceseStatus(diocese, pendingStatuses),
@@ -130,7 +151,7 @@ export const usePrefetchChurches = () => {
   };
   
   const prefetchPending = (diocese: Diocese) => {
-    const pendingStatuses: ChurchStatus[] = ['pending', 'needs_revision', 'heritage_review'];
+    const pendingStatuses: ChurchStatus[] = ['pending', 'heritage_review'];
     queryClient.prefetchQuery({
       queryKey: churchKeys.dioceseStatus(diocese, pendingStatuses),
       queryFn: () => getChurchesByDiocese(diocese, pendingStatuses),
@@ -198,4 +219,121 @@ export const useMarkNotificationAsRead = () => {
       queryClient.invalidateQueries({ queryKey: notificationKeys.unread(userId) });
     },
   });
+};
+
+// =============================================================================
+// SUBSCRIPTION MANAGER - Prevents memory leaks with real-time listeners
+// =============================================================================
+
+/**
+ * Hook to safely manage Firestore subscriptions
+ * Automatically cleans up listeners on unmount to prevent memory leaks
+ */
+export const useFirestoreSubscription = <T>(
+  subscribeCallback: (callback: (data: T) => void) => () => void,
+  dependencies: unknown[] = []
+) => {
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const dataRef = useRef<T | null>(null);
+
+  useEffect(() => {
+    // Set up subscription
+    unsubscribeRef.current = subscribeCallback((data) => {
+      dataRef.current = data;
+    });
+
+    // Cleanup on unmount or dependency change
+    return () => {
+      if (unsubscribeRef.current) {
+        console.log('🧹 Cleaning up Firestore subscription');
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, dependencies);
+
+  return {
+    unsubscribe: useCallback(() => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+    }, []),
+    getData: () => dataRef.current,
+  };
+};
+
+// =============================================================================
+// DEBOUNCED QUERIES - Prevents excessive API calls during rapid user input
+// =============================================================================
+
+/**
+ * Debounce hook for search queries
+ * Delays the query execution until user stops typing
+ */
+export const useDebouncedValue = <T>(value: T, delay: number = 300): T => {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debouncedRef = useRef<T>(value);
+
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      debouncedRef.current = value;
+    }, delay);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [value, delay]);
+
+  return debouncedRef.current;
+};
+
+// =============================================================================
+// CACHE UTILITIES - Helper functions for manual cache management
+// =============================================================================
+
+/**
+ * Invalidate all queries for a specific diocese
+ * Useful after major updates
+ */
+export const useInvalidateDioceseCache = () => {
+  const queryClient = useQueryClient();
+  
+  return useCallback((diocese: Diocese) => {
+    console.log(`🔄 Invalidating cache for diocese: ${diocese}`);
+    queryClient.invalidateQueries({ queryKey: churchKeys.diocese(diocese) });
+    queryClient.invalidateQueries({ queryKey: analyticsKeys.diocese(diocese) });
+  }, [queryClient]);
+};
+
+/**
+ * Clear all cached data
+ * Useful for logout or major state resets
+ */
+export const useClearAllCache = () => {
+  const queryClient = useQueryClient();
+  
+  return useCallback(() => {
+    console.log('🧹 Clearing all query cache');
+    queryClient.clear();
+  }, [queryClient]);
+};
+
+/**
+ * Get cached data without triggering a fetch
+ * Useful for checking if data is already available
+ */
+export const useGetCachedChurches = () => {
+  const queryClient = useQueryClient();
+  
+  return useCallback((diocese: Diocese): Church[] | undefined => {
+    return queryClient.getQueryData(churchKeys.diocese(diocese));
+  }, [queryClient]);
 };

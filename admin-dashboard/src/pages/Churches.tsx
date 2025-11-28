@@ -63,7 +63,7 @@ const Churches = () => {
     setSelectedChurch(null);
   };
 
-  const handleReviewChurch = async (churchId: string, action: 'approve' | 'reject' | 'request_revision' | 'forward_to_museum', notes?: string) => {
+  const handleReviewChurch = async (churchId: string, action: 'approve' | 'forward_to_museum', notes?: string) => {
     if (!userProfile?.uid) return;
 
     reviewMutation.mutate({
@@ -84,10 +84,9 @@ const Churches = () => {
     const statusConfig = {
       pending: { variant: 'secondary' as const, label: 'Pending Review', color: 'bg-yellow-500' },
       approved: { variant: 'default' as const, label: 'Approved', color: 'bg-green-500' },
-      rejected: { variant: 'destructive' as const, label: 'Rejected', color: 'bg-red-500' },
       under_review: { variant: 'secondary' as const, label: 'Under Review', color: 'bg-blue-500' },
-      needs_revision: { variant: 'secondary' as const, label: 'Needs Revision', color: 'bg-orange-500' },
       heritage_review: { variant: 'secondary' as const, label: 'Heritage Review', color: 'bg-purple-500' },
+      draft: { variant: 'outline' as const, label: 'Draft', color: 'bg-gray-500' },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig];
@@ -348,26 +347,6 @@ const Churches = () => {
                               <ExternalLink className="w-4 h-4" />
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-orange-600 hover:text-orange-700"
-                            onClick={() => handleReviewChurch(church.id, 'request_revision', 'Please review and update the information')}
-                            disabled={reviewMutation.isPending}
-                            title="Request Revision"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() => handleReviewChurch(church.id, 'reject', 'Church submission rejected')}
-                            disabled={reviewMutation.isPending}
-                            title="Reject Church"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
                         </>
                       )}
 

@@ -11,7 +11,7 @@ interface Photo {
   name: string;
   size?: number;
   type?: 'photo' | 'document' | '360' | 'heritage-doc';
-  status?: 'pending' | 'approved' | 'rejected';
+  status?: 'pending' | 'approved';
   uploadDate?: string;
 }
 

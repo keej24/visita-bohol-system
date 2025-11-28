@@ -50,6 +50,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
   const handleSaveChurch = async (data: ChurchInfo) => {
     if (!selectedChurch || !userProfile) return;
 
+    setIsSubmitting(true);
     try {
       // Convert ChurchInfo to ChurchFormData format and update
       const formData = convertChurchInfoToFormData(data);
@@ -71,6 +72,8 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         description: "Failed to save church information",
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -192,7 +195,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
 
         {/* Key Statistics */}
         <ErrorBoundary>
-          <StatsGrid diocese={diocese} stats={churchStats} />
+          <StatsGrid stats={churchStats} />
         </ErrorBoundary>
 
         {/* Main Content - Dashboard Overview */}

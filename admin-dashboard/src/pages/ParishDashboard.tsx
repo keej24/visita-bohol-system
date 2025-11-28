@@ -32,24 +32,24 @@ import type { ArchitecturalStyle, ChurchClassification, Church } from '@/types/c
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
+// View type for managing which content is displayed
+type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback';
+
 // Simplified Parish Dashboard - Shows form on first access, then Parish Profile after approval
 const ParishDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const { toast } = useToast();
   const { userProfile } = useAuth();
-  const [showProfileForm, setShowProfileForm] = useState(false);
-  const [showReports, setShowReports] = useState(false);
-  const [showAccount, setShowAccount] = useState(false);
-  const [showAnnouncements, setShowAnnouncements] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewType>('overview');
   const [churchId, setChurchId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingChurch, setExistingChurch] = useState<Church | null>(null);
   
-  // Load dismissed state from localStorage
+  // Load dismissed state from localStorage - use uid for consistent key
   const [dismissedApprovedBanner, setDismissedApprovedBanner] = useState(() => {
-    const key = `dismissed_approval_banner_${userProfile?.parish || userProfile?.email}`;
+    const key = `dismissed_approval_banner_${userProfile?.uid || 'user'}`;
     return localStorage.getItem(key) === 'true';
   });
 
@@ -194,7 +194,7 @@ const ParishDashboard = () => {
             url: scene.imageUrl,
             name: scene.title || `360 Image ${index + 1}`,
             uploadDate: new Date().toISOString(),
-            status: (isValidUrl ? 'approved' : 'rejected') as 'approved' | 'rejected',
+            status: (isValidUrl ? 'approved' : 'pending') as 'approved' | 'pending',
             isValid: isValidUrl,
             category: 'interior' as const
           };
@@ -208,9 +208,7 @@ const ParishDashboard = () => {
       founded: church.foundingYear?.toString() || '',
       classification: church.classification || '',
       description: church.description || '',
-      status: church.status === 'under_review' ? 'pending' :
-              church.status === 'needs_revision' ? 'pending' :
-              church.status || 'pending',
+      status: church.status || 'pending',
       capacity: 0,
       architecturalStyle: church.architecturalStyle || '',
       patronSaint: '',
@@ -235,11 +233,11 @@ const ParishDashboard = () => {
             setChurchId(church.id);
             setChurchInfo(convertChurchToInfo(church));
 
-            // Show form only if status is pending or needs revision
-            if (church.status === 'pending' || church.status === 'needs_revision') {
-              setShowProfileForm(true);
+            // Show form only if status is pending
+            if (church.status === 'pending') {
+              setCurrentView('profile');
             } else {
-              setShowProfileForm(false);
+              setCurrentView('overview');
             }
           } else {
             // No existing church - initialize with default data but don't show form yet
@@ -250,11 +248,16 @@ const ParishDashboard = () => {
               name: displayName,
               diocese: userProfile.diocese
             }));
-            setShowProfileForm(false); // Changed to false - user must click "Add Profile" button
+            setCurrentView('overview'); // Changed to overview - user must click "Add Profile" button
           }
         })
         .catch((error) => {
           console.error('Error loading church data:', error);
+          toast({
+            title: "Error Loading Church",
+            description: "Failed to load church data. Using default settings.",
+            variant: "destructive"
+          });
           // Fallback to default initialization
           const displayName = userProfile.parishInfo?.fullName || userProfile.parish || '';
           setChurchInfo(prev => ({
@@ -263,13 +266,13 @@ const ParishDashboard = () => {
             name: displayName,
             diocese: userProfile.diocese
           }));
-          setShowProfileForm(false); // Changed to false - user must click "Add Profile" button
+          setCurrentView('overview'); // Changed to overview - user must click "Add Profile" button
         })
         .finally(() => {
           setIsLoading(false);
         });
     }
-  }, [userProfile, convertChurchToInfo]);
+  }, [userProfile, convertChurchToInfo, toast]);
 
   // Set up real-time listener for church updates
   useEffect(() => {
@@ -288,10 +291,9 @@ const ParishDashboard = () => {
           if (previousStatus && previousStatus !== parishChurch.status) {
             const statusMessages = {
               'approved': 'Your church profile has been approved!',
-              'needs_revision': 'Chancery office has requested revisions to your church profile.',
               'heritage_review': 'Your church has been forwarded for heritage review.',
               'pending': 'Your church profile is now under review.',
-              'rejected': 'Your church profile submission needs attention.'
+              'draft': 'Your church profile is in draft status.'
             };
 
             const message = statusMessages[parishChurch.status as keyof typeof statusMessages] ||
@@ -300,8 +302,7 @@ const ParishDashboard = () => {
             toast({
               title: "Church Profile Updated",
               description: message,
-              variant: parishChurch.status === 'approved' ? 'default' :
-                      parishChurch.status === 'needs_revision' ? 'destructive' : 'default'
+              variant: parishChurch.status === 'approved' ? 'default' : 'default'
             });
           }
 
@@ -323,32 +324,35 @@ const ParishDashboard = () => {
     };
   }, [userProfile, toast, convertChurchToInfo]);
 
-  // Mark dashboard as visited
+  // Mark dashboard as visited - use uid for consistent localStorage key
   const markDashboardVisited = () => {
-    const visitKey = `parish_dashboard_visited_${userProfile?.email || 'user'}`;
+    const visitKey = `parish_dashboard_visited_${userProfile?.uid || 'user'}`;
     localStorage.setItem(visitKey, 'true');
   };
 
   // Show profile form immediately on first visit
   useEffect(() => {
-    const visitKey = `parish_dashboard_visited_${userProfile?.email || 'user'}`;
+    let isMounted = true;
+    
+    const visitKey = `parish_dashboard_visited_${userProfile?.uid || 'user'}`;
     const isFirstVisit = !localStorage.getItem(visitKey);
     
     // Show form immediately on first visit OR if profile status is pending/incomplete
-    if (isFirstVisit || churchInfo.status === 'pending' || !churchInfo.churchName) {
-      setShowProfileForm(true);
+    // Only update state if component is still mounted
+    if (isMounted && (isFirstVisit || churchInfo.status === 'pending' || !churchInfo.churchName)) {
+      setCurrentView('profile');
     }
-  }, [churchInfo.status, churchInfo.churchName, userProfile?.email]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [churchInfo.status, churchInfo.churchName, userProfile?.uid]);
 
   // Handle activeTab changes from sidebar
   useEffect(() => {
     if (activeTab === 'reports') {
       if (churchInfo.status === 'approved') {
-        setShowReports(true);
-        setShowProfileForm(false);
-        setShowAccount(false);
-        setShowAnnouncements(false);
-        setShowFeedback(false);
+        setCurrentView('reports');
       } else {
         toast({
           title: "Profile Not Approved",
@@ -359,11 +363,7 @@ const ParishDashboard = () => {
       }
     } else if (activeTab === 'announcements') {
       if (churchInfo.status === 'approved') {
-        setShowAnnouncements(true);
-        setShowProfileForm(false);
-        setShowAccount(false);
-        setShowReports(false);
-        setShowFeedback(false);
+        setCurrentView('announcements');
       } else {
         toast({
           title: "Profile Not Approved",
@@ -374,11 +374,7 @@ const ParishDashboard = () => {
       }
     } else if (activeTab === 'feedback') {
       if (churchInfo.status === 'approved') {
-        setShowFeedback(true);
-        setShowProfileForm(false);
-        setShowAccount(false);
-        setShowReports(false);
-        setShowAnnouncements(false);
+        setCurrentView('feedback');
       } else {
         toast({
           title: "Profile Not Approved",
@@ -388,22 +384,9 @@ const ParishDashboard = () => {
         setActiveTab('overview');
       }
     } else if (activeTab === 'account') {
-      setShowAccount(true);
-      setShowReports(false);
-      setShowProfileForm(false);
-      setShowAnnouncements(false);
-      setShowFeedback(false);
+      setCurrentView('account');
     } else if (activeTab === 'overview') {
-      setShowReports(false);
-      setShowAccount(false);
-      setShowProfileForm(false);
-      setShowAnnouncements(false);
-      setShowFeedback(false);
-    } else {
-      setShowReports(false);
-      setShowAccount(false);
-      setShowAnnouncements(false);
-      setShowFeedback(false);
+      setCurrentView('overview');
     }
   }, [activeTab, churchInfo.status, toast, setActiveTab]);
 
@@ -520,6 +503,7 @@ const ParishDashboard = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
       const formData = convertToFormData(data);
       
@@ -587,6 +571,8 @@ const ParishDashboard = () => {
         description: "Failed to save draft. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -634,7 +620,7 @@ const ParishDashboard = () => {
 
         setChurchId(newChurchId);
         setChurchInfo({ ...data, status: 'pending', id: newChurchId });
-        setShowProfileForm(false);
+        setCurrentView('overview');
 
         toast({
           title: "Success",
@@ -665,7 +651,7 @@ const ParishDashboard = () => {
 
         // Update churchInfo with new status
         setChurchInfo({ ...data, status: newStatus, id: existingChurch.id });
-        setShowProfileForm(false);
+        setCurrentView('overview');
 
         const statusText = newStatus === 'approved' ? 'updated' : 'submitted for review';
 
@@ -702,11 +688,11 @@ const ParishDashboard = () => {
             Under Review
           </Badge>
         );
-      case 'rejected':
+      case 'heritage_review':
         return (
-          <Badge className="bg-red-50 text-red-700 border-red-200">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Needs Revision
+          <Badge className="bg-purple-50 text-purple-700 border-purple-200">
+            <Clock className="w-3 h-3 mr-1" />
+            Heritage Review
           </Badge>
         );
       default:
@@ -915,7 +901,7 @@ const ParishDashboard = () => {
           </div>
           
           <Button 
-            onClick={() => setShowProfileForm(true)}
+            onClick={() => setCurrentView('profile')}
             className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             <Edit className="w-4 h-4 mr-2" />
@@ -1114,7 +1100,7 @@ const ParishDashboard = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  const key = `dismissed_approval_banner_${userProfile?.parish || userProfile?.email}`;
+                  const key = `dismissed_approval_banner_${userProfile?.uid || 'user'}`;
                   localStorage.setItem(key, 'true');
                   setDismissedApprovedBanner(true);
                 }}
@@ -1124,7 +1110,7 @@ const ParishDashboard = () => {
               </Button>
             </div>
           )}
-          {existingChurch.status === 'under_review' && (
+          {existingChurch.status === 'heritage_review' && (
             <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 flex items-center gap-2">
               <Building className="w-5 h-5 text-violet-600" />
               <div>
@@ -1142,55 +1128,64 @@ const ParishDashboard = () => {
               </div>
             </div>
           )}
+          {existingChurch.status === 'draft' && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center gap-2">
+              <Edit className="w-5 h-5 text-slate-600" />
+              <div>
+                <span className="font-medium text-slate-900">Draft Saved</span>
+                <p className="text-sm text-slate-700">Your church profile is saved as a draft. Click "Edit Profile" to continue editing and submit for review.</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {showAccount ? (
+      {currentView === 'account' ? (
         <ParishAccount
           onClose={() => {
-            setShowAccount(false);
+            setCurrentView('overview');
             setActiveTab('overview');
           }}
         />
-      ) : showReports ? (
+      ) : currentView === 'reports' ? (
         <ParishReports
           churchInfo={churchInfo}
           onClose={() => {
-            setShowReports(false);
+            setCurrentView('overview');
             setActiveTab('overview');
           }}
         />
-      ) : showAnnouncements ? (
+      ) : currentView === 'announcements' ? (
         <ParishAnnouncements
-          churchId={userProfile?.parish || ''}
+          churchId={userProfile?.parishId || userProfile?.parish || ''}
           onClose={() => {
-            setShowAnnouncements(false);
+            setCurrentView('overview');
             setActiveTab('overview');
           }}
         />
-      ) : showFeedback ? (
+      ) : currentView === 'feedback' ? (
         <ParishFeedback
           churchName={churchInfo.churchName || churchInfo.name || 'Your Parish'}
-          churchId={userProfile?.parish || ''}
+          churchId={userProfile?.parishId || userProfile?.parish || ''}
         />
-      ) : showProfileForm ? (
+      ) : currentView === 'profile' ? (
         <ChurchProfileForm
           initialData={churchInfo}
           onSave={handleProfileFormSave}
           onSubmit={handleProfileFormSubmit}
           onCancel={() => {
-            const visitKey = `parish_dashboard_visited_${userProfile?.email || 'user'}`;
+            const visitKey = `parish_dashboard_visited_${userProfile?.uid || 'user'}`;
             const hasVisitedBefore = localStorage.getItem(visitKey);
 
             if (hasVisitedBefore || churchInfo.status === 'approved') {
-              setShowProfileForm(false);
+              setCurrentView('overview');
             } else {
               markDashboardVisited();
-              setShowProfileForm(false);
+              setCurrentView('overview');
             }
           }}
           currentStatus={churchInfo.status}
-          isSubmitting={isSubmitting}
+          isSubmitting={isSubmitting || isSaving}
           churchId={churchId || undefined}
         />
       ) : !existingChurch ? (
@@ -1251,7 +1246,7 @@ const ParishDashboard = () => {
 
               <div className="flex justify-center pt-4">
                 <Button
-                  onClick={() => setShowProfileForm(true)}
+                  onClick={() => setCurrentView('profile')}
                   size="lg"
                   className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
                 >

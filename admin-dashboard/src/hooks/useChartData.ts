@@ -16,7 +16,6 @@ const generateMockChurchStatusData = (diocese?: string): ChurchStatusData[] => {
     { status: 'approved', count: 45, percentage: 52.3 },
     { status: 'pending', count: 23, percentage: 26.7 },
     { status: 'heritage_review', count: 12, percentage: 14.0 },
-    { status: 'needs_revision', count: 6, percentage: 7.0 },
   ];
 };
 

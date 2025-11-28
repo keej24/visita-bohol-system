@@ -36,7 +36,7 @@
  * {
  *   name: string,
  *   diocese: 'tagbilaran' | 'talibon',
- *   status: 'pending' | 'approved' | 'rejected' | 'under_review' | 'needs_revision',
+ *   status: 'pending' | 'approved' | 'under_review' | 'heritage_review',
  *   classification: string,
  *   coordinates: { lat: number, lng: number },
  *   massSchedules: array,
@@ -69,9 +69,13 @@ import {
   query,         // Build complex queries
   where,         // Filter query results
   orderBy,       // Sort query results
+  limit,         // Limit query results (pagination)
+  startAfter,    // Pagination cursor
   onSnapshot,    // Subscribe to real-time updates
   Timestamp,     // Firebase timestamp type
-  increment      // Atomic increment operation
+  increment,     // Atomic increment operation
+  QueryDocumentSnapshot,
+  DocumentData
 } from 'firebase/firestore';
 // Firebase database instance
 import { db } from '@/lib/firebase';
@@ -88,6 +92,10 @@ import type { Diocese } from '@/contexts/AuthContext';
 
 // Firestore collection name (consistent naming prevents typos)
 const CHURCHES_COLLECTION = 'churches';
+
+// Pagination defaults
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
 
 // Convert Firestore document to Church with proper typing
 interface FirestoreChurchDoc {
@@ -318,14 +326,6 @@ export class ChurchService {
           updateData.approvedAt = Timestamp.now();
           break;
         }
-        case 'reject': {
-          updateData.status = 'rejected';
-          break;
-        }
-        case 'request_revision': {
-          updateData.status = 'needs_revision';
-          break;
-        }
         case 'forward_to_museum': {
           updateData.status = 'under_review';
           break;
@@ -406,6 +406,76 @@ export class ChurchService {
     }
   }
 
+  // Get churches with cursor-based pagination (optimized for large datasets)
+  static async getChurchesPaginated(
+    filters?: ChurchFilters,
+    pageSize: number = 20,
+    lastDoc?: QueryDocumentSnapshot<DocumentData>
+  ): Promise<{ churches: Church[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null; hasMore: boolean }> {
+    try {
+      let q = query(
+        collection(db, CHURCHES_COLLECTION),
+        orderBy(filters?.sortBy || 'updatedAt', filters?.sortOrder || 'desc'),
+        limit(pageSize + 1) // Fetch one extra to check if there are more
+      );
+
+      // Apply diocese filter
+      if (filters?.diocese && filters.diocese !== 'all') {
+        q = query(q, where('diocese', '==', filters.diocese));
+      }
+
+      // Apply status filter
+      if (filters?.status && filters.status !== 'all') {
+        q = query(q, where('status', '==', filters.status));
+      }
+
+      // Apply classification filter
+      if (filters?.classification && filters.classification !== 'all') {
+        q = query(q, where('classification', '==', filters.classification));
+      }
+
+      // Apply municipality filter
+      if (filters?.municipality) {
+        q = query(q, where('municipality', '==', filters.municipality));
+      }
+
+      // Apply cursor for pagination
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc));
+      }
+
+      const snapshot = await getDocs(q);
+      const docs = snapshot.docs;
+      
+      // Check if there are more results
+      const hasMore = docs.length > pageSize;
+      const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
+      
+      let churches = resultDocs.map(convertToChurch);
+
+      // Apply client-side search filter if provided
+      if (filters?.search) {
+        const searchTerm = filters.search.toLowerCase();
+        churches = churches.filter(church =>
+          church.name.toLowerCase().includes(searchTerm) ||
+          church.fullName.toLowerCase().includes(searchTerm) ||
+          church.location.toLowerCase().includes(searchTerm) ||
+          church.municipality.toLowerCase().includes(searchTerm) ||
+          church.description.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      return {
+        churches,
+        lastDoc: resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null,
+        hasMore
+      };
+    } catch (error) {
+      console.error('Error fetching paginated churches:', error);
+      throw new Error('Failed to fetch paginated churches');
+    }
+  }
+
   // Get churches for diocese (used in dashboards)
   static async getChurchesForDiocese(diocese: Diocese): Promise<Church[]> {
     return this.getChurches({ diocese });
@@ -470,9 +540,8 @@ export class ChurchService {
         total: churches.length,
         pending: churches.filter(c => c.status === 'pending').length,
         approved: churches.filter(c => c.status === 'approved').length,
-        rejected: churches.filter(c => c.status === 'rejected').length,
         underReview: churches.filter(c => c.status === 'under_review').length,
-        needsRevision: churches.filter(c => c.status === 'needs_revision').length,
+        heritageReview: churches.filter(c => c.status === 'heritage_review').length,
         byClassification: {} as Record<string, number>,
         byMunicipality: {} as Record<string, number>,
         recentSubmissions: churches.filter(c => {
@@ -501,11 +570,11 @@ export class ChurchService {
     }
   }
 
-  // Delete church (soft delete by updating status)
+  // Delete church (soft delete by updating status to draft)
   static async deleteChurch(id: string): Promise<void> {
     try {
       await updateDoc(doc(db, CHURCHES_COLLECTION, id), {
-        status: 'rejected',
+        status: 'draft',
         updatedAt: Timestamp.now(),
       });
     } catch (error) {

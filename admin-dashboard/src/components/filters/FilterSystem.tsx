@@ -566,7 +566,7 @@ export const churchFilters: FilterConfig[] = [
       { value: 'approved', label: 'Approved', count: 45 },
       { value: 'pending', label: 'Pending Review', count: 23 },
       { value: 'heritage_review', label: 'Heritage Review', count: 12 },
-      { value: 'needs_revision', label: 'Needs Revision', count: 6 },
+      { value: 'under_review', label: 'Under Review', count: 6 },
     ],
     placeholder: 'Select statuses...',
   },

@@ -1,10 +1,8 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { FileText, AlertCircle, MapPin } from 'lucide-react';
-import type { Diocese } from '@/contexts/AuthContext';
 
 interface StatsGridProps {
-  diocese: Diocese;
   stats: {
     totalChurches: number;
     totalParishes: number;
@@ -46,7 +44,7 @@ const StatCard = React.memo<StatCardProps>(({ label, value, icon: Icon, isLoadin
 
 StatCard.displayName = 'StatCard';
 
-export const StatsGrid = React.memo<StatsGridProps>(({ diocese, stats }) => {
+export const StatsGrid = React.memo<StatsGridProps>(({ stats }) => {
   const { totalChurches, heritageCount, pendingCount, isLoading } = stats;
 
   return (

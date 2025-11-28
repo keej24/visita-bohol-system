@@ -209,9 +209,9 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
           visitorHeatMap: [],
           trendData: [],
           peakPeriods: [
-            { period: 'Morning (8-12 PM)', count: 0 },
-            { period: 'Afternoon (12-6 PM)', count: 0 },
-            { period: 'Evening (6-10 PM)', count: 0 },
+            { period: 'Morning (6AM-12PM)', count: 0 },
+            { period: 'Afternoon (12PM-6PM)', count: 0 },
+            { period: 'Evening (6PM-10PM)', count: 0 },
           ]
         },
         generatedDate: format(new Date(), 'yyyy-MM-dd HH:mm:ss')
@@ -270,9 +270,9 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
         visitorHeatMap,
         trendData,
         peakPeriods: [
-          { period: 'Morning (8-12 PM)', count: visitorStats.timeBreakdown.morning || 0 },
-          { period: 'Afternoon (12-6 PM)', count: visitorStats.timeBreakdown.afternoon || 0 },
-          { period: 'Evening (6-10 PM)', count: visitorStats.timeBreakdown.evening || 0 },
+          { period: 'Morning (6AM-12PM)', count: visitorStats.timeBreakdown.morning || 0 },
+          { period: 'Afternoon (12PM-6PM)', count: visitorStats.timeBreakdown.afternoon || 0 },
+          { period: 'Evening (6PM-10PM)', count: visitorStats.timeBreakdown.evening || 0 },
         ]
       },
       generatedDate: format(new Date(), 'yyyy-MM-dd HH:mm:ss')
@@ -535,7 +535,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
     // Peak hours data
     const timeStats = AnalyticsService.calculateVisitorStats(analyticsData.visitorLogs).timeBreakdown;
     const peakHoursData = [
-      { period: 'Morning', count: timeStats.morning || 0, hours: '8AM-12PM' },
+      { period: 'Morning', count: timeStats.morning || 0, hours: '6AM-12PM' },
       { period: 'Afternoon', count: timeStats.afternoon || 0, hours: '12PM-6PM' },
       { period: 'Evening', count: timeStats.evening || 0, hours: '6PM-10PM' }
     ];

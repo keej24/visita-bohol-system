@@ -69,12 +69,6 @@ export const LazyActivityTimelineChart = lazy(() =>
 export const LazyMobileReviewList = lazy(() => import('./mobile/MobileReviewList'));
 
 // Optimized components - loaded when performance is critical
-export const LazyOptimizedChanceryReviewList = lazy(() =>
-  import('./optimized/OptimizedChanceryReviewList').then(module => ({
-    default: module.OptimizedChanceryReviewList
-  }))
-);
-
 export const LazyOptimizedRecentChurches = lazy(() =>
   import('./optimized/OptimizedRecentChurches').then(module => ({
     default: module.OptimizedRecentChurches

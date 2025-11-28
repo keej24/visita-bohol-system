@@ -20,8 +20,8 @@ const StatusBadge = React.memo<{ status: string }>(({ status }) => (
   >
     {status === "approved" ? "Active" : 
      status === "pending" ? "Pending" :
-     status === "heritage_review" ? "Under Review" : 
-     status === "needs_revision" ? "Needs Revision" : status}
+     status === "heritage_review" ? "Heritage Review" : 
+     status === "under_review" ? "Under Review" : status}
   </Badge>
 ));
 

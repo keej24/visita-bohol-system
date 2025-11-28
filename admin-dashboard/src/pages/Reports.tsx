@@ -300,43 +300,31 @@ const Reports = () => {
           return;
         }
 
-        // Use already filtered data from date range (startDate, endDate already applied in loadAnalytics)
-        // This respects the date range filters selected by the user
-        const analyticsData = {
-          visitorLogs: dioceseAnalytics!.topChurches.flatMap(church =>
-            Array(church.visitorCount).fill({
-              id: `${church.id}_visitor`,
-              visitDate: new Date(),
-              timeOfDay: 'afternoon',
-              deviceType: 'mobile',
-              userId: ''
-            })
-          ),
-          feedback: dioceseAnalytics!.topChurches.flatMap(church =>
-            Array(church.feedbackCount).fill({
-              id: `${church.id}_feedback`,
-              rating: church.avgRating,
-              subject: 'General Feedback',
-              comment: 'Visitor feedback',
-              date: new Date(),
-              userName: 'Anonymous',
-              status: 'published'
-            })
-          ),
-          stats: {
-            totalVisitors: dioceseAnalytics!.totalVisitors,
-            avgDailyVisitors: Math.round(dioceseAnalytics!.totalVisitors / 30),
-            avgRating: dioceseAnalytics!.avgRating,
-            growthRate: 0
-          }
-        };
-
         const dateRangeObj = { start: startDate, end: endDate };
 
         if (format === 'pdf') {
-          await PDFExportService.exportAnalyticsReport(
-            `${dioceseName} Diocese`,
-            analyticsData,
+          // Use real engagement metrics data from Firestore
+          await PDFExportService.exportDioceseEngagementReport(
+            dioceseName,
+            {
+              totalVisitors: dioceseAnalytics!.totalVisitors,
+              totalFeedback: dioceseAnalytics!.totalFeedback,
+              avgRating: dioceseAnalytics!.avgRating,
+              totalChurches: dioceseAnalytics!.totalChurches,
+              visitorsByMonth: dioceseAnalytics!.visitorsByMonth,
+              topChurches: dioceseAnalytics!.topChurches.map(c => ({
+                name: c.name,
+                municipality: c.municipality,
+                visitorCount: c.visitorCount,
+                avgRating: c.avgRating,
+                feedbackCount: c.feedbackCount
+              }))
+            },
+            {
+              peakVisitingPeriods: engagementMetrics!.peakVisitingPeriods,
+              ratingDistribution: engagementMetrics!.ratingDistribution,
+              topRatedChurches: engagementMetrics!.topRatedChurches
+            },
             dateRangeObj
           );
           toast({

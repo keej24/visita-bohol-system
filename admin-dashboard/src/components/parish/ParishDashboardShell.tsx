@@ -77,11 +77,11 @@ export const ParishDashboardShell: React.FC<ParishDashboardShellProps> = ({
             Under Review
           </Badge>
         );
-      case 'rejected':
+      case 'heritage_review':
         return (
-          <Badge className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100 transition-colors">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Needs Revision
+          <Badge className="bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 transition-colors">
+            <Clock className="w-3 h-3 mr-1" />
+            Heritage Review
           </Badge>
         );
       default:
@@ -107,8 +107,8 @@ export const ParishDashboardShell: React.FC<ParishDashboardShellProps> = ({
         return "Your church profile is live and visitors can discover you!";
       case 'pending':
         return "Your submission is being reviewed by the diocesan office.";
-      case 'rejected':
-        return "Please review the feedback and resubmit your profile.";
+      case 'heritage_review':
+        return "Your church is being reviewed for heritage classification.";
       default:
         return "Complete your church profile to share your parish with the world.";
     }

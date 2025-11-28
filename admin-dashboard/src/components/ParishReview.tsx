@@ -43,7 +43,7 @@ interface ParishSubmission {
   location: string;
   priest: string;
   diocese: Diocese;
-  status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'needs_revision';
+  status: 'pending' | 'under_review' | 'approved' | 'heritage_review';
   lastReview?: Date;
   notes: string;
   contactEmail: string;
@@ -67,7 +67,7 @@ interface ParishSubmission {
 }
 
 interface ReviewAction {
-  action: 'approve' | 'reject' | 'request_revision' | 'forward_to_museum';
+  action: 'approve' | 'forward_to_museum';
   notes: string;
   reviewerId: string;
 }
@@ -93,7 +93,7 @@ export const ParishReview: React.FC = () => {
       const q = query(
         collection(db, 'churches'),
         where('diocese', '==', userProfile.diocese),
-        where('status', 'in', ['pending', 'under_review', 'needs_revision']),
+        where('status', 'in', ['pending', 'under_review', 'heritage_review']),
         orderBy('createdAt', 'desc')
       );
 
@@ -151,10 +151,7 @@ export const ParishReview: React.FC = () => {
       setIsSubmittingReview(true);
 
       const updateData: Record<string, unknown> = {
-        status: action === 'approve' ? 'approved' : 
-                action === 'reject' ? 'rejected' :
-                action === 'request_revision' ? 'needs_revision' :
-                'under_review',
+        status: action === 'approve' ? 'approved' : 'under_review',
         reviewedBy: userProfile.uid,
         reviewedAt: Timestamp.now(),
         reviewNotes: reviewNotes,
@@ -204,8 +201,7 @@ export const ParishReview: React.FC = () => {
       pending: { variant: 'secondary' as const, label: 'Pending Review', color: 'bg-yellow-500' },
       under_review: { variant: 'default' as const, label: 'Under Review', color: 'bg-blue-500' },
       approved: { variant: 'default' as const, label: 'Approved', color: 'bg-green-500' },
-      rejected: { variant: 'destructive' as const, label: 'Rejected', color: 'bg-red-500' },
-      needs_revision: { variant: 'secondary' as const, label: 'Needs Revision', color: 'bg-orange-500' }
+      heritage_review: { variant: 'secondary' as const, label: 'Heritage Review', color: 'bg-purple-500' }
     };
 
     const config = statusConfig[status];
@@ -219,7 +215,7 @@ export const ParishReview: React.FC = () => {
   const filteredSubmissions = submissions.filter(sub => {
     if (activeTab === 'pending') return sub.status === 'pending';
     if (activeTab === 'under_review') return sub.status === 'under_review';
-    if (activeTab === 'needs_revision') return sub.status === 'needs_revision';
+    if (activeTab === 'heritage_review') return sub.status === 'heritage_review';
     return true;
   });
 
@@ -262,9 +258,9 @@ export const ParishReview: React.FC = () => {
             <Eye className="w-4 h-4" />
             Under Review ({submissions.filter(s => s.status === 'under_review').length})
           </TabsTrigger>
-          <TabsTrigger value="needs_revision" className="flex items-center gap-2">
+          <TabsTrigger value="heritage_review" className="flex items-center gap-2">
             <Edit className="w-4 h-4" />
-            Needs Revision ({submissions.filter(s => s.status === 'needs_revision').length})
+            Heritage Review ({submissions.filter(s => s.status === 'heritage_review').length})
           </TabsTrigger>
         </TabsList>
 
@@ -445,16 +441,6 @@ export const ParishReview: React.FC = () => {
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Approve
                     </Button>
-                    
-                    <Button
-                      onClick={() => handleReviewAction('request_revision')}
-                      disabled={isSubmittingReview}
-                      variant="outline"
-                      className="border-orange-200 text-orange-600 hover:bg-orange-50"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Request Revision
-                    </Button>
 
                     {selectedSubmission.churchInfo?.heritageClassification && 
                      selectedSubmission.churchInfo.heritageClassification !== 'None' && (
@@ -468,15 +454,6 @@ export const ParishReview: React.FC = () => {
                         Forward to Museum
                       </Button>
                     )}
-                    
-                    <Button
-                      onClick={() => handleReviewAction('reject')}
-                      disabled={isSubmittingReview}
-                      variant="destructive"
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Reject
-                    </Button>
                   </div>
 
                   {isSubmittingReview && (

@@ -89,8 +89,8 @@ export class AnalyticsService {
         });
     } catch (error) {
       console.error('Error fetching visitor logs:', error);
-      // Return sample data if collection doesn't exist yet
-      return this.getSampleVisitorLogs(churchId, startDate, endDate);
+      // Return empty array if there's an error - don't use sample data
+      return [];
     }
   }
 
@@ -161,8 +161,8 @@ export class AnalyticsService {
       return filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     } catch (error) {
       console.error('Error fetching feedback:', error);
-      // Return sample data if collection doesn't exist yet
-      return this.getSampleFeedback(churchId, startDate, endDate);
+      // Return empty array if there's an error - don't use sample data
+      return [];
     }
   }
 

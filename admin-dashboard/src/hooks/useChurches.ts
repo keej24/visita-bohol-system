@@ -76,8 +76,6 @@ export function useChurchReview() {
 
       const actionMessages = {
         approve: 'Church approved successfully',
-        reject: 'Church rejected',
-        request_revision: 'Revision requested',
         forward_to_museum: 'Forwarded to Museum Researcher for heritage review',
       };
 

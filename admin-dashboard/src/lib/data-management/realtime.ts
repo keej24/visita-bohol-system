@@ -181,7 +181,7 @@ export function useRealtimeChurchStats(
             pendingCount: churches.filter(c => c.status === 'pending').length,
             reviewCount: churches.filter(c => c.status === 'heritage_review').length,
             approvedCount: churches.filter(c => c.status === 'approved').length,
-            revisionCount: churches.filter(c => c.status === 'needs_revision').length,
+            revisionCount: 0, // Deprecated - no longer using needs_revision status
             totalCount: churches.length,
             lastUpdated: new Date(),
           };
@@ -206,7 +206,7 @@ export function useRealtimePendingChurches(
   config: RealtimeConfig = {}
 ) {
   const constraints = [
-    where('status', 'in', ['pending', 'needs_revision']),
+    where('status', '==', 'pending'),
     orderBy('updatedAt', 'desc'),
     limit(20)
   ];
@@ -216,8 +216,8 @@ export function useRealtimePendingChurches(
   }
 
   const queryKey = diocese 
-    ? queryKeys.churches.dioceseStatus(diocese, ['pending', 'needs_revision'])
-    : queryKeys.churches.status(['pending', 'needs_revision']);
+    ? queryKeys.churches.dioceseStatus(diocese, ['pending'])
+    : queryKeys.churches.status(['pending']);
 
   return useRealtimeQuery(
     queryKey,
@@ -484,11 +484,11 @@ export function useRealtimeDashboard(diocese: string) {
       'churches',
       [
         where('diocese', '==', diocese),
-        where('status', 'in', ['pending', 'needs_revision']),
+        where('status', '==', 'pending'),
         orderBy('updatedAt', 'desc'),
         limit(10)
       ],
-      queryKeys.churches.dioceseStatus(diocese, ['pending', 'needs_revision'])
+      queryKeys.churches.dioceseStatus(diocese, ['pending'])
     );
 
     manager.addListener(

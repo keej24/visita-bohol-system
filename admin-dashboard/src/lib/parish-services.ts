@@ -61,7 +61,7 @@ export interface ParishUpload {
   storageUrl: string;
   thumbnailUrl?: string;
   description: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved';
   uploadedAt?: Date | Timestamp;
   approvedBy?: string;
   approvedAt?: Date | Timestamp;
@@ -89,7 +89,7 @@ export interface ChurchProfile {
   location: string;
   foundingYear: string;
   classification: string;
-  status: 'draft' | 'pending_chancery' | 'pending_museum' | 'approved' | 'needs_revision';
+  status: 'draft' | 'pending_chancery' | 'pending_museum' | 'approved';
   architecturalStyle: string;
   priest: string;
   coordinates: { lat: number; lng: number };
@@ -107,7 +107,7 @@ export interface SubmissionHistory {
   parishId: string;
   type: 'church_profile' | 'announcement' | 'upload';
   targetId: string;
-  action: 'submitted' | 'approved' | 'rejected' | 'revision_requested';
+  action: 'submitted' | 'approved' | 'revision_requested';
   comments?: string;
   performedBy: string;
   performedAt?: Date | Timestamp;
@@ -412,11 +412,11 @@ export const respondToFeedback = async (
 
 export const moderateFeedback = async (
   feedbackId: string,
-  action: 'approve' | 'reject' | 'flag',
+  action: 'approve' | 'hide' | 'flag',
   moderatorId: string
 ): Promise<void> => {
   try {
-    const status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'flagged';
+    const status = action === 'approve' ? 'approved' : action === 'hide' ? 'hidden' : 'flagged';
     
     await updateDoc(doc(db, 'feedback', feedbackId), {
       status,
@@ -618,35 +618,6 @@ export const chanceryApproveChurch = async (
     });
   } catch (error) {
     console.error('Error in chancery approval:', error);
-    throw error;
-  }
-};
-
-export const chanceryRequestRevision = async (
-  churchId: string,
-  chanceryUserId: string,
-  comments: string
-): Promise<void> => {
-  try {
-    await updateDoc(doc(db, 'churches', churchId), {
-      status: 'needs_revision',
-      revisionRequestedAt: serverTimestamp(),
-      revisionRequestedBy: chanceryUserId,
-      revisionComments: comments
-    });
-    
-    // Create submission history entry
-    await addDoc(collection(db, 'submission_history'), {
-      parishId: '', // Will be filled by the calling function
-      type: 'church_profile',
-      targetId: churchId,
-      action: 'revision_requested',
-      performedBy: chanceryUserId,
-      performedAt: serverTimestamp(),
-      comments: comments
-    });
-  } catch (error) {
-    console.error('Error requesting revision:', error);
     throw error;
   }
 };

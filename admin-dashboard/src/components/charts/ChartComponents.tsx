@@ -184,7 +184,6 @@ export const ChurchStatusChart: React.FC<BaseChartProps & {
     'approved': chartColors.success[0],
     'pending': chartColors.warning[0],
     'heritage_review': chartColors.primary[0],
-    'needs_revision': chartColors.danger[0],
   };
 
   const formatTooltip = (value: number, name: string) => {

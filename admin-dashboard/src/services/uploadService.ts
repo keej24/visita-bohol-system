@@ -1,6 +1,29 @@
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
+import imageCompression from 'browser-image-compression';
+
+// Compression options for different image types
+const COMPRESSION_OPTIONS = {
+  standard: {
+    maxSizeMB: 1,
+    maxWidthOrHeight: 1920,
+    useWebWorker: true,
+    fileType: 'image/jpeg' as const,
+  },
+  thumbnail: {
+    maxSizeMB: 0.1,
+    maxWidthOrHeight: 300,
+    useWebWorker: true,
+    fileType: 'image/jpeg' as const,
+  },
+  panorama360: {
+    maxSizeMB: 5,
+    maxWidthOrHeight: 8192, // Keep high res for 360 photos
+    useWebWorker: true,
+    fileType: 'image/jpeg' as const,
+  },
+};
 
 export interface UploadProgress {
   progress: number;
@@ -18,6 +41,40 @@ export interface UploadOptions {
 
 class UploadService {
   /**
+   * Compress an image file before upload
+   */
+  async compressImage(
+    file: File,
+    compressionType: 'standard' | 'thumbnail' | 'panorama360' = 'standard'
+  ): Promise<File> {
+    // Skip compression for non-image files
+    if (!file.type.startsWith('image/')) {
+      return file;
+    }
+
+    // Skip compression for small files (under 500KB)
+    if (file.size < 500 * 1024) {
+      console.log(`⏭️ Skipping compression for small file: ${file.name} (${UploadService.formatFileSize(file.size)})`);
+      return file;
+    }
+
+    try {
+      const options = COMPRESSION_OPTIONS[compressionType];
+      console.log(`🗜️ Compressing ${file.name}: ${UploadService.formatFileSize(file.size)} with ${compressionType} settings`);
+      
+      const compressedFile = await imageCompression(file, options);
+      
+      const compressionRatio = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
+      console.log(`✅ Compressed: ${UploadService.formatFileSize(file.size)} → ${UploadService.formatFileSize(compressedFile.size)} (${compressionRatio}% reduction)`);
+      
+      return compressedFile;
+    } catch (error) {
+      console.warn(`⚠️ Compression failed for ${file.name}, uploading original:`, error);
+      return file;
+    }
+  }
+
+  /**
    * Upload a file to Firebase Storage
    */
   async uploadFile(file: File, options: UploadOptions = {}): Promise<string> {
@@ -27,6 +84,13 @@ class UploadService {
       onProgress,
       metadata = {}
     } = options;
+
+    // Compress image files before upload (skip for 360 photos which need special handling)
+    const isImage = file.type.startsWith('image/');
+    const is360Photo = folder.includes('/360');
+    const fileToUpload = isImage 
+      ? await this.compressImage(file, is360Photo ? 'panorama360' : 'standard')
+      : file;
 
     // Create storage reference
     const storageRef = ref(storage, `${folder}/${filename}`);
@@ -114,9 +178,56 @@ class UploadService {
   }
 
   /**
-   * Upload church images with proper organization
+   * Upload church images with proper organization and compression
+   * Uses batched uploads to prevent overwhelming the network
    */
   async uploadChurchImages(
+    churchId: string,
+    files: File[],
+    onProgress?: (fileIndex: number, progress: UploadProgress) => void
+  ): Promise<string[]> {
+    // Compress all images first (in parallel for speed)
+    const compressionPromises = files.map(async (file) => {
+      return this.compressImage(file, 'standard');
+    });
+    const compressedFiles = await Promise.all(compressionPromises);
+
+    // Upload in batches of 3 to prevent network congestion
+    const BATCH_SIZE = 3;
+    const results: string[] = [];
+    
+    for (let i = 0; i < compressedFiles.length; i += BATCH_SIZE) {
+      const batch = compressedFiles.slice(i, i + BATCH_SIZE);
+      const batchPromises = batch.map((file, batchIndex) => {
+        const globalIndex = i + batchIndex;
+        return this.uploadFile(file, {
+          folder: `churches/${churchId}/images`,
+          filename: `${Date.now()}_${globalIndex}_${files[globalIndex].name}`,
+          onProgress: (progress) => onProgress?.(globalIndex, progress),
+          metadata: {
+            churchId,
+            imageType: 'church_photo',
+            originalSize: files[globalIndex].size,
+            compressedSize: file.size
+          }
+        });
+      });
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        }
+      });
+    }
+    
+    return results;
+  }
+
+  /**
+   * Legacy upload method - kept for backwards compatibility
+   */
+  async uploadChurchImagesLegacy(
     churchId: string,
     files: File[],
     onProgress?: (fileIndex: number, progress: UploadProgress) => void

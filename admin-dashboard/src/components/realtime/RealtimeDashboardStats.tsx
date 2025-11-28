@@ -263,7 +263,7 @@ export const RealtimePendingReviews: React.FC<RealtimeStatsProps> = ({
       id: '2',
       name: 'Our Lady of Light Church',
       municipality: 'Loon',
-      status: 'needs_revision',
+      status: 'heritage_review',
       updatedAt: new Date(),
       priority: 'urgent',
     },
@@ -289,7 +289,7 @@ export const RealtimePendingReviews: React.FC<RealtimeStatsProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'needs_revision': return 'bg-red-100 text-red-800';
+      case 'heritage_review': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };

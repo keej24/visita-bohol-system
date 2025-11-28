@@ -127,7 +127,7 @@ export const churchSchema = z.object({
   }).optional(),
 
   // Status and Approval
-  status: z.enum(['draft', 'pending', 'heritage_review', 'approved', 'needs_revision'], {
+  status: z.enum(['draft', 'pending', 'heritage_review', 'approved', 'under_review'], {
     required_error: 'Status is required',
   }).default('draft'),
   
@@ -157,7 +157,7 @@ export const updateChurchSchema = churchSchema.partial();
 
 // Church review schema (for chancery/museum reviewer actions)
 export const churchReviewSchema = z.object({
-  status: z.enum(['approved', 'needs_revision', 'heritage_review']),
+  status: z.enum(['approved', 'heritage_review']),
   reviewNotes: z.string()
     .min(1, 'Review notes are required when changing status')
     .max(500, 'Review notes are too long'),
@@ -175,7 +175,7 @@ export const churchFilterSchema = z.object({
   municipality: z.string().max(50).optional(),
   diocese: z.enum(['tagbilaran', 'talibon']).optional(),
   heritageClassification: z.enum(['ICP', 'NCT', 'none']).optional(),
-  status: z.enum(['draft', 'pending', 'heritage_review', 'approved', 'needs_revision']).optional(),
+  status: z.enum(['draft', 'pending', 'heritage_review', 'approved', 'under_review']).optional(),
   foundingYearFrom: z.number().int().min(1500).optional(),
   foundingYearTo: z.number().int().max(new Date().getFullYear()).optional(),
   hasVirtualTour: z.boolean().optional(),

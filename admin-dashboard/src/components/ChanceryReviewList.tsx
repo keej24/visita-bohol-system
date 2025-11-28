@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getChurchesByDiocese, type Church, type ChurchStatus, updateChurchStatusWithValidation } from "@/lib/churches";
+import { churchKeys } from "@/lib/optimized/queries";
 import { shouldRequireHeritageReview, assessHeritageSignificance } from "@/lib/heritage-detection";
 import { workflowStateMachine, getStatusBadgeColor } from "@/lib/workflow-state-machine";
 import { notifyChurchStatusChange } from "@/lib/notifications";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, CheckCircle2, XCircle, ArrowRight, AlertTriangle, Info, Clock, Building2, Eye, Edit3 } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowRight, AlertTriangle, Info, Clock, Building2, Eye, Edit3 } from "lucide-react";
 
 interface Props {
   diocese: "tagbilaran" | "talibon";
@@ -101,7 +102,7 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
         // Refresh the list and invalidate stats cache to update counts
         refetch();
         // Invalidate all church queries for this diocese to update the dashboard stats
-        queryClient.invalidateQueries({ queryKey: ['churches', diocese] });
+        queryClient.invalidateQueries({ queryKey: churchKeys.diocese(diocese) });
       } else {
         toast({
           title: "Error",
