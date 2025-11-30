@@ -1,3 +1,65 @@
+/// =============================================================================
+/// CHURCH_DETAIL_SCREEN_MODERN.DART - Individual Church Information Display
+/// =============================================================================
+///
+/// PURPOSE:
+/// This screen shows all details about a single church. When a user taps on a
+/// church from the home screen list, this is where they land. It displays
+/// photos, history, mass schedules, announcements, reviews, and interaction
+/// options.
+///
+/// SCREEN LAYOUT:
+/// ┌─────────────────────────────────────────────────────────────────────────┐
+/// │  ← Back Button                              Share / Add To List        │
+/// ├─────────────────────────────────────────────────────────────────────────┤
+/// │                                                                          │
+/// │                     PHOTO CAROUSEL                                       │
+/// │              (swipeable church images)                                   │
+/// │                                                                          │
+/// ├─────────────────────────────────────────────────────────────────────────┤
+/// │  Church Name                                                             │
+/// │  Location • Distance                                                     │
+/// │  [Heritage Badge] [Virtual Tour Button] [Directions] [Mark Visited]     │
+/// ├─────────────────────────────────────────────────────────────────────────┤
+/// │  [History]  [Mass Schedule]  [Announcements]  [Reviews]  ← Tabs         │
+/// ├─────────────────────────────────────────────────────────────────────────┤
+/// │                                                                          │
+/// │              TAB CONTENT (varies by selected tab)                        │
+/// │                                                                          │
+/// └─────────────────────────────────────────────────────────────────────────┘
+///
+/// TAB SECTIONS:
+/// 1. History: Founding year, historical background, architectural details
+/// 2. Mass Schedule: Daily/weekly mass times with language indicators
+/// 3. Announcements: Parish-specific news and events
+/// 4. Reviews: User feedback with ratings, photos, and comments
+///
+/// KEY FEATURES:
+/// - Photo Carousel: Swipeable gallery of church images
+/// - Virtual Tour: 360° panoramic view (if available)
+/// - Mark Visited: Location-validated visit confirmation
+/// - For Visit List: Save churches to visit later
+/// - Directions: Open in maps app for navigation
+/// - Share: Share church info with others
+///
+/// VISIT VALIDATION:
+/// - Uses GPS to verify user is near the church (500m radius)
+/// - Prevents "armchair" visit claiming
+/// - Shows distance and direction to church
+/// - Records visit timestamp and location
+///
+/// STATE MANAGEMENT:
+/// - AppState: Tracks visited/for-visit lists
+/// - ProfileService: Syncs visit data with Firebase
+/// - PaginatedChurchService: Provides church data
+/// - LocationService: GPS position for visit validation
+///
+/// RELATED FILES:
+/// - screens/church_detail/tabs/: Individual tab implementations
+/// - screens/virtual_tour_screen.dart: 360° panoramic viewer
+/// - services/visitor_validation_service.dart: Visit location logic
+/// - models/app_state.dart: Visit tracking state
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';

@@ -1,3 +1,57 @@
+/**
+ * =============================================================================
+ * PARISH DASHBOARD.TSX - Parish Secretary Main Dashboard
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This is the main dashboard for Parish Secretary users. It serves as the
+ * hub for managing a single church - viewing/editing profile, posting
+ * announcements, responding to feedback, and viewing reports.
+ *
+ * DASHBOARD STATES:
+ * ┌────────────────────┬─────────────────────────────────────────────────┐
+ * │ State              │ What is Shown                                   │
+ * ├────────────────────┼─────────────────────────────────────────────────┤
+ * │ No Church          │ Welcome screen with "Add Profile" button        │
+ * │ Draft              │ Profile form for editing before submission      │
+ * │ Pending            │ Overview with "Under Review" status banner      │
+ * │ Heritage Review    │ Overview with "Heritage Review" status banner   │
+ * │ Approved           │ Full overview + all features unlocked           │
+ * └────────────────────┴─────────────────────────────────────────────────┘
+ *
+ * VIEW TYPES (currentView state):
+ * - 'overview': Shows parish profile summary with Edit Profile button
+ * - 'profile': Shows ChurchProfileForm for editing church details
+ * - 'reports': Shows ParishReports component (only if approved)
+ * - 'account': Shows ParishAccount for password/settings management
+ * - 'announcements': Shows ParishAnnouncements (only if approved)
+ * - 'feedback': Shows ParishFeedback for responding to reviews
+ *
+ * KEY DATA TRANSFORMATIONS:
+ * - convertChurchToInfo(): Firebase Church → ChurchInfo format for form
+ * - convertToFormData(): ChurchInfo → Firebase format for saving
+ * - These transformations handle field mapping between Firebase schema
+ *   and the form component's expected structure
+ *
+ * REAL-TIME UPDATES:
+ * - Uses ChurchService.subscribeToChurches() for live status updates
+ * - When Chancery approves church, status updates appear automatically
+ * - Toast notifications shown when status changes
+ *
+ * FEATURE GATING:
+ * - Before approval: Only profile editing is available
+ * - After approval: Reports, Announcements, Feedback become accessible
+ * - activeTab prop from Layout/Sidebar controls which view is shown
+ *
+ * RELATED FILES:
+ * - components/Layout.tsx: Wraps this with Sidebar + Header
+ * - components/parish/ChurchProfileForm.tsx: Form for editing church
+ * - components/parish/ParishReports.tsx: Reports view
+ * - components/parish/ParishAnnouncements.tsx: Announcement management
+ * - components/parish/ParishFeedback.tsx: Feedback/review management
+ * - services/churchService.ts: Firebase operations for churches
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

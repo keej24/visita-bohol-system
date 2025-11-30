@@ -1,3 +1,52 @@
+/**
+ * =============================================================================
+ * LOGIN.TSX - Authentication Page
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This is the login page where admin users (Chancery, Parish Secretaries,
+ * Museum Researchers) authenticate to access the admin dashboard.
+ *
+ * FEATURES:
+ * 1. Email/password authentication via Firebase
+ * 2. "Forgot Password" functionality with email reset
+ * 3. User-friendly error messages for various auth failures
+ * 4. Loading overlay during authentication
+ * 5. Browser autofill prevention (for security)
+ *
+ * AUTHENTICATION FLOW:
+ * 1. User enters email + password
+ * 2. handleSubmit validates inputs
+ * 3. Calls login() from AuthContext (Firebase signInWithEmailAndPassword)
+ * 4. On success: Shows toast, redirects to / (DioceseRouter handles routing)
+ * 5. On failure: Shows appropriate error message
+ *
+ * ERROR HANDLING:
+ * Firebase throws cryptic errors like "auth/invalid-credential"
+ * This component translates them to user-friendly messages:
+ * - "auth/invalid-credential" → "Invalid username or password"
+ * - "auth/too-many-requests" → "Too many failed attempts"
+ * - "auth/user-disabled" → "Account has been disabled"
+ *
+ * PASSWORD RESET FLOW:
+ * 1. User clicks "Forgot Password?"
+ * 2. Dialog opens asking for email
+ * 3. Calls Firebase sendPasswordResetEmail()
+ * 4. Firebase sends reset email to user
+ * 5. User clicks link in email → changes password
+ *
+ * SECURITY FEATURES:
+ * - Hidden dummy input fields absorb browser autofill
+ * - Passwords are never stored locally
+ * - Rate limiting on reset emails (Firebase handles this)
+ *
+ * RELATED FILES:
+ * - contexts/AuthContext.tsx: Provides login() function
+ * - lib/firebase.ts: Firebase auth instance
+ * - App.tsx: /login route definition
+ * - DioceseRouter.tsx: Post-login routing based on user role
+ */
+
 // Login page for VISITA admin dashboard
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';

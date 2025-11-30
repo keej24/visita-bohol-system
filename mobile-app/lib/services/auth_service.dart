@@ -1,10 +1,71 @@
+/// =============================================================================
+/// AUTH_SERVICE.DART - Firebase Authentication Service
+/// =============================================================================
+///
+/// PURPOSE:
+/// This service handles all user authentication for the mobile app. It wraps
+/// Firebase Authentication and provides a clean API for sign up, sign in,
+/// sign out, and password reset operations.
+///
+/// AUTHENTICATION FLOW:
+/// ┌─────────────┐    Sign In/Up    ┌─────────────────────┐
+/// │   User      │ ────────────────►│   AuthService       │
+/// │   (App UI)  │                  │   (this file)       │
+/// └─────────────┘                  └──────────┬──────────┘
+///                                             │
+///                                             ▼
+///                                  ┌─────────────────────┐
+///                                  │  Firebase Auth SDK  │
+///                                  │  (cloud service)    │
+///                                  └──────────┬──────────┘
+///                                             │
+///                                             ▼
+///                                  ┌─────────────────────┐
+///                                  │  Firebase Console   │
+///                                  │  (user database)    │
+///                                  └─────────────────────┘
+///
+/// KEY METHODS:
+/// - signUp(): Create new user account
+/// - signIn(): Authenticate existing user
+/// - signOut(): End user session
+/// - resetPassword(): Send password reset email
+///
+/// STATE MANAGEMENT:
+/// - Extends ChangeNotifier for reactive updates
+/// - isAuthenticated: Boolean for auth state
+/// - isLoading: Boolean for loading state
+/// - errorMessage: String for user-friendly errors
+/// - currentUser: Firebase User object when logged in
+///
+/// ERROR HANDLING:
+/// - Catches FirebaseAuthException for specific errors
+/// - Converts error codes to user-friendly messages
+/// - Examples: "wrong-password" → "Incorrect password"
+///
+/// WHY CHANGENOTIFIER:
+/// - Provider pattern needs ChangeNotifier for reactive updates
+/// - notifyListeners() triggers UI rebuilds when auth state changes
+/// - AuthWrapper listens and switches between Login/Home
+///
+/// RELATED FILES:
+/// - screens/auth_wrapper.dart: Reacts to isAuthenticated changes
+/// - screens/auth/login_screen.dart: Uses signIn method
+/// - screens/auth/register_screen.dart: Uses signUp method
+/// - main.dart: Registers this as a Provider
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// Simple AuthService with Firebase Authentication
+///
+/// This service is registered as a ChangeNotifierProvider in main.dart,
+/// making it accessible throughout the app via Provider.of<AuthService>()
+/// or context.watch<AuthService>() for reactive updates.
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Public getters for auth state
   User? get currentUser => _auth.currentUser;
   bool get isAuthenticated => _auth.currentUser != null;
   bool get isLoading => _isLoading;
@@ -12,6 +73,10 @@ class AuthService extends ChangeNotifier {
 
   bool _isLoading = false;
 
+  /// Constructor - Sets up auth state listener
+  ///
+  /// Firebase Auth persists login state, so on app restart this listener
+  /// will fire with the previously logged in user (if any).
   AuthService() {
     // Listen to auth state changes
     _auth.authStateChanges().listen((User? user) {

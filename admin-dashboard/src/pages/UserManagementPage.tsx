@@ -1,3 +1,51 @@
+/**
+ * =============================================================================
+ * USER MANAGEMENT PAGE.TSX - User Account Administration (Chancery Office)
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This page allows Chancery Office users to manage all user accounts in the
+ * system. It has two tabs: Admin Users (parish secretaries) and Public Users
+ * (mobile app users).
+ *
+ * USER TYPES MANAGED:
+ * ┌────────────────────┬────────────────────────────────────────────────────┐
+ * │ Tab                │ User Types Managed                                 │
+ * ├────────────────────┼────────────────────────────────────────────────────┤
+ * │ Parish Users       │ Parish Secretaries - can edit church profiles,    │
+ * │ (Admin Tab)        │ post announcements, view reports for their parish │
+ * │                    │                                                    │
+ * │ Public Users       │ Mobile app users - can browse churches, submit    │
+ * │                    │ feedback, track visits, receive announcements     │
+ * └────────────────────┴────────────────────────────────────────────────────┘
+ *
+ * ADMIN USER MANAGEMENT:
+ * - Create new parish secretary accounts
+ * - Assign parish secretaries to specific parishes
+ * - Update credentials and permissions
+ * - Delete accounts when needed
+ *
+ * PUBLIC USER MANAGEMENT:
+ * - View list of registered mobile app users
+ * - See user statistics and activity
+ * - Manage user accounts if needed
+ *
+ * ACCESS CONTROL:
+ * - Only 'chancery_office' role can access this page
+ * - Other roles see "Access Restricted" message
+ * - Chancery users can only manage users in their own diocese
+ *
+ * COMPONENT STRUCTURE:
+ * - UserManagement: Handles parish secretary (admin) user CRUD
+ * - PublicUserManagement: Handles mobile app user viewing
+ * - Both filter by userProfile.diocese automatically
+ *
+ * RELATED FILES:
+ * - components/UserManagement.tsx: Admin user CRUD operations
+ * - components/PublicUserManagement.tsx: Public user listing
+ * - contexts/AuthContext.tsx: Provides userProfile for access control
+ */
+
 import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { UserManagement } from '@/components/UserManagement';

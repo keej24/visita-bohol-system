@@ -1,3 +1,61 @@
+/**
+ * =============================================================================
+ * REPORTS.TSX - Diocese/Parish Reports Generation Page
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This page allows users to generate comprehensive reports about churches
+ * and visitor engagement. Chancery Office users see diocese-wide analytics,
+ * while Parish Secretaries see only their parish's data.
+ *
+ * REPORT TYPES:
+ * 1. Church Summary Report - Lists all churches with historical info, heritage
+ *    classification, and basic visitor/feedback statistics
+ * 2. Engagement & Feedback Analytics Report - Visitor trends, peak periods,
+ *    rating distributions, geographic heatmaps, and comparative analysis
+ *
+ * EXPORT FORMATS:
+ * - PDF Document: For printing or sharing as a formal report
+ * - Excel Spreadsheet: For data analysis and further manipulation
+ *
+ * ROLE-BASED VIEWS:
+ * ┌────────────────────┬─────────────────────────────────────────────────┐
+ * │ Role               │ Data Scope                                      │
+ * ├────────────────────┼─────────────────────────────────────────────────┤
+ * │ chancery_office    │ All churches in the diocese (Tagbilaran/Talibon)│
+ * │ parish_secretary   │ Only their assigned parish church               │
+ * └────────────────────┴─────────────────────────────────────────────────┘
+ *
+ * FILTERS:
+ * - Church Summary: Municipality, Classification (ICP/NCT/Non-Heritage)
+ * - Engagement: Date range (start/end), auto-validates for proper ordering
+ *
+ * DATA SERVICES:
+ * - DioceseAnalyticsService: Fetches aggregated analytics from Firestore
+ * - PDFExportService: Generates PDF reports with charts and tables
+ * - ExcelExportService: Generates Excel spreadsheets with data
+ * - DioceseReportService: Combines data and export logic
+ *
+ * VISUALIZATION COMPONENTS:
+ * - HybridHeatmap: Geographic map showing church locations with visitor density
+ * - Progress bars: For visitor trends and rating distributions
+ * - Star ratings: Visual display of average ratings
+ * - Comparative charts: Side-by-side parish engagement comparison
+ *
+ * EXPORT CONFIRMATION:
+ * Uses AlertDialog to confirm export before generating, showing:
+ * - Report type and format selected
+ * - Applied filters (municipality, classification, or date range)
+ * - Diocese name for context
+ *
+ * RELATED FILES:
+ * - services/dioceseAnalyticsService.ts: Firestore aggregation queries
+ * - services/pdfExportService.ts: PDF generation with jsPDF
+ * - services/excelExportService.ts: Excel generation with XLSX
+ * - services/dioceseReportService.ts: Report-specific export logic
+ * - components/heatmap/HybridHeatmap.tsx: Geographic visualization
+ */
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

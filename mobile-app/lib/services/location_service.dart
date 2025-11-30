@@ -1,12 +1,62 @@
+/// =============================================================================
+/// LOCATION_SERVICE.DART - GPS Location Service for Church Distance/Validation
+/// =============================================================================
+///
+/// PURPOSE:
+/// This service manages the device's GPS location. It's used for:
+/// 1. Calculating distance from user to each church
+/// 2. Validating that user is near a church when marking "visited"
+/// 3. Enabling "sort by distance" functionality on home screen
+///
+/// LOCATION USAGE IN APP:
+/// - Home Screen: Sort churches by distance from user
+/// - Church Cards: Display "X km away" text
+/// - Mark Visited: Verify user is within 500m of church
+/// - Map Screen: Center map on user's location
+///
+/// PERMISSION HANDLING:
+/// GPS requires user permission. This service handles the full flow:
+/// 1. Check if location services are enabled (device level)
+/// 2. Check if app has permission (app level)
+/// 3. Request permission if not granted
+/// 4. Handle "denied forever" case (direct to settings)
+///
+/// GEOLOCATOR PACKAGE:
+/// Uses the 'geolocator' package for cross-platform GPS access.
+/// - Works on Android, iOS, and web (with limitations)
+/// - Provides distance calculation (Geolocator.distanceBetween)
+/// - Handles permission requests natively
+///
+/// STATE PROPERTIES:
+/// - currentPosition: User's GPS coordinates (lat/lng)
+/// - isLocationEnabled: Whether we have valid location
+/// - isLoading: GPS acquisition in progress
+/// - errorMessage: User-friendly error description
+///
+/// IMPORTANT NOTES:
+/// - Location is optional: App works without it (no distance sorting)
+/// - Battery impact: Only fetches on demand, not continuous tracking
+/// - Privacy: Location never leaves device except for visit validation
+///
+/// RELATED FILES:
+/// - services/visitor_validation_service.dart: Uses location for visit verification
+/// - screens/home_screen.dart: Distance display on church cards
+/// - screens/church_detail_screen_modern.dart: Mark Visited validation
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+/// LocationService - Manages GPS location for the mobile app
+///
+/// Registered as ChangeNotifierProvider in main.dart for app-wide access.
+/// Other services like PaginatedChurchService depend on this for distance.
 class LocationService extends ChangeNotifier {
   Position? _currentPosition;
   bool _isLocationEnabled = false;
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Public getters for location state
   Position? get currentPosition => _currentPosition;
   bool get isLocationEnabled => _isLocationEnabled;
   bool get isLoading => _isLoading;

@@ -1,3 +1,53 @@
+/**
+ * =============================================================================
+ * HEADER.TSX - Main Navigation Header Component
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This component renders the top header bar that appears on all dashboard pages.
+ * It displays the user's role, parish/diocese info, and provides logout functionality.
+ *
+ * VISUAL LAYOUT:
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │ [Icon] Dashboard Title                          [Notification] [User Menu] │
+ * │        Subtitle / System Name                                  [Logout ▼]  │
+ * │        [Parish Badge] [Diocese Badge]                                      │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ *
+ * ROLE-BASED DISPLAY:
+ * ┌──────────────────────┬─────────────────────────────────────────────────────┐
+ * │ Role                 │ Header Display                                      │
+ * ├──────────────────────┼─────────────────────────────────────────────────────┤
+ * │ chancery_office      │ "Chancery Office Dashboard" + diocese info          │
+ * │ parish_secretary     │ "Parish Secretary Dashboard" + parish/diocese badge │
+ * │ museum_researcher    │ "Heritage Reviewer Dashboard"                       │
+ * └──────────────────────┴─────────────────────────────────────────────────────┘
+ *
+ * KEY FEATURES:
+ * 1. Dynamic title based on user role
+ * 2. Parish name fetching for parish secretaries
+ * 3. Logout with confirmation overlay
+ * 4. Toast notifications for logout success/failure
+ * 5. Gradient background for parish secretaries (visual distinction)
+ *
+ * LOGOUT FLOW:
+ * 1. User clicks Logout → handleSignOut called
+ * 2. Show success toast immediately (better UX)
+ * 3. Wait 1.5s so user sees the message
+ * 4. Call logout() from AuthContext
+ * 5. ProtectedRoute detects no user → redirects to /login
+ *
+ * WHY FETCH PARISH NAME?
+ * - Firestore stores parish as church ID (e.g., "church_123")
+ * - Users want to see the actual name ("San Jose Parish Church")
+ * - We fetch the church document to get the display name
+ *
+ * RELATED FILES:
+ * - Layout.tsx: Wrapper that includes this Header + Sidebar
+ * - contexts/AuthContext.tsx: Provides userProfile and logout()
+ * - services/churchService.ts: ChurchService.getChurches for parish name
+ */
+
 import { User, ChevronDown, LogOut, Church as ChurchIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

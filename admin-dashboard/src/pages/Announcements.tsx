@@ -1,3 +1,40 @@
+/**
+ * =============================================================================
+ * ANNOUNCEMENTS.TSX - Diocese-Wide Announcements Page (Chancery Office)
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This page allows Chancery Office users to manage diocese-wide announcements
+ * that appear on the mobile app's homepage carousel. Only chancery_office role
+ * users can access this page - others see an "Access Restricted" message.
+ *
+ * ANNOUNCEMENT TYPES (by scope):
+ * - 'diocese': Created here, shown on mobile app homepage carousel
+ * - 'parish': Created by Parish Secretaries in ParishDashboard, shown on
+ *   individual parish pages only
+ *
+ * ACCESS CONTROL:
+ * - Uses userProfile.role from AuthContext for permission check
+ * - Only 'chancery_office' role can access
+ * - All other roles see a friendly "Access Restricted" card
+ *
+ * COMPONENT STRUCTURE:
+ * This is a thin wrapper that:
+ * 1. Checks user permissions
+ * 2. Renders Layout for consistent page structure
+ * 3. Delegates actual announcement management to AnnouncementManagement
+ *
+ * WHY SEPARATE FROM AnnouncementManagement?
+ * - Single responsibility: This page handles routing/access control
+ * - AnnouncementManagement is reusable and focuses on CRUD operations
+ * - Allows easy testing of access control separately from functionality
+ *
+ * RELATED FILES:
+ * - components/announcements/AnnouncementManagement.tsx: The actual CRUD UI
+ * - pages/ParishDashboard.tsx: Contains ParishAnnouncements for parish scope
+ * - services/announcementService.ts: Firebase operations
+ */
+
 import React from 'react';
 import { Layout } from '@/components/Layout';
 import { AnnouncementManagement } from '@/components/announcements/AnnouncementManagement';

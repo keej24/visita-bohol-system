@@ -1,3 +1,53 @@
+/**
+ * =============================================================================
+ * CHURCHES.TSX - Church Management Page (Chancery Office)
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This page allows Chancery Office users to view, manage, and approve all
+ * churches in their diocese. It displays a filterable grid of church cards
+ * with action buttons for approval, review forwarding, and deletion.
+ *
+ * USER ROLES:
+ * - chancery_office: Full access - view, approve, forward to museum, delete
+ * - museum_researcher: Read-only view of heritage churches for validation
+ * - parish_secretary: Can see "Add New Church" button (redirects to ParishDashboard)
+ *
+ * PAGE FEATURES:
+ * 1. Search bar for finding churches by name/location/description
+ * 2. Status filter (Approved, Pending, Heritage Review, etc.)
+ * 3. Classification filter (ICP, NCT, Non-Heritage)
+ * 4. Church cards with key info and action buttons
+ * 5. Summary statistics at bottom (total, approved, visitors, heritage count)
+ * 6. Detail modal for viewing full church information
+ *
+ * CHURCH WORKFLOW ACTIONS:
+ * ┌────────────────────┬─────────────────────────────────────────────────┐
+ * │ Action             │ Description                                     │
+ * ├────────────────────┼─────────────────────────────────────────────────┤
+ * │ View (Eye icon)    │ Opens ChurchDetailModal with full info          │
+ * │ Approve (Check)    │ Approves pending church (non-heritage)          │
+ * │ Forward (External) │ Forwards ICP/NCT church to Museum Researcher    │
+ * │ Delete (Trash)     │ Permanently deletes church (with confirmation)  │
+ * └────────────────────┴─────────────────────────────────────────────────┘
+ *
+ * DATA FLOW:
+ * 1. useChurches hook fetches churches from Firebase with filters
+ * 2. Filters are memoized and update query when changed
+ * 3. Data automatically refreshes via React Query when mutations occur
+ * 4. convertChurchForModal transforms Church type for modal display
+ *
+ * HERO IMAGE:
+ * The page header features a hero image (Baclayon Church) with a
+ * semi-transparent primary color overlay for branding consistency.
+ *
+ * RELATED FILES:
+ * - hooks/useChurches.ts: React Query hooks for church data
+ * - components/ChurchDetailModal.tsx: Full church detail view
+ * - services/churchService.ts: Firebase CRUD operations
+ * - types/church.ts: TypeScript type definitions
+ */
+
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

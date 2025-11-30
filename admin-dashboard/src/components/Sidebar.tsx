@@ -1,3 +1,52 @@
+/**
+ * =============================================================================
+ * SIDEBAR.TSX - Navigation Sidebar Component
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This component renders the left sidebar with navigation links. The links
+ * shown depend on the user's role - each role sees different menu items.
+ *
+ * ROLE-BASED NAVIGATION:
+ * ┌─────────────────────────┬─────────────────────────────────────────────────┐
+ * │ Role                    │ Menu Items                                      │
+ * ├─────────────────────────┼─────────────────────────────────────────────────┤
+ * │ parish_secretary        │ Church Profile, Announcements*, Feedback*,     │
+ * │                         │ Reports*, Account (*requires church approval)  │
+ * │                         │                                                 │
+ * │ chancery_office         │ Dashboard, Churches, Users, Announcements,     │
+ * │                         │ Feedback, Reports, Settings                    │
+ * │                         │                                                 │
+ * │ museum_researcher       │ Dashboard, Approved Churches, Settings         │
+ * └─────────────────────────┴─────────────────────────────────────────────────┘
+ *
+ * KEY FEATURES:
+ * 1. Collapsible sidebar (toggle width 64px ↔ 256px)
+ * 2. Role-based menu items (getNavigationItems function)
+ * 3. Active state highlighting (NavLink or tab matching)
+ * 4. Disabled items for unapproved parish secretaries
+ * 5. User profile display with avatar
+ * 6. Role-specific styling (different colors per role)
+ * 7. Tooltips when sidebar is collapsed
+ *
+ * PARISH SECRETARY TAB SYSTEM:
+ * - Parish secretaries have a single-page dashboard with tabs
+ * - Sidebar items are "tabs" not separate pages
+ * - Clicking an item sets activeTab state instead of navigating
+ * - Some tabs are disabled until church is approved
+ *
+ * WHY DISABLED ITEMS FOR PARISH?
+ * - New parish secretaries must first complete their church profile
+ * - Until approved by Chancery, they can only see/edit the profile
+ * - After approval: Announcements, Feedback, Reports become available
+ *
+ * RELATED FILES:
+ * - Layout.tsx: Parent component that includes Sidebar + Header
+ * - Header.tsx: Top header component (same props pattern)
+ * - pages/ParishDashboard.tsx: Uses activeTab/setActiveTab props
+ * - contexts/AuthContext.tsx: Provides userProfile for role checking
+ */
+
 import { useState, ComponentType } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {

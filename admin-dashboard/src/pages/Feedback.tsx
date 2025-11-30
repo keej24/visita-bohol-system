@@ -1,3 +1,49 @@
+/**
+ * =============================================================================
+ * FEEDBACK.TSX - Feedback/Review Moderation Page (Chancery Office)
+ * =============================================================================
+ *
+ * PURPOSE:
+ * This page allows Chancery Office users to view, moderate, and manage all
+ * feedback/reviews submitted by mobile app users for churches in their diocese.
+ * It provides tools to hide inappropriate content or unhide previously hidden
+ * reviews.
+ *
+ * KEY FEATURES:
+ * 1. Two-Tab Interface: Published vs Hidden feedback separation
+ * 2. Search: Find feedback by content, user, or church name
+ * 3. Statistics: Total count, average rating, moderation summary
+ * 4. Photo Support: View attached photos in feedback
+ * 5. Moderation Audit: Track who moderated and when
+ *
+ * MODERATION WORKFLOW:
+ * ┌─────────────────┐     Hide      ┌─────────────────┐
+ * │   Published     │ ─────────→ │     Hidden      │
+ * │   (visible on   │ ←───────── │   (not shown    │
+ * │   mobile app)   │   Unhide   │   on mobile)    │
+ * └─────────────────┘             └─────────────────┘
+ *
+ * DATA FLOW:
+ * 1. On mount, fetch all churches in user's diocese
+ * 2. For each church, fetch feedback from 'feedback' collection
+ * 3. Map church IDs to names for display
+ * 4. Note: Feedback uses church_id OR church name for backwards compatibility
+ *
+ * PRIVACY PROTECTION:
+ * - All feedback shows "Anonymous" for user names
+ * - This encourages honest reviews without fear of identification
+ * - Original user identity is stored but not displayed
+ *
+ * CONFIRMATION DIALOG:
+ * - Hide/Unhide actions require confirmation before executing
+ * - Prevents accidental moderation changes
+ *
+ * RELATED FILES:
+ * - services/feedbackService.ts: Firebase CRUD and moderation operations
+ * - components/parish/ParishFeedback.tsx: Parish secretary's feedback view
+ * - mobile-app/lib/services/feedback_service.dart: Mobile app feedback submission
+ */
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
