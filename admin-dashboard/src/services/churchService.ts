@@ -122,6 +122,7 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
     classification: data.classification,
     religiousClassification: data.religiousClassification,
     assignedPriest: data.assignedPriest as string,
+    feastDay: data.feastDay as string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     massSchedules: (data.massSchedules || []) as any[],
     // Support both root level (new) and nested (legacy) coordinates
@@ -184,6 +185,7 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     classification: formData.classification,
     religiousClassification: formData.religiousClassification,
     assignedPriest: formData.assignedPriest,
+    feastDay: formData.feastDay,
     massSchedules: formData.massSchedules,
     // Save coordinates at root level for mobile app compatibility
     latitude: formData.coordinates?.latitude,
@@ -249,7 +251,11 @@ export class ChurchService {
       // Using parishId ensures consistency with user profiles and feedback/announcements
       if (parishId) {
         console.log('[ChurchService] Creating church with explicit parishId:', parishId);
-        await setDoc(doc(db, CHURCHES_COLLECTION, parishId), data);
+        // Include parishId as a field in the document for Firestore security rules
+        await setDoc(doc(db, CHURCHES_COLLECTION, parishId), {
+          ...data,
+          parishId: parishId
+        });
         return parishId;
       } else {
         console.log('[ChurchService] Creating church with auto-generated ID');

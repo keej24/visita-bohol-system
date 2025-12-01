@@ -102,11 +102,12 @@ service cloud.firestore {
            request.resource.data.parishId == getUserData().parishId;
 
   // Parish secretaries can update churches that belong to their parish
+  // Supports both: documents with parishId field AND legacy documents where document ID = parishId
   allow update: if isParishSecretary() &&
-           resource.data.parishId == getUserData().parishId &&
+           (resource.data.parishId == getUserData().parishId || 
+            (resource.data.parishId == null && churchId == getUserData().parishId)) &&
            resource.data.diocese == getUserData().diocese &&
-           request.resource.data.diocese == resource.data.diocese &&
-           request.resource.data.parishId == resource.data.parishId;
+           request.resource.data.diocese == resource.data.diocese;
 
   // Chancery office can create churches in their diocese
   allow create: if isChanceryOffice() && request.resource.data.diocese == getUserData().diocese;

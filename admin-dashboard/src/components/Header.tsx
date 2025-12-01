@@ -89,19 +89,19 @@ export function Header({ setActiveTab }: HeaderProps) {
           const parishChurch = churches.find(church => church.id === userProfile.parish);
           
           if (parishChurch) {
-            setParishName(parishChurch.fullName || parishChurch.name || userProfile.parish);
+            setParishName(parishChurch.fullName || parishChurch.name || userProfile.parishInfo?.name || userProfile.name || '');
           } else {
-            setParishName(userProfile.parish);
+            setParishName(userProfile.parishInfo?.name || userProfile.name || '');
           }
         } catch (error) {
           console.error('Error fetching parish name:', error);
-          setParishName(userProfile.parish);
+          setParishName(userProfile.parishInfo?.name || userProfile.name || '');
         }
       }
     };
 
     fetchParishName();
-  }, [isParish, userProfile?.parish, userProfile?.diocese]);
+  }, [isParish, userProfile?.parish, userProfile?.diocese, userProfile?.parishInfo?.name, userProfile?.name]);
 
   const handleSignOut = async () => {
     if (isLoggingOut) return; // Prevent multiple clicks
@@ -186,7 +186,7 @@ export function Header({ setActiveTab }: HeaderProps) {
             {isParish && (
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="outline" className="text-xs">
-                  {parishName || userProfile?.parish || 'Parish'}
+                  {parishName || userProfile?.parishInfo?.name || userProfile?.name || 'Parish'}
                 </Badge>
                 {userProfile?.diocese && (
                   <Badge variant="secondary" className="text-xs">Diocese of {userProfile.diocese}</Badge>

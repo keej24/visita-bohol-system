@@ -87,6 +87,7 @@ export interface ChurchInfo {
   
   // Current Parish Information
   currentParishPriest: string;
+  feastDay?: string; // Feast day of the parish patron saint (e.g., "December 8" or "August 15")
   massSchedules: MassSchedule[];
   contactInfo: ContactInfo;
   

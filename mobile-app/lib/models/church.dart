@@ -82,6 +82,7 @@ class Church {
   final List<String>? documents; // PDF documents
   final bool isHeritage;
   final String diocese; // Diocese of Tagbilaran or Diocese of Talibon
+  final String? feastDay; // Feast day of the parish patron saint
   final VirtualTour? virtualTour; // 360° virtual tour with scenes and hotspots
   final String status; // Status: pending, approved, revisions, heritage_review
 
@@ -122,6 +123,7 @@ class Church {
     this.documents,
     this.isHeritage = false,
     this.diocese = 'Diocese of Tagbilaran', // Default to Diocese of Tagbilaran
+    this.feastDay,
     this.virtualTour,
     this.status = 'approved', // Default to approved for backward compatibility
     this.heritageDeclaration,
@@ -256,6 +258,7 @@ class Church {
                 : null),
         // Convert diocese format: admin stores lowercase, mobile needs full name
         diocese: _convertDiocese(j['diocese']),
+        feastDay: j['feastDay'],
         virtualTour: (() {
           final tourData = j['virtualTour'];
           if (tourData != null && tourData is Map<String, dynamic>) {
@@ -349,6 +352,7 @@ class Church {
         'latitude': latitude,
         'longitude': longitude,
         'diocese': diocese,
+        'feastDay': feastDay,
         'virtualTour': virtualTour?.toMap(),
         'status': status,
         'heritageDeclaration': heritageDeclaration,

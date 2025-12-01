@@ -39,6 +39,7 @@ export interface Church {
   classification: ChurchClassification;
   religiousClassification?: ReligiousClassification;
   assignedPriest?: string;
+  feastDay?: string; // Feast day of the parish patron saint (e.g., "December 8")
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;
   contactInfo?: ContactInfo;
@@ -96,6 +97,7 @@ export interface ChurchFormData {
   classification: ChurchClassification;
   religiousClassification?: ReligiousClassification;
   assignedPriest?: string;
+  feastDay?: string; // Feast day of the parish patron saint
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;
   contactInfo?: ContactInfo;

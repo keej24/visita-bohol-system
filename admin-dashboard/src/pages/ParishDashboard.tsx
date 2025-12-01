@@ -534,6 +534,7 @@ const ParishDashboard = () => {
       classification: mapHeritageClassification(data.historicalDetails.heritageClassification) as ChurchClassification,
       religiousClassification: mapReligiousClassification(data.historicalDetails.religiousClassification || 'None') as import('@/types/church').ReligiousClassification,
       assignedPriest: data.currentParishPriest || '',
+      feastDay: data.feastDay || '',
       massSchedules: convertMassSchedules(data.massSchedules || []),
       coordinates: convertCoordinates(data.coordinates),
       contactInfo: {
@@ -589,12 +590,25 @@ const ParishDashboard = () => {
         }
       }
       
+      // Use parishId for Firestore rules (required for parish secretary permissions)
+      const parishIdentifier = userProfile.parishId || userProfile.parish;
+      
+      console.log('🔍 [SAVE DRAFT] Debug info:', {
+        parishIdentifier,
+        userProfileParishId: userProfile.parishId,
+        userProfileParish: userProfile.parish,
+        diocese: userProfile.diocese,
+        existingChurch: existingChurch ? existingChurch.id : 'none',
+        uid: userProfile.uid
+      });
+      
       if (existingChurch) {
         // Update existing church as draft - manually set status to draft
         const docRef = doc(db, 'churches', existingChurch.id);
         await updateDoc(docRef, {
           ...formData,
           status: 'draft',
+          parishId: parishIdentifier,
           updatedAt: serverTimestamp()
         });
         
@@ -605,23 +619,25 @@ const ParishDashboard = () => {
         });
       } else {
         // Create new church as draft (without submitting for review)
-        const docRef = doc(db, 'churches', userProfile.parish);
+        const docRef = doc(db, 'churches', parishIdentifier);
         await setDoc(docRef, {
           ...formData,
           status: 'draft',
           diocese: userProfile.diocese,
+          parishId: parishIdentifier,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           createdBy: userProfile.uid
         });
         
-        setChurchId(userProfile.parish);
-        setChurchInfo({ ...data, status: 'draft', id: userProfile.parish });
+        setChurchId(parishIdentifier);
+        setChurchInfo({ ...data, status: 'draft', id: parishIdentifier });
         setExistingChurch({ 
           ...formData, 
-          id: userProfile.parish, 
+          id: parishIdentifier, 
           status: 'draft',
           diocese: userProfile.diocese,
+          parishId: parishIdentifier,
           createdAt: new Date(),
           updatedAt: new Date(),
           createdBy: userProfile.uid
@@ -701,6 +717,7 @@ const ParishDashboard = () => {
         // Update existing church in Firebase
         // If church is draft, change to pending on submit
         const newStatus = existingChurch.status === 'draft' ? 'pending' : existingChurch.status;
+        const parishIdForUpdate = userProfile.parishId || userProfile.parish;
         
         // Manually update status if transitioning from draft to pending
         if (existingChurch.status === 'draft') {
@@ -708,6 +725,7 @@ const ParishDashboard = () => {
           await updateDoc(docRef, {
             ...formData,
             status: 'pending',
+            parishId: parishIdForUpdate,
             submittedAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });
@@ -1277,7 +1295,7 @@ const ParishDashboard = () => {
                 </div>
               </div>
               <CardTitle className="text-3xl font-bold text-indigo-900 mb-2">
-                Welcome to {userProfile?.parish || 'Your Parish'} Dashboard! 👋
+                Welcome to {userProfile?.parishInfo?.name || userProfile?.name || 'Your Parish'} Dashboard! 👋
               </CardTitle>
               <CardDescription className="text-lg text-slate-700">
                 Let's get started by creating your church profile

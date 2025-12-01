@@ -120,6 +120,7 @@ export function ChurchDetailModal({
         heritageInformation: churchData.heritageInformation || ''
       },
       currentParishPriest: churchData.assignedPriest || '',
+      feastDay: churchData.feastDay || '',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       massSchedules: (churchData.massSchedules || []).map((schedule: any) => ({
         day: schedule.day || '',

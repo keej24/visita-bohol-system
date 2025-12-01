@@ -89,7 +89,7 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
               phone: parishChurch.contactInfo?.phone
             });
             
-            const name = parishChurch.fullName || parishChurch.name || userProfile.parish;
+            const name = parishChurch.fullName || parishChurch.name || userProfile.parishInfo?.name || userProfile.name || userProfile.parish;
             setParishName(name);
             setProfileData(prev => ({ ...prev, parishName: name }));
             
@@ -100,19 +100,21 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
             }
           } else {
             console.warn('⚠️ [ParishAccount] Church not found for parish ID:', userProfile.parish);
-            setParishName(userProfile.parish);
-            setProfileData(prev => ({ ...prev, parishName: userProfile.parish }));
+            const fallbackName = userProfile.parishInfo?.name || userProfile.name || userProfile.parish;
+            setParishName(fallbackName);
+            setProfileData(prev => ({ ...prev, parishName: fallbackName }));
           }
         } catch (error) {
           console.error('❌ [ParishAccount] Error fetching parish name:', error);
-          setParishName(userProfile.parish);
-          setProfileData(prev => ({ ...prev, parishName: userProfile.parish }));
+          const fallbackName = userProfile.parishInfo?.name || userProfile.name || userProfile.parish;
+          setParishName(fallbackName);
+          setProfileData(prev => ({ ...prev, parishName: fallbackName }));
         }
       }
     };
 
     fetchParishName();
-  }, [userProfile?.parish, userProfile?.diocese]);
+  }, [userProfile?.parish, userProfile?.diocese, userProfile?.parishInfo?.name, userProfile?.name]);
 
   // Password form state
   const [passwordData, setPasswordData] = useState({
@@ -502,7 +504,7 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
   const handleCancelEdit = () => {
     // Reset profile data to original values
     setProfileData({
-      parishName: userProfile?.parish || userProfile?.name || 'St. Mary\'s Parish',
+      parishName: userProfile?.parishInfo?.name || userProfile?.name || userProfile?.parish || 'St. Mary\'s Parish',
       email: userProfile?.email || '',
       phone: '',
       diocese: 'Diocese of Tagbilaran'

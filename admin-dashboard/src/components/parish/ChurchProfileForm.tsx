@@ -109,6 +109,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     
     // Current Parish Operations
     currentParishPriest: initialData?.currentParishPriest || '',
+    feastDay: initialData?.feastDay || '',
     massSchedules: initialData?.massSchedules || [],
     contactInfo: {
       phone: initialData?.contactInfo?.phone || '',
@@ -1311,6 +1312,24 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       placeholder="Rev. Fr. [Full Name]"
                       className="h-11"
                     />
+                  </div>
+
+                  {/* Feast Day */}
+                  <div className="space-y-2">
+                    <Label htmlFor="feastDay" className="text-sm font-medium text-gray-700">
+                      Feast Day
+                    </Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="feastDay"
+                        value={formData.feastDay || ''}
+                        onChange={(e) => updateBasicField('feastDay', e.target.value)}
+                        placeholder="e.g., December 8, August 15"
+                        className="h-11 pl-10"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">The feast day of your parish patron saint</p>
                   </div>
 
                   <Separator />
