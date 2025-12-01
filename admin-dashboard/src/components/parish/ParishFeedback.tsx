@@ -56,11 +56,17 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
 
   // Load feedback with real-time updates
   useEffect(() => {
+    console.log('🔍 [PARISH FEEDBACK] Subscribing to feedback for churchId:', churchId);
     setIsLoading(true);
 
     const unsubscribe = FeedbackService.subscribeToFeedbackByChurch(
       churchId,
       (feedback) => {
+        console.log('📬 [PARISH FEEDBACK] Received feedback:', {
+          churchId,
+          count: feedback.length,
+          items: feedback.map(f => ({ id: f.id, church_id: f.church_id, status: f.status }))
+        });
         // churchName is only used for display, not for subscription logic
         setFeedbackData(feedback.map(f => ({ ...f, churchName })));
         setIsLoading(false);

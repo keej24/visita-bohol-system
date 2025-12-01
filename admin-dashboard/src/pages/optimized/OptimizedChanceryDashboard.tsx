@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { DashboardHeader } from '@/components/optimized/DashboardHeader';
@@ -23,6 +24,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
   const { userProfile } = useAuth();
   const churchStats = useChurchStats(diocese);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Modal state
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
@@ -65,6 +67,9 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         title: "Success",
         description: "Church information saved successfully!"
       });
+
+      // Invalidate all church queries to update all dashboards
+      await queryClient.invalidateQueries({ queryKey: ['churches'] });
     } catch (error) {
       console.error('Error saving church:', error);
       toast({
@@ -94,6 +99,9 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         title: "Success",
         description: "Church information updated successfully!"
       });
+
+      // Invalidate all church queries to update all dashboards
+      await queryClient.invalidateQueries({ queryKey: ['churches'] });
 
       setIsModalOpen(false);
       setSelectedChurch(null);

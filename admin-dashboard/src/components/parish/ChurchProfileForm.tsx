@@ -50,6 +50,7 @@ interface ChurchProfileFormProps {
   showCancelButton?: boolean;
   isModal?: boolean;
   isChanceryEdit?: boolean; // New prop to determine if chancery/museum is editing
+  isMuseumResearcher?: boolean; // Museum researcher can only edit historical tab and documents
   churchId?: string; // Church ID for hotspot editing
 }
 
@@ -63,10 +64,12 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   showCancelButton = false,
   isModal = false,
   isChanceryEdit = false,
+  isMuseumResearcher = false,
   churchId
 }) => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('basic');
+  // Museum researchers should start on the historical tab since they can only edit that
+  const [activeTab, setActiveTab] = useState(isMuseumResearcher ? 'historical' : 'basic');
   const [heritageAssessment, setHeritageAssessment] = useState<HeritageAssessment | null>(null);
   const [uploading, setUploading] = useState(false);
   // NOTE: Virtual tour now managed by VirtualTourManager component
@@ -804,9 +807,11 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
       onSubmit(updatedData);
 
-      const message = isApprovedProfile
-        ? "Church profile updated successfully!"
-        : "Church profile submitted for review!";
+      const message = isChanceryEdit || isMuseumResearcher
+        ? "Church profile saved successfully!"
+        : isApprovedProfile
+          ? "Church profile updated successfully!"
+          : "Church profile submitted for review!";
 
       toast({ title: "Success", description: message });
     } catch (error) {
@@ -893,8 +898,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           </div>
         )}
 
-        {/* Heritage Assessment Card */}
-        {heritageAssessment && currentStatus !== 'approved' && (
+        {/* Heritage Assessment Card - Hidden for museum researchers since church is already in heritage review */}
+        {heritageAssessment && currentStatus !== 'approved' && !isMuseumResearcher && (
           <Card className={`shadow-lg border-l-4 mb-6 ${
             heritageAssessment.confidence === 'high' ? 'border-l-orange-500 bg-orange-50/30' :
             heritageAssessment.confidence === 'medium' ? 'border-l-yellow-500 bg-yellow-50/30' :
@@ -939,9 +944,15 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               {/* Enhanced Tab Navigation */}
               <div className="bg-gray-50 px-6 py-4 border-b">
                 <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
-                  <TabsTrigger value="basic" className="flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100">
+                  <TabsTrigger 
+                    value="basic" 
+                    className={`flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100 ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={isMuseumResearcher}
+                    title={isMuseumResearcher ? 'View only - managed by Parish Secretary' : undefined}
+                  >
                     <Building className="w-4 h-4" />
                     <span className="hidden sm:inline">Basic Info</span>
+                    {isMuseumResearcher && <span className="text-xs text-gray-400 hidden md:inline">(View)</span>}
                   </TabsTrigger>
                   
                   <TabsTrigger value="historical" className="flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100">
@@ -949,14 +960,24 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     <span className="hidden sm:inline">Historical</span>
                   </TabsTrigger>
                   
-                  <TabsTrigger value="parish" className="flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100">
+                  <TabsTrigger 
+                    value="parish" 
+                    className={`flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100 ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={isMuseumResearcher}
+                    title={isMuseumResearcher ? 'View only - managed by Parish Secretary' : undefined}
+                  >
                     <User className="w-4 h-4" />
                     <span className="hidden sm:inline">Parish Info</span>
+                    {isMuseumResearcher && <span className="text-xs text-gray-400 hidden md:inline">(View)</span>}
                   </TabsTrigger>
                   
-                  <TabsTrigger value="media" className="flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100">
+                  <TabsTrigger 
+                    value="media" 
+                    className="flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100"
+                  >
                     <Image className="w-4 h-4" />
                     <span className="hidden sm:inline">Media</span>
+                    {isMuseumResearcher && <span className="text-xs text-blue-500 hidden md:inline">(Docs)</span>}
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -1210,9 +1231,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         id="historicalBackground"
                         value={formData.historicalDetails.historicalBackground}
                         onChange={(e) => updateHistoricalField('historicalBackground', e.target.value)}
-                        placeholder="Describe the history, significance, and story of your church..."
-                        rows={6}
-                        className="resize-none"
+                        placeholder="Describe the history, significance, and story of your church...&#10;&#10;Include details such as:&#10;• Year of establishment and founding story&#10;• Key historical events and milestones&#10;• Notable figures in the church's history&#10;• Cultural and community significance"
+                        rows={12}
+                        className="resize-y min-h-[200px] leading-relaxed"
                       />
                       <p className="text-xs text-gray-600">
                         Share the founding story, historical significance, and cultural importance of your church
@@ -1238,9 +1259,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         id="architecturalFeatures"
                         value={formData.historicalDetails.architecturalFeatures}
                         onChange={(e) => updateHistoricalField('architecturalFeatures', e.target.value)}
-                        placeholder="Describe the architectural features, design elements, materials used, notable structures (e.g., bell tower, facade, interior design)..."
-                        rows={5}
-                        className="resize-none"
+                        placeholder="Describe the architectural features, design elements, materials used, notable structures...&#10;&#10;Include details such as:&#10;• Architectural style (Baroque, Earthquake Baroque, Gothic, Modern, etc.)&#10;• Construction materials (coral stone, adobe, reinforced concrete)&#10;• Notable features (bell tower, facade, retablo, ceiling artwork)&#10;• Interior design elements"
+                        rows={10}
+                        className="resize-y min-h-[180px] leading-relaxed"
                       />
                       <p className="text-xs text-gray-600">
                         Include details about the building's architecture, unique design elements, and construction materials
@@ -1255,9 +1276,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         id="heritageInformation"
                         value={formData.historicalDetails.heritageInformation}
                         onChange={(e) => updateHistoricalField('heritageInformation', e.target.value)}
-                        placeholder="Share information about the church's cultural and historical significance, preservation efforts, restoration projects, heritage status..."
-                        rows={5}
-                        className="resize-none"
+                        placeholder="Share information about the church's cultural and historical significance...&#10;&#10;Include details such as:&#10;• Religious classification and denomination&#10;• Heritage status (ICP, NCT, or none)&#10;• Preservation and restoration history&#10;• Cultural programs and traditions&#10;• Community significance"
+                        rows={10}
+                        className="resize-y min-h-[180px] leading-relaxed"
                       />
                       <p className="text-xs text-gray-600">
                         Document the church's cultural importance, heritage designation, and conservation history
@@ -1655,61 +1676,75 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               {/* Media Tab */}
               <TabsContent value="media" className="p-6 space-y-8">
                 <div className="space-y-8">
-                  {/* 360° Virtual Tour Section */}
-                  <div className="space-y-4">
-                    {churchId ? (
-                      <VirtualTourManager
-                        churchId={churchId}
-                        churchName={formData.churchName}
-                      />
-                    ) : (
-                      <div>
-                        <div className="flex items-center gap-3 mb-4">
-                          <RotateCcw className="w-6 h-6 text-blue-600" />
+                  {/* 360° Virtual Tour Section - Only for Parish users */}
+                  {!isChanceryEdit && (
+                    <>
+                      <div className="space-y-4">
+                        {churchId ? (
+                          <VirtualTourManager
+                            churchId={churchId}
+                            churchName={formData.churchName}
+                          />
+                        ) : (
                           <div>
-                            <h2 className="text-xl font-semibold text-gray-900">360° Virtual Tour</h2>
-                            <p className="text-gray-600">Upload panoramic images and add navigation hotspots</p>
+                            <div className="flex items-center gap-3 mb-4">
+                              <RotateCcw className="w-6 h-6 text-blue-600" />
+                              <div>
+                                <h2 className="text-xl font-semibold text-gray-900">360° Virtual Tour</h2>
+                                <p className="text-gray-600">Upload panoramic images and add navigation hotspots</p>
+                              </div>
+                            </div>
+                            <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <p className="text-sm text-yellow-800">
+                                Please save the church profile first to enable virtual tour management.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Regular Photos Section - Only for Parish users */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Image className="w-6 h-6 text-blue-600" />
+                          <div>
+                            <h2 className="text-xl font-semibold text-gray-900">Church Photos</h2>
+                            <p className="text-gray-600">Share regular photos of your church (Optional)</p>
                           </div>
                         </div>
-                        <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <p className="text-sm text-yellow-800">
-                            Please save the church profile first to enable virtual tour management.
-                          </p>
-                        </div>
+                        <PhotoUploader
+                          photos={formData.photos}
+                          onPhotosChange={(photos) => setFormData(prev => ({
+                            ...prev,
+                            photos: photos.map(photo => ({
+                              ...photo,
+                              uploadDate: new Date().toISOString(),
+                              status: 'pending' as const,
+                              type: 'photo' as const
+                            }))
+                          }))}
+                          maxPhotos={10}
+                          disabled={false}
+                        />
                       </div>
-                    )}
-                  </div>
 
-                  <Separator />
+                      <Separator />
+                    </>
+                  )}
 
-                  {/* Regular Photos Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <Image className="w-6 h-6 text-blue-600" />
-                      <div>
-                        <h2 className="text-xl font-semibold text-gray-900">Church Photos</h2>
-                        <p className="text-gray-600">Share regular photos of your church (Optional)</p>
-                      </div>
+                  {/* Info message for Chancery/Museum about media restrictions */}
+                  {isChanceryEdit && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> 360° Virtual Tour and Church Photos can only be managed by the parish. 
+                        You can add or modify historical documents below.
+                      </p>
                     </div>
-                    <PhotoUploader
-                      photos={formData.photos}
-                      onPhotosChange={(photos) => setFormData(prev => ({
-                        ...prev,
-                        photos: photos.map(photo => ({
-                          ...photo,
-                          uploadDate: new Date().toISOString(),
-                          status: 'pending' as const,
-                          type: 'photo' as const
-                        }))
-                      }))}
-                      maxPhotos={10}
-                      disabled={false}
-                    />
-                  </div>
+                  )}
 
-                  <Separator />
-
-                  {/* Historical Documents Section */}
+                  {/* Historical Documents Section - Available for all users */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <Building className="w-6 h-6 text-blue-600" />

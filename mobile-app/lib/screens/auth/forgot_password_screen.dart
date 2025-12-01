@@ -46,8 +46,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       // Show success snackbar
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
+        const SnackBar(
+          content: Row(
             children: [
               Icon(Icons.check_circle, color: Colors.white),
               SizedBox(width: 12),
@@ -56,7 +56,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
+          duration: Duration(seconds: 3),
         ),
       );
     } catch (e) {

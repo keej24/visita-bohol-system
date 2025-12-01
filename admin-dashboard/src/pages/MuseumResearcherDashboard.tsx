@@ -24,7 +24,6 @@ import { ChurchDetailModal } from '@/components/ChurchDetailModal';
 import { ChurchService } from '@/services/churchService';
 import { ChurchInfo } from '@/components/parish/types';
 import { notifyChurchStatusChange } from '@/lib/notifications';
-import type { ArchitecturalStyle, ChurchClassification } from '@/types/church';
 
 
 
@@ -44,26 +43,30 @@ const MuseumResearcherDashboard = () => {
   const { data: tagbilaranChurches, isLoading: tagbilaranLoading } = useQuery<Church[]>({
     queryKey: ['churches', 'tagbilaran', 'heritage_review'],
     queryFn: () => getChurchesByDiocese('tagbilaran', ['heritage_review']),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // 30 seconds - shorter for more responsive updates
+    refetchOnWindowFocus: true, // Auto-refresh when switching tabs
   });
 
   const { data: talibonChurches, isLoading: talibonLoading } = useQuery<Church[]>({
     queryKey: ['churches', 'talibon', 'heritage_review'],
     queryFn: () => getChurchesByDiocese('talibon', ['heritage_review']),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   // Fetch approved heritage churches for the count
   const { data: tagbilaranApproved, isLoading: tagbilaranApprovedLoading } = useQuery<Church[]>({
     queryKey: ['churches', 'tagbilaran', 'approved'],
     queryFn: () => getChurchesByDiocese('tagbilaran', ['approved']),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: talibonApproved, isLoading: talibonApprovedLoading } = useQuery<Church[]>({
     queryKey: ['churches', 'talibon', 'approved'],
     queryFn: () => getChurchesByDiocese('talibon', ['approved']),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 
 
@@ -104,24 +107,63 @@ const MuseumResearcherDashboard = () => {
     if (!selectedChurch || !userProfile) return;
 
     try {
-      // Convert ChurchInfo to ChurchFormData format and update
-      const formData = convertChurchInfoToFormData(data);
-      await ChurchService.updateChurch(
+      // Determine classification
+      const newClassification = data.historicalDetails.heritageClassification === 'National Cultural Treasures' ? 'NCT' as const :
+                               data.historicalDetails.heritageClassification === 'Important Cultural Properties' ? 'ICP' as const : 
+                               'non_heritage' as const;
+      
+      const isChangingToNonHeritage = newClassification === 'non_heritage' && 
+        (selectedChurch.classification === 'ICP' || selectedChurch.classification === 'NCT');
+
+      // Museum researchers can update heritage-related fields and historical tab fields
+      const heritageData = {
+        // Heritage fields
+        culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
+        heritageNotes: data.historicalDetails.historicalBackground || '',
+        heritageInformation: data.historicalDetails.heritageInformation || '',
+        architecturalFeatures: data.historicalDetails.architecturalFeatures || '',
+        // Historical tab fields
+        historicalBackground: data.historicalDetails.historicalBackground || '',
+        description: data.historicalDetails.historicalBackground || '',
+        architecturalStyle: data.historicalDetails.architecturalStyle || '',
+        foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
+        founders: data.historicalDetails.founders || '',
+        classification: newClassification,
+        // Documents
+        documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+        lastReviewNote: isChangingToNonHeritage 
+          ? 'Heritage classification changed to non-heritage. Returned to Chancery for approval.'
+          : 'Heritage information saved by Museum Researcher',
+      };
+
+      await ChurchService.updateChurchHeritage(
         selectedChurch.id,
-        formData,
-        selectedChurch.diocese, // Use the church's diocese instead of user's
+        heritageData,
         userProfile.uid
       );
 
-      toast({
-        title: "Success",
-        description: "Church information saved successfully!"
-      });
+      if (isChangingToNonHeritage) {
+        toast({
+          title: "Classification Changed",
+          description: "Church classification changed to non-heritage. It has been returned to the Chancery for final approval.",
+        });
+        // Close modal and invalidate queries to refresh the list
+        setIsModalOpen(false);
+        setSelectedChurch(null);
+        await queryClient.invalidateQueries({ queryKey: ['churches'] });
+      } else {
+        toast({
+          title: "Success",
+          description: "Heritage information saved successfully!"
+        });
+        // Invalidate queries to refresh the data without closing modal
+        await queryClient.invalidateQueries({ queryKey: ['churches'] });
+      }
     } catch (error) {
       console.error('Error saving church:', error);
       toast({
         title: "Error",
-        description: "Failed to save church information",
+        description: "Failed to save heritage information",
         variant: "destructive"
       });
     }
@@ -132,102 +174,67 @@ const MuseumResearcherDashboard = () => {
 
     setIsSubmitting(true);
     try {
-      const formData = convertChurchInfoToFormData(data);
-      await ChurchService.updateChurch(
+      // Determine classification
+      const newClassification = data.historicalDetails.heritageClassification === 'National Cultural Treasures' ? 'NCT' as const :
+                               data.historicalDetails.heritageClassification === 'Important Cultural Properties' ? 'ICP' as const : 
+                               'non_heritage' as const;
+      
+      const isChangingToNonHeritage = newClassification === 'non_heritage' && 
+        (selectedChurch.classification === 'ICP' || selectedChurch.classification === 'NCT');
+
+      // Museum researchers can update heritage-related fields and historical tab fields
+      const heritageData = {
+        // Heritage fields
+        culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
+        heritageNotes: data.historicalDetails.historicalBackground || '',
+        heritageInformation: data.historicalDetails.heritageInformation || '',
+        architecturalFeatures: data.historicalDetails.architecturalFeatures || '',
+        // Historical tab fields
+        historicalBackground: data.historicalDetails.historicalBackground || '',
+        description: data.historicalDetails.historicalBackground || '',
+        architecturalStyle: data.historicalDetails.architecturalStyle || '',
+        foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
+        founders: data.historicalDetails.founders || '',
+        classification: newClassification,
+        // Documents
+        documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+        lastReviewNote: isChangingToNonHeritage 
+          ? 'Heritage classification changed to non-heritage. Returned to Chancery for approval.'
+          : 'Heritage information updated by Museum Researcher',
+      };
+
+      await ChurchService.updateChurchHeritage(
         selectedChurch.id,
-        formData,
-        selectedChurch.diocese, // Use the church's diocese instead of user's
+        heritageData,
         userProfile.uid
       );
 
-      toast({
-        title: "Success",
-        description: "Church information updated successfully!"
-      });
+      if (isChangingToNonHeritage) {
+        toast({
+          title: "Classification Changed",
+          description: "Church classification changed to non-heritage. It has been returned to the Chancery for final approval.",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Heritage information updated successfully!"
+        });
+      }
 
       setIsModalOpen(false);
       setSelectedChurch(null);
-      // Refresh data to show updates
-      window.location.reload();
+      // Invalidate queries to refresh data without full page reload
+      await queryClient.invalidateQueries({ queryKey: ['churches'] });
     } catch (error) {
       console.error('Error updating church:', error);
       toast({
         title: "Error",
-        description: "Failed to update church information",
+        description: "Failed to update heritage information",
         variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Helper function to safely convert string to ArchitecturalStyle
-  const toArchitecturalStyle = (style: string): ArchitecturalStyle => {
-    const validStyles: ArchitecturalStyle[] = ['baroque', 'gothic', 'romanesque', 'neoclassical', 'modern', 'mixed', 'other'];
-    const normalizedStyle = style.toLowerCase().trim();
-    
-    // Direct match
-    if (validStyles.includes(normalizedStyle as ArchitecturalStyle)) {
-      return normalizedStyle as ArchitecturalStyle;
-    }
-    
-    // Fuzzy matching for common variations
-    if (normalizedStyle.includes('baroque') || normalizedStyle.includes('spanish')) return 'baroque';
-    if (normalizedStyle.includes('gothic') || normalizedStyle.includes('neo-gothic')) return 'gothic';
-    if (normalizedStyle.includes('romanesque')) return 'romanesque';
-    if (normalizedStyle.includes('neoclassical') || normalizedStyle.includes('classical')) return 'neoclassical';
-    if (normalizedStyle.includes('modern') || normalizedStyle.includes('contemporary')) return 'modern';
-    if (normalizedStyle.includes('mixed') || normalizedStyle.includes('combination')) return 'mixed';
-    
-    // Default fallback
-    return 'other';
-  };
-
-  // Helper function to safely convert string to ChurchClassification
-  const toChurchClassification = (classification: string): ChurchClassification => {
-    if (classification === 'National Cultural Treasures') return 'NCT';
-    if (classification === 'Important Cultural Properties') return 'ICP';
-    return 'non_heritage';
-  };
-
-  // Helper function to convert ChurchInfo to ChurchFormData
-  const convertChurchInfoToFormData = (data: ChurchInfo) => {
-    return {
-      name: data.churchName || '',
-      fullName: data.parishName || data.churchName || '',
-      location: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, ''),
-      municipality: data.locationDetails.municipality || '',
-      foundingYear: parseInt(data.historicalDetails.foundingYear) || new Date().getFullYear(),
-      founders: data.historicalDetails.founders || '',
-      keyFigures: [],
-      architecturalStyle: toArchitecturalStyle(data.historicalDetails.architecturalStyle || 'other'),
-      historicalBackground: data.historicalDetails.historicalBackground || '',
-      description: data.historicalDetails.historicalBackground || '',
-      classification: toChurchClassification(data.historicalDetails.heritageClassification),
-      assignedPriest: data.currentParishPriest || '',
-      massSchedules: (data.massSchedules || []).map(schedule => ({
-        day: schedule.day || '',
-        time: schedule.endTime ? `${schedule.time} - ${schedule.endTime}` : schedule.time,
-        type: schedule.isFbLive ? `${schedule.language || 'Filipino'} (FB Live)` : (schedule.language || 'Filipino')
-      })),
-      coordinates: data.coordinates && (data.coordinates.lat !== 0 || data.coordinates.lng !== 0) ? {
-        latitude: data.coordinates.lat,
-        longitude: data.coordinates.lng
-      } : undefined,
-      contactInfo: {
-        phone: data.contactInfo?.phone || '',
-        email: data.contactInfo?.email || '',
-        address: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '')
-      },
-      images: (data.photos || []).map(photo => photo.url || '').filter(url => url !== ''),
-      documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
-      virtualTour360: (data.virtual360Images || []).map(img => img.url).filter(url => url !== ''),
-      culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
-      preservationHistory: '',
-      restorationHistory: '',
-      tags: [],
-      category: 'parish_church'
-    };
   };
 
   const handleValidateChurch = async (church: Church) => {
@@ -323,14 +330,14 @@ const MuseumResearcherDashboard = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-amber-900 mb-1">
-                Heritage Reviewer Dashboard
+                National Museum of the Philippines - Bohol
               </h1>
               <p className="text-slate-600">
                 Securely review and verify heritage church entries (ICP/NCT), validate historical content, and enhance cultural documentation across both dioceses
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-800">
-                  {userProfile?.name}
+                  Museum Researcher
                 </Badge>
               </div>
             </div>
@@ -497,6 +504,7 @@ const MuseumResearcherDashboard = () => {
         onSave={handleSaveChurch} // Heritage reviewer can save edits
         onSubmit={handleSubmitChurch} // Heritage reviewer can submit edits
         isSubmitting={isSubmitting}
+        isMuseumResearcher={true} // Enable museum researcher mode - only historical tab and documents editable
       />
     </Layout>
   );

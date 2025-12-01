@@ -17,6 +17,16 @@ import {
 import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface PublicUser {
   id: string;
@@ -54,6 +64,10 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockReason, setBlockReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Unblock confirmation dialog state
+  const [unblockDialogOpen, setUnblockDialogOpen] = useState(false);
+  const [userToUnblock, setUserToUnblock] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch users from Firestore
   const fetchUsers = async () => {
@@ -191,13 +205,19 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
     }
   };
 
-  // Handle unblock user
-  const handleUnblockUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to unblock this user?')) return;
+  // Handle unblock user - opens confirmation dialog
+  const handleUnblockClick = (userId: string, userName: string) => {
+    setUserToUnblock({ id: userId, name: userName });
+    setUnblockDialogOpen(true);
+  };
+
+  // Confirm unblock user - executes the action
+  const handleConfirmUnblock = async () => {
+    if (!userToUnblock) return;
 
     try {
       setActionLoading(true);
-      const userRef = doc(db, 'users', userId);
+      const userRef = doc(db, 'users', userToUnblock.id);
 
       await updateDoc(userRef, {
         isBlocked: false,
@@ -213,6 +233,8 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
       console.error('Error unblocking user:', err);
     } finally {
       setActionLoading(false);
+      setUnblockDialogOpen(false);
+      setUserToUnblock(null);
     }
   };
 
@@ -442,7 +464,7 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                         </button>
                         {user.isBlocked ? (
                           <button
-                            onClick={() => handleUnblockUser(user.id)}
+                            onClick={() => handleUnblockClick(user.id, user.displayName)}
                             disabled={actionLoading}
                             className="text-green-600 hover:text-green-900 disabled:opacity-50"
                             title="Unblock User"
@@ -634,6 +656,36 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
           </div>
         </div>
       )}
+
+      {/* Unblock User Confirmation Dialog */}
+      <AlertDialog open={unblockDialogOpen} onOpenChange={setUnblockDialogOpen}>
+        <AlertDialogContent className="bg-white border shadow-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-green-500" />
+              Unblock User?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left">
+              {userToUnblock && (
+                <>
+                  You are about to unblock <strong className="text-foreground">{userToUnblock.name}</strong>.
+                  <br /><br />
+                  This user will regain access to the VISITA mobile app and can log in again.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmUnblock}
+              className="bg-green-500 hover:bg-green-600 text-white"
+            >
+              Unblock User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

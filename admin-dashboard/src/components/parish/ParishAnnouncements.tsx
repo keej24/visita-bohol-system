@@ -42,6 +42,11 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
 
     try {
       setIsLoading(true);
+      console.log('🔍 [PARISH ANNOUNCEMENTS] Loading announcements for:', {
+        churchId,
+        diocese: userProfile.diocese,
+        userId: userProfile.uid
+      });
 
       // Auto-archive past events
       const archivedCount = await AnnouncementService.autoArchivePastEvents(userProfile.diocese);
@@ -60,10 +65,18 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
         createdBy: userProfile.uid // Only show announcements created by this user
       });
 
+      console.log('📋 [PARISH ANNOUNCEMENTS] Fetched announcements:', {
+        total: data.length,
+        parishIds: data.map(a => ({ id: a.id, parishId: a.parishId, title: a.title })),
+        filteringFor: churchId
+      });
+
       // Filter to only this parish's announcements (additional client-side filter for safety)
       const parishAnnouncements = data.filter(announcement =>
         announcement.parishId === churchId
       );
+
+      console.log('✅ [PARISH ANNOUNCEMENTS] After filter:', parishAnnouncements.length);
 
       setAnnouncements(parishAnnouncements);
     } catch (error) {

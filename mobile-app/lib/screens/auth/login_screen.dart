@@ -70,14 +70,16 @@ class _LoginScreenState extends State<LoginScreen> {
     authService.clearError();
 
     try {
-      debugPrint('🔐 Attempting login with email: ${_emailController.text.trim()}');
+      debugPrint(
+          '🔐 Attempting login with email: ${_emailController.text.trim()}');
 
       final user = await authService.signIn(
         _emailController.text.trim(),
         _passwordController.text,
       );
 
-      debugPrint('🔐 Login result - User: ${user?.uid}, Error: ${authService.errorMessage}');
+      debugPrint(
+          '🔐 Login result - User: ${user?.uid}, Error: ${authService.errorMessage}');
 
       if (!mounted) {
         debugPrint('⚠️ Widget not mounted, returning early');
@@ -113,12 +115,34 @@ class _LoginScreenState extends State<LoginScreen> {
 
         debugPrint('❌ SnackBar shown and error displayed');
       } else {
-        // Login successful
+        // Login successful - now check if user is blocked in Firestore
+        debugPrint('✅ Firebase Auth successful, checking block status...');
+
+        final blockInfo = await authService.checkIfUserBlocked(user.uid);
+
+        if (blockInfo != null && blockInfo['isBlocked'] == true) {
+          // User is blocked - sign them out and show the reason
+          debugPrint('🚫 User is blocked, signing out...');
+          await authService.signOut();
+
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+
+            // Show blocked dialog with reason
+            _showBlockedDialog(
+                blockInfo['blockReason'] ?? 'No reason provided');
+          }
+          return;
+        }
+
+        // User is not blocked - proceed with login
         setState(() {
           _isLoading = false;
         });
 
-        debugPrint('✅ Login successful');
+        debugPrint('✅ Login successful - user is not blocked');
 
         // Success! AuthWrapper will automatically show HomeScreen.
         // If this screen was pushed (e.g., from a bottom sheet/menu), close it.
@@ -144,6 +168,90 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     }
+  }
+
+  /// Show a dialog explaining that the user's account is blocked
+  void _showBlockedDialog(String reason) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          icon: const Icon(
+            Icons.block,
+            color: Colors.red,
+            size: 48,
+          ),
+          title: const Text(
+            'Account Blocked',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your account has been blocked by an administrator.',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Reason:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      reason,
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'If you believe this is an error, please contact the Chancery Office.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String? _validateEmail(String? value) {

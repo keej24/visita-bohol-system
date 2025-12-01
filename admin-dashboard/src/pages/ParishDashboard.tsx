@@ -85,6 +85,7 @@ import { ChurchService } from '@/services/churchService';
 import type { ArchitecturalStyle, ChurchClassification, Church } from '@/types/church';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useQueryClient } from '@tanstack/react-query';
 
 // View type for managing which content is displayed
 type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback';
@@ -94,6 +95,7 @@ const ParishDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const { toast } = useToast();
   const { userProfile } = useAuth();
+  const queryClient = useQueryClient();
   const [currentView, setCurrentView] = useState<ViewType>('overview');
   const [churchId, setChurchId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -283,6 +285,13 @@ const ParishDashboard = () => {
         .then((church) => {
           if (church) {
             // Church exists in Firebase - load the data
+            console.log('🏛️ [PARISH DASHBOARD] Church loaded:', {
+              documentId: church.id,
+              name: church.name,
+              userParishId: userProfile.parishId,
+              userParish: userProfile.parish,
+              searchedWith: userProfile.parishId || userProfile.parish
+            });
             setExistingChurch(church);
             setChurchId(church.id);
             setChurchInfo(convertChurchToInfo(church));
@@ -295,6 +304,11 @@ const ParishDashboard = () => {
             }
           } else {
             // No existing church - initialize with default data but don't show form yet
+            console.log('⚠️ [PARISH DASHBOARD] No church found for:', {
+              searchedWith: userProfile.parishId || userProfile.parish,
+              userParishId: userProfile.parishId,
+              userParish: userProfile.parish
+            });
             const displayName = userProfile.parishInfo?.fullName || userProfile.parish || '';
             setChurchInfo(prev => ({
               ...prev,
@@ -680,6 +694,9 @@ const ParishDashboard = () => {
           title: "Success",
           description: "Church profile submitted for review!"
         });
+
+        // Invalidate all church queries to update all dashboards
+        await queryClient.invalidateQueries({ queryKey: ['churches'] });
       } else {
         // Update existing church in Firebase
         // If church is draft, change to pending on submit
@@ -713,6 +730,9 @@ const ParishDashboard = () => {
           title: "Success",
           description: `Church profile ${statusText} successfully!`
         });
+
+        // Invalidate all church queries to update all dashboards
+        await queryClient.invalidateQueries({ queryKey: ['churches'] });
       }
     } catch (error) {
       console.error('Church submission error:', error);
@@ -1000,6 +1020,10 @@ const ParishDashboard = () => {
                   <p className="text-gray-900">{churchInfo.locationDetails?.streetAddress || 'Not specified'}</p>
                 </div>
                 <div>
+                  <span className="text-sm font-medium text-gray-500">Barangay:</span>
+                  <p className="text-gray-900">{churchInfo.locationDetails?.barangay || 'Not specified'}</p>
+                </div>
+                <div>
                   <span className="text-sm font-medium text-gray-500">Municipality:</span>
                   <p className="text-gray-900">{churchInfo.locationDetails?.municipality || 'Not specified'}</p>
                 </div>
@@ -1211,7 +1235,7 @@ const ParishDashboard = () => {
         />
       ) : currentView === 'announcements' ? (
         <ParishAnnouncements
-          churchId={userProfile?.parishId || userProfile?.parish || ''}
+          churchId={churchId || existingChurch?.id || userProfile?.parishId || userProfile?.parish || ''}
           onClose={() => {
             setCurrentView('overview');
             setActiveTab('overview');
@@ -1220,7 +1244,7 @@ const ParishDashboard = () => {
       ) : currentView === 'feedback' ? (
         <ParishFeedback
           churchName={churchInfo.churchName || churchInfo.name || 'Your Parish'}
-          churchId={userProfile?.parishId || userProfile?.parish || ''}
+          churchId={churchId || existingChurch?.id || userProfile?.parishId || userProfile?.parish || ''}
         />
       ) : currentView === 'profile' ? (
         <ChurchProfileForm

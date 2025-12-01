@@ -468,47 +468,6 @@ export class PDFExportService {
     yPos = (doc as any).lastAutoTable.finalY + 15;
 
     // ============================
-    // 6. APPENDICES & SUPPORTING DOCUMENTATION
-    // ============================
-    yPos = this.checkPageBreak(doc, yPos, 50);
-    yPos = this.addSectionHeader(doc, '6. APPENDICES & SUPPORTING DOCUMENTATION', yPos);
-
-    // Appendix A: Heritage Documents
-    yPos = this.addSubsectionHeader(doc, 'Appendix A: Heritage Documents', yPos);
-
-    const hasHeritage = churchInfo.historicalDetails?.heritageClassification &&
-                       churchInfo.historicalDetails.heritageClassification !== 'None';
-
-    if (hasHeritage) {
-      doc.text(`Heritage documentation available for ${churchInfo.historicalDetails.heritageClassification} classification`, 25, yPos);
-    } else {
-      doc.text('No heritage documentation required', 25, yPos);
-    }
-    yPos += 10;
-
-    // Appendix B: Report Metadata
-    yPos = this.checkPageBreak(doc, yPos, 30);
-    yPos = this.addSubsectionHeader(doc, 'Appendix B: Report Metadata', yPos);
-
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Report Version: 1.0`, 25, yPos);
-    yPos += 5;
-    doc.text(`Generated: ${new Date().toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })}`, 25, yPos);
-    yPos += 5;
-    doc.text(`System: Visita - Church Documentation System`, 25, yPos);
-    yPos += 5;
-    doc.text(`Data Source: Parish Dashboard Submission`, 25, yPos);
-
-    doc.setTextColor(0, 0, 0);
-
-    // ============================
     // FOOTER (On Every Page)
     // ============================
     const pageCount = doc.getNumberOfPages();
@@ -808,7 +767,7 @@ export class PDFExportService {
         period.period,
         period.visitors.toLocaleString(),
         `${Math.round((period.visitors / totalPeriodVisitors) * 100)}%`,
-        period.peak ? '★ Peak' : ''
+        period.peak ? '[PEAK]' : ''
       ]),
       theme: 'grid',
       headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
@@ -838,7 +797,7 @@ export class PDFExportService {
       body: engagementMetrics.ratingDistribution
         .sort((a, b) => b.rating - a.rating)
         .map(r => [
-          '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating),
+          `${r.rating} Star${r.rating !== 1 ? 's' : ''}`,
           r.count.toString(),
           `${r.percentage}%`
         ]),

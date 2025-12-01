@@ -119,12 +119,14 @@ service cloud.firestore {
   // Chancery office can delete churches in their diocese
   allow delete: if isChanceryOffice() && resource.data.diocese == getUserData().diocese;
       
-      // Museum researchers can update heritage-related fields across dioceses
+      // Museum researchers can update heritage-related fields and historical information across dioceses
       allow update: if isMuseumResearcher() &&
                            request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['culturalSignificance', 'heritageNotes', 'heritageValidation',
                                        'heritageDeclaration', 'lastHeritageUpdate', 'heritageResearcher',
-                                       'status', 'updatedAt', 'lastReviewedBy', 'lastReviewNote', 'lastStatusChange']);
+                                       'status', 'updatedAt', 'lastReviewedBy', 'lastReviewNote', 'lastStatusChange',
+                                       'historicalBackground', 'description', 'architecturalStyle', 'architecturalFeatures',
+                                       'heritageInformation', 'classification', 'foundingYear', 'founders', 'documents']);
     }
     
     // Church heritage validation subcollection

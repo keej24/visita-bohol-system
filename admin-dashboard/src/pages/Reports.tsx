@@ -69,6 +69,18 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { 
+  LineChart, 
+  Line, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Cell 
+} from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
@@ -91,7 +103,9 @@ import {
   Clock, 
   MapPin, 
   Calendar as CalendarIcon, 
-  TrendingUp, 
+  TrendingUp,
+  TrendingDown,
+  Minus,
   Activity, 
   PieChart, 
   Eye 
@@ -107,6 +121,7 @@ const Reports = () => {
   const [reportType, setReportType] = useState<string>('church_summary');
   const [selectedMunicipality, setSelectedMunicipality] = useState<string>('all');
   const [selectedClassification, setSelectedClassification] = useState<string>('all');
+  const [selectedParish, setSelectedParish] = useState<string>('all');
   const [exportFormat, setExportFormat] = useState<string>('pdf');
   const [activeTab, setActiveTab] = useState<string>('church_summary');
   
@@ -220,6 +235,16 @@ const Reports = () => {
     return municipalities.sort();
   }, [churchSummaryData]);
 
+  // Get unique parishes (church names) from church data, filtered by selected municipality
+  const availableParishes = useMemo(() => {
+    if (!churchSummaryData) return [];
+    let filtered = churchSummaryData;
+    if (selectedMunicipality !== 'all') {
+      filtered = filtered.filter(c => c.municipality === selectedMunicipality);
+    }
+    return filtered.map(c => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [churchSummaryData, selectedMunicipality]);
+
   // Get filtered churches data
   const availableChurches = useMemo(() => {
     if (!churchSummaryData) return [];
@@ -235,13 +260,18 @@ const Reports = () => {
       filtered = filtered.filter(c => c.municipality === selectedMunicipality);
     }
 
+    // Apply parish filter
+    if (selectedParish !== 'all') {
+      filtered = filtered.filter(c => c.id === selectedParish);
+    }
+
     // Apply classification filter
     if (selectedClassification !== 'all') {
       filtered = filtered.filter(c => c.classification === selectedClassification);
     }
 
     return filtered;
-  }, [churchSummaryData, isParishSecretary, userProfile?.parish, selectedMunicipality, selectedClassification]);
+  }, [churchSummaryData, isParishSecretary, userProfile?.parish, selectedMunicipality, selectedParish, selectedClassification]);
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -267,6 +297,49 @@ const Reports = () => {
       totalFeedback: dioceseAnalytics.totalFeedback
     };
   }, [dioceseAnalytics]);
+
+  // Calculate visitor growth/decline indicators
+  const visitorGrowth = useMemo(() => {
+    if (!engagementMetrics?.visitorTrends || engagementMetrics.visitorTrends.length < 2) {
+      return { percentage: 0, trend: 'neutral' as const };
+    }
+    
+    const trends = engagementMetrics.visitorTrends;
+    const currentMonth = trends[trends.length - 1]?.visitors || 0;
+    const previousMonth = trends[trends.length - 2]?.visitors || 0;
+    
+    if (previousMonth === 0) {
+      return { percentage: currentMonth > 0 ? 100 : 0, trend: currentMonth > 0 ? 'up' as const : 'neutral' as const };
+    }
+    
+    const percentage = Math.round(((currentMonth - previousMonth) / previousMonth) * 100);
+    const trend = percentage > 0 ? 'up' as const : percentage < 0 ? 'down' as const : 'neutral' as const;
+    
+    return { percentage: Math.abs(percentage), trend };
+  }, [engagementMetrics?.visitorTrends]);
+
+  // Growth indicator component
+  const GrowthIndicator = ({ percentage, trend }: { percentage: number; trend: 'up' | 'down' | 'neutral' }) => {
+    if (trend === 'neutral') {
+      return (
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <Minus className="w-4 h-4" />
+          <span className="text-sm">No change</span>
+        </div>
+      );
+    }
+    
+    const isUp = trend === 'up';
+    return (
+      <div className={cn(
+        "flex items-center gap-1",
+        isUp ? "text-green-600" : "text-red-600"
+      )}>
+        {isUp ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+        <span className="text-sm font-medium">{percentage}% {isUp ? 'increase' : 'decrease'}</span>
+      </div>
+    );
+  };
 
   // Show export confirmation dialog
   const handleExportClick = (format: string, reportType: string) => {
@@ -555,11 +628,14 @@ const Reports = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {!isParishSecretary && (
                     <div className="space-y-2">
                       <Label>Municipality</Label>
-                      <Select value={selectedMunicipality} onValueChange={setSelectedMunicipality}>
+                      <Select value={selectedMunicipality} onValueChange={(value) => {
+                        setSelectedMunicipality(value);
+                        setSelectedParish('all'); // Reset parish when municipality changes
+                      }}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -568,6 +644,25 @@ const Reports = () => {
                           {availableMunicipalities.map((municipality) => (
                             <SelectItem key={municipality} value={municipality}>
                               {municipality}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {!isParishSecretary && (
+                    <div className="space-y-2">
+                      <Label>Parish</Label>
+                      <Select value={selectedParish} onValueChange={setSelectedParish}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Parishes</SelectItem>
+                          {availableParishes.map((parish) => (
+                            <SelectItem key={parish.id} value={parish.id}>
+                              {parish.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -642,10 +737,11 @@ const Reports = () => {
                   <Church className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Records Found</h3>
                   <p className="text-muted-foreground mb-4">
-                    {selectedMunicipality !== 'all' || selectedClassification !== 'all' ? (
+                    {selectedMunicipality !== 'all' || selectedParish !== 'all' || selectedClassification !== 'all' ? (
                       <>
                         No churches match your selected filters. Try adjusting your filter criteria:
                         {selectedMunicipality !== 'all' && <><br />• Municipality: {selectedMunicipality}</>}
+                        {selectedParish !== 'all' && <><br />• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</>}
                         {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</>}
                       </>
                     ) : (
@@ -660,6 +756,7 @@ const Reports = () => {
                       variant="outline" 
                       onClick={() => {
                         setSelectedMunicipality('all');
+                        setSelectedParish('all');
                         setSelectedClassification('all');
                       }}
                     >
@@ -694,6 +791,7 @@ const Reports = () => {
                           <p className="text-muted-foreground mb-4">
                             No churches match your selected filters:
                             {selectedMunicipality !== 'all' && <><br />• Municipality: {selectedMunicipality}</>}
+                            {selectedParish !== 'all' && <><br />• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</>}
                             {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</>}
                           </p>
                           <div className="flex gap-3 justify-center">
@@ -701,6 +799,7 @@ const Reports = () => {
                               variant="outline" 
                               onClick={() => {
                                 setSelectedMunicipality('all');
+                                setSelectedParish('all');
                                 setSelectedClassification('all');
                               }}
                             >
@@ -774,21 +873,6 @@ const Reports = () => {
                           <span className="text-sm font-medium">Major Historical Events:</span>
                           <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
                             {church.majorEvents.map((event, index) => (
-                              <li key={index}>{event}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Preservation History */}
-                    {church.preservationHistory && Array.isArray(church.preservationHistory) && church.preservationHistory.length > 0 && (
-                      <>
-                        <Separator />
-                        <div className="space-y-2">
-                          <span className="text-sm font-medium">Preservation History:</span>
-                          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                            {church.preservationHistory.map((event, index) => (
                               <li key={index}>{event}</li>
                             ))}
                           </ul>
@@ -1008,28 +1092,61 @@ const Reports = () => {
             {/* Visitor Trends Chart */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Visitor Activity Trends
-                </CardTitle>
-                <CardDescription>
-                  Monthly visitor statistics showing growth and decline patterns
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      Visitor Activity Trends
+                    </CardTitle>
+                    <CardDescription>
+                      Monthly visitor statistics showing growth and decline patterns
+                    </CardDescription>
+                  </div>
+                  {engagementMetrics?.visitorTrends && engagementMetrics.visitorTrends.length >= 2 && (
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground mb-1">vs. Previous Month</p>
+                      <GrowthIndicator percentage={visitorGrowth.percentage} trend={visitorGrowth.trend} />
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {engagementMetrics?.visitorTrends && engagementMetrics.visitorTrends.length > 0 ? (
-                  <div className="space-y-4">
-                    {engagementMetrics.visitorTrends.map((trend, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{trend.month}</span>
-                        <div className="flex items-center gap-3">
-                          <Progress value={Math.min((trend.visitors / 30000) * 100, 100)} className="w-32" />
-                          <span className="text-sm font-bold w-20 text-right">
-                            {trend.visitors.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={engagementMetrics.visitorTrends} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis 
+                          dataKey="month" 
+                          tick={{ fontSize: 12 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis 
+                          tick={{ fontSize: 12 }}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => value.toLocaleString()}
+                        />
+                        <Tooltip 
+                          formatter={(value: number) => [value.toLocaleString(), 'Visitors']}
+                          labelStyle={{ fontWeight: 'bold' }}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="visitors" 
+                          stroke="hsl(var(--primary))" 
+                          strokeWidth={2}
+                          dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
+                          activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
@@ -1098,19 +1215,47 @@ const Reports = () => {
               </CardHeader>
               <CardContent>
                 {engagementMetrics?.ratingDistribution && engagementMetrics.ratingDistribution.some(r => r.count > 0) ? (
-                  <div className="space-y-4">
-                    {engagementMetrics.ratingDistribution.map((rating) => (
-                      <div key={rating.rating} className="flex items-center gap-4">
-                        <div className="flex items-center gap-1 w-16">
-                          {renderStars(rating.rating)}
-                        </div>
-                        <Progress value={rating.percentage} className="flex-1" />
-                        <div className="text-right min-w-[80px]">
-                          <span className="text-sm font-medium">{rating.count}</span>
-                          <span className="text-sm text-muted-foreground ml-1">({rating.percentage}%)</span>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="h-[250px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart 
+                        data={engagementMetrics.ratingDistribution.map(r => ({
+                          ...r,
+                          label: `${r.rating} Star${r.rating !== 1 ? 's' : ''}`
+                        }))} 
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+                        <XAxis type="number" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                        <YAxis 
+                          type="category" 
+                          dataKey="label" 
+                          tick={{ fontSize: 12 }}
+                          tickLine={false}
+                          axisLine={false}
+                          width={60}
+                        />
+                        <Tooltip 
+                          formatter={(value: number, _name: string, props: { payload: { percentage: number } }) => [
+                            `${value} reviews (${props.payload.percentage}%)`, 
+                            'Count'
+                          ]}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                          {engagementMetrics.ratingDistribution.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={entry.rating >= 4 ? '#22c55e' : entry.rating >= 3 ? '#f59e0b' : '#ef4444'} 
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
@@ -1175,34 +1320,107 @@ const Reports = () => {
 
       {/* Export Confirmation Dialog */}
       <AlertDialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Export</AlertDialogTitle>
-            <AlertDialogDescription>
-              You are about to export the <strong>{pendingExport?.reportType === 'church_summary' ? 'Church Summary' : 'Engagement Analytics'}</strong> report as a <strong>{pendingExport?.format === 'pdf' ? 'PDF document' : 'Excel spreadsheet'}</strong>.
-              <br /><br />
-              {pendingExport?.reportType === 'church_summary' ? (
-                <>
-                  <strong>Applied Filters:</strong>
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    {selectedMunicipality !== 'all' && (
-                      <li>Municipality: {selectedMunicipality}</li>
-                    )}
-                    {selectedClassification !== 'all' && (
-                      <li>Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</li>
-                    )}
-                    {selectedMunicipality === 'all' && selectedClassification === 'all' && (
-                      <li>All churches in {currentDiocese} diocese</li>
-                    )}
-                  </ul>
-                </>
-              ) : (
-                <>
-                  <strong>Date Range:</strong> {formatDate(startDate, 'MMM dd, yyyy')} - {formatDate(endDate, 'MMM dd, yyyy')}
-                </>
-              )}
-              <br /><br />
-              This report will be downloaded to your device. Do you want to continue?
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  You are about to export the <strong>{pendingExport?.reportType === 'church_summary' ? 'Church Summary' : 'Engagement Analytics'}</strong> report as a <strong>{pendingExport?.format === 'pdf' ? 'PDF document' : 'Excel spreadsheet'}</strong>.
+                </p>
+                
+                {/* Report Preview Summary */}
+                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                  <h4 className="font-semibold text-foreground">Report Preview</h4>
+                  
+                  {pendingExport?.reportType === 'church_summary' ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total Churches:</span>
+                          <span className="font-medium text-foreground">{availableChurches.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Heritage (NCT/ICP):</span>
+                          <span className="font-medium text-foreground">
+                            {availableChurches.filter(c => c.classification === 'NCT' || c.classification === 'ICP').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">With Historical Data:</span>
+                          <span className="font-medium text-foreground">
+                            {availableChurches.filter(c => 
+                              (c.founders && c.founders.length > 0) || 
+                              (c.majorEvents && c.majorEvents.length > 0)
+                            ).length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Municipalities:</span>
+                          <span className="font-medium text-foreground">
+                            {new Set(availableChurches.map(c => c.municipality)).size}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-2 border-t border-border">
+                        <p className="text-xs text-muted-foreground font-medium mb-1">Applied Filters:</p>
+                        <ul className="text-xs text-muted-foreground space-y-0.5">
+                          {selectedMunicipality !== 'all' && (
+                            <li>• Municipality: {selectedMunicipality}</li>
+                          )}
+                          {selectedParish !== 'all' && (
+                            <li>• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</li>
+                          )}
+                          {selectedClassification !== 'all' && (
+                            <li>• Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</li>
+                          )}
+                          {selectedMunicipality === 'all' && selectedParish === 'all' && selectedClassification === 'all' && (
+                            <li>• All churches in {currentDiocese} diocese</li>
+                          )}
+                        </ul>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total Visitors:</span>
+                          <span className="font-medium text-foreground">{summaryStats.totalVisitors.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total Feedback:</span>
+                          <span className="font-medium text-foreground">{summaryStats.totalFeedback.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Avg Rating:</span>
+                          <span className="font-medium text-foreground">{summaryStats.avgRating} / 5.0</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Monthly Trend:</span>
+                          <span className={cn(
+                            "font-medium",
+                            visitorGrowth.trend === 'up' ? "text-green-600" : 
+                            visitorGrowth.trend === 'down' ? "text-red-600" : "text-muted-foreground"
+                          )}>
+                            {visitorGrowth.trend === 'up' ? '↑' : visitorGrowth.trend === 'down' ? '↓' : '–'} {visitorGrowth.percentage}%
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-2 border-t border-border">
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Date Range:</strong> {formatDate(startDate, 'MMM dd, yyyy')} - {formatDate(endDate, 'MMM dd, yyyy')}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                <p className="text-sm">
+                  This report will be downloaded to your device. Do you want to continue?
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -56,6 +56,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Simple AuthService with Firebase Authentication
 ///
@@ -64,12 +65,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// or context.watch<AuthService>() for reactive updates.
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Public getters for auth state
   User? get currentUser => _auth.currentUser;
   bool get isAuthenticated => _auth.currentUser != null;
   bool get isLoading => _isLoading;
   String? errorMessage;
+
+  // Block status info (populated after login check)
+  final bool _isBlocked = false;
+  String? _blockReason;
+  bool get isBlocked => _isBlocked;
+  String? get blockReason => _blockReason;
 
   bool _isLoading = false;
 
@@ -84,6 +92,75 @@ class AuthService extends ChangeNotifier {
     });
   }
 
+  /// Check if user is blocked in Firestore
+  /// Returns a map with 'isBlocked' and 'blockReason' if blocked
+  /// Returns null if user is not blocked or if user document doesn't exist
+  Future<Map<String, dynamic>?> checkIfUserBlocked(String uid) async {
+    try {
+      debugPrint('🔍 Checking if user $uid is blocked...');
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+
+      if (!userDoc.exists) {
+        // User document doesn't exist - this is normal for users who signed up
+        // before we started creating Firestore documents
+        debugPrint(
+            'ℹ️ User document not found in Firestore (new or legacy user)');
+
+        // Try to create a basic user document for them
+        try {
+          final currentUser = _auth.currentUser;
+          if (currentUser != null) {
+            await _firestore.collection('users').doc(uid).set({
+              'uid': uid,
+              'email': currentUser.email,
+              'displayName': currentUser.displayName ?? 'User',
+              'accountType': 'public',
+              'isActive': true,
+              'isBlocked': false,
+              'createdAt': FieldValue.serverTimestamp(),
+              'lastLoginAt': FieldValue.serverTimestamp(),
+            });
+            debugPrint('✅ Created missing user document in Firestore');
+          }
+        } catch (createError) {
+          // Don't fail if we can't create the document
+          debugPrint('⚠️ Could not create user document: $createError');
+        }
+
+        return null; // Not blocked
+      }
+
+      final data = userDoc.data();
+      final isBlocked = data?['isBlocked'] == true;
+      final blockReason = data?['blockReason'] as String?;
+
+      // Update last login time
+      try {
+        await _firestore.collection('users').doc(uid).update({
+          'lastLoginAt': FieldValue.serverTimestamp(),
+        });
+      } catch (updateError) {
+        // Don't fail if we can't update last login
+        debugPrint('⚠️ Could not update lastLoginAt: $updateError');
+      }
+
+      if (isBlocked) {
+        debugPrint('🚫 User is BLOCKED. Reason: $blockReason');
+        return {
+          'isBlocked': true,
+          'blockReason': blockReason ?? 'No reason provided',
+        };
+      }
+
+      debugPrint('✅ User is not blocked');
+      return null;
+    } catch (e) {
+      debugPrint('⚠️ Error checking block status: $e');
+      // Don't block login on error - let them through
+      return null;
+    }
+  }
+
   Future<User?> signUp(String email, String password, String displayName,
       {String? nationality}) async {
     _setLoading(true);
@@ -94,9 +171,31 @@ class AuthService extends ChangeNotifier {
         password: password,
       );
 
-      // Update display name (we could also store nationality in Firestore later)
+      // Update display name
       await result.user?.updateDisplayName(displayName);
       await result.user?.reload();
+
+      // Create user document in Firestore for public user management
+      if (result.user != null) {
+        try {
+          await _firestore.collection('users').doc(result.user!.uid).set({
+            'uid': result.user!.uid,
+            'email': email,
+            'displayName': displayName,
+            'nationality': nationality,
+            'accountType': 'public',
+            'isActive': true,
+            'isBlocked': false,
+            'createdAt': FieldValue.serverTimestamp(),
+            'lastLoginAt': FieldValue.serverTimestamp(),
+          });
+          debugPrint('✅ User document created in Firestore');
+        } catch (firestoreError) {
+          // Don't fail signup if Firestore write fails
+          debugPrint(
+              '⚠️ Failed to create user document in Firestore: $firestoreError');
+        }
+      }
 
       notifyListeners();
       return _auth.currentUser;

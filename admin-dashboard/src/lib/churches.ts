@@ -18,23 +18,46 @@ export interface MassSchedule {
 export interface Church {
   id: string;
   name: string;
+  fullName?: string;
   municipality?: string;
   parishId?: string;
   diocese: Diocese;
   status: ChurchStatus;
   classification?: 'ICP' | 'NCT' | 'non-heritage' | 'unknown';
   foundedYear?: number;
+  foundingYear?: number;
+  founders?: string;
   // Parish-editable extended fields
   address?: string;
+  location?: string;
   latitude?: number;
   longitude?: number;
+  coordinates?: {
+    latitude?: number;
+    longitude?: number;
+  };
   architecturalStyle?: string;
   historicalBackground?: string;
+  description?: string;
   massSchedules?: MassSchedule[];
   assignedPriest?: string;
+  contactInfo?: {
+    phone?: string;
+    email?: string;
+    address?: string;
+    website?: string;
+    facebookPage?: string;
+  };
+  // Media fields
+  images?: string[];
+  documents?: string[];
+  virtualTour360?: string[];
   // Heritage-related fields (museum researcher)
   culturalSignificance?: string;
   heritageNotes?: string;
+  architecturalFeatures?: string;
+  heritageInformation?: string;
+  religiousClassification?: string;
   heritageValidation?: {
     validated: boolean;
     notes?: string;
@@ -52,6 +75,7 @@ export interface Church {
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   submittedBy?: string; // uid
+  createdBy?: string; // uid
   // Status tracking fields
   lastReviewedBy?: string; // uid
   lastReviewNote?: string;

@@ -19,11 +19,15 @@ import {
   X,
   Image as ImageIcon,
   FileText,
-  Eye
+  Eye,
+  ExternalLink,
+  Info,
+  MessageSquare
 } from 'lucide-react';
 import type { Church } from '@/lib/churches';
 import { ChurchProfileForm } from '@/components/parish/ChurchProfileForm';
 import { ChurchInfo } from '@/components/parish/types';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Props {
   church: Church | null;
@@ -33,6 +37,7 @@ interface Props {
   onSave?: (data: ChurchInfo) => void;
   onSubmit?: (data: ChurchInfo) => void;
   isSubmitting?: boolean;
+  isMuseumResearcher?: boolean; // Museum researcher can only edit historical tab and documents
 }
 
 export function ChurchDetailModal({
@@ -42,7 +47,8 @@ export function ChurchDetailModal({
   mode,
   onSave,
   onSubmit,
-  isSubmitting = false
+  isSubmitting = false,
+  isMuseumResearcher = false
 }: Props) {
   const [editMode, setEditMode] = useState(mode === 'edit');
 
@@ -128,8 +134,28 @@ export function ChurchDetailModal({
         website: churchData.contactInfo?.website || '',
         facebookPage: churchData.contactInfo?.facebookPage || ''
       },
-      photos: churchData.images || [],
-      documents: churchData.documents || [],
+      // Convert images array (strings) to FileUpload format
+      photos: (churchData.images || []).map((url: string, index: number) => ({
+        id: `photo-${index}`,
+        name: `Photo ${index + 1}`,
+        type: 'photo' as const,
+        url: url,
+        uploadDate: new Date().toISOString(),
+        status: 'approved' as const
+      })),
+      // Convert documents array to FileUpload format
+      documents: (churchData.documents || []).map((doc: string | { url?: string; name?: string }, index: number) => {
+        const url = typeof doc === 'string' ? doc : doc.url || '';
+        const name = typeof doc === 'string' ? `Document ${index + 1}` : doc.name || `Document ${index + 1}`;
+        return {
+          id: `doc-${index}`,
+          name: name,
+          type: 'document' as const,
+          url: url,
+          uploadDate: new Date().toISOString(),
+          status: 'approved' as const
+        };
+      }),
       virtual360Images: churchData.virtualTour360 || [],
 
       // Legacy fields
@@ -182,7 +208,10 @@ export function ChurchDetailModal({
               <div>
                 <DialogTitle className="text-xl font-semibold">Edit Church Entry</DialogTitle>
                 <DialogDescription>
-                  Review and edit church information for accuracy
+                  {isMuseumResearcher 
+                    ? 'You can edit historical information and add documents only'
+                    : 'Review and edit church information for accuracy'
+                  }
                 </DialogDescription>
               </div>
               <Button
@@ -196,6 +225,15 @@ export function ChurchDetailModal({
             </div>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto">
+            {isMuseumResearcher && (
+              <Alert className="mx-6 mt-4 border-blue-200 bg-blue-50">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <strong>Heritage Reviewer Access:</strong> You can edit the <strong>Historical</strong> tab and add <strong>Documents</strong> in the Media tab. 
+                  Basic Info and Pastoral sections are managed by the Parish Secretary.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="p-0">
               <ChurchProfileForm
                 initialData={convertToChurchInfo(church)}
@@ -206,6 +244,7 @@ export function ChurchDetailModal({
                 onCancel={() => setEditMode(false)}
                 isModal={true}
                 isChanceryEdit={true}
+                isMuseumResearcher={isMuseumResearcher}
               />
             </div>
           </div>
@@ -244,6 +283,15 @@ export function ChurchDetailModal({
 
         <div className="flex-1 overflow-hidden px-6 pb-6">
           <ScrollArea className="h-full pr-4">
+            {/* Review Note from Museum Researcher */}
+            {churchData.lastReviewNote && church.status === 'pending' && (
+              <Alert className="mb-4 border-amber-200 bg-amber-50">
+                <MessageSquare className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <strong>Note from Heritage Reviewer:</strong> {churchData.lastReviewNote as string}
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="mt-4">
               <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
@@ -370,6 +418,20 @@ export function ChurchDetailModal({
                       <p className="text-sm whitespace-pre-wrap">{churchData.culturalSignificance as string}</p>
                     </div>
                   )}
+
+                  {churchData.architecturalFeatures && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Architectural Features</label>
+                      <p className="text-sm whitespace-pre-wrap">{churchData.architecturalFeatures as string}</p>
+                    </div>
+                  )}
+
+                  {churchData.heritageInformation && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Heritage Information</label>
+                      <p className="text-sm whitespace-pre-wrap">{churchData.heritageInformation as string}</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -474,12 +536,43 @@ export function ChurchDetailModal({
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {(churchData.documents as Array<unknown>).map((doc, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 border rounded">
-                          <FileText className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">Document {index + 1}</span>
-                        </div>
-                      ))}
+                      {(churchData.documents as Array<unknown>).map((doc, index) => {
+                        // Handle both string URLs and object documents
+                        const docUrl = typeof doc === 'string' ? doc : (doc as { url?: string })?.url;
+                        const docName = typeof doc === 'string' 
+                          ? `Document ${index + 1}` 
+                          : (doc as { name?: string })?.name || `Document ${index + 1}`;
+                        
+                        return (
+                          <div 
+                            key={index} 
+                            className="flex items-center justify-between gap-2 p-3 border rounded hover:bg-gray-50 transition-colors cursor-pointer group"
+                            onClick={() => docUrl && window.open(docUrl, '_blank', 'noopener,noreferrer')}
+                            title="Click to open document"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm truncate group-hover:text-blue-600 transition-colors">
+                                {docName}
+                              </span>
+                            </div>
+                            {docUrl && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(docUrl, '_blank', 'noopener,noreferrer');
+                                }}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
+                                title="Open document in new tab"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>

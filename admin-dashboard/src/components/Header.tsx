@@ -20,7 +20,7 @@
  * ├──────────────────────┼─────────────────────────────────────────────────────┤
  * │ chancery_office      │ "Chancery Office Dashboard" + diocese info          │
  * │ parish_secretary     │ "Parish Secretary Dashboard" + parish/diocese badge │
- * │ museum_researcher    │ "Heritage Reviewer Dashboard"                       │
+ * │ museum_researcher    │ "Museum Researcher Dashboard"                      │
  * └──────────────────────┴─────────────────────────────────────────────────────┘
  *
  * KEY FEATURES:
@@ -177,7 +177,7 @@ export function Header({ setActiveTab }: HeaderProps) {
           <div>
             <h1 className="text-xl font-bold text-foreground">
               {userProfile?.role === 'chancery_office' && 'Chancery Office Dashboard'}
-              {userProfile?.role === 'museum_researcher' && 'Heritage Reviewer Dashboard'}
+              {userProfile?.role === 'museum_researcher' && 'Museum Researcher Dashboard'}
               {userProfile?.role === 'parish_secretary' && 'Parish Secretary Dashboard'}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -210,7 +210,9 @@ export function Header({ setActiveTab }: HeaderProps) {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-medium">
-                    {userProfile?.name || 'Administrator'}
+                    {userProfile?.role === 'museum_researcher' 
+                      ? 'National Museum of the Philippines - Bohol' 
+                      : (userProfile?.name || 'Administrator')}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {userProfile?.role?.replace('_', ' ') || 'User'} 

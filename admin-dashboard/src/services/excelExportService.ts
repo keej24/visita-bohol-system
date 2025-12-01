@@ -236,4 +236,189 @@ export class ExcelExportService {
     const fileName = `${churchName.replace(/\s+/g, '_')}_Feedback_${new Date().getFullYear()}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   }
+
+  /**
+   * Helper function to wrap long text into multiple lines
+   * @param text The text to wrap
+   * @param maxWidth Maximum characters per line
+   * @returns Array of text lines
+   */
+  private static wrapText(text: string, maxWidth: number = 80): string[] {
+    if (!text || text.length <= maxWidth) return [text || ''];
+    
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      if (currentLine.length + word.length + 1 <= maxWidth) {
+        currentLine += (currentLine ? ' ' : '') + word;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+
+    return lines.length > 0 ? lines : [''];
+  }
+
+  /**
+   * Helper function to add wrapped text rows to sheet data
+   * @param label The label for the field
+   * @param text The long text to wrap
+   * @param maxWidth Maximum characters per line
+   * @returns Array of rows to add to sheet
+   */
+  private static addWrappedTextRows(label: string, text: string, maxWidth: number = 100): (string | undefined)[][] {
+    const lines = this.wrapText(text || 'N/A', maxWidth);
+    const rows: (string | undefined)[][] = [];
+    
+    // First row has the label
+    rows.push([label, lines[0]]);
+    
+    // Subsequent rows are continuation (empty label column)
+    for (let i = 1; i < lines.length; i++) {
+      rows.push(['', lines[i]]);
+    }
+    
+    return rows;
+  }
+
+  /**
+   * Export Church Summary Report as Excel file with multiple sheets
+   */
+  static exportChurchSummary(summaryData: {
+    churchName: string;
+    parishName: string;
+    diocese: string;
+    coordinates?: { lat: number; lng: number };
+    locationDetails: {
+      streetAddress?: string;
+      barangay?: string;
+      municipality?: string;
+    };
+    historicalDetails: {
+      foundingYear?: string;
+      founders?: string;
+      architecturalStyle?: string;
+      historicalBackground?: string;
+      majorHistoricalEvents?: string;
+      heritageClassification?: string;
+      religiousClassification?: string;
+      architecturalFeatures?: string;
+      heritageInformation?: string;
+    };
+    currentParishPriest?: string;
+    massSchedules?: Array<{
+      day: string;
+      time: string;
+      endTime?: string;
+      language?: string;
+      isFbLive?: boolean;
+    }>;
+    contactInfo?: {
+      phone?: string;
+      email?: string;
+    };
+  }): void {
+    // Create a new workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Sheet 1: Parish Information
+    const parishInfoData = [
+      ['Church Summary Report'],
+      ['Generated:', new Date().toLocaleDateString()],
+      [],
+      ['PARISH INFORMATION'],
+      ['Field', 'Value'],
+      ['Church Name', summaryData.churchName || 'N/A'],
+      ['Diocese', summaryData.diocese === 'tagbilaran' ? 'Diocese of Tagbilaran' : 'Diocese of Talibon'],
+      ['Parish Priest', summaryData.currentParishPriest || 'N/A'],
+      [],
+      ['LOCATION DETAILS'],
+      ['Street Address', summaryData.locationDetails?.streetAddress || 'N/A'],
+      ['Barangay', summaryData.locationDetails?.barangay || 'N/A'],
+      ['Municipality', summaryData.locationDetails?.municipality || 'N/A'],
+      ['Coordinates', summaryData.coordinates ? `${summaryData.coordinates.lat}, ${summaryData.coordinates.lng}` : 'N/A'],
+      [],
+      ['CONTACT INFORMATION'],
+      ['Phone', summaryData.contactInfo?.phone || 'N/A'],
+      ['Email', summaryData.contactInfo?.email || 'N/A'],
+      [],
+      ['CLASSIFICATIONS'],
+      ['Heritage Classification', summaryData.historicalDetails?.heritageClassification || 'None'],
+      ['Religious Classification', summaryData.historicalDetails?.religiousClassification || 'None'],
+      ['Founding Year', summaryData.historicalDetails?.foundingYear || 'N/A'],
+      ['Architectural Style', summaryData.historicalDetails?.architecturalStyle || 'N/A'],
+    ];
+
+    const parishSheet = XLSX.utils.aoa_to_sheet(parishInfoData);
+    parishSheet['!cols'] = [{ wch: 25 }, { wch: 60 }];
+    XLSX.utils.book_append_sheet(workbook, parishSheet, 'Parish Information');
+
+    // Sheet 2: Historical Background - with wrapped text
+    const historicalData: (string | undefined)[][] = [
+      ['HISTORICAL BACKGROUND'],
+      [],
+      ['Founding Year', summaryData.historicalDetails?.foundingYear || 'N/A'],
+      ...this.addWrappedTextRows('Founders', summaryData.historicalDetails?.founders || 'N/A', 100),
+      [],
+      ['HISTORICAL BACKGROUND'],
+      ...this.wrapText(summaryData.historicalDetails?.historicalBackground || 'No historical background provided.', 100).map(line => [line]),
+      [],
+      ['MAJOR HISTORICAL EVENTS'],
+      ...this.wrapText(summaryData.historicalDetails?.majorHistoricalEvents || 'No major events recorded.', 100).map(line => [line]),
+    ];
+
+    const historicalSheet = XLSX.utils.aoa_to_sheet(historicalData);
+    historicalSheet['!cols'] = [{ wch: 25 }, { wch: 80 }];
+    XLSX.utils.book_append_sheet(workbook, historicalSheet, 'Historical Background');
+
+    // Sheet 3: Heritage & Architecture - with wrapped text
+    const heritageData: (string | undefined)[][] = [
+      ['HERITAGE & ARCHITECTURE'],
+      [],
+      ['Heritage Classification', summaryData.historicalDetails?.heritageClassification || 'None'],
+      ['Religious Classification', summaryData.historicalDetails?.religiousClassification || 'None'],
+      ['Architectural Style', summaryData.historicalDetails?.architecturalStyle || 'N/A'],
+      [],
+      ['ARCHITECTURAL FEATURES'],
+      ...this.wrapText(summaryData.historicalDetails?.architecturalFeatures || 'No architectural features documented.', 100).map(line => [line]),
+      [],
+      ['HERITAGE INFORMATION'],
+      ...this.wrapText(summaryData.historicalDetails?.heritageInformation || 'No heritage information documented.', 100).map(line => [line]),
+    ];
+
+    const heritageSheet = XLSX.utils.aoa_to_sheet(heritageData);
+    heritageSheet['!cols'] = [{ wch: 25 }, { wch: 80 }];
+    XLSX.utils.book_append_sheet(workbook, heritageSheet, 'Heritage & Architecture');
+
+    // Sheet 4: Mass Schedules
+    if (summaryData.massSchedules && summaryData.massSchedules.length > 0) {
+      const scheduleData = summaryData.massSchedules.map((schedule, index) => ({
+        '#': index + 1,
+        'Day': schedule.day,
+        'Start Time': schedule.time,
+        'End Time': schedule.endTime || 'N/A',
+        'Language': schedule.language || 'Filipino',
+        'FB Live': schedule.isFbLive ? 'Yes' : 'No',
+      }));
+
+      const scheduleSheet = XLSX.utils.json_to_sheet(scheduleData);
+      scheduleSheet['!cols'] = [
+        { wch: 5 },  // #
+        { wch: 12 }, // Day
+        { wch: 12 }, // Start Time
+        { wch: 12 }, // End Time
+        { wch: 12 }, // Language
+        { wch: 10 }, // FB Live
+      ];
+      XLSX.utils.book_append_sheet(workbook, scheduleSheet, 'Mass Schedules');
+    }
+
+    // Save the workbook
+    const fileName = `${summaryData.churchName.replace(/\s+/g, '_')}_Summary_${new Date().getFullYear()}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }
 }

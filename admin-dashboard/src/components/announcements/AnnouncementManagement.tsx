@@ -6,10 +6,20 @@ import { AnnouncementList } from './AnnouncementList';
 import { AnnouncementForm } from './AnnouncementForm';
 import { AnnouncementDetailDialog } from './AnnouncementDetailDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent as AlertContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle as AlertTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import type { Announcement, AnnouncementFormData } from '@/types/announcement';
 import type { Diocese } from '@/contexts/AuthContext';
 
@@ -31,6 +41,10 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
   const [detailReturnMeta, setDetailReturnMeta] = useState<{ id: string } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [announcementToDelete, setAnnouncementToDelete] = useState<{ id: string; title: string } | null>(null);
 
   // Load active announcements
   const loadAnnouncements = React.useCallback(async () => {
@@ -247,13 +261,18 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     }
   };
 
-  const handleDeleteAnnouncement = async (id: string) => {
-    if (!confirm('Are you sure you want to permanently delete this announcement? This action cannot be undone.')) {
-      return;
-    }
+  // Opens delete confirmation dialog
+  const handleDeleteClick = (id: string, title: string) => {
+    setAnnouncementToDelete({ id, title });
+    setDeleteDialogOpen(true);
+  };
+
+  // Executes the delete after confirmation
+  const handleConfirmDelete = async () => {
+    if (!announcementToDelete) return;
     
     try {
-      await AnnouncementService.deleteAnnouncement(id);
+      await AnnouncementService.deleteAnnouncement(announcementToDelete.id);
       toast({
         title: "Deleted",
         description: "Announcement deleted permanently"
@@ -269,7 +288,17 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
         description: "Failed to delete announcement",
         variant: "destructive"
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setAnnouncementToDelete(null);
     }
+  };
+
+  // Legacy handler for components that pass the id directly
+  const handleDeleteAnnouncement = (id: string) => {
+    // Find the announcement title for the dialog
+    const announcement = [...announcements, ...archivedAnnouncements].find(a => a.id === id);
+    handleDeleteClick(id, announcement?.title || 'this announcement');
   };
 
   const handleFormCancel = () => {
@@ -375,6 +404,36 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
         onUnarchive={(announcement) => handleUnarchiveAnnouncement(announcement.id)}
         onDelete={(announcement) => handleDeleteAnnouncement(announcement.id)}
       />
+
+      {/* Delete Announcement Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertContent className="bg-white border shadow-lg">
+          <AlertDialogHeader>
+            <AlertTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-500" />
+              Delete Announcement?
+            </AlertTitle>
+            <AlertDialogDescription className="text-left">
+              {announcementToDelete && (
+                <>
+                  You are about to permanently delete <strong className="text-foreground">"{announcementToDelete.title}"</strong>.
+                  <br /><br />
+                  This action cannot be undone. The announcement will be permanently removed.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertContent>
+      </AlertDialog>
     </div>
   );
 };

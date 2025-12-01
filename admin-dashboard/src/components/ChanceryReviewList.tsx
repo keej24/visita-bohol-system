@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getChurchesByDiocese, type Church, type ChurchStatus, updateChurchStatusWithValidation } from "@/lib/churches";
-import { churchKeys } from "@/lib/optimized/queries";
 import { shouldRequireHeritageReview, assessHeritageSignificance } from "@/lib/heritage-detection";
 import { workflowStateMachine, getStatusBadgeColor } from "@/lib/workflow-state-machine";
 import { notifyChurchStatusChange } from "@/lib/notifications";
@@ -10,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, CheckCircle2, ArrowRight, AlertTriangle, Info, Clock, Building2, Eye, Edit3 } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowRight, AlertTriangle, Info, Clock, Building2, Eye, Edit3, Check, MessageSquare } from "lucide-react";
 
 interface Props {
   diocese: "tagbilaran" | "talibon";
@@ -24,9 +23,11 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
   const queryClient = useQueryClient();
   const statuses: ChurchStatus[] = ["pending", "heritage_review"];
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery<Church[]>({
+  const { data, isLoading, isError, isFetching } = useQuery<Church[]>({
     queryKey: ["churches", diocese, statuses],
     queryFn: () => getChurchesByDiocese(diocese, statuses),
+    staleTime: 30 * 1000, // 30 seconds - shorter for more responsive updates
+    refetchOnWindowFocus: true, // Auto-refresh when switching browser tabs
   });
 
   const handleStatusChange = async (
@@ -99,10 +100,8 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
           note
         );
 
-        // Refresh the list and invalidate stats cache to update counts
-        refetch();
-        // Invalidate all church queries for this diocese to update the dashboard stats
-        queryClient.invalidateQueries({ queryKey: churchKeys.diocese(diocese) });
+        // Invalidate ALL church queries to ensure all dashboards (Chancery, Museum) refresh
+        await queryClient.invalidateQueries({ queryKey: ['churches'] });
       } else {
         toast({
           title: "Error",
@@ -263,6 +262,19 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                     </div>
                   )}
 
+                  {/* Note from Museum Researcher - shows when classification was changed to non-heritage */}
+                  {c.lastReviewNote && c.status === 'pending' && c.lastReviewNote.includes('Returned to Chancery') && (
+                    <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs">
+                      <div className="flex items-center gap-1 text-amber-700">
+                        <MessageSquare className="w-3 h-3" />
+                        <span className="font-medium">Note from Museum Researcher</span>
+                      </div>
+                      <div className="text-amber-600 mt-1">
+                        {c.lastReviewNote}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2 justify-end">
                     {/* View Church Details Button */}
                     <Button
@@ -287,12 +299,20 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                     {/* Heritage Review Button - Show for explicit heritage or high-confidence assessments */}
                     {(c.classification === 'ICP' || c.classification === 'NCT' || shouldAutoForward) && (
                       <Button
-                        variant="outline"
+                        variant={c.status === 'heritage_review' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => handleForwardHeritage(c)}
-                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                        disabled={c.status === 'heritage_review'}
+                        className={c.status === 'heritage_review' 
+                          ? 'bg-orange-500 hover:bg-orange-500 text-white border-orange-500 cursor-default' 
+                          : 'text-orange-600 border-orange-300 hover:bg-orange-50'
+                        }
                       >
-                        <ArrowRight className="w-4 h-4 mr-1" /> Send to Museum Researcher
+                        {c.status === 'heritage_review' ? (
+                          <><Check className="w-4 h-4 mr-1" /> Sent to Museum</>
+                        ) : (
+                          <><ArrowRight className="w-4 h-4 mr-1" /> Send to Museum Researcher</>
+                        )}
                       </Button>
                     )}
 

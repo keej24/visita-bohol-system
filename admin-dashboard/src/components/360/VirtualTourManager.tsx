@@ -5,6 +5,16 @@ import { storage } from '@/lib/firebase';
 import { VirtualTourService } from '@/services/virtualTourService';
 import type { VirtualTour, TourScene, Uploaded360Image } from '@/types/virtualTour';
 import { HotspotEditor } from './HotspotEditor';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface VirtualTourManagerProps {
   churchId: string;
@@ -86,6 +96,10 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
   const [savingSceneId, setSavingSceneId] = useState<string | null>(null);
   const [savedSceneId, setSavedSceneId] = useState<string | null>(null);
   const titleDebounceRef = useRef<{ [sceneId: string]: NodeJS.Timeout }>({});
+
+  // Delete scene confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [sceneToDelete, setSceneToDelete] = useState<TourScene | null>(null);
 
   // Load existing tour
   useEffect(() => {
@@ -411,16 +425,20 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
     }, 500);
   }, [churchId, tour, savedSceneId]);
 
-  // Delete scene
-  const handleDeleteScene = useCallback(async (scene: TourScene) => {
-    if (!confirm(`Delete scene "${scene.title}"? This will remove it from the tour and attempt to delete the image from storage.`)) {
-      return;
-    }
+  // Delete scene - opens confirmation dialog
+  const handleDeleteScene = useCallback((scene: TourScene) => {
+    setSceneToDelete(scene);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  // Confirm delete scene - executes the deletion
+  const handleConfirmDeleteScene = useCallback(async () => {
+    if (!sceneToDelete) return;
 
     try {
       // Try to delete from storage (but continue if file doesn't exist)
       try {
-        const storageRef = ref(storage, scene.imageUrl);
+        const storageRef = ref(storage, sceneToDelete.imageUrl);
         await deleteObject(storageRef);
         console.log('[VirtualTourManager] Storage file deleted successfully');
       } catch (storageError) {
@@ -435,15 +453,18 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
       }
 
       // Always delete from Firestore (even if Storage deletion failed)
-      await VirtualTourService.deleteScene(churchId, scene.id);
+      await VirtualTourService.deleteScene(churchId, sceneToDelete.id);
       await loadTour();
 
       console.log('[VirtualTourManager] Scene deleted successfully from tour');
     } catch (error) {
       console.error('[VirtualTourManager] Error deleting scene from Firestore:', error);
       alert('Failed to delete scene from database. Please try again.');
+    } finally {
+      setDeleteDialogOpen(false);
+      setSceneToDelete(null);
     }
-  }, [churchId, loadTour]);
+  }, [churchId, loadTour, sceneToDelete]);
 
   // Open hotspot editor
   const handleOpenHotspotEditor = useCallback((sceneId: string) => {
@@ -687,6 +708,36 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
           onClose={() => setPreviewSceneId(null)}
         />
       )}
+
+      {/* Delete Scene Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-white border shadow-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-500" />
+              Delete Scene?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left">
+              {sceneToDelete && (
+                <>
+                  You are about to delete <strong className="text-foreground">"{sceneToDelete.title}"</strong>.
+                  <br /><br />
+                  This will remove the scene from the virtual tour and delete the image from storage. This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteScene}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Scene
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

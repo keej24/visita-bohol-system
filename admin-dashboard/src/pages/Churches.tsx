@@ -55,6 +55,16 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Search,
   Plus,
   MapPin,
@@ -62,7 +72,7 @@ import {
   Users,
   ExternalLink,
   Edit,
-  Trash2,
+  EyeOff,
   Check,
   X,
   AlertCircle,
@@ -73,8 +83,11 @@ import heroImage from "@/assets/baclayon-church-hero.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChurches, useChurchReview, useDeleteChurch } from "@/hooks/useChurches";
 import { useToast } from "@/components/ui/use-toast";
-import type { ChurchStatus, ChurchClassification, Church } from "@/types/church";
+import { useQueryClient } from "@tanstack/react-query";
+import type { ChurchStatus, ChurchClassification, Church, ArchitecturalStyle, ReligiousClassification } from "@/types/church";
 import { ChurchDetailModal } from "@/components/ChurchDetailModal";
+import { ChurchInfo } from "@/components/parish/types";
+import { ChurchService } from "@/services/churchService";
 import { Timestamp } from "firebase/firestore";
 
 const Churches = () => {
@@ -86,8 +99,14 @@ const Churches = () => {
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Unpublish confirmation dialog state
+  const [unpublishDialogOpen, setUnpublishDialogOpen] = useState(false);
+  const [churchToUnpublish, setChurchToUnpublish] = useState<{ id: string; name: string } | null>(null);
+
   const { userProfile } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const reviewMutation = useChurchReview();
   const deleteMutation = useDeleteChurch();
 
@@ -113,6 +132,105 @@ const Churches = () => {
     setSelectedChurch(null);
   };
 
+  // Helper function to convert ChurchInfo to ChurchFormData for saving
+  const convertChurchInfoToFormData = (data: ChurchInfo) => {
+    const mapArchitecturalStyle = (style: string): ArchitecturalStyle => {
+      const styleMap: Record<string, ArchitecturalStyle> = {
+        'Baroque': 'baroque',
+        'Neo-Gothic': 'gothic',
+        'Gothic': 'gothic',
+        'Byzantine': 'romanesque',
+        'Modern': 'modern',
+        'Mixed': 'mixed'
+      };
+      return styleMap[style] || 'other';
+    };
+
+    return {
+      name: data.churchName || '',
+      fullName: data.parishName || data.churchName || '',
+      location: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, ''),
+      municipality: data.locationDetails.municipality || '',
+      foundingYear: parseInt(data.historicalDetails.foundingYear) || new Date().getFullYear(),
+      founders: data.historicalDetails.founders || '',
+      keyFigures: [],
+      architecturalStyle: mapArchitecturalStyle(data.historicalDetails.architecturalStyle || 'Other'),
+      historicalBackground: data.historicalDetails.historicalBackground || '',
+      description: data.historicalDetails.historicalBackground || '',
+      classification: (data.historicalDetails.heritageClassification === 'National Cultural Treasures' ? 'NCT' :
+                    data.historicalDetails.heritageClassification === 'Important Cultural Properties' ? 'ICP' : 'non_heritage') as ChurchClassification,
+      religiousClassification: (
+        data.historicalDetails.religiousClassification === 'None' ? 'none' :
+        data.historicalDetails.religiousClassification === 'Diocesan Shrine' ? 'diocesan_shrine' :
+        data.historicalDetails.religiousClassification === 'Jubilee Church' ? 'jubilee_church' :
+        data.historicalDetails.religiousClassification === 'Papal Basilica Affinity' ? 'papal_basilica_affinity' :
+        'none'
+      ) as ReligiousClassification,
+      assignedPriest: data.currentParishPriest || '',
+      massSchedules: (data.massSchedules || []).map(schedule => ({
+        day: schedule.day || '',
+        time: schedule.endTime ? `${schedule.time} - ${schedule.endTime}` : schedule.time,
+        type: schedule.isFbLive ? `${schedule.language || 'Filipino'} (FB Live)` : (schedule.language || 'Filipino')
+      })),
+      coordinates: data.coordinates && (data.coordinates.lat !== 0 || data.coordinates.lng !== 0) ? {
+        latitude: data.coordinates.lat,
+        longitude: data.coordinates.lng
+      } : undefined,
+      contactInfo: {
+        phone: data.contactInfo?.phone || '',
+        email: data.contactInfo?.email || '',
+        address: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, ''),
+        website: data.contactInfo?.website || '',
+        facebookPage: data.contactInfo?.facebookPage || ''
+      },
+      images: (data.photos || []).map(photo => photo.url || '').filter(url => url !== ''),
+      documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+      culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
+      architecturalFeatures: data.historicalDetails.architecturalFeatures || '',
+      heritageInformation: data.historicalDetails.heritageInformation || '',
+      tags: [],
+    };
+  };
+
+  // Handle saving church data (for Chancery editing published churches)
+  const handleSaveChurch = async (data: ChurchInfo) => {
+    if (!selectedChurch || !userProfile) return;
+
+    setIsSubmitting(true);
+    try {
+      const formData = convertChurchInfoToFormData(data);
+      await ChurchService.updateChurch(
+        selectedChurch.id,
+        formData,
+        userProfile.diocese,
+        userProfile.uid
+      );
+
+      toast({
+        title: "Success",
+        description: "Church information saved successfully!"
+      });
+
+      // Invalidate all church queries to update all dashboards
+      await queryClient.invalidateQueries({ queryKey: ['churches'] });
+    } catch (error) {
+      console.error('Error saving church:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save church information",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitChurch = async (data: ChurchInfo) => {
+    await handleSaveChurch(data);
+    setIsModalOpen(false);
+    setSelectedChurch(null);
+  };
+
   const handleReviewChurch = async (churchId: string, action: 'approve' | 'forward_to_museum', notes?: string) => {
     if (!userProfile?.uid) return;
 
@@ -124,10 +242,19 @@ const Churches = () => {
     });
   };
 
-  const handleDeleteChurch = async (churchId: string) => {
-    if (confirm('Are you sure you want to delete this church? This action cannot be undone.')) {
-      deleteMutation.mutate(churchId);
+  // Opens the unpublish confirmation dialog
+  const handleUnpublishClick = (churchId: string, churchName: string) => {
+    setChurchToUnpublish({ id: churchId, name: churchName });
+    setUnpublishDialogOpen(true);
+  };
+
+  // Executes the unpublish action after user confirms
+  const handleConfirmUnpublish = () => {
+    if (churchToUnpublish) {
+      deleteMutation.mutate(churchToUnpublish.id);
     }
+    setUnpublishDialogOpen(false);
+    setChurchToUnpublish(null);
   };
 
   const getStatusBadge = (status: ChurchStatus) => {
@@ -184,6 +311,7 @@ const Churches = () => {
       status: church.status as import('@/lib/churches').ChurchStatus,
       classification,
       foundedYear: church.foundingYear,
+      foundingYear: church.foundingYear,
       address: church.location,
       latitude: church.coordinates?.latitude,
       longitude: church.coordinates?.longitude,
@@ -207,6 +335,10 @@ const Churches = () => {
       virtualTour360: church.virtualTour ? [] : [],
       founders: church.founders,
       description: church.description,
+      // Heritage & Architectural fields
+      architecturalFeatures: church.architecturalFeatures,
+      heritageInformation: church.heritageInformation,
+      religiousClassification: church.religiousClassification,
     };
     
     return result;
@@ -400,16 +532,16 @@ const Churches = () => {
                         </>
                       )}
 
-                      {(canManageChurch || church.createdBy === userProfile?.uid) && (
+                      {(canManageChurch || church.createdBy === userProfile?.uid) && church.status === 'approved' && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteChurch(church.id)}
+                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                          onClick={() => handleUnpublishClick(church.id, church.name)}
                           disabled={deleteMutation.isPending}
-                          title="Delete Church"
+                          title="Unpublish Church"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <EyeOff className="w-4 h-4" />
                         </Button>
                       )}
                     </div>
@@ -481,7 +613,41 @@ const Churches = () => {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         mode="view"
+        onSave={handleSaveChurch}
+        onSubmit={handleSubmitChurch}
+        isSubmitting={isSubmitting}
       />
+
+      {/* Unpublish Confirmation Dialog */}
+      <AlertDialog open={unpublishDialogOpen} onOpenChange={setUnpublishDialogOpen}>
+        <AlertDialogContent className="bg-white border shadow-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <EyeOff className="w-5 h-5 text-orange-500" />
+              Unpublish Church?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left">
+              {churchToUnpublish && (
+                <>
+                  You are about to unpublish <strong className="text-foreground">{churchToUnpublish.name}</strong>.
+                  <br /><br />
+                  This church will be hidden from the mobile app and public users will no longer be able to see it.
+                  You can republish it later by submitting it for review again.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmUnpublish}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              Unpublish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };

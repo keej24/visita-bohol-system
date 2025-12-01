@@ -144,7 +144,7 @@ export function useChurchMutation() {
   };
 }
 
-// Hook for church deletion
+// Hook for church unpublishing (soft delete - changes status to draft)
 export function useDeleteChurch() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -154,13 +154,13 @@ export function useDeleteChurch() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['churches'] });
       toast({
-        title: 'Church Deleted',
-        description: 'Church has been removed from the system',
+        title: 'Church Unpublished',
+        description: 'Church has been hidden from the mobile app and can be republished later.',
       });
     },
     onError: (error: Error) => {
       toast({
-        title: 'Deletion Failed',
+        title: 'Unpublish Failed',
         description: error.message,
         variant: 'destructive',
       });

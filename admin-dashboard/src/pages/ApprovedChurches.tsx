@@ -17,19 +17,25 @@ import {
   Loader2
 } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getChurchesByDiocese, type Church } from '@/lib/churches';
 import { useAuth } from "@/contexts/AuthContext";
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
+import { ChurchInfo } from '@/components/parish/types';
+import { ChurchService } from '@/services/churchService';
+import { useToast } from "@/components/ui/use-toast";
 import { format } from 'date-fns';
 
 
 const ApprovedChurches = () => {
   const { userProfile } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch approved heritage churches from both dioceses
   const { data: tagbilaranApproved, isLoading: tagbilaranLoading } = useQuery<Church[]>({
@@ -75,6 +81,80 @@ const ApprovedChurches = () => {
   };
 
   const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedChurch(null);
+  };
+
+  // Handle saving church data (for museum researcher editing heritage info)
+  const handleSaveChurch = async (data: ChurchInfo) => {
+    if (!selectedChurch || !userProfile) return;
+
+    setIsSubmitting(true);
+    try {
+      // Determine new classification
+      const newClassification = data.historicalDetails.heritageClassification === 'National Cultural Treasures' ? 'NCT' as const :
+                               data.historicalDetails.heritageClassification === 'Important Cultural Properties' ? 'ICP' as const : 
+                               'non_heritage' as const;
+      
+      // Check if classification is changing to non-heritage (removing heritage status)
+      const isChangingToNonHeritage = newClassification === 'non_heritage' && 
+        (selectedChurch.classification === 'ICP' || selectedChurch.classification === 'NCT');
+
+      // Museum researchers can only update heritage-related fields
+      const heritageData = {
+        culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
+        heritageNotes: data.historicalDetails.historicalBackground || '',
+        heritageInformation: data.historicalDetails.heritageInformation || '',
+        architecturalFeatures: data.historicalDetails.architecturalFeatures || '',
+        historicalBackground: data.historicalDetails.historicalBackground || '',
+        description: data.historicalDetails.historicalBackground || '',
+        architecturalStyle: data.historicalDetails.architecturalStyle || '',
+        foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
+        founders: data.historicalDetails.founders || '',
+        classification: newClassification,
+        documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+        lastReviewNote: isChangingToNonHeritage 
+          ? 'Heritage classification removed from approved church. Returned to Chancery for review.'
+          : 'Heritage information updated by Museum Researcher',
+      };
+
+      await ChurchService.updateChurchHeritage(
+        selectedChurch.id,
+        heritageData,
+        userProfile.uid
+      );
+
+      if (isChangingToNonHeritage) {
+        toast({
+          title: "Classification Changed",
+          description: "Heritage status removed. Church has been returned to Chancery for review.",
+        });
+        // Close modal since church will disappear from this list
+        setIsModalOpen(false);
+        setSelectedChurch(null);
+      } else {
+        toast({
+          title: "Success",
+          description: "Heritage information saved successfully!"
+        });
+      }
+
+      // Invalidate all church queries to update all dashboards (and mobile app on next fetch)
+      await queryClient.invalidateQueries({ queryKey: ['churches'] });
+    } catch (error) {
+      console.error('Error saving church:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save heritage information",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitChurch = async (data: ChurchInfo) => {
+    await handleSaveChurch(data);
     setIsModalOpen(false);
     setSelectedChurch(null);
   };
@@ -246,6 +326,10 @@ const ApprovedChurches = () => {
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           mode="view"
+          onSave={handleSaveChurch}
+          onSubmit={handleSubmitChurch}
+          isSubmitting={isSubmitting}
+          isMuseumResearcher={userProfile?.role === 'museum_researcher'}
         />
       </div>
     </Layout>

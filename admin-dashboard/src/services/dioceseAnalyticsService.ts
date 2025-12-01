@@ -61,12 +61,16 @@ interface ChurchDocument {
   };
   historicalDetails?: {
     foundingYear?: string | number;
-    founders?: string[];
+    founders?: string[] | string;
     architecturalStyle?: string;
     majorEvents?: string[];
+    majorHistoricalEvents?: string;
     preservationHistory?: string[];
+    architecturalFeatures?: string;
+    heritageInformation?: string;
+    historicalBackground?: string;
   };
-  historicalBackground?: {
+  historicalBackground?: string | {
     foundingYear?: string | number;
     founders?: string[];
     majorEvents?: string[];
@@ -91,7 +95,10 @@ export interface ChurchSummaryData {
   coordinates?: [number, number]; // [latitude, longitude]
   founders?: string[];
   architecturalStyle?: string;
+  architecturalFeatures?: string;
   heritageStatus?: string;
+  heritageInformation?: string;
+  historicalBackground?: string;
   majorEvents?: string[];
   preservationHistory?: string[];
 }
@@ -326,6 +333,11 @@ export class DioceseAnalyticsService {
           : 0;
 
         // Extract founding year from various possible field locations
+        // Note: historicalBackground can be either a string or an object
+        const historicalBgObj = (typeof church.historicalBackground === 'object' && church.historicalBackground !== null 
+          ? church.historicalBackground 
+          : null) as { foundingYear?: string | number; founders?: string[]; majorEvents?: string[]; preservationHistory?: string[] } | null;
+        
         const foundingYear =
           (typeof church.historicalDetails?.foundingYear === 'number' 
             ? church.historicalDetails.foundingYear 
@@ -333,17 +345,30 @@ export class DioceseAnalyticsService {
           (typeof church.foundingYear === 'number'
             ? church.foundingYear
             : parseInt(String(church.foundingYear || ''))) ||
-          (typeof church.historicalBackground?.foundingYear === 'number'
-            ? church.historicalBackground.foundingYear
-            : parseInt(String(church.historicalBackground?.foundingYear || ''))) ||
+          (historicalBgObj && typeof historicalBgObj.foundingYear === 'number'
+            ? historicalBgObj.foundingYear
+            : parseInt(String(historicalBgObj?.foundingYear || ''))) ||
           1900;
 
-        // Extract founders from various possible field locations
-        const founders =
+        // Extract founders from various possible field locations (may be string or array)
+        const foundersRaw =
           church.historicalDetails?.founders ||
-          church.historicalBackground?.founders ||
-          (church.founders as string[] | undefined) ||
-          [];
+          (historicalBgObj?.founders) ||
+          church.founders ||
+          '';
+        // Convert founders to array format (may be stored as comma-separated string)
+        const founders = Array.isArray(foundersRaw) 
+          ? foundersRaw 
+          : typeof foundersRaw === 'string' && foundersRaw.trim()
+            ? [foundersRaw.trim()]  // Keep as single entry, don't split
+            : [];
+
+        // Extract historical background text
+        const historicalBackground =
+          church.historicalDetails?.historicalBackground ||
+          (typeof church.historicalBackground === 'string' ? church.historicalBackground : '') ||
+          church.description ||
+          '';
 
         // Extract architectural style
         const architecturalStyle =
@@ -352,17 +377,24 @@ export class DioceseAnalyticsService {
           church.architecture?.style ||
           'Unknown';
 
-        // Extract major events
-        const majorEvents =
+        // Extract major events (may be stored as culturalSignificance or majorHistoricalEvents string)
+        const majorEventsRaw =
           church.historicalDetails?.majorEvents ||
-          church.historicalBackground?.majorEvents ||
+          church.historicalDetails?.majorHistoricalEvents ||
+          church.culturalSignificance ||
           church.majorEvents ||
-          [];
+          '';
+        // Convert majorEvents to array format
+        const majorEvents = Array.isArray(majorEventsRaw)
+          ? majorEventsRaw
+          : typeof majorEventsRaw === 'string' && majorEventsRaw.trim()
+            ? [majorEventsRaw.trim()]  // Keep as single entry
+            : [];
 
         // Extract preservation history
         const preservationHistory =
           church.historicalDetails?.preservationHistory ||
-          church.historicalBackground?.preservationHistory ||
+          (historicalBgObj?.preservationHistory) ||
           church.preservationHistory ||
           [];
 
@@ -394,9 +426,12 @@ export class DioceseAnalyticsService {
           coordinates,
           founders,
           architecturalStyle,
+          architecturalFeatures: church.historicalDetails?.architecturalFeatures || church.architecturalFeatures || '',
           heritageStatus: church.classification === 'NCT' ? 'National Cultural Treasure' :
                           church.classification === 'ICP' ? 'Important Cultural Property' :
                           'Regular Church',
+          heritageInformation: church.historicalDetails?.heritageInformation || church.heritageInformation || '',
+          historicalBackground: typeof historicalBackground === 'string' ? historicalBackground : '',
           majorEvents,
           preservationHistory
         };

@@ -12,7 +12,8 @@ import {
   Info,
   AlertCircle,
   Clock,
-  ChevronRight
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import { usePendingChurches, useUpdateChurchStatus } from '@/lib/optimized/queries';
 import { useAuth } from '@/contexts/AuthContext';
@@ -105,22 +106,34 @@ const MobileReviewCard = React.memo<{
         <div className="space-y-2">
           {/* Heritage Site Actions */}
           {(church.classification === 'ICP' || church.classification === 'NCT') && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full justify-start"
-              onClick={() => onAction(church.id, 'heritage')}
-              disabled={isThisUpdating}
-            >
-              {isThisUpdating ? (
-                <ButtonLoadingSpinner size="sm" />
-              ) : (
-                <>
-                  <ArrowRight className="w-4 h-4 mr-2" />
-                  Send to Museum Researcher
-                </>
-              )}
-            </Button>
+            church.status === 'heritage_review' ? (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="w-full justify-start bg-orange-500 hover:bg-orange-500 cursor-default"
+                disabled
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Sent to Museum
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full justify-start"
+                onClick={() => onAction(church.id, 'heritage')}
+                disabled={isThisUpdating}
+              >
+                {isThisUpdating ? (
+                  <ButtonLoadingSpinner size="sm" />
+                ) : (
+                  <>
+                    <ArrowRight className="w-4 h-4 mr-2" />
+                    Send to Museum Researcher
+                  </>
+                )}
+              </Button>
+            )
           )}
           
           {/* Approval Action - only for non-heritage */}

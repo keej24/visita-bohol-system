@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../models/church.dart';
 import '../../../models/enums.dart';
 
@@ -6,6 +7,69 @@ class HistoryTab extends StatelessWidget {
   final Church church;
 
   const HistoryTab({super.key, required this.church});
+
+  /// Opens a document URL in an external browser or PDF viewer
+  Future<void> _openDocument(BuildContext context, String documentUrl) async {
+    final Uri uri = Uri.parse(documentUrl);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open document. Please try again later.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error opening document: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening document: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Extracts and formats a clean filename from the document URL
+  String _getDocumentName(String documentUrl, int index) {
+    try {
+      // Get the filename from the URL path
+      final uri = Uri.parse(documentUrl);
+      String filename = uri.pathSegments.isNotEmpty
+          ? uri.pathSegments.last
+          : 'Document ${index + 1}';
+
+      // Remove query parameters and decode
+      filename = Uri.decodeComponent(filename.split('?').first);
+
+      // Clean up Firebase Storage encoded paths
+      if (filename.contains('%2F')) {
+        filename = filename.split('%2F').last;
+      }
+
+      // Truncate if too long
+      if (filename.length > 35) {
+        final extension =
+            filename.contains('.') ? '.${filename.split('.').last}' : '';
+        filename = '${filename.substring(0, 30)}...$extension';
+      }
+
+      return filename.isNotEmpty ? filename : 'Document ${index + 1}';
+    } catch (e) {
+      return 'Document ${index + 1}';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,73 +228,87 @@ class HistoryTab extends StatelessWidget {
           if (church.documents != null && church.documents!.isNotEmpty)
             _buildCard(
               icon: Icons.picture_as_pdf,
-              title: 'Historical Documents',
+              title: 'Historical Documents (${church.documents!.length})',
               child: Column(
-                children: church.documents!.map((documentUrl) {
+                children: church.documents!.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final documentUrl = entry.value;
+                  final documentName = _getDocumentName(documentUrl, index);
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: InkWell(
-                      onTap: () {
-                        // TODO: Open document viewer or browser
-                        // You can use url_launcher package to open the document
-                        debugPrint('Opening document: $documentUrl');
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2C5F2D).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _openDocument(context, documentUrl),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
                             color:
-                                const Color(0xFF2C5F2D).withValues(alpha: 0.3),
+                                const Color(0xFF2C5F2D).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFF2C5F2D)
+                                  .withValues(alpha: 0.3),
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2C5F2D),
-                                borderRadius: BorderRadius.circular(8),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2C5F2D),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.picture_as_pdf,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.picture_as_pdf,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Historical Document',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1F2937),
-                                      fontSize: 16,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      documentName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF1F2937),
+                                        fontSize: 16,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    documentUrl.split('/').last.length > 30
-                                        ? '${documentUrl.split('/').last.substring(0, 30)}...'
-                                        : documentUrl.split('/').last,
-                                    style: const TextStyle(
-                                      color: Color(0xFF6B7280),
-                                      fontSize: 14,
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'Tap to open document',
+                                      style: TextStyle(
+                                        color: Color(0xFF2C5F2D),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            const Icon(
-                              Icons.arrow_forward_ios,
-                              color: Color(0xFF2C5F2D),
-                              size: 20,
-                            ),
-                          ],
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2C5F2D)
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.open_in_new,
+                                  color: Color(0xFF2C5F2D),
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

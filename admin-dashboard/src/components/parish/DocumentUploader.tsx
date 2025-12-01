@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, FileText, File, Loader2 } from 'lucide-react';
+import { Upload, X, FileText, File, Loader2, ExternalLink, Eye } from 'lucide-react';
 
 interface Document {
   id: string;
@@ -118,6 +118,17 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
     return '📎';
   };
 
+  const openDocument = useCallback((doc: Document) => {
+    // If document has a Firebase Storage URL, open it
+    if (doc.url && !doc.url.startsWith('blob:')) {
+      window.open(doc.url, '_blank', 'noopener,noreferrer');
+    } else if (doc.file) {
+      // For newly uploaded files (blob URLs), create object URL and open
+      const blobUrl = URL.createObjectURL(doc.file);
+      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    }
+  }, []);
+
   const canAddMore = documents.length < maxDocuments;
 
   return (
@@ -165,30 +176,54 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
           </h4>
           <div className="space-y-2">
             {documents.map((doc) => (
-              <Card key={doc.id}>
+              <Card key={doc.id} className="hover:bg-gray-50 transition-colors">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div 
+                      className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer group"
+                      onClick={() => openDocument(doc)}
+                      title="Click to open document"
+                    >
                       <div className="text-2xl flex-shrink-0">
                         {getFileIcon(doc.type)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 truncate">{doc.name}</p>
+                        <p className="font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                          {doc.name}
+                        </p>
                         {doc.size && (
                           <p className="text-sm text-gray-500">
                             {(doc.size / (1024 * 1024)).toFixed(1)} MB
                           </p>
                         )}
+                        {doc.url && !doc.url.startsWith('blob:') && (
+                          <p className="text-xs text-blue-500 flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            Click to view
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeDocument(doc.id)}
-                      className="text-red-500 hover:text-red-700 flex-shrink-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDocument(doc)}
+                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                        title="Open document"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeDocument(doc.id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        title="Remove document"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

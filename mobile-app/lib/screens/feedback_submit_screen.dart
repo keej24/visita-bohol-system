@@ -19,7 +19,7 @@ class FeedbackSubmitScreen extends StatefulWidget {
 class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
   final _commentCtl = TextEditingController();
   int _rating = 5;
-  FeedbackCategory _selectedCategory = FeedbackCategory.general;
+  final FeedbackCategory _selectedCategory = FeedbackCategory.general;
   final _svc = FeedbackService();
   final List<File> _photos = [];
   final _picker = ImagePicker();

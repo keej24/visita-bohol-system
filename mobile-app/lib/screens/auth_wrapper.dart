@@ -54,10 +54,22 @@ import '../screens/auth/login_screen.dart';
 ///
 /// This widget listens to AuthService and renders:
 /// - CircularProgressIndicator: While auth state is being determined
-/// - HomeScreen: If user is authenticated
+/// - HomeScreen: If user is authenticated and not blocked
 /// - LoginScreen: If user is not authenticated
-class AuthWrapper extends StatelessWidget {
+/// - BlockedScreen: If user is authenticated but blocked
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isCheckingBlockStatus = false;
+  bool _isBlocked = false;
+  String? _blockReason;
+  String? _lastCheckedUserId;
+  bool _checkFailed = false; // Track if block check failed
 
   @override
   Widget build(BuildContext context) {
@@ -79,13 +91,244 @@ class AuthWrapper extends StatelessWidget {
 
         // Show main app if user is authenticated
         if (authService.isAuthenticated) {
+          final currentUserId = authService.currentUser?.uid;
+
+          // Check block status if we haven't checked for this user yet
+          if (currentUserId != null &&
+              currentUserId != _lastCheckedUserId &&
+              !_isCheckingBlockStatus &&
+              !_checkFailed) {
+            // Use addPostFrameCallback to avoid calling setState during build
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _checkBlockStatus(authService, currentUserId);
+            });
+          }
+
+          // Show loading while checking block status (with timeout protection)
+          if (_isCheckingBlockStatus) {
+            return const Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Verifying account status...'),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          // Show blocked screen if user is blocked
+          if (_isBlocked) {
+            return _BlockedScreen(
+              reason: _blockReason ?? 'No reason provided',
+              onSignOut: () async {
+                await authService.signOut();
+                setState(() {
+                  _isBlocked = false;
+                  _blockReason = null;
+                  _lastCheckedUserId = null;
+                  _checkFailed = false;
+                });
+              },
+            );
+          }
+
           return const HomeScreen();
+        }
+
+        // Reset block status when user logs out
+        if (_isBlocked || _lastCheckedUserId != null || _checkFailed) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            setState(() {
+              _isBlocked = false;
+              _blockReason = null;
+              _lastCheckedUserId = null;
+              _checkFailed = false;
+            });
+          });
         }
 
         // Show login screen if user is not authenticated
         // Use a key to preserve the login screen state across rebuilds
         return const LoginScreen(key: ValueKey('login_screen'));
       },
+    );
+  }
+
+  Future<void> _checkBlockStatus(AuthService authService, String userId) async {
+    if (!mounted) return;
+
+    setState(() {
+      _isCheckingBlockStatus = true;
+      _checkFailed = false;
+    });
+
+    try {
+      // Add a timeout to prevent infinite loading
+      final blockInfo = await authService.checkIfUserBlocked(userId).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⏱️ Block status check timed out');
+          return null; // Treat timeout as not blocked
+        },
+      );
+
+      if (mounted) {
+        setState(() {
+          _isCheckingBlockStatus = false;
+          _lastCheckedUserId = userId;
+          if (blockInfo != null && blockInfo['isBlocked'] == true) {
+            _isBlocked = true;
+            _blockReason = blockInfo['blockReason'];
+          } else {
+            _isBlocked = false;
+            _blockReason = null;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking block status: $e');
+      if (mounted) {
+        setState(() {
+          _isCheckingBlockStatus = false;
+          _lastCheckedUserId = userId;
+          _isBlocked = false;
+          _checkFailed = true; // Mark as failed so we don't retry infinitely
+        });
+      }
+    }
+  }
+}
+
+/// Screen shown when a user's account is blocked
+class _BlockedScreen extends StatelessWidget {
+  final String reason;
+  final VoidCallback onSignOut;
+
+  const _BlockedScreen({
+    required this.reason,
+    required this.onSignOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Blocked icon
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: const Icon(
+                  Icons.block,
+                  size: 60,
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Title
+              const Text(
+                'Account Blocked',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Description
+              const Text(
+                'Your account has been blocked by an administrator.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Reason card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.red, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Reason for blocking:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      reason,
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Contact info
+              Text(
+                'If you believe this is an error, please contact the Chancery Office for assistance.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Sign out button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onSignOut,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Sign Out'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

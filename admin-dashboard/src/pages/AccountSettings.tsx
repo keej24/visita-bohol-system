@@ -502,14 +502,14 @@ const AccountSettings = () => {
             {/* Profile Picture & Basic Info */}
             <div className="flex items-center gap-6">
               <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
-                {profileData.firstName[0]}{profileData.lastName[0]}
+                {userProfile?.role === 'museum_researcher' ? 'NM' : `${profileData.firstName[0]}${profileData.lastName[0]}`}
               </div>
               <div>
                 <h3 className="text-lg font-semibold">
-                  {profileData.firstName} {profileData.lastName}
+                  {userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : `${profileData.firstName} ${profileData.lastName}`}
                 </h3>
                 <p className="text-gray-600">
-                  {userProfile?.role === 'museum_researcher' ? 'Heritage Reviewer' : 'Chancery Office'}
+                  {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : 'Chancery Office'}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   {userProfile?.role === 'museum_researcher' ? (
@@ -549,7 +549,7 @@ const AccountSettings = () => {
                       </Label>
                       <Input
                         id="institutionName"
-                        value={profileData.firstName + ' ' + profileData.lastName}
+                        value={userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : `${profileData.firstName} ${profileData.lastName}`}
                         disabled
                         className="mt-1 bg-gray-50"
                       />

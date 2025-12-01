@@ -156,6 +156,17 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
   };
 };
 
+// Helper function to remove undefined values from an object
+// Firestore's updateDoc() rejects undefined values
+const removeUndefinedValues = <T extends Record<string, unknown>>(obj: T): Partial<T> => {
+  return Object.entries(obj).reduce((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key as keyof T] = value as T[keyof T];
+    }
+    return acc;
+  }, {} as Partial<T>);
+};
+
 // Convert form data to Firestore document
 const convertToFirestoreData = (formData: ChurchFormData, userId: string, diocese: Diocese, isUpdate = false) => {
   const baseData = {
@@ -192,9 +203,12 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     updatedAt: Timestamp.now(),
   };
 
+  // Remove undefined values to prevent Firestore errors
+  const cleanedData = removeUndefinedValues(baseData);
+
   if (!isUpdate) {
     return {
-      ...baseData,
+      ...cleanedData,
       status: 'pending' as ChurchStatus,
       createdAt: Timestamp.now(),
       createdBy: userId,
@@ -202,7 +216,7 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     };
   }
 
-  return baseData;
+  return cleanedData;
 };
 
 export class ChurchService {
@@ -231,9 +245,17 @@ export class ChurchService {
         }
       }
 
-      // Always use auto-generated ID to allow multiple churches per parish
-      const docRef = await addDoc(collection(db, CHURCHES_COLLECTION), data);
-      return docRef.id;
+      // Use parishId as document ID if provided, otherwise auto-generate
+      // Using parishId ensures consistency with user profiles and feedback/announcements
+      if (parishId) {
+        console.log('[ChurchService] Creating church with explicit parishId:', parishId);
+        await setDoc(doc(db, CHURCHES_COLLECTION, parishId), data);
+        return parishId;
+      } else {
+        console.log('[ChurchService] Creating church with auto-generated ID');
+        const docRef = await addDoc(collection(db, CHURCHES_COLLECTION), data);
+        return docRef.id;
+      }
     } catch (error) {
       console.error('Error creating church:', error);
       // Re-throw the error with its original message if it's a duplicate check error
@@ -306,6 +328,120 @@ export class ChurchService {
     } catch (error) {
       console.error('Error updating church:', error);
       throw new Error('Failed to update church');
+    }
+  }
+
+  // Update church heritage fields (Museum Researcher action)
+  // Only updates fields allowed by Firestore security rules for museum researchers:
+  // Heritage fields: culturalSignificance, heritageNotes, heritageValidation, heritageDeclaration,
+  //                  lastHeritageUpdate, heritageResearcher, status, updatedAt, lastReviewedBy, lastReviewNote, lastStatusChange
+  // Historical tab fields: historicalBackground, description, architecturalStyle, architecturalFeatures,
+  //                        heritageInformation, classification, foundingYear, founders, documents
+  static async updateChurchHeritage(
+    id: string,
+    heritageData: {
+      culturalSignificance?: string;
+      heritageNotes?: string;
+      heritageValidation?: {
+        validated: boolean;
+        notes?: string;
+        validatedAt?: Timestamp;
+      };
+      heritageDeclaration?: {
+        type: 'ICP' | 'NCT';
+        referenceNo?: string;
+        issuedBy?: string;
+        dateIssued?: string;
+        notes?: string;
+      };
+      status?: ChurchStatus;
+      lastReviewNote?: string;
+      // Historical tab fields
+      historicalBackground?: string;
+      description?: string;
+      architecturalStyle?: string;
+      architecturalFeatures?: string;
+      heritageInformation?: string;
+      classification?: 'ICP' | 'NCT' | 'non_heritage';
+      foundingYear?: number;
+      founders?: string;
+      documents?: string[];
+    },
+    userId: string
+  ): Promise<void> {
+    try {
+      const churchRef = doc(db, CHURCHES_COLLECTION, id);
+      
+      // Build update data with only allowed fields
+      const updateData: Record<string, unknown> = {
+        updatedAt: Timestamp.now(),
+        lastHeritageUpdate: Timestamp.now(),
+        heritageResearcher: userId,
+        lastReviewedBy: userId,
+        lastStatusChange: Timestamp.now(),
+      };
+
+      // Add optional heritage fields if provided
+      if (heritageData.culturalSignificance !== undefined) {
+        updateData.culturalSignificance = heritageData.culturalSignificance;
+      }
+      if (heritageData.heritageNotes !== undefined) {
+        updateData.heritageNotes = heritageData.heritageNotes;
+      }
+      if (heritageData.heritageValidation !== undefined) {
+        updateData.heritageValidation = heritageData.heritageValidation;
+      }
+      if (heritageData.heritageDeclaration !== undefined) {
+        updateData.heritageDeclaration = heritageData.heritageDeclaration;
+      }
+      if (heritageData.status !== undefined) {
+        updateData.status = heritageData.status;
+      }
+      if (heritageData.lastReviewNote !== undefined) {
+        updateData.lastReviewNote = heritageData.lastReviewNote;
+      }
+      // Historical tab fields
+      if (heritageData.historicalBackground !== undefined) {
+        updateData.historicalBackground = heritageData.historicalBackground;
+      }
+      if (heritageData.description !== undefined) {
+        updateData.description = heritageData.description;
+      }
+      if (heritageData.architecturalStyle !== undefined) {
+        updateData.architecturalStyle = heritageData.architecturalStyle;
+      }
+      if (heritageData.architecturalFeatures !== undefined) {
+        updateData.architecturalFeatures = heritageData.architecturalFeatures;
+      }
+      if (heritageData.heritageInformation !== undefined) {
+        updateData.heritageInformation = heritageData.heritageInformation;
+      }
+      if (heritageData.classification !== undefined) {
+        updateData.classification = heritageData.classification;
+        
+        // If classification is changed to non_heritage, automatically send back to Chancery for approval
+        // since heritage validation is no longer needed
+        if (heritageData.classification === 'non_heritage') {
+          updateData.status = 'pending';
+          updateData.lastReviewNote = 'Heritage classification changed to non-heritage by Museum Researcher. Returned to Chancery for final approval.';
+          console.log(`[ChurchService] Church ${id} classification changed to non-heritage. Status changed to 'pending' for Chancery approval.`);
+        }
+      }
+      if (heritageData.foundingYear !== undefined) {
+        updateData.foundingYear = heritageData.foundingYear;
+      }
+      if (heritageData.founders !== undefined) {
+        updateData.founders = heritageData.founders;
+      }
+      if (heritageData.documents !== undefined) {
+        updateData.documents = heritageData.documents;
+      }
+
+      console.log('[ChurchService] Updating church heritage fields:', id, updateData);
+      await updateDoc(churchRef, updateData);
+    } catch (error) {
+      console.error('Error updating church heritage:', error);
+      throw new Error('Failed to update church heritage information');
     }
   }
 
@@ -570,7 +706,8 @@ export class ChurchService {
     }
   }
 
-  // Delete church (soft delete by updating status to draft)
+  // Unpublish church (soft delete - changes status to draft, hiding from mobile app)
+  // The church data is preserved and can be republished by submitting for review again
   static async deleteChurch(id: string): Promise<void> {
     try {
       await updateDoc(doc(db, CHURCHES_COLLECTION, id), {
@@ -578,8 +715,8 @@ export class ChurchService {
         updatedAt: Timestamp.now(),
       });
     } catch (error) {
-      console.error('Error deleting church:', error);
-      throw new Error('Failed to delete church');
+      console.error('Error unpublishing church:', error);
+      throw new Error('Failed to unpublish church');
     }
   }
 

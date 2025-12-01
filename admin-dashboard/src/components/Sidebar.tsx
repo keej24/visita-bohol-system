@@ -248,7 +248,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
             <div className="flex-1 min-w-0">
               <h1 className="text-sidebar-foreground font-bold text-sm leading-tight">
                 {userProfile?.role === 'chancery_office' && 'Chancery Office'}
-                {userProfile?.role === 'museum_researcher' && 'Heritage Reviewer'}
+                {userProfile?.role === 'museum_researcher' && 'Museum Researcher'}
                 {userProfile?.role === 'parish_secretary' && 'Parish Secretary'}
               </h1>
               <p className="text-sidebar-foreground/70 text-xs">
@@ -279,15 +279,15 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sidebar-foreground font-medium text-sm truncate">
-                {userProfile?.name || userProfile?.email}
+                {userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : (userProfile?.name || userProfile?.email)}
               </p>
               <p className="text-sidebar-foreground/70 text-xs truncate">
-                {userProfile?.email}
+                {userProfile?.role === 'museum_researcher' ? 'museum researcher' : userProfile?.email}
               </p>
               {userProfile?.role === 'museum_researcher' && (
                 <div className="flex items-center gap-1 mt-1">
                   <Crown className="w-3 h-3 text-yellow-400" />
-                  <span className="text-xs text-yellow-400 font-medium">Heritage Reviewer</span>
+                  <span className="text-xs text-yellow-400 font-medium">Museum Researcher</span>
                 </div>
               )}
               {userProfile?.role === 'parish_secretary' && (
@@ -303,7 +303,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
           {userProfile?.role === 'museum_researcher' && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-sidebar-foreground/70">Heritage Reviewer</span>
+                <span className="text-sidebar-foreground/70">Museum Researcher</span>
                 <Badge variant="secondary" className="text-xs h-4 px-1">Active</Badge>
               </div>
             </div>

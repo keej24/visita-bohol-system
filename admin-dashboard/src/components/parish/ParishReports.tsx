@@ -70,6 +70,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
     endDate: format(new Date(), 'yyyy-MM-dd')
   });
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
+  const [summaryExportFormat, setSummaryExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [isGenerating, setIsGenerating] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
@@ -303,7 +304,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
     // Show confirmation dialog
     setPendingExport({
       reportType,
-      format: reportType === 'engagement' ? exportFormat : 'pdf'
+      format: reportType === 'engagement' ? exportFormat : summaryExportFormat
     });
     setShowExportDialog(true);
   };
@@ -341,11 +342,11 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
         });
       } else {
         // Generate and download summary report
-        await handleDownloadReport('summary', 'pdf');
+        await handleDownloadReport('summary', pendingExport.format);
         
         toast({
           title: "Report Exported",
-          description: "Church Summary Report has been downloaded as PDF!"
+          description: `Church Summary Report has been downloaded as ${pendingExport.format.toUpperCase()}!`
         });
       }
     } catch (error) {
@@ -370,8 +371,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
   const handleDownloadReport = async (reportType: 'summary' | 'engagement', format: 'pdf' | 'excel' = 'pdf') => {
     try {
       if (reportType === 'summary') {
-        // Export Church Summary as PDF
-        PDFExportService.exportChurchSummary({
+        const summaryData = {
           churchName: churchInfo.churchName,
           parishName: churchInfo.parishName,
           diocese: churchInfo.diocese,
@@ -400,86 +400,95 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
             phone: churchInfo.contactInfo?.phone || '',
             email: churchInfo.contactInfo?.email || ''
           }
-        });
+        };
+
+        if (format === 'excel') {
+          // Export Church Summary as Excel
+          ExcelExportService.exportChurchSummary(summaryData);
+        } else {
+          // Export Church Summary as PDF
+          PDFExportService.exportChurchSummary(summaryData);
+        }
 
         toast({
           title: "Download Complete",
-          description: "Church Summary PDF has been downloaded successfully!"
+          description: `Church Summary ${format.toUpperCase()} has been downloaded successfully!`
+        });
+        return;
+      }
+
+      // Export Analytics/Engagement Report
+      if (!analyticsData) {
+        toast({
+          title: "No Data",
+          description: "Please load the analytics data first.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check if there's any data to export
+      if (!hasExportableData) {
+        toast({
+          title: "No Data to Export",
+          description: "No data to export with current filters.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const dateRangeObj = {
+        start: new Date(dateRange.startDate),
+        end: new Date(dateRange.endDate)
+      };
+
+      const exportData = {
+        visitorLogs: analyticsData.visitorLogs.map(log => ({
+          id: log.id,
+          visitDate: log.visitDate,
+          timeOfDay: log.timeOfDay,
+          deviceType: log.deviceType,
+          userId: log.userId
+        })),
+        feedback: analyticsData.feedback.map(f => ({
+          id: f.id,
+          rating: f.rating,
+          subject: f.subject || 'General Feedback',
+          comment: f.message,
+          date: f.createdAt,
+          userName: 'Anonymous User',
+          status: f.status
+        })),
+        stats: {
+          totalVisitors: analyticsData.visitorLogs.length,
+          avgDailyVisitors: Math.round((analyticsData.visitorLogs.length / Math.max(1, Math.ceil((new Date(dateRange.endDate).getTime() - new Date(dateRange.startDate).getTime()) / (1000 * 60 * 60 * 24)))) * 10) / 10,
+          avgRating: analyticsData.feedback.length > 0 ? Math.round((analyticsData.feedback.reduce((sum, f) => sum + f.rating, 0) / analyticsData.feedback.length) * 10) / 10 : 0,
+          growthRate: 0
+        }
+      };
+
+      if (format === 'pdf') {
+        await PDFExportService.exportAnalyticsReport(
+          churchInfo.churchName,
+          exportData,
+          dateRangeObj
+        );
+
+        toast({
+          title: "Download Complete",
+          description: "Analytics Report PDF has been downloaded successfully!"
         });
       } else {
-        // Export Analytics Report
-        if (!analyticsData) {
-          toast({
-            title: "No Data",
-            description: "Please load the analytics data first.",
-            variant: "destructive"
-          });
-          return;
-        }
+        ExcelExportService.exportAnalyticsReport(
+          churchInfo.churchName,
+          exportData,
+          dateRangeObj
+        );
 
-        // Check if there's any data to export
-        if (!hasExportableData) {
-          toast({
-            title: "No Data to Export",
-            description: "No data to export with current filters.",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        const dateRangeObj = {
-          start: new Date(dateRange.startDate),
-          end: new Date(dateRange.endDate)
-        };
-
-        const exportData = {
-          visitorLogs: analyticsData.visitorLogs.map(log => ({
-            id: log.id,
-            visitDate: log.visitDate,
-            timeOfDay: log.timeOfDay,
-            deviceType: log.deviceType,
-            userId: log.userId
-          })),
-          feedback: analyticsData.feedback.map(f => ({
-            id: f.id,
-            rating: f.rating,
-            subject: f.subject || 'General Feedback',
-            comment: f.message,
-            date: f.createdAt,
-            userName: 'Anonymous User',
-            status: f.status
-          })),
-          stats: {
-            totalVisitors: analyticsData.visitorLogs.length,
-            avgDailyVisitors: Math.round((analyticsData.visitorLogs.length / Math.max(1, Math.ceil((new Date(dateRange.endDate).getTime() - new Date(dateRange.startDate).getTime()) / (1000 * 60 * 60 * 24)))) * 10) / 10,
-            avgRating: analyticsData.feedback.length > 0 ? Math.round((analyticsData.feedback.reduce((sum, f) => sum + f.rating, 0) / analyticsData.feedback.length) * 10) / 10 : 0,
-            growthRate: 0
-          }
-        };
-
-        if (format === 'pdf') {
-          await PDFExportService.exportAnalyticsReport(
-            churchInfo.churchName,
-            exportData,
-            dateRangeObj
-          );
-
-          toast({
-            title: "Download Complete",
-            description: "Analytics Report PDF has been downloaded successfully!"
-          });
-        } else {
-          ExcelExportService.exportAnalyticsReport(
-            churchInfo.churchName,
-            exportData,
-            dateRangeObj
-          );
-
-          toast({
-            title: "Download Complete",
-            description: "Analytics Report Excel file has been downloaded successfully!"
-          });
-        }
+        toast({
+          title: "Download Complete",
+          description: "Analytics Report Excel file has been downloaded successfully!"
+        });
       }
     } catch (error) {
       console.error('Error downloading report:', error);
@@ -595,24 +604,26 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
             <CardContent className="space-y-6">
               {/* Report Actions */}
               <div className="flex items-center gap-3">
+                <Select value={summaryExportFormat} onValueChange={(value: 'pdf' | 'excel') => setSummaryExportFormat(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                    <SelectItem value="excel">Excel</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button 
-                  onClick={() => handleGenerateReport('summary')}
+                  onClick={() => handleDownloadReport('summary', summaryExportFormat)}
                   disabled={isGenerating}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   {isGenerating ? (
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
-                    <FileText className="w-4 h-4 mr-2" />
+                    <Download className="w-4 h-4 mr-2" />
                   )}
-                  {isGenerating ? 'Exporting...' : 'Export Report'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleDownloadReport('summary')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download PDF
+                  {isGenerating ? 'Exporting...' : `Download ${summaryExportFormat.toUpperCase()}`}
                 </Button>
               </div>
 
