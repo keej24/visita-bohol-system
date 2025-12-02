@@ -2,6 +2,31 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
 import type { VirtualTour, TourScene, TourHotspot } from '@/types/virtualTour';
 
+/**
+ * Recursively removes undefined values from an object
+ * Firestore doesn't accept undefined values
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const removeUndefinedValues = (obj: any): any => {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedValues);
+  }
+  if (typeof obj === 'object') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cleanedObj: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleanedObj[key] = removeUndefinedValues(value);
+      }
+    }
+    return cleanedObj;
+  }
+  return obj;
+};
+
 export class VirtualTourService {
   /**
    * Get virtual tour for a church
@@ -31,9 +56,13 @@ export class VirtualTourService {
     try {
       console.log('[VirtualTourService] Saving tour:', tour);
 
+      // Clean undefined values before saving to Firestore
+      const cleanedTour = removeUndefinedValues(tour);
+      console.log('[VirtualTourService] Cleaned tour:', cleanedTour);
+
       const churchRef = doc(db, 'churches', churchId);
       await updateDoc(churchRef, {
-        virtualTour: tour,
+        virtualTour: cleanedTour,
         updatedAt: Timestamp.now(),
       });
 
@@ -116,11 +145,13 @@ export class VirtualTourService {
         const currentTour = data.virtualTour as VirtualTour | undefined;
 
         // Add scene to existing tour or create new tour
-        const updatedScenes = currentTour ? [...currentTour.scenes, scene] : [scene];
+        // Clean the scene to remove undefined values
+        const cleanedScene = removeUndefinedValues(scene);
+        const updatedScenes = currentTour ? [...currentTour.scenes, cleanedScene] : [cleanedScene];
 
         // Update with transaction (ensures atomicity)
         transaction.update(churchRef, {
-          virtualTour: { scenes: updatedScenes },
+          virtualTour: removeUndefinedValues({ scenes: updatedScenes }),
           updatedAt: Timestamp.now(),
         });
 

@@ -131,6 +131,7 @@ const ParishDashboard = () => {
       supportingDocuments: []
     },
     currentParishPriest: '',
+    feastDay: '',
     massSchedules: [],
     contactInfo: {
       phone: '',
@@ -211,6 +212,7 @@ const ParishDashboard = () => {
         heritageInformation: church.heritageInformation || ''
       },
       currentParishPriest: church.assignedPriest || '',
+      feastDay: church.feastDay || '',
       massSchedules: (church.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
         time: schedule.time?.split(' - ')[0] || '',
@@ -605,6 +607,11 @@ const ParishDashboard = () => {
       if (existingChurch) {
         // Update existing church as draft - manually set status to draft
         const docRef = doc(db, 'churches', existingChurch.id);
+        
+        console.log('🔍 [SAVE DRAFT] formData being saved:', formData);
+        console.log('🔍 [SAVE DRAFT] feastDay value:', formData.feastDay);
+        console.log('🔍 [SAVE DRAFT] original data.feastDay:', data.feastDay);
+        
         await updateDoc(docRef, {
           ...formData,
           status: 'draft',

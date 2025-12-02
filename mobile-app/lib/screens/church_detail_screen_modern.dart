@@ -686,7 +686,8 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
               'Diocese',
               _currentChurch.diocese,
             ),
-            if (_currentChurch.feastDay != null && _currentChurch.feastDay!.isNotEmpty) ...[
+            if (_currentChurch.feastDay != null &&
+                _currentChurch.feastDay!.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildModernInfoRow(
                 Icons.celebration_outlined,

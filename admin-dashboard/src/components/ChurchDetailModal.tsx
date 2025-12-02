@@ -453,6 +453,16 @@ export function ChurchDetailModal({
                     </div>
                   )}
 
+                  {churchData.feastDay && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Feast Day</label>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{churchData.feastDay as string}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {churchData.massSchedules && (churchData.massSchedules as Array<unknown>).length > 0 && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Mass Schedules</label>

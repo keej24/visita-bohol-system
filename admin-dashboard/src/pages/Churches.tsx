@@ -319,6 +319,7 @@ const Churches = () => {
       historicalBackground: church.historicalBackground,
       massSchedules: church.massSchedules, // Keep as array for modal display
       assignedPriest: church.assignedPriest,
+      feastDay: church.feastDay,
       culturalSignificance: church.culturalSignificance,
       createdAt: church.createdAt ? Timestamp.fromDate(new Date(church.createdAt)) : undefined,
       updatedAt: church.updatedAt ? Timestamp.fromDate(new Date(church.updatedAt)) : undefined,

@@ -236,12 +236,14 @@ class Church {
           if (j['isHeritage'] != null) return j['isHeritage'] as bool;
 
           // Check if church has a valid heritage classification
-          final classificationValue = j['heritageClassification'] ?? j['classification'];
+          final classificationValue =
+              j['heritageClassification'] ?? j['classification'];
           if (classificationValue != null) {
-            final classification = HeritageClassificationX.fromLabel(classificationValue);
+            final classification =
+                HeritageClassificationX.fromLabel(classificationValue);
             // Heritage sites are ICP or NCT (not 'none' or 'nonHeritage')
             return classification == HeritageClassification.icp ||
-                   classification == HeritageClassification.nct;
+                classification == HeritageClassification.nct;
           }
 
           return false;
@@ -258,7 +260,11 @@ class Church {
                 : null),
         // Convert diocese format: admin stores lowercase, mobile needs full name
         diocese: _convertDiocese(j['diocese']),
-        feastDay: j['feastDay'],
+        feastDay: (() {
+          final feast = j['feastDay'];
+          debugPrint('🎉 [${j['name']}] feastDay from Firestore: "$feast"');
+          return feast as String?;
+        })(),
         virtualTour: (() {
           final tourData = j['virtualTour'];
           if (tourData != null && tourData is Map<String, dynamic>) {
