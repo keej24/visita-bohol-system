@@ -1137,7 +1137,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'You are ${distanceInMeters}m away. You need to be within 500m to mark as visited.',
+                  'You are ${distanceInMeters}m away. You need to be within 200m to mark as visited.',
                   style: const TextStyle(fontSize: 13),
                 ),
               ],

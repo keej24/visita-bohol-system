@@ -63,15 +63,16 @@ class VisitorValidationService {
 
   /// Maximum distance (in meters) user can be from church to validate visit.
   ///
-  /// WHY 500 METERS?
-  /// - Large enough to cover entire church property/grounds
+  /// WHY 200 METERS?
+  /// - Covers typical church property including building, grounds, and parking
   /// - Accounts for GPS inaccuracy (±10-50 meters typical)
-  /// - Small enough to ensure user is actually at location
-  /// - Roughly 5-7 minutes walking distance
+  /// - Small enough to ensure user is actually at the church location
+  /// - Prevents marking visits from nearby establishments
+  /// - Roughly 2-3 minutes walking distance
   ///
   /// TO CHANGE: Adjust this value if testing or if requirements change.
   /// For testing, you might temporarily set to 50000 (50km) to test remotely.
-  static const double visitRadiusMeters = 500.0;
+  static const double visitRadiusMeters = 200.0;
 
   // ─────────────────────────────────────────────────────────────────────────
   // MAIN VALIDATION METHOD
