@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user_profile.dart';
 import '../models/church.dart';
+import '../models/app_state.dart';
 import '../services/profile_service.dart';
 import '../services/auth_service.dart';
 import '../repositories/church_repository.dart';
@@ -1154,10 +1155,18 @@ class _LogoutDialogState extends State<_LogoutDialog> {
                   });
 
                   final authService = context.read<AuthService>();
+                  final profileService = context.read<ProfileService>();
+                  final appState = context.read<AppState>();
                   final navigator = Navigator.of(context);
 
                   // Add a small delay to ensure the user sees the loading indicator
                   await Future.delayed(const Duration(milliseconds: 500));
+
+                  // CRITICAL: Clear all user state before signing out
+                  // This prevents stale data from appearing for the next user
+                  debugPrint('🧹 Clearing user state before logout...');
+                  profileService.clearProfile();
+                  appState.clearUserState();
 
                   await authService.signOut();
 

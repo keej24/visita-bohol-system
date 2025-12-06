@@ -129,6 +129,17 @@ class AppState extends ChangeNotifier {
     notifyListeners(); // Tell widgets to update
   }
 
+  /// Clear all user-specific state (for logout)
+  /// This prevents stale data from appearing for new users
+  void clearUserState() {
+    debugPrint('🧹 AppState: Clearing user-specific state');
+    _visited = [];
+    _forVisit = [];
+    _lastValidatedChurchId = null;
+    _profileService = null;
+    notifyListeners();
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // LOADING DATA
   // ─────────────────────────────────────────────────────────────────────────
@@ -293,11 +304,17 @@ class AppState extends ChangeNotifier {
     // ─────────────────────────────────────────────────────────────────────
     // STEP 2: Update local state
     // ─────────────────────────────────────────────────────────────────────
-    if (!_visited.contains(church)) {
+    // Use ID-based check to handle cases where church object references differ
+    final isAlreadyVisited = _visited.any((c) => c.id == church.id);
+    if (!isAlreadyVisited) {
       _visited.add(church); // Add to visited list
-      _forVisit.remove(church); // Remove from wishlist (if present)
+      // Remove from wishlist using ID comparison (more reliable than object equality)
+      _forVisit.removeWhere((c) => c.id == church.id);
       await _savePrefs(); // Save to local storage
       notifyListeners(); // Update UI
+      debugPrint('✅ AppState: Church ${church.id} added to visited list');
+    } else {
+      debugPrint('ℹ️ AppState: Church ${church.id} already in visited list');
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -345,9 +362,11 @@ class AppState extends ChangeNotifier {
   /// generally not be used because it doesn't verify the user
   /// actually visited the church.
   void markVisited(Church c) {
-    if (!_visited.contains(c)) {
+    final isAlreadyVisited = _visited.any((church) => church.id == c.id);
+    if (!isAlreadyVisited) {
       _visited.add(c);
-      _forVisit.remove(c); // Remove from wishlist if present
+      _forVisit.removeWhere(
+          (church) => church.id == c.id); // Remove from wishlist using ID
       _savePrefs();
       notifyListeners();
     }
@@ -362,7 +381,8 @@ class AppState extends ChangeNotifier {
   /// Unlike visited, this doesn't require location validation.
   /// Users can add any church they want to visit later.
   void markForVisit(Church c) {
-    if (!_forVisit.contains(c)) {
+    final isAlreadyForVisit = _forVisit.any((church) => church.id == c.id);
+    if (!isAlreadyForVisit) {
       _forVisit.add(c);
       _savePrefs();
       notifyListeners();
@@ -371,14 +391,14 @@ class AppState extends ChangeNotifier {
 
   /// Remove a church from the visited list.
   void unmarkVisited(Church c) {
-    _visited.remove(c);
+    _visited.removeWhere((church) => church.id == c.id);
     _savePrefs();
     notifyListeners();
   }
 
   /// Remove a church from the "For Visit" wishlist.
   void unmarkForVisit(Church c) {
-    _forVisit.remove(c);
+    _forVisit.removeWhere((church) => church.id == c.id);
     _savePrefs();
     notifyListeners();
   }

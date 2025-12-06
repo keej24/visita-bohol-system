@@ -8,7 +8,7 @@
  * consistent layout structure with Sidebar on the left, Header on top,
  * and main content in the center.
  *
- * VISUAL STRUCTURE:
+ * VISUAL STRUCTURE (Desktop):
  * ┌───────────────────────────────────────────────────────────────────────────┐
  * │ ┌──────────┬────────────────────────────────────────────────────────────┐ │
  * │ │          │                    HEADER                                 │ │
@@ -20,6 +20,17 @@
  * │ │          │                                                            │ │
  * │ └──────────┴────────────────────────────────────────────────────────────┘ │
  * └───────────────────────────────────────────────────────────────────────────┘
+ *
+ * VISUAL STRUCTURE (Mobile):
+ * ┌─────────────────────────────────────────┐
+ * │ [☰] HEADER                              │
+ * ├─────────────────────────────────────────┤
+ * │                                         │
+ * │         MAIN CONTENT                    │
+ * │         (children)                      │
+ * │                                         │
+ * └─────────────────────────────────────────┘
+ * (Sidebar opens as overlay when hamburger clicked)
  *
  * PROPS:
  * - children: The actual page content (dashboard, forms, tables, etc.)
@@ -51,7 +62,7 @@
  * - pages/*.tsx: All dashboard pages use this Layout
  */
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { useAuth } from "@/hooks/useAuth";
@@ -74,12 +85,50 @@ interface LayoutProps {
 export function Layout({ children, activeTab, setActiveTab, churchApproved }: LayoutProps) {
   const { userProfile } = useAuth();
   const isParish = userProfile?.role === 'parish_secretary';
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
+  const closeMobileSidebar = () => {
+    setIsMobileSidebarOpen(false);
+  };
+
   return (
     <div className={isParish ? "min-h-screen flex w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 to-background" : "min-h-screen bg-background flex w-full"}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} churchApproved={churchApproved} />
+      {/* Mobile Sidebar Overlay */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={closeMobileSidebar}
+        />
+      )}
+      
+      {/* Sidebar - Hidden on mobile, shown on lg+ */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 lg:relative lg:z-0
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={(tab) => {
+            setActiveTab?.(tab);
+            closeMobileSidebar(); // Close sidebar on mobile after navigation
+          }} 
+          churchApproved={churchApproved}
+          onMobileClose={closeMobileSidebar}
+        />
+      </div>
+      
       <div className="flex-1 flex flex-col min-w-0">
-        <Header activeTab={activeTab} setActiveTab={setActiveTab} />
-        <main className="flex-1 p-6">
+        <Header 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab}
+          onMobileMenuClick={toggleMobileSidebar}
+        />
+        <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-x-hidden">
           {children}
         </main>
       </div>

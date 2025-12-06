@@ -166,9 +166,10 @@ interface SidebarProps {
   activeTab?: string;
   setActiveTab?: (tab: string) => void;
   churchApproved?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProps = {}) {
+export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose }: SidebarProps = {}) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -206,6 +207,8 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
       e.preventDefault();
       item.onClick();
     }
+    // Close mobile sidebar after navigation
+    onMobileClose?.();
   };
 
   const handleLogout = async () => {
@@ -233,8 +236,12 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
   return (
     <div
       className={cn(
-        "bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out flex flex-col",
-        isCollapsed ? "w-16" : "w-64",
+        "bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out flex flex-col h-full",
+        // Desktop: collapsible width
+        "md:relative md:translate-x-0",
+        isCollapsed ? "md:w-16" : "md:w-64",
+        // Mobile: full width, always expanded
+        "w-64",
         getSidebarClass()
       )}
     >
@@ -259,9 +266,21 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
               </p>
             </div>
           )}
+          {/* Mobile close button */}
+          <button
+            onClick={onMobileClose}
+            aria-label="Close sidebar"
+            title="Close sidebar"
+            className="md:hidden w-8 h-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors duration-150 text-sidebar-foreground/80 hover:text-sidebar-foreground"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          {/* Desktop collapse button */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors duration-150 text-sidebar-foreground/80 hover:text-sidebar-foreground"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden md:flex w-8 h-8 items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors duration-150 text-sidebar-foreground/80 hover:text-sidebar-foreground"
           >
             {isCollapsed ? <Menu className="w-4 h-4" /> : <X className="w-4 h-4" />}
           </button>
@@ -362,6 +381,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved }: SidebarProp
               ) : (
                 <NavLink
                   to={item.url}
+                  onClick={() => onMobileClose?.()}
                   className={cn(
                     "sidebar-nav-item relative",
                     isItemActive && "active"

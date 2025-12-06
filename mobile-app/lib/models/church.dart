@@ -567,4 +567,22 @@ class Church {
   }
 
   // Helper method to parse virtual360Images field
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // EQUALITY OPERATORS
+  // ─────────────────────────────────────────────────────────────────────────
+  // CRITICAL: These operators ensure Church objects are compared by ID,
+  // not by object reference. This fixes bugs where:
+  // - _visited.contains(church) fails because church is a different object
+  // - _forVisit.remove(church) doesn't find the church to remove
+  // - List operations work correctly even after data refresh
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Church && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }

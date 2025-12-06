@@ -165,7 +165,17 @@ class AuthService extends ChangeNotifier {
       {String? nationality}) async {
     _setLoading(true);
     errorMessage = null;
+
+    // CRITICAL: Sign out any existing user first to prevent stale profile data
+    // This fixes the bug where previous user's profile was saved for new users
+    if (_auth.currentUser != null) {
+      debugPrint('⚠️ AuthService: Signing out existing user before new signup');
+      await _auth.signOut();
+    }
+
     try {
+      debugPrint(
+          '🔐 AuthService: Creating new account for $email with name: $displayName');
       final UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -175,21 +185,41 @@ class AuthService extends ChangeNotifier {
       await result.user?.updateDisplayName(displayName);
       await result.user?.reload();
 
-      // Create user document in Firestore for public user management
+      // Create COMPLETE user document in Firestore matching UserProfile structure
       if (result.user != null) {
         try {
+          final now = DateTime.now();
           await _firestore.collection('users').doc(result.user!.uid).set({
+            'id': result.user!.uid,
             'uid': result.user!.uid,
             'email': email,
             'displayName': displayName,
+            'profileImageUrl': null,
+            'phoneNumber': null,
+            'location': null,
+            'bio': null,
             'nationality': nationality,
+            'parish': 'Not specified',
+            'affiliation': 'Public User',
             'accountType': 'public',
             'isActive': true,
             'isBlocked': false,
-            'createdAt': FieldValue.serverTimestamp(),
+            'visitedChurches': [],
+            'favoriteChurches': [],
+            'forVisitChurches': [],
+            'journalEntries': [],
+            'preferences': {
+              'enableNotifications': true,
+              'enableFeastDayReminders': true,
+              'enableLocationReminders': true,
+              'shareProgressPublically': false,
+              'preferredLanguage': 'en',
+              'darkMode': false,
+            },
+            'createdAt': now.millisecondsSinceEpoch,
             'lastLoginAt': FieldValue.serverTimestamp(),
           });
-          debugPrint('✅ User document created in Firestore');
+          debugPrint('✅ Complete user profile document created in Firestore');
         } catch (firestoreError) {
           // Don't fail signup if Firestore write fails
           debugPrint(
@@ -251,10 +281,12 @@ class AuthService extends ChangeNotifier {
 
   Future<void> signOut() async {
     try {
+      debugPrint('🔐 AuthService: Signing out user...');
       await _auth.signOut();
+      debugPrint('✅ AuthService: User signed out from Firebase');
       notifyListeners();
     } catch (e) {
-      debugPrint('Sign out error: $e');
+      debugPrint('❌ Sign out error: $e');
     }
   }
 

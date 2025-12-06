@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
+import '../../services/profile_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -82,6 +83,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+      final profileService =
+          Provider.of<ProfileService>(context, listen: false);
+
+      // CRITICAL: Clear any stale profile state before creating new account
+      // This fixes the bug where previous user's data appeared for new users
+      debugPrint('🧹 Clearing stale profile state before registration...');
+      profileService.clearProfile();
 
       final user = await authService.signUp(
         _emailController.text.trim(),
@@ -103,8 +111,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           );
 
+          // Force profile load before navigation to ensure profile page works
+          try {
+            final profileService =
+                Provider.of<ProfileService>(context, listen: false);
+            await profileService.loadUserProfile();
+            debugPrint('✅ Profile loaded after registration');
+          } catch (e) {
+            debugPrint('⚠️ Could not pre-load profile: $e');
+          }
+
           // Navigate to home screen
-          Navigator.of(context).pushReplacementNamed('/');
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/');
+          }
         }
       } else {
         setState(() {

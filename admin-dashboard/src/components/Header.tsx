@@ -48,7 +48,7 @@
  * - services/churchService.ts: ChurchService.getChurches for parish name
  */
 
-import { User, ChevronDown, LogOut, Church as ChurchIcon, Loader2 } from "lucide-react";
+import { User, ChevronDown, LogOut, Church as ChurchIcon, Loader2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -67,9 +67,10 @@ import { useToast } from "@/hooks/use-toast";
 interface HeaderProps {
   activeTab?: string;
   setActiveTab?: (tab: string) => void;
+  onMobileMenuClick?: () => void;
 }
 
-export function Header({ setActiveTab }: HeaderProps) {
+export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
   const { userProfile, logout } = useAuth();
   const { toast } = useToast();
   const isParish = userProfile?.role === 'parish_secretary';
@@ -163,33 +164,51 @@ export function Header({ setActiveTab }: HeaderProps) {
       
       <header className={
         isParish
-          ? "border-b border-border px-6 py-4 bg-gradient-to-r from-primary/5 to-accent/5"
-          : "bg-card border-b border-border px-6 py-4"
+          ? "border-b border-border px-4 md:px-6 py-3 md:py-4 bg-gradient-to-r from-primary/5 to-accent/5"
+          : "bg-card border-b border-border px-4 md:px-6 py-3 md:py-4"
       }>
       <div className="flex items-center justify-between">
-        {/* Left side - Title */}
-        <div className="flex items-start gap-3">
+        {/* Left side - Mobile menu button + Title */}
+        <div className="flex items-center gap-3">
+          {/* Mobile hamburger menu */}
+          <button
+            onClick={onMobileMenuClick}
+            aria-label="Open menu"
+            title="Open menu"
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
+          >
+            <Menu className="w-6 h-6 text-foreground" />
+          </button>
+          
           {isParish && (
-            <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+            <div className="hidden md:flex w-10 h-10 bg-accent rounded-lg items-center justify-center">
               <ChurchIcon className="w-5 h-5 text-accent-foreground" />
             </div>
           )}
           <div>
-            <h1 className="text-xl font-bold text-foreground">
-              {userProfile?.role === 'chancery_office' && 'Chancery Office Dashboard'}
-              {userProfile?.role === 'museum_researcher' && 'Museum Researcher Dashboard'}
-              {userProfile?.role === 'parish_secretary' && 'Parish Secretary Dashboard'}
+            <h1 className="text-lg md:text-xl font-bold text-foreground">
+              {/* Shorter titles on mobile */}
+              <span className="hidden md:inline">
+                {userProfile?.role === 'chancery_office' && 'Chancery Office Dashboard'}
+                {userProfile?.role === 'museum_researcher' && 'Museum Researcher Dashboard'}
+                {userProfile?.role === 'parish_secretary' && 'Parish Secretary Dashboard'}
+              </span>
+              <span className="md:hidden">
+                {userProfile?.role === 'chancery_office' && 'Chancery Dashboard'}
+                {userProfile?.role === 'museum_researcher' && 'Museum Dashboard'}
+                {userProfile?.role === 'parish_secretary' && 'Parish Dashboard'}
+              </span>
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
               {isParish ? 'Manage your parish church profile and announcements' : 'VISITA: Bohol Churches Information System'}
             </p>
             {isParish && (
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-1 md:mt-2">
                 <Badge variant="outline" className="text-xs">
                   {parishName || userProfile?.parishInfo?.name || userProfile?.name || 'Parish'}
                 </Badge>
                 {userProfile?.diocese && (
-                  <Badge variant="secondary" className="text-xs">Diocese of {userProfile.diocese}</Badge>
+                  <Badge variant="secondary" className="text-xs hidden sm:inline-flex">Diocese of {userProfile.diocese}</Badge>
                 )}
               </div>
             )}
@@ -197,18 +216,18 @@ export function Header({ setActiveTab }: HeaderProps) {
         </div>
 
         {/* Right side - Profile */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           {/* TODO: Re-enable notification bell when backend is fully implemented */}
           {/* {!isParish && <NotificationDropdown />} */}
 
           {/* Profile Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 px-3">
+              <Button variant="ghost" className="flex items-center gap-2 px-2 md:px-3">
                 <div className={isParish ? "w-8 h-8 bg-accent rounded-full flex items-center justify-center" : "w-8 h-8 bg-primary rounded-full flex items-center justify-center"}>
                   <User className={isParish ? "w-4 h-4 text-accent-foreground" : "w-4 h-4 text-primary-foreground"} />
                 </div>
-                <div className="text-left">
+                <div className="text-left hidden sm:block">
                   <p className="text-sm font-medium">
                     {userProfile?.role === 'museum_researcher' 
                       ? 'National Museum of the Philippines - Bohol' 
@@ -219,7 +238,7 @@ export function Header({ setActiveTab }: HeaderProps) {
                     {userProfile?.diocese && ` • ${userProfile.diocese}`}
                   </p>
                 </div>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">

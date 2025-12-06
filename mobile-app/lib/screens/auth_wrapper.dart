@@ -47,6 +47,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/profile_service.dart';
+import '../models/app_state.dart';
 import '../screens/home_screen.dart';
 import '../screens/auth/login_screen.dart';
 
@@ -125,6 +127,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
             return _BlockedScreen(
               reason: _blockReason ?? 'No reason provided',
               onSignOut: () async {
+                // CRITICAL: Clear all user state before signing out
+                debugPrint(
+                    '🧹 Clearing user state before logout (blocked user)...');
+                context.read<ProfileService>().clearProfile();
+                context.read<AppState>().clearUserState();
+
                 await authService.signOut();
                 setState(() {
                   _isBlocked = false;

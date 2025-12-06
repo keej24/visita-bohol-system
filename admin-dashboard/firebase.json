@@ -10,6 +10,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
+    "site": "visita-admin",
     "public": "dist",
     "ignore": [
       "firebase.json",

@@ -62,9 +62,25 @@ class UserProfile {
 
   // Factory from JSON for Firestore integration
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    // Parse createdAt - handle Firestore Timestamp, milliseconds int, or null
+    DateTime parsedCreatedAt;
+    final createdAtValue = json['createdAt'];
+    if (createdAtValue == null) {
+      parsedCreatedAt = DateTime.now();
+    } else if (createdAtValue is int) {
+      parsedCreatedAt = DateTime.fromMillisecondsSinceEpoch(createdAtValue);
+    } else if (createdAtValue is DateTime) {
+      parsedCreatedAt = createdAtValue;
+    } else if (createdAtValue.runtimeType.toString().contains('Timestamp')) {
+      // Handle Firestore Timestamp object
+      parsedCreatedAt = (createdAtValue as dynamic).toDate();
+    } else {
+      parsedCreatedAt = DateTime.now();
+    }
+
     return UserProfile(
-      id: json['id'] ?? '',
-      displayName: json['displayName'] ?? json['name'] ?? '',
+      id: json['id'] ?? json['uid'] ?? '',
+      displayName: json['displayName'] ?? json['name'] ?? 'VISITA User',
       email: json['email'] ?? '',
       profileImageUrl: json['profileImageUrl'],
       phoneNumber: json['phoneNumber'],
@@ -74,18 +90,17 @@ class UserProfile {
       parish: json['parish'] ?? 'Not specified',
       affiliation: json['affiliation'] ?? 'Public User',
       accountType: json['accountType'] ?? 'public',
-      createdAt: json['createdAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['createdAt'])
-          : DateTime.now(),
+      createdAt: parsedCreatedAt,
       visitedChurches: List<String>.from(json['visitedChurches'] ?? []),
       favoriteChurches: List<String>.from(json['favoriteChurches'] ?? []),
       forVisitChurches: List<String>.from(json['forVisitChurches'] ?? []),
       journalEntries: (json['journalEntries'] as List<dynamic>?)
-              ?.map((e) => JournalEntry.fromJson(e))
+              ?.map((e) => JournalEntry.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       preferences: json['preferences'] != null
-          ? UserPreferences.fromJson(json['preferences'])
+          ? UserPreferences.fromJson(
+              json['preferences'] as Map<String, dynamic>)
           : UserPreferences.defaultPreferences(),
     );
   }
