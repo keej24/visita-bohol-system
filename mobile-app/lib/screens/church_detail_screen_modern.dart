@@ -113,28 +113,51 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
     _currentChurch = widget.church;
 
     // CRITICAL FIX: Sync AppState with ProfileService on screen load
-    // This ensures button shows correct state even if user navigates quickly
+    // This ensures buttons show correct state even if user navigates quickly
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _syncForVisitState();
+      _syncStateWithProfile();
     });
   }
 
-  /// Sync AppState with ProfileService for For Visit button state
-  void _syncForVisitState() {
+  /// Sync AppState with ProfileService for both Visited and For Visit button states
+  void _syncStateWithProfile() {
     try {
       final appState = context.read<AppState>();
       final profileService = context.read<ProfileService>();
-      final forVisitIds = profileService.userProfile?.forVisitChurches ?? [];
+      final profile = profileService.userProfile;
 
-      // Check if this church is in ProfileService but not in AppState
+      if (profile == null) {
+        debugPrint('⚠️ ProfileService has no user profile loaded');
+        return;
+      }
+
+      final visitedIds = profile.visitedChurches;
+      final forVisitIds = profile.forVisitChurches;
+
+      // Sync For Visit state
       if (forVisitIds.contains(_currentChurch.id) &&
           !appState.isForVisit(_currentChurch)) {
         debugPrint(
-            '🔄 Syncing: Church ${_currentChurch.id} is in ProfileService but not AppState');
+            '🔄 Syncing: Church ${_currentChurch.id} is in ProfileService For Visit but not AppState');
         appState.markForVisit(_currentChurch);
+      } else if (!forVisitIds.contains(_currentChurch.id) &&
+          appState.isForVisit(_currentChurch)) {
+        debugPrint(
+            '🔄 Syncing: Church ${_currentChurch.id} is NOT in ProfileService For Visit, removing from AppState');
+        appState.unmarkForVisit(_currentChurch);
       }
+
+      // Sync Visited state
+      if (visitedIds.contains(_currentChurch.id) &&
+          !appState.isVisited(_currentChurch)) {
+        debugPrint(
+            '🔄 Syncing: Church ${_currentChurch.id} is in ProfileService Visited but not AppState');
+        appState.markVisited(_currentChurch);
+      }
+
+      debugPrint('✅ State sync complete for church: ${_currentChurch.id}');
     } catch (e) {
-      debugPrint('⚠️ Error syncing For Visit state: $e');
+      debugPrint('⚠️ Error syncing state with profile: $e');
     }
   }
 
@@ -279,20 +302,43 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
       child: Row(
         children: [
           // For Visit button (Wishlist/Bookmark) - expanded
+          // Disabled when church is already visited
           Expanded(
             child: Consumer<AppState>(
               builder: (context, state, _) {
                 final isInVisitList = state.isForVisit(_currentChurch);
+                final isVisited = state.isVisited(_currentChurch);
+
+                // Determine button colors based on state
+                final Color backgroundColor;
+                final Color foregroundColor;
+                final Color borderColor;
+
+                if (isVisited) {
+                  // Disabled state - church already visited
+                  backgroundColor = const Color(0xFFF3F4F6);
+                  foregroundColor = const Color(0xFF9CA3AF);
+                  borderColor = const Color(0xFFE5E7EB);
+                } else if (isInVisitList) {
+                  // Active state - in For Visit list
+                  backgroundColor = const Color(0xFF2C5F2D);
+                  foregroundColor = Colors.white;
+                  borderColor = const Color(0xFF2C5F2D);
+                } else {
+                  // Default state
+                  backgroundColor = Colors.white;
+                  foregroundColor = const Color(0xFF2C5F2D);
+                  borderColor = const Color(0xFF2C5F2D);
+                }
+
                 return OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         vertical: 12, horizontal: 16),
-                    backgroundColor:
-                        isInVisitList ? const Color(0xFF2C5F2D) : Colors.white,
-                    foregroundColor:
-                        isInVisitList ? Colors.white : const Color(0xFF2C5F2D),
-                    side: const BorderSide(
-                      color: Color(0xFF2C5F2D),
+                    backgroundColor: backgroundColor,
+                    foregroundColor: foregroundColor,
+                    side: BorderSide(
+                      color: borderColor,
                       width: 1.5,
                     ),
                     shape: RoundedRectangleBorder(
@@ -300,74 +346,107 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                     ),
                   ),
                   icon: Icon(
-                    isInVisitList ? Icons.bookmark : Icons.bookmark_outline,
+                    isVisited
+                        ? Icons.check_circle // Show check when visited
+                        : (isInVisitList
+                            ? Icons.bookmark
+                            : Icons.bookmark_outline),
                     size: 20,
                   ),
-                  label: const Text(
-                    'For Visit',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  label: Text(
+                    isVisited ? 'Visited' : 'For Visit',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
                   ),
-                  onPressed: () async {
-                    final profileService = context.read<ProfileService>();
-
-                    // Toggle in ProfileService (this handles Firebase sync)
-                    await profileService
-                        .toggleForVisitChurch(_currentChurch.id);
-
-                    // Update local AppState to match ProfileService
-                    final updatedList =
-                        profileService.userProfile?.forVisitChurches ?? [];
-                    if (updatedList.contains(_currentChurch.id)) {
-                      // Church was added to list
-                      state.markForVisit(_currentChurch);
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.bookmark_added, color: Colors.white),
-                                SizedBox(width: 12),
-                                Expanded(
-                                    child: Text('Added to For Visit list')),
-                              ],
+                  // Disable button if church is already visited
+                  onPressed: isVisited
+                      ? () {
+                          // Show message that church is already visited
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: Colors.white),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                      child: Text(
+                                          'This church is already in your Visited list')),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF6B7280),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              margin: const EdgeInsets.all(16),
+                              duration: const Duration(seconds: 2),
                             ),
-                            backgroundColor: const Color(0xFF2C5F2D),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            margin: const EdgeInsets.all(16),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    } else {
-                      // Church was removed from list
-                      state.unmarkForVisit(_currentChurch);
+                          );
+                        }
+                      : () async {
+                          final profileService = context.read<ProfileService>();
 
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.bookmark_remove,
-                                    color: Colors.white),
-                                SizedBox(width: 12),
-                                Expanded(
-                                    child: Text('Removed from For Visit list')),
-                              ],
-                            ),
-                            backgroundColor: const Color(0xFF6B7280),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            margin: const EdgeInsets.all(16),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    }
-                  },
+                          // Toggle in ProfileService (this handles Firebase sync)
+                          await profileService
+                              .toggleForVisitChurch(_currentChurch.id);
+
+                          // Update local AppState to match ProfileService
+                          final updatedList =
+                              profileService.userProfile?.forVisitChurches ??
+                                  [];
+                          if (updatedList.contains(_currentChurch.id)) {
+                            // Church was added to list
+                            state.markForVisit(_currentChurch);
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Row(
+                                    children: [
+                                      Icon(Icons.bookmark_added,
+                                          color: Colors.white),
+                                      SizedBox(width: 12),
+                                      Expanded(
+                                          child:
+                                              Text('Added to For Visit list')),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFF2C5F2D),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  margin: const EdgeInsets.all(16),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } else {
+                            // Church was removed from list
+                            state.unmarkForVisit(_currentChurch);
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Row(
+                                    children: [
+                                      Icon(Icons.bookmark_remove,
+                                          color: Colors.white),
+                                      SizedBox(width: 12),
+                                      Expanded(
+                                          child: Text(
+                                              'Removed from For Visit list')),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFF6B7280),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  margin: const EdgeInsets.all(16),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        },
                 );
               },
             ),

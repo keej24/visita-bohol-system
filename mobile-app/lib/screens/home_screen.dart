@@ -209,6 +209,38 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
 
       await appState.loadVisitedChurches(churches);
       debugPrint('✅ Visited churches initialized');
+
+      // Load user profile only if not already loaded
+      // This prevents overwriting local changes with stale Firestore data
+      if (profileService.userProfile == null) {
+        debugPrint('📥 Profile not loaded, fetching from Firebase...');
+        await profileService.loadUserProfile();
+      }
+
+      if (profileService.userProfile != null) {
+        final profile = profileService.userProfile!;
+        debugPrint('🔄 Syncing For Visit list from ProfileService...');
+
+        // Sync For Visit churches from ProfileService to AppState
+        for (String churchId in profile.forVisitChurches) {
+          final church = churches.where((c) => c.id == churchId).firstOrNull;
+          if (church != null && !appState.isForVisit(church)) {
+            appState.markForVisit(church);
+            debugPrint('   ✅ Synced for visit: ${church.name}');
+          }
+        }
+
+        // Sync Visited churches from ProfileService to AppState
+        for (String churchId in profile.visitedChurches) {
+          final church = churches.where((c) => c.id == churchId).firstOrNull;
+          if (church != null && !appState.isVisited(church)) {
+            appState.markVisited(church);
+            debugPrint('   ✅ Synced visited: ${church.name}');
+          }
+        }
+
+        debugPrint('✅ ProfileService sync complete');
+      }
     } catch (e) {
       debugPrint('Error loading churches: $e');
     }
@@ -297,14 +329,19 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
                                   .where((a) =>
                                       a.scope == 'diocese' &&
                                       !a.isArchived &&
-                                      (a.isUpcoming || a.isOngoing || a.status == 'Active'))
+                                      (a.isUpcoming ||
+                                          a.isOngoing ||
+                                          a.status == 'Active'))
                                   .toList();
 
                               // Sort by most recent: use createdAt for active announcements, dateTime for events
                               dioceseAnns.sort((a, b) {
-                                final aDate = a.dateTime ?? a.createdAt ?? DateTime.now();
-                                final bDate = b.dateTime ?? b.createdAt ?? DateTime.now();
-                                return bDate.compareTo(aDate); // Most recent first
+                                final aDate =
+                                    a.dateTime ?? a.createdAt ?? DateTime.now();
+                                final bDate =
+                                    b.dateTime ?? b.createdAt ?? DateTime.now();
+                                return bDate
+                                    .compareTo(aDate); // Most recent first
                               });
 
                               return AnnouncementCarousel(

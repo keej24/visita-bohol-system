@@ -270,17 +270,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.example.visitaMobile',
         ),
-        MarkerLayer(markers: markers),
-        RichAttributionWidget(
-          attributions: [
-            TextSourceAttribution(
-              'OpenStreetMap contributors',
-              onTap: () =>
-                  launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
-            ),
-          ],
-        ),
-        // Church markers with clustering
+        // Church markers with clustering (using clustered markers only)
         MarkerClusterLayerWidget(
           options: MarkerClusterLayerOptions(
             maxClusterRadius: 60,
@@ -315,6 +305,15 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               );
             },
           ),
+        ),
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution(
+              'OpenStreetMap contributors',
+              onTap: () =>
+                  launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
+            ),
+          ],
         ),
       ],
     );

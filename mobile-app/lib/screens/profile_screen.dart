@@ -23,10 +23,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
 
-    // Load profile data
+    // Load profile data and sync with AppState
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProfileService>().loadUserProfile();
+      _loadAndSyncProfile();
     });
+  }
+
+  /// Load profile data and sync with AppState to ensure consistency
+  Future<void> _loadAndSyncProfile() async {
+    final profileService = context.read<ProfileService>();
+    final appState = context.read<AppState>();
+    final churchRepo = context.read<ChurchRepository>();
+
+    // Only load from Firebase if profile is not already loaded
+    // This prevents overwriting recent local changes with stale Firestore data
+    if (profileService.userProfile == null) {
+      debugPrint('📥 Profile not loaded, fetching from Firebase...');
+      await profileService.loadUserProfile();
+    } else {
+      debugPrint('✅ Profile already loaded, using cached data');
+    }
+
+    // Sync ProfileService data with AppState
+    if (profileService.userProfile != null) {
+      final profile = profileService.userProfile!;
+      debugPrint('🔄 Syncing profile with AppState...');
+      debugPrint('   Visited: ${profile.visitedChurches.length}');
+      debugPrint('   For Visit: ${profile.forVisitChurches.length}');
+
+      // Get all churches to map IDs to Church objects
+      try {
+        final allChurches = await churchRepo.getAll();
+
+        // Sync visited churches FROM ProfileService TO AppState
+        for (String churchId in profile.visitedChurches) {
+          final church = allChurches.where((c) => c.id == churchId).firstOrNull;
+          if (church != null && !appState.isVisited(church)) {
+            appState.markVisited(church);
+            debugPrint('   ✅ Synced visited: ${church.name}');
+          }
+        }
+
+        // Sync for visit churches FROM ProfileService TO AppState
+        for (String churchId in profile.forVisitChurches) {
+          final church = allChurches.where((c) => c.id == churchId).firstOrNull;
+          if (church != null && !appState.isForVisit(church)) {
+            appState.markForVisit(church);
+            debugPrint('   ✅ Synced for visit: ${church.name}');
+          }
+        }
+
+        // Also sync FROM AppState TO ProfileService (for any changes made via AppState)
+        for (final church in appState.visited) {
+          if (!profile.visitedChurches.contains(church.id)) {
+            await profileService.markChurchAsVisited(church.id);
+            debugPrint('   ✅ Synced to profile (visited): ${church.name}');
+          }
+        }
+
+        for (final church in appState.forVisit) {
+          if (!profile.forVisitChurches.contains(church.id)) {
+            await profileService.toggleForVisitChurch(church.id);
+            debugPrint('   ✅ Synced to profile (for visit): ${church.name}');
+          }
+        }
+
+        debugPrint('✅ Profile sync complete');
+      } catch (e) {
+        debugPrint('⚠️ Error syncing profile with AppState: $e');
+      }
+    }
   }
 
   @override
@@ -422,7 +488,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .where((church) => profile.visitedChurches.contains(church.id))
         .toList();
 
+    // Debug: Find missing church IDs (churches that were deleted from Firestore)
+    if (visitedChurches.length < profile.visitedChurches.length) {
+      final foundIds = visitedChurches.map((c) => c.id).toSet();
+      final missingIds = profile.visitedChurches
+          .where((id) => !foundIds.contains(id))
+          .toList();
+      debugPrint('⚠️ Missing churches from Visited list: $missingIds');
+      debugPrint(
+          '   These churches may have been deleted or are no longer available.');
+
+      // Clean up missing IDs from profile
+      if (missingIds.isNotEmpty && mounted) {
+        debugPrint(
+            '🧹 Cleaning up ${missingIds.length} invalid church IDs from visited list...');
+        final profileService = context.read<ProfileService>();
+
+        // Remove invalid IDs by updating the profile
+        await profileService.removeInvalidVisitedChurches(missingIds);
+
+        // Show notification to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Removed ${missingIds.length} unavailable church${missingIds.length > 1 ? 'es' : ''} from your visited list'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
+
     if (!mounted) return;
+
+    // Show empty message if no valid churches found
+    if (visitedChurches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'No available churches in your visited list. Previously visited churches may have been removed.'),
+          backgroundColor: Color(0xFF10B981),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
 
     Navigator.push(
       context,
@@ -482,10 +594,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             '🧹 Cleaning up ${missingIds.length} invalid church IDs from profile...');
         final profileService = context.read<ProfileService>();
 
-        // Remove invalid IDs
-        for (String missingId in missingIds) {
-          await profileService.toggleForVisitChurch(missingId);
-        }
+        // Remove invalid IDs using the dedicated cleanup method
+        await profileService.removeInvalidForVisitChurches(missingIds);
 
         // Show notification to user
         if (mounted) {

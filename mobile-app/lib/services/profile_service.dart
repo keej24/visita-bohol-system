@@ -438,11 +438,68 @@ class ProfileService extends ChangeNotifier {
           await _saveProfileToFirestore();
           await _saveProfile();
           debugPrint('✅ Church marked as visited: $churchId');
+          debugPrint('📊 Current visited churches: $updatedVisited');
+        } else {
+          debugPrint('ℹ️ Church $churchId already in visited list');
         }
+      } else {
+        debugPrint('⚠️ Cannot mark as visited: userProfile is null');
       }
     } catch (e) {
       debugPrint('❌ Error marking church as visited: $e');
       _setError('Failed to mark church as visited: $e');
+    }
+
+    notifyListeners();
+  }
+
+  /// Remove invalid/deleted church IDs from the visited churches list
+  /// This is called when churches are detected as missing from Firestore
+  Future<void> removeInvalidVisitedChurches(List<String> invalidIds) async {
+    try {
+      if (_userProfile != null && invalidIds.isNotEmpty) {
+        final updatedVisited = List<String>.from(_userProfile!.visitedChurches);
+
+        for (String invalidId in invalidIds) {
+          updatedVisited.remove(invalidId);
+          debugPrint('🧹 Removed invalid church ID from visited: $invalidId');
+        }
+
+        _userProfile = _userProfile!.copyWith(visitedChurches: updatedVisited);
+        await _saveProfileToFirestore();
+        await _saveProfile();
+        debugPrint(
+            '✅ Cleaned up ${invalidIds.length} invalid visited church IDs');
+      }
+    } catch (e) {
+      debugPrint('❌ Error removing invalid visited churches: $e');
+    }
+
+    notifyListeners();
+  }
+
+  /// Remove invalid/deleted church IDs from the for visit churches list
+  /// This is called when churches are detected as missing from Firestore
+  Future<void> removeInvalidForVisitChurches(List<String> invalidIds) async {
+    try {
+      if (_userProfile != null && invalidIds.isNotEmpty) {
+        final updatedForVisit =
+            List<String>.from(_userProfile!.forVisitChurches);
+
+        for (String invalidId in invalidIds) {
+          updatedForVisit.remove(invalidId);
+          debugPrint('🧹 Removed invalid church ID from for visit: $invalidId');
+        }
+
+        _userProfile =
+            _userProfile!.copyWith(forVisitChurches: updatedForVisit);
+        await _saveProfileToFirestore();
+        await _saveProfile();
+        debugPrint(
+            '✅ Cleaned up ${invalidIds.length} invalid for visit church IDs');
+      }
+    } catch (e) {
+      debugPrint('❌ Error removing invalid for visit churches: $e');
     }
 
     notifyListeners();
@@ -453,19 +510,32 @@ class ProfileService extends ChangeNotifier {
       if (_userProfile != null) {
         final updatedForVisit =
             List<String>.from(_userProfile!.forVisitChurches);
+        final visitedChurches = _userProfile!.visitedChurches;
 
         if (updatedForVisit.contains(churchId)) {
           updatedForVisit.remove(churchId);
+          debugPrint('📤 Removing church $churchId from For Visit list');
         } else {
+          // Don't add to For Visit if already visited
+          if (visitedChurches.contains(churchId)) {
+            debugPrint(
+                'ℹ️ Church $churchId is already visited, not adding to For Visit');
+            return;
+          }
           updatedForVisit.add(churchId);
+          debugPrint('📥 Adding church $churchId to For Visit list');
         }
 
         _userProfile =
             _userProfile!.copyWith(forVisitChurches: updatedForVisit);
+
+        await _saveProfileToFirestore();
+        await _saveProfile();
+        debugPrint('✅ Church toggled for visit: $churchId');
+        debugPrint('📊 Current For Visit churches: $updatedForVisit');
+      } else {
+        debugPrint('⚠️ Cannot toggle For Visit: userProfile is null');
       }
-      await _saveProfileToFirestore();
-      await _saveProfile();
-      debugPrint('✅ Church toggled for visit: $churchId');
     } catch (e) {
       debugPrint('❌ Error toggling for visit: $e');
       _setError('Failed to update visit list: $e');

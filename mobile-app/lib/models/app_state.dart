@@ -380,7 +380,17 @@ class AppState extends ChangeNotifier {
   ///
   /// Unlike visited, this doesn't require location validation.
   /// Users can add any church they want to visit later.
+  ///
+  /// NOTE: Cannot add a church that's already visited.
   void markForVisit(Church c) {
+    // Don't add to For Visit if already visited
+    final isAlreadyVisited = _visited.any((church) => church.id == c.id);
+    if (isAlreadyVisited) {
+      debugPrint(
+          'ℹ️ AppState: Church ${c.id} is already visited, not adding to For Visit');
+      return;
+    }
+
     final isAlreadyForVisit = _forVisit.any((church) => church.id == c.id);
     if (!isAlreadyForVisit) {
       _forVisit.add(c);
