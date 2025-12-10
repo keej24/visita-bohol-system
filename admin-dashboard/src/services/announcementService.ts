@@ -308,7 +308,7 @@ export class AnnouncementService {
     }
   }
 
-  // Automatically archive past events based on endDate
+  // Automatically archive past events based on endDate or eventDate + endTime
   static async autoArchivePastEvents(diocese: Diocese): Promise<number> {
     try {
       const announcements = await this.getAnnouncements(diocese, { isArchived: false });
@@ -316,8 +316,47 @@ export class AnnouncementService {
       let archivedCount = 0;
 
       for (const announcement of announcements) {
-        // Auto-archive announcements that have passed their end date (only for events with endDate)
-        if (announcement.endDate && announcement.endDate < now && !announcement.isArchived) {
+        let shouldArchive = false;
+
+        // Check if announcement has passed based on various date/time combinations
+        if (announcement.endDate && announcement.endDate < now) {
+          // If endDate is explicitly set and has passed
+          shouldArchive = true;
+        } else if (!announcement.endDate && announcement.eventDate) {
+          // If no endDate but eventDate is set, check eventDate + endTime
+          const eventDate = new Date(announcement.eventDate);
+          
+          if (announcement.endTime) {
+            // If endTime is set (e.g., "09:30"), parse and combine with eventDate
+            const [hours, minutes] = announcement.endTime.split(':').map(Number);
+            const eventEndDateTime = new Date(eventDate);
+            eventEndDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+            
+            if (eventEndDateTime < now) {
+              shouldArchive = true;
+            }
+          } else if (announcement.eventTime) {
+            // If only eventTime is set (no endTime), use eventTime as the cutoff
+            const [hours, minutes] = announcement.eventTime.split(':').map(Number);
+            const eventDateTime = new Date(eventDate);
+            eventDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+            
+            if (eventDateTime < now) {
+              shouldArchive = true;
+            }
+          } else {
+            // If no time specified, use end of eventDate day
+            const eventEndOfDay = new Date(eventDate);
+            eventEndOfDay.setHours(23, 59, 59, 999);
+            
+            if (eventEndOfDay < now) {
+              shouldArchive = true;
+            }
+          }
+        }
+
+        if (shouldArchive && !announcement.isArchived) {
+          console.log(`📦 Auto-archiving past announcement: "${announcement.title}" (ID: ${announcement.id})`);
           await this.archiveAnnouncement(announcement.id);
           archivedCount++;
         }

@@ -177,19 +177,41 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
     };
   }, []);
 
+  // Calculate max values for normalization
+  const maxVisitorCount = React.useMemo(() => {
+    if (convertedChurches.length === 0) return 1;
+    const max = Math.max(...convertedChurches.map(c => c.visitorCount));
+    console.log('📊 Max visitor count for normalization:', max);
+    return max || 1; // Avoid division by zero
+  }, [convertedChurches]);
+
   // Calculate intensity based on selected layer
   const calculateIntensity = React.useCallback((church: Church): number => {
+    const MIN_INTENSITY = 0.15; // Minimum visibility for any church
+    
     switch (heatmapLayer) {
-      case 'visitors':
-        return Math.min(church.visitorCount / 1000, 1); // Normalize to 0-1
-      case 'ratings':
-        return church.avgRating / 5;
+      case 'visitors': {
+        // Use dynamic normalization based on actual max visitor count
+        // This ensures churches with visitors show visible intensity
+        if (church.visitorCount === 0) return MIN_INTENSITY;
+        const normalizedValue = church.visitorCount / maxVisitorCount;
+        // Scale between MIN_INTENSITY and 1.0
+        const intensity = MIN_INTENSITY + (normalizedValue * (1 - MIN_INTENSITY));
+        console.log(`🔥 Visitor intensity for ${church.name}: ${church.visitorCount} visitors → ${intensity.toFixed(3)}`);
+        return intensity;
+      }
+      case 'ratings': {
+        // Ensure minimum visibility even for unrated churches
+        if (church.avgRating === 0) return MIN_INTENSITY;
+        const normalizedRating = church.avgRating / 5;
+        return MIN_INTENSITY + (normalizedRating * (1 - MIN_INTENSITY));
+      }
       case 'heritage':
         return church.classification === 'NCT' ? 1 : church.classification === 'ICP' ? 0.7 : 0.3;
       default:
         return 0.5;
     }
-  }, [heatmapLayer]);
+  }, [heatmapLayer, maxVisitorCount]);
 
   // Update map layers when data or view mode changes
   useEffect(() => {
@@ -224,7 +246,12 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
     ]);
 
     console.log('🔥 Adding heatmap layer with data points:', heatData.length);
-    console.log('Sample heat data:', heatData.slice(0, 3));
+    console.log('📊 Visitor counts:', convertedChurches.map(c => ({ name: c.name.substring(0, 20), visitors: c.visitorCount })));
+    console.log('🎨 Heat data sample (lat, lng, intensity):', heatData.slice(0, 3));
+    console.log('📈 Intensity range:', {
+      min: Math.min(...heatData.map(d => d[2])).toFixed(3),
+      max: Math.max(...heatData.map(d => d[2])).toFixed(3)
+    });
 
     heatLayerRef.current = L.heatLayer(heatData, {
       radius: 25,
@@ -287,9 +314,37 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
             {/* Stats */}
             <div className="space-y-2">
               <Label>Statistics</Label>
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <div className="text-2xl font-bold text-primary">{convertedChurches.length}</div>
-                <div className="text-xs text-muted-foreground">Churches with coordinates</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{convertedChurches.length}</div>
+                  <div className="text-xs text-muted-foreground">Churches with coordinates</div>
+                </div>
+                {heatmapLayer === 'visitors' && (
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {convertedChurches.reduce((sum, c) => sum + c.visitorCount, 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-blue-600">Total Visitors</div>
+                  </div>
+                )}
+                {heatmapLayer === 'ratings' && (
+                  <div className="p-3 bg-yellow-50 rounded-lg">
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {convertedChurches.length > 0 
+                        ? (convertedChurches.reduce((sum, c) => sum + c.avgRating, 0) / convertedChurches.length).toFixed(1)
+                        : '0'}
+                    </div>
+                    <div className="text-xs text-yellow-600">Avg Rating</div>
+                  </div>
+                )}
+                {heatmapLayer === 'heritage' && (
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">
+                      {convertedChurches.filter(c => c.classification === 'ICP' || c.classification === 'NCT').length}
+                    </div>
+                    <div className="text-xs text-green-600">Heritage Sites</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -309,6 +364,13 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {convertedChurches.length === 0 && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-yellow-800 text-sm">
+                <strong>Note:</strong> No churches with valid coordinates found. The heatmap will show once churches have location data.
+              </p>
+            </div>
+          )}
           <div
             ref={mapContainerRef}
             style={{ height: '500px', width: '100%' }}
@@ -324,7 +386,7 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
                     <div className="w-4 h-4 rounded-full bg-red-600"></div>
-                    <span className="text-xs">High</span>
+                    <span className="text-xs">High {heatmapLayer === 'visitors' ? 'visitors' : heatmapLayer === 'ratings' ? 'rating' : ''}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="w-4 h-4 rounded-full bg-orange-500"></div>
@@ -339,6 +401,11 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
                     <span className="text-xs">Minimal</span>
                   </div>
                 </div>
+                {heatmapLayer === 'visitors' && maxVisitorCount > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Scale: 0 - {maxVisitorCount.toLocaleString()} visitors
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -352,7 +419,12 @@ export const HybridHeatmap: React.FC<HybridHeatmapProps> = ({ diocese, churches 
             </div>
 
             <div className="mt-3 text-xs text-gray-500">
-              💡 Heatmap shows intensity based on selected metric • Use Intensity Metric dropdown to change visualization
+              💡 {heatmapLayer === 'visitors' 
+                ? 'Brighter/warmer colors indicate churches with more visitors' 
+                : heatmapLayer === 'ratings'
+                ? 'Brighter/warmer colors indicate churches with higher ratings'
+                : 'NCT sites show highest intensity, followed by ICP, then regular churches'
+              }
             </div>
           </div>
         </CardContent>

@@ -99,18 +99,58 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
     const now = new Date();
     const eventDate = new Date(announcement.eventDate);
 
+    // Check if the event has truly ended (considering endDate, endTime, or eventDate)
+    const isPastEvent = isAnnouncementPast(announcement, now);
+    
+    if (isPastEvent) return 'Past';
     if (eventDate > now) return 'Upcoming';
     if (eventDate.toDateString() === now.toDateString()) return 'Today';
     return 'Past';
   };
 
-  // Count past events that should be auto-archived based on endDate
+  // Helper function to determine if an announcement is past
+  const isAnnouncementPast = (announcement: Announcement, now: Date): boolean => {
+    // If explicitly archived
+    if (announcement.isArchived) return true;
+    
+    // No event date = not past
+    if (!announcement.eventDate) return false;
+
+    const eventDate = new Date(announcement.eventDate);
+
+    // Check endDate first
+    if (announcement.endDate && new Date(announcement.endDate) < now) {
+      return true;
+    }
+
+    // If no endDate, check eventDate + endTime
+    if (!announcement.endDate) {
+      if (announcement.endTime) {
+        const [hours, minutes] = announcement.endTime.split(':').map(Number);
+        const eventEndDateTime = new Date(eventDate);
+        eventEndDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+        return eventEndDateTime < now;
+      } else if (announcement.eventTime) {
+        const [hours, minutes] = announcement.eventTime.split(':').map(Number);
+        const eventDateTime = new Date(eventDate);
+        eventDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+        return eventDateTime < now;
+      } else {
+        // Use end of event day
+        const eventEndOfDay = new Date(eventDate);
+        eventEndOfDay.setHours(23, 59, 59, 999);
+        return eventEndOfDay < now;
+      }
+    }
+
+    return false;
+  };
+
+  // Count past events that should be auto-archived
   const getPastEventsCount = (): number => {
     const now = new Date();
-    return announcements.filter(a =>
-      !a.isArchived &&
-      a.endDate &&
-      new Date(a.endDate) < now
+    return announcements.filter(a => 
+      !a.isArchived && isAnnouncementPast(a, now)
     ).length;
   };
 
