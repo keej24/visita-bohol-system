@@ -690,15 +690,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     textInputAction: TextInputAction.next,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Name',
+                      labelText: 'Username',
                       border: OutlineInputBorder(),
                     ),
                     maxLength: 50,
                     validator: (value) {
                       final v = value?.trim() ?? '';
-                      if (v.isEmpty) return 'Please enter your name';
+                      if (v.isEmpty) return 'Please enter a username';
                       if (v.length < 2) {
-                        return 'Name must be at least 2 characters';
+                        return 'Username must be at least 2 characters';
                       }
                       return null;
                     },

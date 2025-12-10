@@ -149,10 +149,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _validateName(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Please enter your full name';
+      return 'Please enter a username';
     }
     if (value.trim().length < 2) {
-      return 'Name must be at least 2 characters';
+      return 'Username must be at least 2 characters';
     }
     return null;
   }
@@ -243,14 +243,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Full Name Field
+                      // Username Field
                       TextFormField(
                         controller: _nameController,
                         textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.words,
                         validator: _validateName,
                         decoration: const InputDecoration(
-                          labelText: 'Full Name',
+                          labelText: 'Username',
                           prefixIcon: Icon(Icons.person_outlined),
                           border: OutlineInputBorder(),
                         ),
