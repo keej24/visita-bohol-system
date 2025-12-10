@@ -52,6 +52,7 @@ dev_dependencies:
   flutter_lints: ^2.0.0
   integration_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -59,5 +60,13 @@ flutter:
     - assets/data/
     - assets/images/
     - assets/360/
+
+# App icon configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#2563EB"  # VISITA blue color
+  adaptive_icon_foreground: "assets/images/app_icon.png"
 
 ## Removed dependency_overrides for geolocator_android (resolved via normal solver)

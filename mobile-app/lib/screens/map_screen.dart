@@ -268,15 +268,18 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.visitaMobile',
-          // Error handling for map tile loading
-          errorImage: const AssetImage('assets/images/map_error.png'),
+          // CRITICAL: User-Agent must match actual app ID for OSM to serve tiles
+          userAgentPackageName: 'com.example.visita_mobile',
           // Fallback tiles if OSM is unreachable
-          fallbackUrl: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
-          // Add retry logic for failed tile loads
+          fallbackUrl: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          // Maximum zoom level for native tiles
           maxNativeZoom: 19,
-          // Debug logging for tile load issues
+          // Improve tile loading performance
           tileProvider: NetworkTileProvider(),
+          // Keep tiles in memory for smoother panning
+          keepBuffer: 2,
+          // Add retry logic for failed tiles
+          retinaMode: false,
         ),
         // Church markers with clustering (using clustered markers only)
         MarkerClusterLayerWidget(
