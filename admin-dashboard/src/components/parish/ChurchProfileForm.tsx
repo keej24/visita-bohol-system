@@ -246,6 +246,26 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     }));
   };
 
+  // Helper function to add 1 hour to a time string (HH:MM format)
+  const addOneHour = (timeString: string): string => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const newHours = (hours + 1) % 24; // Wrap around at midnight
+    return `${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Handle start time change - auto-calculate end time
+  const handleStartTimeChange = (newStartTime: string) => {
+    setScheduleForm(prev => ({
+      ...prev,
+      time: newStartTime,
+      // Auto-fill end time only if it's empty or was previously auto-calculated
+      endTime: !prev.endTime || prev.endTime === addOneHour(prev.time) 
+        ? addOneHour(newStartTime) 
+        : prev.endTime
+    }));
+  };
+
   // Add schedule to pending list (batch mode)
   const addToPendingSchedules = () => {
     if (!scheduleForm.time || !scheduleForm.endTime) {
@@ -270,7 +290,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       day,
       time: scheduleForm.time,
       endTime: scheduleForm.endTime,
-      language: scheduleForm.isEnglish ? 'English' : 'Filipino',
+      language: scheduleForm.isEnglish ? 'English' : 'Cebuano',
       isFbLive: scheduleForm.isFbLive
     }));
 
@@ -456,29 +476,92 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   };
 
   const renderGroupedMassSchedules = () => {
-    const groupedSchedules = {
-      weekdays: formData.massSchedules.filter(s => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(s.day)),
-      saturday: formData.massSchedules.filter(s => s.day === 'Saturday'),
-      sunday: formData.massSchedules.filter(s => s.day === 'Sunday')
+    const allWeekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    
+    // Group all schedules by day
+    const schedulesByDay: Record<string, typeof formData.massSchedules> = {
+      Sunday: formData.massSchedules.filter(s => s.day === 'Sunday'),
+      Monday: formData.massSchedules.filter(s => s.day === 'Monday'),
+      Tuesday: formData.massSchedules.filter(s => s.day === 'Tuesday'),
+      Wednesday: formData.massSchedules.filter(s => s.day === 'Wednesday'),
+      Thursday: formData.massSchedules.filter(s => s.day === 'Thursday'),
+      Friday: formData.massSchedules.filter(s => s.day === 'Friday'),
+      Saturday: formData.massSchedules.filter(s => s.day === 'Saturday'),
     };
 
-    // Get unique weekday schedules (assuming they're the same for all weekdays)
-    const uniqueWeekdaySchedules = groupedSchedules.weekdays.reduce((unique, schedule) => {
-      const key = `${schedule.time}-${schedule.endTime}-${schedule.language}-${schedule.isFbLive}`;
-      if (!unique.find(s => `${s.time}-${s.endTime}-${s.language}-${s.isFbLive}` === key)) {
-        unique.push(schedule);
-      }
-      return unique;
-    }, [] as typeof formData.massSchedules);
+    // Create a key for each schedule based on time/language/fbLive (not day)
+    const getScheduleKey = (s: typeof formData.massSchedules[0]) => 
+      `${s.time}-${s.endTime}-${s.language}-${s.isFbLive}`;
+
+    // Find schedules that appear on ALL 5 weekdays (true "daily" schedules)
+    // A schedule is "daily" if the same time/endTime/language/isFbLive exists on Mon, Tue, Wed, Thu, AND Fri
+    const weekdayScheduleKeys = allWeekdays.map(day => 
+      new Set(schedulesByDay[day].map(getScheduleKey))
+    );
+    
+    // Find keys that exist in ALL 5 weekday sets
+    const dailyScheduleKeys = new Set<string>();
+    if (weekdayScheduleKeys[0]) {
+      weekdayScheduleKeys[0].forEach(key => {
+        if (weekdayScheduleKeys.every(dayKeys => dayKeys.has(key))) {
+          dailyScheduleKeys.add(key);
+        }
+      });
+    }
+
+    // Daily schedules (appear on all 5 weekdays) - just take from Monday as representative
+    const dailySchedules = schedulesByDay['Monday'].filter(s => dailyScheduleKeys.has(getScheduleKey(s)));
+
+    // Specific day schedules (weekdays that are NOT daily)
+    const specificDaySchedules: Record<string, typeof formData.massSchedules> = {};
+    allWeekdays.forEach(day => {
+      specificDaySchedules[day] = schedulesByDay[day].filter(s => !dailyScheduleKeys.has(getScheduleKey(s)));
+    });
 
     // Sort schedules by time
     const sortByTime = (schedules: typeof formData.massSchedules) => {
-      return schedules.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+      return [...schedules].sort((a, b) => {
+        const getTimeValue = (t: string) => {
+          if (!t) return 0;
+          // Handle 12-hour format (e.g., "6:00 AM", "12:30 PM")
+          const match12 = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+          if (match12) {
+            let hours = parseInt(match12[1]);
+            const minutes = parseInt(match12[2]);
+            const period = match12[3].toUpperCase();
+            if (period === 'PM' && hours !== 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+            return hours * 60 + minutes;
+          }
+          // Handle 24-hour format (e.g., "06:00", "18:30")
+          const match24 = t.match(/(\d{1,2}):(\d{2})/);
+          if (match24) {
+            return parseInt(match24[1]) * 60 + parseInt(match24[2]);
+          }
+          return 0;
+        };
+        return getTimeValue(a.time) - getTimeValue(b.time);
+      });
     };
 
     const formatTime = (time: string) => {
-      // Convert 24-hour format to 12-hour format with AM/PM
-      const [hours, minutes] = time.split(':').map(Number);
+      if (!time) return '';
+      
+      // If already in 12-hour format (contains AM/PM), return as-is
+      if (time.toUpperCase().includes('AM') || time.toUpperCase().includes('PM')) {
+        // Handle noon special case
+        if (time.match(/12:00\s*PM/i)) {
+          return '12:00 NN';
+        }
+        return time;
+      }
+      
+      // Parse 24-hour format
+      const match = time.match(/(\d{1,2}):(\d{2})/);
+      if (!match) return time;
+      
+      const hours = parseInt(match[1]);
+      const minutes = parseInt(match[2]);
       const period = hours >= 12 ? 'PM' : 'AM';
       const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
       const displayMinutes = minutes.toString().padStart(2, '0');
@@ -522,42 +605,58 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     return (
       <div className="space-y-6">
         {/* Sunday Masses */}
-        {groupedSchedules.sunday.length > 0 && (
+        {schedulesByDay['Sunday'].length > 0 && (
           <div>
             <h5 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              ☀️ Sunday Masses
+              Sunday Masses
             </h5>
             <div className="space-y-2 pl-4">
-              {sortByTime(groupedSchedules.sunday).map((schedule, index) =>
-                renderScheduleItem(schedule, index)
+              {sortByTime(schedulesByDay['Sunday']).map((schedule, index) =>
+                renderScheduleItem(schedule, index, !isChanceryEdit)
               )}
             </div>
           </div>
         )}
 
-        {/* Daily Masses (Monday–Friday) */}
-        {uniqueWeekdaySchedules.length > 0 && (
+        {/* Daily Masses (Monday–Friday) - Only shows schedules that appear on ALL 5 weekdays */}
+        {dailySchedules.length > 0 && (
           <div>
             <h5 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
               📅 Daily Masses (Monday–Friday)
             </h5>
             <div className="space-y-2 pl-4">
-              {sortByTime(uniqueWeekdaySchedules).map((schedule, index) =>
-                renderScheduleItem(schedule, index)
+              {sortByTime(dailySchedules).map((schedule, index) =>
+                renderScheduleItem(schedule, index, !isChanceryEdit)
               )}
             </div>
           </div>
         )}
 
+        {/* Specific Weekday Masses - Shows schedules that don't appear on all 5 weekdays */}
+        {allWeekdays.map(day => (
+          specificDaySchedules[day].length > 0 && (
+            <div key={day}>
+              <h5 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                {day} Masses
+              </h5>
+              <div className="space-y-2 pl-4">
+                {sortByTime(specificDaySchedules[day]).map((schedule, index) =>
+                  renderScheduleItem(schedule, index, !isChanceryEdit)
+                )}
+              </div>
+            </div>
+          )
+        ))}
+
         {/* Saturday Masses */}
-        {groupedSchedules.saturday.length > 0 && (
+        {schedulesByDay['Saturday'].length > 0 && (
           <div>
             <h5 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              🌙 Saturday Masses
+              Saturday Masses
             </h5>
             <div className="space-y-2 pl-4">
-              {sortByTime(groupedSchedules.saturday).map((schedule, index) =>
-                renderScheduleItem(schedule, index)
+              {sortByTime(schedulesByDay['Saturday']).map((schedule, index) =>
+                renderScheduleItem(schedule, index, !isChanceryEdit)
               )}
             </div>
           </div>
@@ -862,19 +961,21 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               )}
             </div>
 
-            {/* Progress Overview */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-                <span className="text-lg font-bold text-blue-600">{completionPercentage}%</span>
+            {/* Progress Overview - Hide for approved churches and chancery/museum edits */}
+            {currentStatus !== 'approved' && !isChanceryEdit && !isMuseumResearcher && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+                  <span className="text-lg font-bold text-blue-600">{completionPercentage}%</span>
+                </div>
+                <Progress value={completionPercentage} className="h-3" />
+                <p className="text-sm text-gray-600">
+                  {completionPercentage >= 80
+                    ? "Great! Your profile is ready for submission."
+                    : `Complete ${80 - completionPercentage}% more to submit for review.`}
+                </p>
               </div>
-              <Progress value={completionPercentage} className="h-3" />
-              <p className="text-sm text-gray-600">
-                {completionPercentage >= 80
-                  ? "Great! Your profile is ready for submission."
-                  : `Complete ${80 - completionPercentage}% more to submit for review.`}
-              </p>
-            </div>
+            )}
           </div>
         )}
 
@@ -899,8 +1000,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           </div>
         )}
 
-        {/* Heritage Assessment Card - Hidden for museum researchers since church is already in heritage review */}
-        {heritageAssessment && currentStatus !== 'approved' && !isMuseumResearcher && (
+        {/* Heritage Assessment Card - Hidden for chancery and museum researchers since they are reviewing, not submitting */}
+        {heritageAssessment && currentStatus !== 'approved' && !isMuseumResearcher && !isChanceryEdit && (
           <Card className={`shadow-lg border-l-4 mb-6 ${
             heritageAssessment.confidence === 'high' ? 'border-l-orange-500 bg-orange-50/30' :
             heritageAssessment.confidence === 'medium' ? 'border-l-yellow-500 bg-yellow-50/30' :
@@ -1339,6 +1440,11 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     <div className="flex items-center gap-3">
                       <Phone className="w-5 h-5 text-blue-600" />
                       <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+                      {isChanceryEdit && (
+                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                          Parish manages contact info
+                        </span>
+                      )}
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-6">
@@ -1353,7 +1459,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             value={formData.contactInfo.phone}
                             onChange={(e) => updateContactField('phone', e.target.value)}
                             placeholder="+63 xxx xxx xxxx"
-                            className="h-11 pl-10"
+                            className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            disabled={isChanceryEdit}
                           />
                         </div>
                       </div>
@@ -1370,7 +1477,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             value={formData.contactInfo.email}
                             onChange={(e) => updateContactField('email', e.target.value)}
                             placeholder="parish@church.com"
-                            className="h-11 pl-10"
+                            className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            disabled={isChanceryEdit}
                           />
                         </div>
                       </div>
@@ -1394,8 +1502,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </div>
                     )}
 
-                    {/* Pending Schedules Preview */}
-                    {pendingSchedules.length > 0 && (
+                    {/* Pending Schedules Preview - Hidden for Chancery */}
+                    {!isChanceryEdit && pendingSchedules.length > 0 && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-medium text-gray-900">Pending Schedules ({pendingSchedules.length})</h4>
@@ -1432,7 +1540,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                                 {grouped.sunday.length > 0 && (
                                   <div>
                                     <h5 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                                      ☀️ Sunday ({grouped.sunday.length})
+                                      Sunday ({grouped.sunday.length})
                                     </h5>
                                     <div className="space-y-1 pl-4">
                                       {sortByTime(grouped.sunday).map((schedule, index) => (
@@ -1499,7 +1607,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                                               <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                                                 {dayAbbreviations}
                                               </span>
-                                              {schedule.language && schedule.language !== 'Filipino' && (
+                                              {schedule.language && schedule.language !== 'Cebuano' && (
                                                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
                                                   🌐 {schedule.language}
                                                 </Badge>
@@ -1541,7 +1649,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                                 {grouped.saturday.length > 0 && (
                                   <div>
                                     <h5 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                                      🌙 Saturday ({grouped.saturday.length})
+                                      Saturday ({grouped.saturday.length})
                                     </h5>
                                     <div className="space-y-1 pl-4">
                                       {sortByTime(grouped.saturday).map((schedule, index) => (
@@ -1550,7 +1658,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                                             <span className="text-sm font-medium text-gray-800">
                                               {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
                                             </span>
-                                            {schedule.language && schedule.language !== 'Filipino' && (
+                                            {schedule.language && schedule.language !== 'Cebuano' && (
                                               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
                                                 🌐 {schedule.language}
                                               </Badge>
@@ -1579,7 +1687,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </div>
                     )}
 
-                    {/* Add Mass Schedule */}
+                    {/* Add Mass Schedule - Hidden for Chancery */}
+                    {!isChanceryEdit && (
                     <div className="bg-blue-50 rounded-lg p-6">
                       <h4 className="font-medium text-gray-900 mb-6">Add Mass Schedule</h4>
 
@@ -1590,13 +1699,13 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         </Label>
                         <div className="flex flex-wrap gap-3">
                           {[
-                            { day: 'Sunday', emoji: '☀️' },
+                            { day: 'Sunday', emoji: '📅' },
                             { day: 'Monday', emoji: '📅' },
                             { day: 'Tuesday', emoji: '📅' },
                             { day: 'Wednesday', emoji: '📅' },
                             { day: 'Thursday', emoji: '📅' },
                             { day: 'Friday', emoji: '📅' },
-                            { day: 'Saturday', emoji: '🌙' }
+                            { day: 'Saturday', emoji: '📅' }
                           ].map(({ day, emoji }) => (
                             <label
                               key={day}
@@ -1631,7 +1740,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           <Input
                             type="time"
                             value={scheduleForm.time}
-                            onChange={(e) => setScheduleForm(prev => ({ ...prev, time: e.target.value }))}
+                            onChange={(e) => handleStartTimeChange(e.target.value)}
                             className="h-10 cursor-pointer"
                             step="300"
                             title="Click to select time"
@@ -1650,6 +1759,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             title="Click to select time"
                             placeholder="--:--"
                           />
+                          <p className="text-xs text-gray-500 mt-1">Auto-filled (+1 hour)</p>
                         </div>
 
                         <div>
@@ -1672,7 +1782,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                               <Label htmlFor="schedule-fb-live" className="text-sm cursor-pointer">FB Live</Label>
                             </div>
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">Default: Filipino</p>
+                          <p className="text-xs text-gray-500 mt-1">Default: Cebuano</p>
                         </div>
 
                         <div className="md:col-span-2">
@@ -1688,6 +1798,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 </div>
               </TabsContent>

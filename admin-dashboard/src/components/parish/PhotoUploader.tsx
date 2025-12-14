@@ -41,8 +41,8 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
         continue;
       }
 
-      // Max 10MB per photo
-      if (file.size > 10 * 1024 * 1024) {
+      // Max 5MB per photo
+      if (file.size > 5 * 1024 * 1024) {
         continue;
       }
 
@@ -115,7 +115,7 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             Upload regular photos of your church exterior, interior, and special features
           </p>
           <p className="text-xs text-gray-500">
-            Drag and drop or click to browse • JPEG, PNG • Max {maxPhotos} photos • Max 10MB each
+            Drag and drop or click to browse • JPEG, PNG • Max {maxPhotos} photos • Max 5MB each
           </p>
 
           <input

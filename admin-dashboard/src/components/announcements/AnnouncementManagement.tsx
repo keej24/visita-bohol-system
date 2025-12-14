@@ -185,6 +185,10 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
       setIsFormOpen(false);
       setSelectedAnnouncement(null);
       await loadAnnouncements();
+      // Also refresh archived list if we're on that tab or if we just updated an archived announcement
+      if (activeTab === 'archived' || selectedAnnouncement?.isArchived) {
+        await loadArchivedAnnouncements();
+      }
       if (detailReturnMeta) {
         const refreshedList = await AnnouncementService.getAnnouncements(diocese, {
           createdBy: userProfile.uid,

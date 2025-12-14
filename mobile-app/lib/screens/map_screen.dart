@@ -15,7 +15,9 @@ import 'virtual_tour_screen.dart';
 
 class MapScreen extends StatefulWidget {
   final Church? selectedChurch; // Church to focus on when opening map
-  const MapScreen({super.key, this.selectedChurch});
+  final bool singleChurchMode; // When true, only show the selectedChurch marker
+  const MapScreen(
+      {super.key, this.selectedChurch, this.singleChurchMode = false});
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
@@ -178,6 +180,24 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
 
+    // In single church mode, directly show just that church without loading all churches
+    if (widget.singleChurchMode && widget.selectedChurch != null) {
+      final church = widget.selectedChurch!;
+      final markers = _buildMarkers([church], appState);
+      final center = LatLng(church.latitude!, church.longitude!);
+
+      return Scaffold(
+        appBar: _buildSingleChurchAppBar(church),
+        body: Stack(
+          children: [
+            _buildMap(markers, center, initialZoom: 15.0),
+            _buildActionButtons(),
+            _buildChurchDetailSheet(),
+          ],
+        ),
+      );
+    }
+
     return FutureBuilder<List<Church>>(
       future: _churchesFuture,
       builder: (context, snap) {
@@ -255,12 +275,35 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildMap(List<Marker> markers, LatLng center) {
+  /// App bar for single church mode - shows church name instead of "Explore Churches"
+  PreferredSizeWidget _buildSingleChurchAppBar(Church church) {
+    return AppBar(
+      title: Text(
+        church.name,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF1F2937),
+          fontSize: 16,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      backgroundColor: HeaderColors.map,
+      elevation: 0,
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: HeaderColors.divider),
+      ),
+    );
+  }
+
+  Widget _buildMap(List<Marker> markers, LatLng center,
+      {double initialZoom = 11.5}) {
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
         center: center,
-        zoom: 11.5,
+        zoom: initialZoom,
         maxZoom: 18,
         minZoom: 8,
         onTap: (_, __) => setState(() => _selectedChurch = null),

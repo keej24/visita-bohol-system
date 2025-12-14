@@ -1077,11 +1077,14 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
       return;
     }
 
-    // Navigate to MapScreen with the selected church
+    // Navigate to MapScreen with the selected church in single church mode
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MapScreen(selectedChurch: church),
+        builder: (context) => MapScreen(
+          selectedChurch: church,
+          singleChurchMode: true,
+        ),
       ),
     );
   }

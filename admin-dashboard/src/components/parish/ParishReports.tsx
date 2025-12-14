@@ -393,7 +393,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
             day: schedule.day,
             time: schedule.time,
             endTime: schedule.endTime || '',
-            language: schedule.language || 'Filipino',
+            language: schedule.language || 'Cebuano',
             isFbLive: schedule.isFbLive || false
           })),
           contactInfo: {

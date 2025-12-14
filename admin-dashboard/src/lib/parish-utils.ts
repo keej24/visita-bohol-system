@@ -138,70 +138,68 @@ export function isSameParish(
 /**
  * Get all municipalities in a diocese (for dropdowns)
  * 
- * Source: Official Philippine Statistics Authority (PSA) data
+ * Source: Official Catholic Bishops' Conference of the Philippines (CBCP) and Wikipedia
+ * - Diocese of Tagbilaran: Western Bohol (27 municipalities)
+ * - Diocese of Talibon: Eastern Bohol (21 municipalities)
+ * 
+ * Reference: 
+ * - https://en.wikipedia.org/wiki/Roman_Catholic_Diocese_of_Tagbilaran
+ * - https://en.wikipedia.org/wiki/Roman_Catholic_Diocese_of_Talibon
  */
 export function getMunicipalitiesByDiocese(diocese: Diocese): string[] {
   const municipalities = {
+    // Diocese of Tagbilaran - Western Bohol (27 municipalities)
     tagbilaran: [
       'Alburquerque',
-      'Alicia',
-      'Anda',
       'Antequera',
       'Baclayon',
       'Balilihan',
       'Batuan',
       'Bilar',
-      'Buenavista',
       'Calape',
-      'Candijay',
-      'Carmen',
       'Catigbian',
       'Clarin',
       'Corella',
       'Cortes',
       'Dauis',
       'Dimiao',
-      'Duero',
       'Garcia Hernandez',
-      'Guindulman',
-      'Inabanga',
-      'Jagna',
       'Lila',
       'Loay',
       'Loboc',
       'Loon',
-      'Mabini',
       'Maribojoc',
       'Panglao',
-      'Pilar',
-      'President Carlos P. Garcia',
       'Sagbayan',
       'San Isidro',
-      'San Miguel',
       'Sevilla',
-      'Sierra Bullones',
       'Sikatuna',
       'Tagbilaran City',
-      'Talibon',
-      'Trinidad',
       'Tubigon',
-      'Ubay',
       'Valencia'
     ],
+    // Diocese of Talibon - Eastern Bohol (21 municipalities)
     talibon: [
+      'Alicia',
+      'Anda',
       'Bien Unido',
       'Buenavista',
-      'Clarin',
+      'Candijay',
+      'Carmen',
+      'Dagohoy',
       'Danao',
+      'Duero',
       'Getafe',
+      'Guindulman',
       'Inabanga',
+      'Jagna',
+      'Mabini',
+      'Pilar',
       'President Carlos P. Garcia',
-      'Sagbayan',
-      'San Isidro',
       'San Miguel',
+      'Sierra Bullones',
       'Talibon',
       'Trinidad',
-      'Tubigon',
       'Ubay'
     ]
   };

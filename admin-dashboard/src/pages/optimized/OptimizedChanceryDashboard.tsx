@@ -156,7 +156,8 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
       massSchedules: (data.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
         time: schedule.endTime ? `${schedule.time} - ${schedule.endTime}` : schedule.time,
-        type: schedule.isFbLive ? `${schedule.language || 'Filipino'} (FB Live)` : (schedule.language || 'Filipino')
+        language: schedule.language || 'Cebuano',
+        isFbLive: schedule.isFbLive || false
       })),
       coordinates: data.coordinates && (data.coordinates.lat !== 0 || data.coordinates.lng !== 0) ? {
         latitude: data.coordinates.lat,
@@ -256,6 +257,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         onSave={handleSaveChurch}
         onSubmit={handleSubmitChurch}
         isSubmitting={isSubmitting}
+        isMuseumResearcher={false}
       />
     </Layout>
   );

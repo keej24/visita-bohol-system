@@ -224,7 +224,7 @@ const ParishDashboard = () => {
         day: schedule.day || '',
         time: schedule.time?.split(' - ')[0] || '',
         endTime: schedule.time?.split(' - ')[1] || '',
-        language: schedule.language || 'Filipino',
+        language: schedule.language || 'Cebuano',
         isFbLive: schedule.isFbLive || false
       })),
       contactInfo: {
@@ -491,7 +491,7 @@ const ParishDashboard = () => {
       return schedules.map(schedule => ({
         day: schedule.day,
         time: schedule.endTime ? `${schedule.time} - ${schedule.endTime}` : schedule.time,
-        language: schedule.language || 'Filipino',
+        language: schedule.language || 'Cebuano',
         isFbLive: schedule.isFbLive || false
       }));
     };
@@ -903,12 +903,12 @@ const ParishDashboard = () => {
       // Build the additional info (language and FB Live)
       const additionalInfo = [];
 
-      if (schedule.language && schedule.language !== 'Filipino') {
+      if (schedule.language && schedule.language !== 'Cebuano') {
         additionalInfo.push(schedule.language);
       }
 
       if (schedule.isFbLive) {
-        if (schedule.language && schedule.language !== 'Filipino') {
+        if (schedule.language && schedule.language !== 'Cebuano') {
           additionalInfo.push('also via FB Live');
         } else {
           additionalInfo.push('FB Live');
@@ -950,7 +950,7 @@ const ParishDashboard = () => {
         {groupedSchedules.saturday.length > 0 && (
           <div>
             <h4 className="font-semibold text-gray-900 mb-3 text-base">
-              📅 Saturday
+              Saturday
             </h4>
             <div className="space-y-1 ml-0">
               {sortByTime(groupedSchedules.saturday).map((schedule, index) =>
@@ -964,7 +964,7 @@ const ParishDashboard = () => {
         {groupedSchedules.sunday.length > 0 && (
           <div>
             <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
-              🌞 Sunday
+              Sunday
             </h4>
             <div className="space-y-1 pl-4 border-l-2 border-gray-200">
               {sortByTime(groupedSchedules.sunday).map((schedule, index) =>

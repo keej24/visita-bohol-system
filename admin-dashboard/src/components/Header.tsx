@@ -63,6 +63,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { ChurchService } from "@/services/churchService";
 import { useToast } from "@/hooks/use-toast";
+import { toTitleCase } from "@/lib/utils";
 
 interface HeaderProps {
   activeTab?: string;
@@ -234,8 +235,8 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
                       : (userProfile?.name || 'Administrator')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {userProfile?.role?.replace('_', ' ') || 'User'} 
-                    {userProfile?.diocese && ` • ${userProfile.diocese}`}
+                    {toTitleCase(userProfile?.role)} 
+                    {userProfile?.diocese && ` • ${toTitleCase(userProfile.diocese)}`}
                   </p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />

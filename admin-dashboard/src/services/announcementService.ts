@@ -48,6 +48,18 @@ const convertToAnnouncement = (doc: any): Announcement => {
 
 // Convert form data to Firestore document
 const convertToFirestoreData = (formData: AnnouncementFormData, userId: string, diocese: Diocese, isUpdate = false) => {
+  // Determine if the announcement should be archived based on event date
+  // If no event date is provided, or if event date is in the future, it should NOT be archived
+  let shouldBeArchived = false;
+  if (formData.eventDate && formData.eventDate.trim()) {
+    const eventDate = new Date(formData.eventDate);
+    const now = new Date();
+    // Set both dates to start of day for fair comparison
+    eventDate.setHours(23, 59, 59, 999); // End of event day
+    now.setHours(0, 0, 0, 0); // Start of today
+    shouldBeArchived = eventDate < now;
+  }
+
   const baseData = {
     title: formData.title,
     description: formData.description,
@@ -63,7 +75,10 @@ const convertToFirestoreData = (formData: AnnouncementFormData, userId: string, 
     category: formData.category,
     contactInfo: formData.contactInfo && formData.contactInfo.trim() ? formData.contactInfo : null,
     updatedAt: Timestamp.now(),
-    isArchived: false,
+    // Automatically unarchive if event date is in the future, archive if in the past
+    isArchived: shouldBeArchived,
+    // Clear archivedAt if being unarchived
+    ...(shouldBeArchived ? {} : { archivedAt: null }),
   };
 
   if (!isUpdate) {

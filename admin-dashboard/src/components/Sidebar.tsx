@@ -71,7 +71,7 @@ import {
   Filter,
   Users,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -298,10 +298,10 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sidebar-foreground font-medium text-sm truncate">
-                {userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : (userProfile?.name || userProfile?.email)}
+                {userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : toTitleCase(userProfile?.name || userProfile?.email)}
               </p>
               <p className="text-sidebar-foreground/70 text-xs truncate">
-                {userProfile?.role === 'museum_researcher' ? 'museum researcher' : userProfile?.email}
+                {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : `${toTitleCase(userProfile?.role)} • ${toTitleCase(userProfile?.diocese)}`}
               </p>
               {userProfile?.role === 'museum_researcher' && (
                 <div className="flex items-center gap-1 mt-1">

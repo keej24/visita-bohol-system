@@ -126,7 +126,7 @@ export function ChurchDetailModal({
         day: schedule.day || '',
         time: schedule.time?.split(' - ')[0] || '',
         endTime: schedule.time?.split(' - ')[1] || '',
-        language: schedule.type?.replace(' (FB Live)', '') || 'Filipino',
+        language: schedule.type?.replace(' (FB Live)', '') || 'Cebuano',
         isFbLive: schedule.type?.includes('(FB Live)') || false
       })),
       contactInfo: {
@@ -466,19 +466,152 @@ export function ChurchDetailModal({
                   {churchData.massSchedules && (churchData.massSchedules as Array<unknown>).length > 0 && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Mass Schedules</label>
-                      <div className="space-y-2 mt-2">
-                        {(churchData.massSchedules as Array<{ day: string; time: string; type?: string }>).map((schedule, index) => (
-                          <div key={index} className="flex items-center gap-2 text-sm">
-                            <Clock className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium">{schedule.day}:</span>
-                            <span>{schedule.time}</span>
-                            {schedule.type && (
-                              <Badge variant="outline" className="text-xs">
-                                {schedule.type}
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
+                      <div className="space-y-4 mt-2">
+                        {(() => {
+                          const schedules = churchData.massSchedules as Array<{ day: string; time: string; language?: string; isFbLive?: boolean }>;
+                          const allWeekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+                          
+                          // Group schedules by day
+                          const schedulesByDay: Record<string, typeof schedules> = {
+                            Sunday: schedules.filter(s => s.day === 'Sunday'),
+                            Monday: schedules.filter(s => s.day === 'Monday'),
+                            Tuesday: schedules.filter(s => s.day === 'Tuesday'),
+                            Wednesday: schedules.filter(s => s.day === 'Wednesday'),
+                            Thursday: schedules.filter(s => s.day === 'Thursday'),
+                            Friday: schedules.filter(s => s.day === 'Friday'),
+                            Saturday: schedules.filter(s => s.day === 'Saturday'),
+                          };
+
+                          // Create a key for each schedule
+                          const getScheduleKey = (s: typeof schedules[0]) => 
+                            `${s.time}-${s.language || ''}-${s.isFbLive || false}`;
+
+                          // Find daily schedules (same time on all 5 weekdays)
+                          const weekdayKeys = allWeekdays.map(day => 
+                            new Set(schedulesByDay[day].map(getScheduleKey))
+                          );
+                          const dailyKeys = new Set<string>();
+                          if (weekdayKeys[0]) {
+                            weekdayKeys[0].forEach(key => {
+                              if (weekdayKeys.every(dayKeys => dayKeys.has(key))) {
+                                dailyKeys.add(key);
+                              }
+                            });
+                          }
+
+                          const dailySchedules = schedulesByDay['Monday'].filter(s => dailyKeys.has(getScheduleKey(s)));
+                          const specificDaySchedules: Record<string, typeof schedules> = {};
+                          allWeekdays.forEach(day => {
+                            specificDaySchedules[day] = schedulesByDay[day].filter(s => !dailyKeys.has(getScheduleKey(s)));
+                          });
+
+                          // Sort by time helper
+                          const sortByTime = (arr: typeof schedules) => 
+                            [...arr].sort((a, b) => {
+                              // Extract numeric time for proper sorting
+                              const getTimeValue = (t: string) => {
+                                if (!t) return 0;
+                                // Handle 12-hour format (e.g., "6:00 AM", "12:30 PM")
+                                const match12 = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                                if (match12) {
+                                  let hours = parseInt(match12[1]);
+                                  const minutes = parseInt(match12[2]);
+                                  const period = match12[3].toUpperCase();
+                                  if (period === 'PM' && hours !== 12) hours += 12;
+                                  if (period === 'AM' && hours === 12) hours = 0;
+                                  return hours * 60 + minutes;
+                                }
+                                // Handle 24-hour format (e.g., "06:00", "18:30")
+                                const match24 = t.match(/(\d{1,2}):(\d{2})/);
+                                if (match24) {
+                                  return parseInt(match24[1]) * 60 + parseInt(match24[2]);
+                                }
+                                return 0;
+                              };
+                              return getTimeValue(a.time) - getTimeValue(b.time);
+                            });
+
+                          // Convert to 12-hour format for display
+                          const formatTo12Hour = (time: string) => {
+                            if (!time) return '';
+                            // If already in 12-hour format (contains AM/PM), return as-is
+                            if (time.toUpperCase().includes('AM') || time.toUpperCase().includes('PM')) {
+                              return time;
+                            }
+                            // Parse 24-hour format
+                            const match = time.match(/(\d{1,2}):(\d{2})/);
+                            if (!match) return time;
+                            const hours = parseInt(match[1]);
+                            const minutes = parseInt(match[2]);
+                            const period = hours >= 12 ? 'PM' : 'AM';
+                            const displayHours = hours % 12 || 12;
+                            return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+                          };
+
+                          // Render a schedule item
+                          const renderSchedule = (schedule: typeof schedules[0], index: number) => (
+                            <div key={index} className="flex items-center gap-2 text-sm pl-4">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
+                              <span>{formatTo12Hour(schedule.time)}</span>
+                              {schedule.language && schedule.language !== 'Cebuano' && (
+                                <Badge variant="outline" className="text-xs">
+                                  {schedule.language}
+                                </Badge>
+                              )}
+                              {schedule.isFbLive && (
+                                <Badge variant="secondary" className="text-xs">
+                                  FB Live
+                                </Badge>
+                              )}
+                            </div>
+                          );
+
+                          return (
+                            <>
+                              {/* Sunday */}
+                              {schedulesByDay['Sunday'].length > 0 && (
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 mb-1">Sunday</div>
+                                  <div className="space-y-1">
+                                    {sortByTime(schedulesByDay['Sunday']).map(renderSchedule)}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Daily (Mon-Fri) */}
+                              {dailySchedules.length > 0 && (
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 mb-1">Daily (Monday–Friday)</div>
+                                  <div className="space-y-1">
+                                    {sortByTime(dailySchedules).map(renderSchedule)}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Specific weekdays */}
+                              {allWeekdays.map(day => (
+                                specificDaySchedules[day].length > 0 && (
+                                  <div key={day}>
+                                    <div className="font-medium text-sm text-gray-800 mb-1">{day}</div>
+                                    <div className="space-y-1">
+                                      {sortByTime(specificDaySchedules[day]).map(renderSchedule)}
+                                    </div>
+                                  </div>
+                                )
+                              ))}
+
+                              {/* Saturday */}
+                              {schedulesByDay['Saturday'].length > 0 && (
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 mb-1">Saturday</div>
+                                  <div className="space-y-1">
+                                    {sortByTime(schedulesByDay['Saturday']).map(renderSchedule)}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}

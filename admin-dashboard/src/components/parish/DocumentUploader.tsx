@@ -36,32 +36,27 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
     for (let i = 0; i < Math.min(files.length, maxDocuments - documents.length); i++) {
       const file = files[i];
 
-      // Accept PDF, DOC, DOCX, images
+      // Accept only PDF, DOC, DOCX documents (no images - use PhotoUploader for photos)
       const validTypes = [
         'application/pdf',
         'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'image/jpeg',
-        'image/png',
-        'image/jpg'
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       ];
 
       if (!validTypes.includes(file.type)) {
         continue;
       }
 
-      // Max 20MB per document
-      if (file.size > 20 * 1024 * 1024) {
+      // Max 10MB per document
+      if (file.size > 10 * 1024 * 1024) {
         continue;
       }
 
       const id = `doc_${Date.now()}_${i}`;
       
-      // Determine document type based on file extension or MIME type
+      // Determine document type based on file name
       let docType: 'photo' | 'document' | '360' | 'heritage-doc' = 'document';
-      if (file.type.startsWith('image/')) {
-        docType = 'photo';
-      } else if (file.name.toLowerCase().includes('heritage') || file.name.toLowerCase().includes('declaration')) {
+      if (file.name.toLowerCase().includes('heritage') || file.name.toLowerCase().includes('declaration')) {
         docType = 'heritage-doc';
       }
       
@@ -152,14 +147,14 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
             Upload historical documents, certificates, or heritage declarations
           </p>
           <p className="text-xs text-gray-500">
-            Drag and drop or click to browse • PDF, DOC, DOCX, Images • Max {maxDocuments} files • Max 20MB each
+            Drag and drop or click to browse • PDF, DOC, DOCX only • Max {maxDocuments} files • Max 10MB each
           </p>
 
           <input
             id="doc-file-input"
             type="file"
             multiple
-            accept=".pdf,.doc,.docx,image/jpeg,image/png,image/jpg"
+            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             onChange={handleFileSelect}
             className="hidden"
             disabled={disabled}
