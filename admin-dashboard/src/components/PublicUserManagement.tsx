@@ -57,17 +57,17 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deactivated'>('all');
 
   // Selected user for details/actions
   const [selectedUser, setSelectedUser] = useState<PublicUser | null>(null);
-  const [showBlockModal, setShowBlockModal] = useState(false);
-  const [blockReason, setBlockReason] = useState('');
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [deactivateReason, setDeactivateReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Unblock confirmation dialog state
-  const [unblockDialogOpen, setUnblockDialogOpen] = useState(false);
-  const [userToUnblock, setUserToUnblock] = useState<{ id: string; name: string } | null>(null);
+  // Reactivate confirmation dialog state
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [userToReactivate, setUserToReactivate] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch users from Firestore
   const fetchUsers = async () => {
@@ -172,12 +172,12 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
     fetchUsers();
   }, []);
 
-  // Handle block user
-  const handleBlockUser = async () => {
-    if (!selectedUser || !currentUser || !blockReason.trim()) return;
+  // Handle deactivate user
+  const handleDeactivateUser = async () => {
+    if (!selectedUser || !currentUser || !deactivateReason.trim()) return;
 
-    if (blockReason.trim().length < 10) {
-      alert('Block reason must be at least 10 characters.');
+    if (deactivateReason.trim().length < 10) {
+      alert('Deactivation reason must be at least 10 characters.');
       return;
     }
 
@@ -187,37 +187,37 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
 
       await updateDoc(userRef, {
         isBlocked: true,
-        blockReason: blockReason.trim(),
+        blockReason: deactivateReason.trim(),
         blockedAt: Timestamp.now(),
         blockedBy: currentUser.uid,
         lastUpdatedAt: Timestamp.now(),
       });
 
-      setShowBlockModal(false);
-      setBlockReason('');
+      setShowDeactivateModal(false);
+      setDeactivateReason('');
       setSelectedUser(null);
       fetchUsers();
     } catch (err) {
-      alert('Failed to block user. Please try again.');
-      console.error('Error blocking user:', err);
+      alert('Failed to deactivate user. Please try again.');
+      console.error('Error deactivating user:', err);
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Handle unblock user - opens confirmation dialog
-  const handleUnblockClick = (userId: string, userName: string) => {
-    setUserToUnblock({ id: userId, name: userName });
-    setUnblockDialogOpen(true);
+  // Handle reactivate user - opens confirmation dialog
+  const handleReactivateClick = (userId: string, userName: string) => {
+    setUserToReactivate({ id: userId, name: userName });
+    setReactivateDialogOpen(true);
   };
 
-  // Confirm unblock user - executes the action
-  const handleConfirmUnblock = async () => {
-    if (!userToUnblock) return;
+  // Confirm reactivate user - executes the action
+  const handleConfirmReactivate = async () => {
+    if (!userToReactivate) return;
 
     try {
       setActionLoading(true);
-      const userRef = doc(db, 'users', userToUnblock.id);
+      const userRef = doc(db, 'users', userToReactivate.id);
 
       await updateDoc(userRef, {
         isBlocked: false,
@@ -229,12 +229,12 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
 
       fetchUsers();
     } catch (err) {
-      alert('Failed to unblock user. Please try again.');
-      console.error('Error unblocking user:', err);
+      alert('Failed to reactivate user. Please try again.');
+      console.error('Error reactivating user:', err);
     } finally {
       setActionLoading(false);
-      setUnblockDialogOpen(false);
-      setUserToUnblock(null);
+      setReactivateDialogOpen(false);
+      setUserToReactivate(null);
     }
   };
 
@@ -249,13 +249,13 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
     const matchesStatus =
       statusFilter === 'all' ||
       (statusFilter === 'active' && !user.isBlocked && user.isActive) ||
-      (statusFilter === 'blocked' && user.isBlocked);
+      (statusFilter === 'deactivated' && user.isBlocked);
 
     return matchesSearch && matchesStatus;
   });
 
   const activeUsers = users.filter(u => !u.isBlocked && u.isActive).length;
-  const blockedUsers = users.filter(u => u.isBlocked).length;
+  const deactivatedUsers = users.filter(u => u.isBlocked).length;
 
   return (
     <div className="space-y-6">
@@ -299,8 +299,8 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
               <UserX className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Blocked Users</p>
-              <p className="text-2xl font-bold text-gray-800">{blockedUsers}</p>
+              <p className="text-sm text-gray-600">Deactivated Users</p>
+              <p className="text-2xl font-bold text-gray-800">{deactivatedUsers}</p>
             </div>
           </div>
         </div>
@@ -333,12 +333,12 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
             </label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'blocked')}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'deactivated')}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Users</option>
               <option value="active">Active Only</option>
-              <option value="blocked">Blocked Only</option>
+              <option value="deactivated">Deactivated Only</option>
             </select>
           </div>
         </div>
@@ -440,7 +440,7 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                       {user.isBlocked ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                           <XCircle className="w-3 h-3 mr-1" />
-                          Blocked
+                          Deactivated
                         </span>
                       ) : user.isActive ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -464,10 +464,10 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                         </button>
                         {user.isBlocked ? (
                           <button
-                            onClick={() => handleUnblockClick(user.id, user.displayName)}
+                            onClick={() => handleReactivateClick(user.id, user.displayName)}
                             disabled={actionLoading}
                             className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                            title="Unblock User"
+                            title="Reactivate User"
                           >
                             <UserCheck className="w-5 h-5" />
                           </button>
@@ -475,11 +475,11 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                           <button
                             onClick={() => {
                               setSelectedUser(user);
-                              setShowBlockModal(true);
+                              setShowDeactivateModal(true);
                             }}
                             disabled={actionLoading}
                             className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                            title="Block User"
+                            title="Deactivate User"
                           >
                             <Ban className="w-5 h-5" />
                           </button>
@@ -495,7 +495,7 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
       </div>
 
       {/* User Details Modal */}
-      {selectedUser && !showBlockModal && (
+      {selectedUser && !showDeactivateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
@@ -573,15 +573,15 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                 </div>
               </div>
 
-              {/* Block Info if blocked */}
+              {/* Deactivation Info if deactivated */}
               {selectedUser.isBlocked && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-red-800 mb-2">Block Information</h4>
+                  <h4 className="font-semibold text-red-800 mb-2">Deactivation Information</h4>
                   <p className="text-sm text-red-600 mb-1">
                     <strong>Reason:</strong> {selectedUser.blockReason || 'No reason provided'}
                   </p>
                   <p className="text-sm text-red-600">
-                    <strong>Blocked At:</strong>{' '}
+                    <strong>Deactivated At:</strong>{' '}
                     {selectedUser.blockedAt?.toDate?.()
                       ? new Date(selectedUser.blockedAt.toDate()).toLocaleString()
                       : 'Unknown'}
@@ -593,32 +593,32 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
         </div>
       )}
 
-      {/* Block Modal */}
-      {showBlockModal && selectedUser && (
+      {/* Deactivate Modal */}
+      {showDeactivateModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full">
             <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-800">Block User</h3>
+              <h3 className="text-xl font-bold text-gray-800">Deactivate User</h3>
             </div>
 
             <div className="p-6 space-y-4">
               <p className="text-gray-700">
-                You are about to block <strong>{selectedUser.displayName}</strong>. Please provide a reason.
+                You are about to deactivate <strong>{selectedUser.displayName}</strong>. Please provide a reason.
               </p>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Block Reason <span className="text-red-500">*</span>
+                  Deactivation Reason <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  value={blockReason}
-                  onChange={(e) => setBlockReason(e.target.value)}
-                  placeholder="Enter reason for blocking (minimum 10 characters)..."
+                  value={deactivateReason}
+                  onChange={(e) => setDeactivateReason(e.target.value)}
+                  placeholder="Enter reason for deactivation (minimum 10 characters)..."
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  {blockReason.length} / 10 characters minimum
+                  {deactivateReason.length} / 10 characters minimum
                 </p>
               </div>
             </div>
@@ -626,8 +626,8 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
             <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
               <button
                 onClick={() => {
-                  setShowBlockModal(false);
-                  setBlockReason('');
+                  setShowDeactivateModal(false);
+                  setDeactivateReason('');
                   setSelectedUser(null);
                 }}
                 disabled={actionLoading}
@@ -636,19 +636,19 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                 Cancel
               </button>
               <button
-                onClick={handleBlockUser}
-                disabled={actionLoading || blockReason.trim().length < 10}
+                onClick={handleDeactivateUser}
+                disabled={actionLoading || deactivateReason.trim().length < 10}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {actionLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Blocking...
+                    Deactivating...
                   </>
                 ) : (
                   <>
                     <Ban className="w-4 h-4" />
-                    Block User
+                    Deactivate User
                   </>
                 )}
               </button>
@@ -657,18 +657,18 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
         </div>
       )}
 
-      {/* Unblock User Confirmation Dialog */}
-      <AlertDialog open={unblockDialogOpen} onOpenChange={setUnblockDialogOpen}>
+      {/* Activate User Confirmation Dialog */}
+      <AlertDialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
         <AlertDialogContent className="bg-white border shadow-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-green-500" />
-              Unblock User?
+              Activate User?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-left">
-              {userToUnblock && (
+              {userToReactivate && (
                 <>
-                  You are about to unblock <strong className="text-foreground">{userToUnblock.name}</strong>.
+                  You are about to activate <strong className="text-foreground">{userToReactivate.name}</strong>.
                   <br /><br />
                   This user will regain access to the VISITA mobile app and can log in again.
                 </>
@@ -678,10 +678,10 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmUnblock}
+              onClick={handleConfirmReactivate}
               className="bg-green-500 hover:bg-green-600 text-white"
             >
-              Unblock User
+              Activate User
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

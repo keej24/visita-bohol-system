@@ -839,12 +839,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final nameChanged = newName != (profile.displayName);
                 final emailChanged = newEmail != (profile.email);
 
-                // Update profile
-                if (nameChanged || emailChanged) {
-                  await service.updateProfile(
-                    displayName: newName,
-                    email: newEmail,
-                  );
+                // Handle email change - requires password and sends verification
+                if (emailChanged) {
+                  // Email change requires current password
+                  if (currentPasswordController.text.isEmpty) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Please enter your current password to change your email'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      // Open the password fields section
+                      setState(() => showPasswordFields = true);
+                    }
+                    return;
+                  }
+
+                  try {
+                    await authService.updateEmailWithVerification(
+                      newEmail,
+                      currentPasswordController.text,
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Verification email sent to new address. Please verify to complete the change.'),
+                          backgroundColor: Colors.blue,
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    String errorMessage = e.toString();
+                    errorMessage = errorMessage.replaceAll('Exception: ', '');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(errorMessage),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                    return;
+                  }
+                }
+
+                // Update display name (no verification needed)
+                if (nameChanged) {
+                  await service.updateProfile(displayName: newName);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -857,7 +902,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
 
                 // Update password if requested
-                if (showPasswordFields) {
+                if (showPasswordFields &&
+                    newPasswordController.text.isNotEmpty) {
                   try {
                     await authService.updatePassword(
                       currentPasswordController.text,
@@ -872,14 +918,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       );
                     }
                   } catch (e) {
+                    // Parse error message for user-friendly display
+                    String errorMessage = e.toString();
+                    if (errorMessage.contains('incorrect') ||
+                        errorMessage.contains('wrong-password') ||
+                        errorMessage.contains('invalid') ||
+                        errorMessage.contains('malformed') ||
+                        errorMessage.contains('expired')) {
+                      errorMessage = 'Current password is incorrect';
+                    } else {
+                      errorMessage = errorMessage.replaceAll('Exception: ', '');
+                    }
+
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Password update failed: $e'),
+                          content: Text(errorMessage),
                           backgroundColor: Colors.red,
                         ),
                       );
                     }
+                    // Don't close the dialog on error - let user retry
+                    return;
                   }
                 }
 

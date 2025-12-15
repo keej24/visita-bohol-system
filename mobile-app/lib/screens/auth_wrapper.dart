@@ -51,12 +51,14 @@ import '../services/profile_service.dart';
 import '../models/app_state.dart';
 import '../screens/home_screen.dart';
 import '../screens/auth/login_screen.dart';
+import '../screens/auth/email_verification_screen.dart';
 
 /// Authentication wrapper that determines whether to show the main app or login screen
 ///
 /// This widget listens to AuthService and renders:
 /// - CircularProgressIndicator: While auth state is being determined
-/// - HomeScreen: If user is authenticated and not blocked
+/// - HomeScreen: If user is authenticated, verified and not blocked
+/// - EmailVerificationScreen: If user is authenticated but email not verified
 /// - LoginScreen: If user is not authenticated
 /// - BlockedScreen: If user is authenticated but blocked
 class AuthWrapper extends StatefulWidget {
@@ -142,6 +144,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 });
               },
             );
+          }
+
+          // Check if email is verified before allowing access
+          if (!authService.isEmailVerified) {
+            debugPrint(
+                '📧 AuthWrapper: Email not verified, showing verification screen');
+            return const EmailVerificationScreen();
           }
 
           return const HomeScreen();

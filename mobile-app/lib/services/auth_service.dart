@@ -70,6 +70,7 @@ class AuthService extends ChangeNotifier {
   // Public getters for auth state
   User? get currentUser => _auth.currentUser;
   bool get isAuthenticated => _auth.currentUser != null;
+  bool get isEmailVerified => _auth.currentUser?.emailVerified ?? false;
   bool get isLoading => _isLoading;
   String? errorMessage;
 
@@ -225,6 +226,15 @@ class AuthService extends ChangeNotifier {
           debugPrint(
               '⚠️ Failed to create user document in Firestore: $firestoreError');
         }
+
+        // Send email verification
+        try {
+          await result.user!.sendEmailVerification();
+          debugPrint('📧 Verification email sent to $email');
+        } catch (e) {
+          debugPrint('⚠️ Failed to send verification email: $e');
+          // Don't fail signup if verification email fails
+        }
       }
 
       notifyListeners();
@@ -239,6 +249,40 @@ class AuthService extends ChangeNotifier {
       return null;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  /// Send email verification to the current user
+  Future<bool> sendEmailVerification() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        errorMessage = 'No user logged in';
+        return false;
+      }
+
+      await user.sendEmailVerification();
+      debugPrint('📧 Verification email sent to ${user.email}');
+      return true;
+    } catch (e) {
+      errorMessage = 'Failed to send verification email. Please try again.';
+      debugPrint('❌ Failed to send verification email: $e');
+      return false;
+    }
+  }
+
+  /// Reload the current user and check email verification status
+  Future<bool> checkEmailVerified() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+
+      await user.reload();
+      notifyListeners();
+      return _auth.currentUser?.emailVerified ?? false;
+    } catch (e) {
+      debugPrint('❌ Failed to check email verification: $e');
+      return false;
     }
   }
 
@@ -297,6 +341,57 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Profile update error: $e');
+    }
+  }
+
+  /// Update user email with verification
+  ///
+  /// This method uses Firebase's verifyBeforeUpdateEmail which:
+  /// 1. Sends a verification email to the NEW email address
+  /// 2. Only updates the email after user clicks the verification link
+  /// 3. Requires re-authentication first for security
+  Future<void> updateEmailWithVerification(
+      String newEmail, String currentPassword) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null || user.email == null) {
+        throw Exception('No user logged in');
+      }
+
+      // Re-authenticate user with current password (required for sensitive operations)
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Send verification to new email - Firebase will update email after verification
+      await user.verifyBeforeUpdateEmail(newEmail);
+
+      debugPrint('📧 Verification email sent to new address: $newEmail');
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'FirebaseAuthException during email update: ${e.code} - ${e.message}');
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        throw Exception('Current password is incorrect');
+      } else if (e.code == 'email-already-in-use') {
+        throw Exception('This email is already registered to another account');
+      } else if (e.code == 'invalid-email') {
+        throw Exception('Please enter a valid email address');
+      } else {
+        throw Exception(e.message ?? 'Failed to update email');
+      }
+    } catch (e) {
+      debugPrint('Email update error: $e');
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('incorrect') ||
+          errorStr.contains('wrong-password') ||
+          errorStr.contains('invalid') ||
+          errorStr.contains('malformed') ||
+          errorStr.contains('expired')) {
+        throw Exception('Current password is incorrect');
+      }
+      rethrow;
     }
   }
 
@@ -399,7 +494,9 @@ class AuthService extends ChangeNotifier {
 
       notifyListeners();
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'wrong-password') {
+      debugPrint(
+          'FirebaseAuthException during password update: ${e.code} - ${e.message}');
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
         throw Exception('Current password is incorrect');
       } else if (e.code == 'weak-password') {
         throw Exception('New password is too weak');
@@ -408,6 +505,15 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Password update error: $e');
+      // Check if error message indicates wrong password
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('incorrect') ||
+          errorStr.contains('wrong-password') ||
+          errorStr.contains('invalid') ||
+          errorStr.contains('malformed') ||
+          errorStr.contains('expired')) {
+        throw Exception('Current password is incorrect');
+      }
       rethrow;
     }
   }
