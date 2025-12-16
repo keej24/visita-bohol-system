@@ -173,7 +173,8 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
           }
 
           // Check if email is verified before allowing access
-          debugPrint('📧 AuthWrapper: Checking isEmailVerified = ${authService.isEmailVerified}');
+          debugPrint(
+              '📧 AuthWrapper: Checking isEmailVerified = ${authService.isEmailVerified}');
           if (!authService.isEmailVerified) {
             debugPrint(
                 '📧 AuthWrapper: Email not verified, showing verification screen');

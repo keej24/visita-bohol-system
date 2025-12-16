@@ -66,7 +66,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   Future<void> _checkVerification() async {
     final authService = context.read<AuthService>();
-    
+
     debugPrint('🔍 Checking email verification status...');
     final isVerified = await authService.checkEmailVerified();
     debugPrint('📧 Email verified: $isVerified');
@@ -87,7 +87,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Future<void> _useADifferentEmail() async {
     final authService = context.read<AuthService>();
     await authService.signOut();
-    
+
     // Navigate to Register screen so user can sign up with a different email
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -196,9 +196,13 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
               // Auto-checking indicator
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -238,11 +242,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Icon(Icons.email_outlined),
-                  label: Text(_isResending ? 'Sending...' : 'Resend Verification Email'),
+                  label: Text(_isResending
+                      ? 'Sending...'
+                      : 'Resend Verification Email'),
                 ),
               ),
               const SizedBox(height: 16),
