@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
@@ -61,6 +62,113 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _showTermsOfService() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Terms of Service'),
+        content: const SingleChildScrollView(
+          child: Text(
+            '''VISITA Bohol Churches Information System
+Terms of Service
+
+Last updated: December 2025
+
+1. ACCEPTANCE OF TERMS
+By using the VISITA mobile application, you agree to these Terms of Service.
+
+2. DESCRIPTION OF SERVICE
+VISITA is an academic capstone project that provides information about Catholic churches in Bohol, Philippines. The app allows users to:
+• Browse church information and locations
+• Track visited churches
+• View church schedules and announcements
+
+3. USER ACCOUNTS
+• You must provide accurate information when creating an account
+• You are responsible for maintaining the security of your account
+• You must be at least 13 years old to use this service
+
+4. USER CONDUCT
+You agree not to:
+• Use the app for any unlawful purpose
+• Submit false or misleading information
+• Attempt to interfere with the app's functionality
+
+5. INTELLECTUAL PROPERTY
+All content in this app, including church information and images, is for educational and informational purposes.
+
+6. DISCLAIMER
+This is an academic project. The developers make no warranties about the accuracy or completeness of the information provided.
+
+7. CONTACT
+For questions, contact the development team through the app's feedback feature.''',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacyPolicy() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Privacy Policy'),
+        content: const SingleChildScrollView(
+          child: Text(
+            '''VISITA Bohol Churches Information System
+Privacy Policy
+
+Last updated: December 2025
+
+1. INFORMATION WE COLLECT
+• Account Information: Email address, display name, nationality (optional)
+• Usage Data: Churches visited, favorites, journal entries
+• Location Data: Used only to verify church visits (when you choose to mark a visit)
+
+2. HOW WE USE YOUR INFORMATION
+• To provide and improve the app experience
+• To track your visited churches and progress
+• To send church-related announcements (if enabled)
+
+3. DATA STORAGE
+• Your data is stored securely using Firebase (Google Cloud)
+• Profile and visit data is associated with your account
+
+4. DATA SHARING
+• We do not sell or share your personal information with third parties
+• Anonymous usage statistics may be used for academic research
+
+5. YOUR RIGHTS
+• You can view and edit your profile information anytime
+• You can delete your account by contacting support
+
+6. LOCATION DATA
+• Location access is optional and only used when marking church visits
+• We do not track your location in the background
+
+7. ACADEMIC PROJECT NOTICE
+This app is developed as a capstone project. Data collected is used solely for app functionality and may be referenced in academic documentation.
+
+8. CONTACT
+For privacy concerns, use the app's feedback feature.''',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleRegister() async {
@@ -461,41 +569,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             },
                           ),
                           Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _agreeToTerms = !_agreeToTerms;
-                                });
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: RichText(
-                                  text: TextSpan(
-                                    text: 'I agree to the ',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
-                                    children: [
-                                      TextSpan(
-                                        text: 'Terms of Service',
-                                        style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          decoration: TextDecoration.underline,
-                                        ),
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: RichText(
+                                text: TextSpan(
+                                  text: 'I agree to the ',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                  children: [
+                                    TextSpan(
+                                      text: 'Terms of Service',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        decoration: TextDecoration.underline,
                                       ),
-                                      const TextSpan(text: ' and '),
-                                      TextSpan(
-                                        text: 'Privacy Policy',
-                                        style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          decoration: TextDecoration.underline,
-                                        ),
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = _showTermsOfService,
+                                    ),
+                                    const TextSpan(text: ' and '),
+                                    TextSpan(
+                                      text: 'Privacy Policy',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        decoration: TextDecoration.underline,
                                       ),
-                                    ],
-                                  ),
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = _showPrivacyPolicy,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

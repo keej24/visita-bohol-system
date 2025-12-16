@@ -68,12 +68,38 @@ class AuthWrapper extends StatefulWidget {
   State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
+class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   bool _isCheckingBlockStatus = false;
   bool _isBlocked = false;
   String? _blockReason;
   String? _lastCheckedUserId;
   bool _checkFailed = false; // Track if block check failed
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to app lifecycle to refresh email verification when app resumes
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app resumes from background, refresh email verification status
+    // This catches the case where user verified email in browser
+    if (state == AppLifecycleState.resumed) {
+      final authService = context.read<AuthService>();
+      if (authService.isAuthenticated && !authService.isEmailVerified) {
+        debugPrint('📧 App resumed - checking email verification status...');
+        authService.checkEmailVerified();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,12 +173,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
 
           // Check if email is verified before allowing access
+          debugPrint('📧 AuthWrapper: Checking isEmailVerified = ${authService.isEmailVerified}');
           if (!authService.isEmailVerified) {
             debugPrint(
                 '📧 AuthWrapper: Email not verified, showing verification screen');
             return const EmailVerificationScreen();
           }
 
+          debugPrint('✅ AuthWrapper: Email verified, showing HomeScreen');
           return const HomeScreen();
         }
 

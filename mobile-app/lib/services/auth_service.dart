@@ -240,11 +240,27 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
       return _auth.currentUser;
     } on FirebaseAuthException catch (e) {
-      errorMessage = e.message;
-      debugPrint('Sign up error: $e');
+      // Provide user-friendly error messages for common signup errors
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMessage = 'This email is already registered. Please sign in or use a different email.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Please enter a valid email address.';
+          break;
+        case 'weak-password':
+          errorMessage = 'Password is too weak. Please use at least 6 characters.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'Email/password accounts are not enabled. Please contact support.';
+          break;
+        default:
+          errorMessage = e.message ?? 'Sign up failed. Please try again.';
+      }
+      debugPrint('Sign up error: ${e.code} - ${e.message}');
       return null;
     } catch (e) {
-      errorMessage = 'Unexpected error during sign up';
+      errorMessage = 'Unexpected error during sign up. Please try again.';
       debugPrint('Sign up error: $e');
       return null;
     } finally {
@@ -258,15 +274,47 @@ class AuthService extends ChangeNotifier {
       final user = _auth.currentUser;
       if (user == null) {
         errorMessage = 'No user logged in';
+        debugPrint('❌ Cannot send verification email: No user logged in');
         return false;
       }
 
+      if (user.emailVerified) {
+        errorMessage = 'Email is already verified';
+        debugPrint('ℹ️ Email already verified for ${user.email}');
+        return true;
+      }
+
+      debugPrint('📧 Attempting to send verification email to ${user.email}...');
       await user.sendEmailVerification();
-      debugPrint('📧 Verification email sent to ${user.email}');
+      debugPrint('✅ Verification email sent successfully to ${user.email}');
       return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('❌ FirebaseAuthException sending verification email: ${e.code} - ${e.message}');
+      switch (e.code) {
+        case 'too-many-requests':
+          errorMessage = 'Too many requests. Please wait a minute before trying again.';
+          break;
+        case 'user-not-found':
+          errorMessage = 'User session expired. Please sign in again.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'This account has been disabled.';
+          break;
+        default:
+          errorMessage = e.message ?? 'Failed to send verification email. Please try again.';
+      }
+      return false;
     } catch (e) {
-      errorMessage = 'Failed to send verification email. Please try again.';
-      debugPrint('❌ Failed to send verification email: $e');
+      debugPrint('❌ Error sending verification email: $e');
+      // Check for rate limiting in the error message
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('too-many-requests') || errorStr.contains('rate') || errorStr.contains('limit')) {
+        errorMessage = 'Too many requests. Please wait a minute before trying again.';
+      } else if (errorStr.contains('network') || errorStr.contains('connection')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else {
+        errorMessage = 'Failed to send verification email. Please try again.';
+      }
       return false;
     }
   }
@@ -275,11 +323,26 @@ class AuthService extends ChangeNotifier {
   Future<bool> checkEmailVerified() async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return false;
+      if (user == null) {
+        debugPrint('❌ checkEmailVerified: No current user');
+        return false;
+      }
 
+      debugPrint('🔄 Reloading user ${user.email} from Firebase...');
       await user.reload();
+      
+      // IMPORTANT: Get fresh reference after reload
+      final freshUser = _auth.currentUser;
+      final isVerified = freshUser?.emailVerified ?? false;
+      
+      debugPrint('📧 After reload - emailVerified: $isVerified');
+      
+      if (isVerified) {
+        debugPrint('✅ Email is verified! Calling notifyListeners...');
+      }
+      
       notifyListeners();
-      return _auth.currentUser?.emailVerified ?? false;
+      return isVerified;
     } catch (e) {
       debugPrint('❌ Failed to check email verification: $e');
       return false;
