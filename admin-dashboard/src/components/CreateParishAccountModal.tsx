@@ -31,6 +31,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false); // Tracks if credentials were copied at least once (persists until modal closes)
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
   const [emailWarning, setEmailWarning] = useState<string | null>(null);
@@ -338,8 +339,9 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
     const text = `VISITA Parish Secretary Credentials\nEmail: ${credentials.email}\nTemp Password: ${credentials.password}\nLogin URL: ${window.location.origin}/login`;
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(true); // Visual feedback (temporary)
+      setHasCopied(true); // Permanent flag - enables Done button
+      setTimeout(() => setCopied(false), 2000); // Only reset visual feedback
     } catch (e) {
       setError('Failed to copy');
       setTimeout(() => setError(null), 2000);
@@ -356,6 +358,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
     setError(null);
     setShow(false);
     setCopied(false);
+    setHasCopied(false);
     setDuplicateWarning(null);
     setCheckingDuplicate(false);
     setSimilarChurches([]);
@@ -365,7 +368,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
 
   const handleOpenChange = (v: boolean) => {
     // If trying to close and credentials exist but not copied, prevent closing
-    if (!v && credentials && !copied) {
+    if (!v && credentials && !hasCopied) {
       setError('Please copy the credentials before closing. You cannot view them again.');
       return;
     }
@@ -606,16 +609,16 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
             <DialogFooter>
               <Button 
                 onClick={() => {
-                  if (!copied) {
+                  if (!hasCopied) {
                     setError('Please copy the credentials before closing. You cannot view them again.');
                     return;
                   }
                   setOpen(false);
                 }} 
-                disabled={!copied}
+                disabled={!hasCopied}
                 className="w-full btn-heritage"
               >
-                {copied ? 'Done' : 'Copy Credentials First'}
+                {hasCopied ? 'Done' : 'Copy Credentials First'}
               </Button>
             </DialogFooter>
           </div>
