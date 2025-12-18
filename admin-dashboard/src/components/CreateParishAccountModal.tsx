@@ -54,19 +54,20 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
       console.log('🔍 Checking for duplicates:', { name, mun, diocese, generatedParishId: parishId });
       console.log('🎯 Target parish ID we are looking for:', parishId);
       
-      // Get ALL parish secretary accounts in this diocese
+      // Get only ACTIVE parish secretary accounts in this diocese
       const allAccountsCheck = await getDocs(
         query(
           collection(db, 'users'),
           where('diocese', '==', diocese),
-          where('role', '==', 'parish_secretary')
+          where('role', '==', 'parish_secretary'),
+          where('status', '==', 'active')
         )
       );
 
-      console.log('📋 All accounts in diocese:', allAccountsCheck.size, 'accounts');
+      console.log('📋 Active accounts in diocese:', allAccountsCheck.size, 'accounts');
       console.log('📌 Looking for duplicate of:', `${name} in ${mun}`);
 
-      // Check each account
+      // Check each active account
       for (const doc of allAccountsCheck.docs) {
         const data = doc.data();
         console.log('  Checking account:', {
@@ -74,7 +75,8 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
           parish: data.parish,
           municipality: data.municipality,
           parishId: data.parishId,
-          name: data.name
+          name: data.name,
+          status: data.status
         });
         console.log('  📍 Existing parishId:', data.parishId);
         console.log('  📍 Looking for parishId:', parishId);
