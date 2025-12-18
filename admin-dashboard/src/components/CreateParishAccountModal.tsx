@@ -183,16 +183,22 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
       const emailLower = emailToCheck.trim().toLowerCase();
       console.log('🔍 Checking for duplicate email:', emailLower);
       
+      // Only check active accounts - deactivated accounts can have their email reused
+      // Note: Firebase Auth may still block if the email exists there
       const emailCheck = await getDocs(
-        query(collection(db, 'users'), where('email', '==', emailLower))
+        query(
+          collection(db, 'users'), 
+          where('email', '==', emailLower),
+          where('status', '==', 'active')
+        )
       );
 
       if (!emailCheck.empty) {
         const existingUser = emailCheck.docs[0].data();
-        console.log('  ❌ EMAIL ALREADY EXISTS:', existingUser.email);
-        setEmailWarning(`This email is already registered${existingUser.name ? ` for ${existingUser.name}` : ''}`);
+        console.log('  ❌ EMAIL ALREADY EXISTS (active account):', existingUser.email);
+        setEmailWarning(`This email is already registered${existingUser.name ? ` for ${existingUser.name}` : ''} (active account)`);
       } else {
-        console.log('✅ Email is available');
+        console.log('✅ Email is available (no active account)');
         setEmailWarning(null);
       }
     } catch (err) {
@@ -262,14 +268,18 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
         throw new Error(`An active parish account already exists for ${parishFullName}. Only one account per parish is allowed.`);
       }
       
-      // Check if email already exists in Firestore
+      // Check if email already exists in Firestore (only active accounts)
       const emailLower = email.trim().toLowerCase();
       const emailCheck = await getDocs(
-        query(collection(db, 'users'), where('email', '==', emailLower))
+        query(
+          collection(db, 'users'), 
+          where('email', '==', emailLower),
+          where('status', '==', 'active')
+        )
       );
       
       if (!emailCheck.empty) {
-        throw new Error('An account with this email already exists. Please use a different email or check existing parish accounts.');
+        throw new Error('An active account with this email already exists. Please use a different email or reactivate the existing account.');
       }
       
       // Validate password is required
