@@ -1,21 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- OpenStreetMap uses HTTPS, so we trust system certificates -->
-    <!-- Explicitly allow OpenStreetMap tile servers for map display -->
+    <!-- Default security for all HTTPS connections -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" overridePins="true" />
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Explicitly trust OpenStreetMap tile servers -->
     <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">openstreetmap.org</domain>
         <domain includeSubdomains="true">tile.openstreetmap.org</domain>
-        <domain includeSubdomains="true">a.tile.openstreetmap.org</domain>
-        <domain includeSubdomains="true">b.tile.openstreetmap.org</domain>
-        <domain includeSubdomains="true">c.tile.openstreetmap.org</domain>
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </domain-config>
     
-    <!-- Default security for all other connections -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- Trust Firebase and Google services -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">firebaseio.com</domain>
+        <domain includeSubdomains="true">firebase.google.com</domain>
+        <domain includeSubdomains="true">firebaseapp.com</domain>
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
-    </base-config>
+    </domain-config>
 </network-security-config>

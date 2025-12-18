@@ -14,7 +14,7 @@ import {
   Loader2,
   MapPin,
 } from 'lucide-react';
-import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -86,9 +86,13 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
       const allUsersSnapshot = await getDocs(usersRef);
       console.log(`✅ Total users in database: ${allUsersSnapshot.size}`);
 
-      // Try with accountType filter
-      console.log('🔎 Filtering for accountType="public"...');
-      const publicUsersQuery = query(usersRef, where('accountType', '==', 'public'));
+      // Try with accountType filter and order by registration date (newest first)
+      console.log('🔎 Filtering for accountType="public" and ordering by createdAt desc...');
+      const publicUsersQuery = query(
+        usersRef,
+        where('accountType', '==', 'public'),
+        orderBy('createdAt', 'desc')
+      );
       const publicSnapshot = await getDocs(publicUsersQuery);
       console.log(`📊 Public users found: ${publicSnapshot.size}`);
 
@@ -328,10 +332,11 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
 
           {/* Status Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-2">
               Status
             </label>
             <select
+              id="status-filter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'deactivated')}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -504,6 +509,7 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                 <button
                   onClick={() => setSelectedUser(null)}
                   className="text-gray-400 hover:text-gray-600"
+                  aria-label="Close user details"
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
