@@ -40,7 +40,9 @@ import {
   Upload,
   X,
   Info,
+  Building2,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -407,6 +409,17 @@ export const OptimizedChurchForm: React.FC<OptimizedChurchFormProps> = ({
                       </SelectContent>
                     </Select>
                     <FormMessage />
+                    
+                    {/* Heritage Review Indicator */}
+                    {(field.value === 'ICP' || field.value === 'NCT') && (
+                      <Alert className="mt-3 bg-amber-50 border-amber-300">
+                        <Building2 className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800 text-sm">
+                          <strong>Heritage Site Review Required:</strong> This church profile will be forwarded to the 
+                          <span className="font-semibold"> Museum Researcher</span> for heritage validation before final approval and publication.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </FormItem>
                 )}
               />
