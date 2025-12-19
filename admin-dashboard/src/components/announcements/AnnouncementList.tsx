@@ -310,18 +310,6 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                               <Archive className="w-4 h-4" />
                               <span className="ml-1">Unarchive</span>
                             </Button>
-                            {onDelete && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => onDelete(announcement.id)}
-                                title="Delete announcement permanently"
-                                className="text-red-600 border-red-300 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                <span className="ml-1">Delete</span>
-                              </Button>
-                            )}
                           </>
                         ) : (
                           <Button

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, MapPin, Phone, Archive, Edit3, X, Trash2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Phone, Archive, Edit3, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import type { Announcement } from '@/types/announcement';
@@ -160,36 +160,6 @@ export const AnnouncementDetailDialog: React.FC<AnnouncementDetailDialogProps> =
                   <Archive className="w-4 h-4" />
                   Restore
                 </Button>
-                {onDelete && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Announcement</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to permanently delete this announcement? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={() => onDelete(announcement)}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
               </>
             )}
             <Button className="btn-heritage flex items-center gap-2" onClick={handleEditClick}>
