@@ -116,14 +116,24 @@ const ParishDashboard = () => {
     }
   }, [userProfile?.uid]);
 
-  // Core church data
+  // Helper function to extract parish name without municipality (handles legacy data)
+  const getParishNameWithoutMunicipality = (name: string | undefined): string => {
+    if (!name) return '';
+    // If name contains a comma, it likely includes municipality - strip it
+    if (name.includes(',')) {
+      return name.split(',')[0].trim();
+    }
+    return name;
+  };
+
+  // Core church data - use parishInfo.name (without municipality) for initial parish name
   const [churchInfo, setChurchInfo] = useState<ChurchInfo>(() => ({
-    churchName: userProfile?.parish || '',
-    parishName: '',
+    churchName: getParishNameWithoutMunicipality(userProfile?.parishInfo?.name),
+    parishName: getParishNameWithoutMunicipality(userProfile?.parishInfo?.name),
     locationDetails: {
       streetAddress: '',
       barangay: '',
-      municipality: '',
+      municipality: userProfile?.parishInfo?.municipality || '',
       province: 'Bohol'
     },
     coordinates: { lat: 0, lng: 0 },
@@ -318,11 +328,18 @@ const ParishDashboard = () => {
               userParishId: userProfile.parishId,
               userParish: userProfile.parish
             });
-            const displayName = userProfile.parishInfo?.fullName || userProfile.parish || '';
+            // Use parishInfo.name (without municipality) for the parish name field
+            const parishName = getParishNameWithoutMunicipality(userProfile.parishInfo?.name);
+            const municipality = userProfile.parishInfo?.municipality || '';
             setChurchInfo(prev => ({
               ...prev,
-              churchName: displayName,
-              name: displayName,
+              churchName: parishName,
+              parishName: parishName,
+              name: parishName,
+              locationDetails: {
+                ...prev.locationDetails,
+                municipality: municipality
+              },
               diocese: userProfile.diocese
             }));
             setCurrentView('overview'); // Changed to overview - user must click "Add Profile" button
@@ -335,12 +352,18 @@ const ParishDashboard = () => {
             description: "Failed to load church data. Using default settings.",
             variant: "destructive"
           });
-          // Fallback to default initialization
-          const displayName = userProfile.parishInfo?.fullName || userProfile.parish || '';
+          // Fallback to default initialization - use parishInfo.name (without municipality)
+          const parishName = getParishNameWithoutMunicipality(userProfile.parishInfo?.name);
+          const municipality = userProfile.parishInfo?.municipality || '';
           setChurchInfo(prev => ({
             ...prev,
-            churchName: displayName,
-            name: displayName,
+            churchName: parishName,
+            parishName: parishName,
+            name: parishName,
+            locationDetails: {
+              ...prev.locationDetails,
+              municipality: municipality
+            },
             diocese: userProfile.diocese
           }));
           setCurrentView('overview'); // Changed to overview - user must click "Add Profile" button
@@ -478,7 +501,8 @@ const ParishDashboard = () => {
 
     // Helper function to convert coordinates format
     const convertCoordinates = (coords: typeof data.coordinates) => {
-      if (!coords || (coords.lat === 0 && coords.lng === 0)) return undefined;
+      // Return null instead of undefined - Firestore accepts null but not undefined
+      if (!coords || (coords.lat === 0 && coords.lng === 0)) return null;
       return {
         latitude: coords.lat,
         longitude: coords.lng

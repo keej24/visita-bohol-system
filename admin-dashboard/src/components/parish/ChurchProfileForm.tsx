@@ -77,6 +77,10 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   const [autoSaving, setAutoSaving] = useState(false);
   // Track effective churchId - can be updated after auto-save
   const [effectiveChurchId, setEffectiveChurchId] = useState<string | undefined>(churchId);
+  
+  // Inline validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
   // NOTE: Virtual tour now managed by VirtualTourManager component
 
   // Update effectiveChurchId when prop changes
@@ -271,9 +275,97 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     }
   };
 
+  // Inline field validation functions
+  const validateField = (fieldName: string, value: string | number | null | undefined): string => {
+    const currentYear = new Date().getFullYear();
+    
+    switch (fieldName) {
+      case 'parishName':
+      case 'churchName':
+        return !value || !String(value).trim() ? 'Parish Name is required' : '';
+      case 'streetAddress':
+        return !value || !String(value).trim() ? 'Street Address is required' : '';
+      case 'barangay':
+        return !value || !String(value).trim() ? 'Barangay is required' : '';
+      case 'municipality':
+        return !value || !String(value).trim() ? 'Municipality is required' : '';
+      case 'latitude': {
+        if (!value && value !== 0) return 'Latitude is required';
+        const lat = Number(value);
+        if (isNaN(lat)) return 'Invalid latitude value';
+        if (lat < -90 || lat > 90) return 'Latitude must be between -90 and 90';
+        if (lat < 9.4 || lat > 10.2) return 'Latitude appears to be outside Bohol region';
+        return '';
+      }
+      case 'longitude': {
+        if (!value && value !== 0) return 'Longitude is required';
+        const lng = Number(value);
+        if (isNaN(lng)) return 'Invalid longitude value';
+        if (lng < -180 || lng > 180) return 'Longitude must be between -180 and 180';
+        if (lng < 123.7 || lng > 124.7) return 'Longitude appears to be outside Bohol region';
+        return '';
+      }
+      case 'foundingYear': {
+        if (!value || !String(value).trim()) return 'Founding Year is required';
+        const year = parseInt(String(value), 10);
+        if (isNaN(year)) return 'Please enter a valid year';
+        if (year < 1500 || year > currentYear) return `Year must be between 1500 and ${currentYear}`;
+        return '';
+      }
+      case 'architecturalStyle':
+        return !value || !String(value).trim() ? 'Architectural Style is required' : '';
+      case 'historicalBackground': {
+        if (!value || !String(value).trim()) return 'Historical Background is required';
+        if (String(value).trim().length < 50) return 'Minimum 50 characters required';
+        return '';
+      }
+      case 'currentParishPriest':
+        return !value || !String(value).trim() ? 'Current Parish Priest is required' : '';
+      case 'phone': {
+        if (!value || !String(value).trim()) return '';
+        const phoneRegex = /^[\d\s\-()+ ]+$/;
+        if (!phoneRegex.test(String(value))) return 'Phone number contains invalid characters';
+        const digitCount = String(value).replace(/\D/g, '').length;
+        if (digitCount < 7 || digitCount > 15) return 'Phone number must contain 7-15 digits';
+        return '';
+      }
+      case 'email': {
+        if (!value || !String(value).trim()) return '';
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(String(value))) return 'Please enter a valid email address';
+        return '';
+      }
+      case 'website': {
+        if (!value || !String(value).trim()) return '';
+        const urlRegex = /^(https?:\/\/)?([\\da-z.-]+)\.([a-z.]{2,6})([/\\w .-]*)*\/?$/;
+        if (!urlRegex.test(String(value))) return 'Please enter a valid website URL';
+        return '';
+      }
+      default:
+        return '';
+    }
+  };
+
+  const markFieldTouched = (fieldName: string) => {
+    setTouchedFields(prev => new Set(prev).add(fieldName));
+  };
+
+  const updateFieldError = (fieldName: string, value: string | number | null | undefined) => {
+    const error = validateField(fieldName, value);
+    setFieldErrors(prev => ({ ...prev, [fieldName]: error }));
+    return error;
+  };
+
+  const getFieldError = (fieldName: string): string | undefined => {
+    return touchedFields.has(fieldName) ? fieldErrors[fieldName] : undefined;
+  };
+
   // Form field updaters
   const updateBasicField = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (touchedFields.has(field)) {
+      updateFieldError(field, value);
+    }
   };
 
   const updateLocationField = (field: string, value: string) => {
@@ -281,6 +373,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       ...prev,
       locationDetails: { ...prev.locationDetails, [field]: value }
     }));
+    if (touchedFields.has(field)) {
+      updateFieldError(field, value);
+    }
   };
 
   const updateHistoricalField = (field: string, value: string) => {
@@ -288,6 +383,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       ...prev,
       historicalDetails: { ...prev.historicalDetails, [field]: value }
     }));
+    if (touchedFields.has(field)) {
+      updateFieldError(field, value);
+    }
   };
 
   const updateContactField = (field: string, value: string) => {
@@ -295,6 +393,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       ...prev,
       contactInfo: { ...prev.contactInfo, [field]: value }
     }));
+    if (touchedFields.has(field)) {
+      updateFieldError(field, value);
+    }
   };
 
   const updateCoordinates = (lat: number, lng: number) => {
@@ -302,6 +403,12 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       ...prev,
       coordinates: { lat, lng }
     }));
+    if (touchedFields.has('latitude')) {
+      updateFieldError('latitude', lat);
+    }
+    if (touchedFields.has('longitude')) {
+      updateFieldError('longitude', lng);
+    }
   };
 
   // Mass schedule management
@@ -1082,45 +1189,6 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           </div>
         )}
 
-        {/* Heritage Assessment Card - Hidden for chancery and museum researchers since they are reviewing, not submitting */}
-        {heritageAssessment && currentStatus !== 'approved' && !isMuseumResearcher && !isChanceryEdit && (
-          <Card className={`shadow-lg border-l-4 mb-6 ${
-            heritageAssessment.confidence === 'high' ? 'border-l-orange-500 bg-orange-50/30' :
-            heritageAssessment.confidence === 'medium' ? 'border-l-yellow-500 bg-yellow-50/30' :
-            'border-l-green-500 bg-green-50/30'
-          }`}>
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Landmark className={`w-6 h-6 mt-0.5 ${
-                  heritageAssessment.confidence === 'high' ? 'text-orange-600' :
-                  heritageAssessment.confidence === 'medium' ? 'text-yellow-600' :
-                  'text-green-600'
-                }`} />
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <h3 className="font-semibold text-gray-900">Heritage Significance Assessment</h3>
-                    <Badge variant={
-                      heritageAssessment.confidence === 'high' ? 'destructive' :
-                      heritageAssessment.confidence === 'medium' ? 'secondary' :
-                      'default'
-                    } className="text-xs">
-                      {heritageAssessment.confidence.toUpperCase()} CONFIDENCE
-                    </Badge>
-                  </div>
-
-                  {heritageAssessment.shouldRequireReview && (
-                    <div className="bg-orange-100 border border-orange-300 rounded-lg p-3">
-                      <p className="text-sm text-orange-800">
-                        Church is classified as Important Cultural Property (ICP). Must be forwarded to Heritage Reviewer for heritage validation.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Main Form */}
         <Card className={isModal ? "shadow-sm border" : "shadow-xl"}>
           <CardContent className="p-0">
@@ -1190,9 +1258,16 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         // Also update churchName to keep compatibility
                         updateBasicField('churchName', e.target.value);
                       }}
+                      onBlur={() => {
+                        markFieldTouched('parishName');
+                        updateFieldError('parishName', formData.parishName);
+                      }}
                       placeholder="e.g., Sacred Heart Parish"
-                      className="h-11"
+                      className={`h-11 ${getFieldError('parishName') ? 'border-red-500 focus:ring-red-500' : ''}`}
                     />
+                    {getFieldError('parishName') && (
+                      <p className="text-sm text-red-500">{getFieldError('parishName')}</p>
+                    )}
                   </div>
 
                   <Separator />
@@ -1213,9 +1288,16 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           id="streetAddress"
                           value={formData.locationDetails.streetAddress}
                           onChange={(e) => updateLocationField('streetAddress', e.target.value)}
+                          onBlur={() => {
+                            markFieldTouched('streetAddress');
+                            updateFieldError('streetAddress', formData.locationDetails.streetAddress);
+                          }}
                           placeholder="Complete street address"
-                          className="h-11"
+                          className={`h-11 ${getFieldError('streetAddress') ? 'border-red-500 focus:ring-red-500' : ''}`}
                         />
+                        {getFieldError('streetAddress') && (
+                          <p className="text-sm text-red-500">{getFieldError('streetAddress')}</p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -1226,9 +1308,16 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           id="barangay"
                           value={formData.locationDetails.barangay}
                           onChange={(e) => updateLocationField('barangay', e.target.value)}
+                          onBlur={() => {
+                            markFieldTouched('barangay');
+                            updateFieldError('barangay', formData.locationDetails.barangay);
+                          }}
                           placeholder="Barangay name"
-                          className="h-11"
+                          className={`h-11 ${getFieldError('barangay') ? 'border-red-500 focus:ring-red-500' : ''}`}
                         />
+                        {getFieldError('barangay') && (
+                          <p className="text-sm text-red-500">{getFieldError('barangay')}</p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -1239,9 +1328,16 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           id="municipality"
                           value={formData.locationDetails.municipality}
                           onChange={(e) => updateLocationField('municipality', e.target.value)}
+                          onBlur={() => {
+                            markFieldTouched('municipality');
+                            updateFieldError('municipality', formData.locationDetails.municipality);
+                          }}
                           placeholder="Municipality name"
-                          className="h-11"
+                          className={`h-11 ${getFieldError('municipality') ? 'border-red-500 focus:ring-red-500' : ''}`}
                         />
+                        {getFieldError('municipality') && (
+                          <p className="text-sm text-red-500">{getFieldError('municipality')}</p>
+                        )}
                       </div>
                     </div>
 
@@ -1261,10 +1357,17 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             step="any"
                             value={formData.coordinates.lat || ''}
                             onChange={(e) => updateCoordinates(parseFloat(e.target.value) || 0, formData.coordinates.lng)}
+                            onBlur={() => {
+                              markFieldTouched('latitude');
+                              updateFieldError('latitude', formData.coordinates.lat);
+                            }}
                             placeholder="e.g., 9.6475"
-                            className="h-11"
+                            className={`h-11 ${getFieldError('latitude') ? 'border-red-500 focus:ring-red-500' : ''}`}
                             required
                           />
+                          {getFieldError('latitude') && (
+                            <p className="text-sm text-red-500">{getFieldError('latitude')}</p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="longitude" className="text-sm font-medium text-gray-700">
@@ -1276,10 +1379,17 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             step="any"
                             value={formData.coordinates.lng || ''}
                             onChange={(e) => updateCoordinates(formData.coordinates.lat, parseFloat(e.target.value) || 0)}
+                            onBlur={() => {
+                              markFieldTouched('longitude');
+                              updateFieldError('longitude', formData.coordinates.lng);
+                            }}
                             placeholder="e.g., 123.8887"
-                            className="h-11"
+                            className={`h-11 ${getFieldError('longitude') ? 'border-red-500 focus:ring-red-500' : ''}`}
                             required
                           />
+                          {getFieldError('longitude') && (
+                            <p className="text-sm text-red-500">{getFieldError('longitude')}</p>
+                          )}
                         </div>
                       </div>
                       <p className="text-xs text-gray-600 mt-2">
@@ -1319,9 +1429,16 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         id="foundingYear"
                         value={formData.historicalDetails.foundingYear}
                         onChange={(e) => updateHistoricalField('foundingYear', e.target.value)}
+                        onBlur={() => {
+                          markFieldTouched('foundingYear');
+                          updateFieldError('foundingYear', formData.historicalDetails.foundingYear);
+                        }}
                         placeholder="e.g., 1885"
-                        className="h-11"
+                        className={`h-11 ${getFieldError('foundingYear') ? 'border-red-500 focus:ring-red-500' : ''}`}
                       />
+                      {getFieldError('foundingYear') && (
+                        <p className="text-sm text-red-500">{getFieldError('foundingYear')}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -1339,13 +1456,17 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
                     <div className="space-y-2">
                       <Label htmlFor="architecturalStyle" className="text-sm font-medium text-gray-700">
-                        Architectural Style
+                        Architectural Style <span className="text-red-500">*</span>
                       </Label>
                       <Select
                         value={formData.historicalDetails.architecturalStyle}
-                        onValueChange={(value) => updateHistoricalField('architecturalStyle', value)}
+                        onValueChange={(value) => {
+                          updateHistoricalField('architecturalStyle', value);
+                          markFieldTouched('architecturalStyle');
+                          updateFieldError('architecturalStyle', value);
+                        }}
                       >
-                        <SelectTrigger className="h-11">
+                        <SelectTrigger className={`h-11 ${getFieldError('architecturalStyle') ? 'border-red-500 focus:ring-red-500' : ''}`}>
                           <SelectValue placeholder="Select architectural style" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1358,6 +1479,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
+                      {getFieldError('architecturalStyle') && (
+                        <p className="text-sm text-red-500">{getFieldError('architecturalStyle')}</p>
+                      )}
                     </div>
 
                   {/* Heritage & Religious Classifications */}
@@ -1415,13 +1539,21 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         id="historicalBackground"
                         value={formData.historicalDetails.historicalBackground}
                         onChange={(e) => updateHistoricalField('historicalBackground', e.target.value)}
+                        onBlur={() => {
+                          markFieldTouched('historicalBackground');
+                          updateFieldError('historicalBackground', formData.historicalDetails.historicalBackground);
+                        }}
                         placeholder="Describe the history, significance, and story of your church...&#10;&#10;Include details such as:&#10;• Year of establishment and founding story&#10;• Key historical events and milestones&#10;• Notable figures in the church's history&#10;• Cultural and community significance"
                         rows={12}
-                        className="resize-y min-h-[200px] leading-relaxed"
+                        className={`resize-y min-h-[200px] leading-relaxed ${getFieldError('historicalBackground') ? 'border-red-500 focus:ring-red-500' : ''}`}
                       />
-                      <p className="text-xs text-gray-600">
-                        Share the founding story, historical significance, and cultural importance of your church
-                      </p>
+                      {getFieldError('historicalBackground') ? (
+                        <p className="text-sm text-red-500">{getFieldError('historicalBackground')}</p>
+                      ) : (
+                        <p className="text-xs text-gray-600">
+                          Share the founding story, historical significance, and cultural importance of your church (minimum 50 characters)
+                        </p>
+                      )}
                     </div>
 
                   </div>
@@ -1492,9 +1624,16 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       id="currentParishPriest"
                       value={formData.currentParishPriest}
                       onChange={(e) => updateBasicField('currentParishPriest', e.target.value)}
+                      onBlur={() => {
+                        markFieldTouched('currentParishPriest');
+                        updateFieldError('currentParishPriest', formData.currentParishPriest);
+                      }}
                       placeholder="Rev. Fr. [Full Name]"
-                      className="h-11"
+                      className={`h-11 ${getFieldError('currentParishPriest') ? 'border-red-500 focus:ring-red-500' : ''}`}
                     />
+                    {getFieldError('currentParishPriest') && (
+                      <p className="text-sm text-red-500">{getFieldError('currentParishPriest')}</p>
+                    )}
                   </div>
 
                   {/* Feast Day */}
@@ -1540,11 +1679,18 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             id="phone"
                             value={formData.contactInfo.phone}
                             onChange={(e) => updateContactField('phone', e.target.value)}
+                            onBlur={() => {
+                              markFieldTouched('phone');
+                              updateFieldError('phone', formData.contactInfo.phone);
+                            }}
                             placeholder="+63 xxx xxx xxxx"
-                            className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''} ${getFieldError('phone') ? 'border-red-500 focus:ring-red-500' : ''}`}
                             disabled={isChanceryEdit}
                           />
                         </div>
+                        {getFieldError('phone') && (
+                          <p className="text-sm text-red-500">{getFieldError('phone')}</p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -1558,11 +1704,18 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             type="email"
                             value={formData.contactInfo.email}
                             onChange={(e) => updateContactField('email', e.target.value)}
+                            onBlur={() => {
+                              markFieldTouched('email');
+                              updateFieldError('email', formData.contactInfo.email);
+                            }}
                             placeholder="parish@church.com"
-                            className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''} ${getFieldError('email') ? 'border-red-500 focus:ring-red-500' : ''}`}
                             disabled={isChanceryEdit}
                           />
                         </div>
+                        {getFieldError('email') && (
+                          <p className="text-sm text-red-500">{getFieldError('email')}</p>
+                        )}
                       </div>
                     </div>
                   </div>
