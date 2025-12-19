@@ -976,19 +976,21 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     ? "Great! Your profile is ready for submission."
                     : `Complete ${80 - completionPercentage}% more to submit for review.`}
                 </p>
-                
-                {/* Heritage Review Indicator - Shows when ICP/NCT is selected */}
-                {(formData.historicalDetails.heritageClassification === 'National Cultural Treasures' || 
-                  formData.historicalDetails.heritageClassification === 'Important Cultural Properties') && (
-                  <Alert className="bg-amber-50 border-amber-400 border-2 mt-3">
-                    <Building2 className="h-5 w-5 text-amber-600" />
-                    <AlertDescription className="text-amber-800">
-                      <strong className="text-amber-900">🏛️ Heritage Site Review Required:</strong> This church is classified as <span className="font-semibold">{formData.historicalDetails.heritageClassification}</span>. 
-                      Your submission will be forwarded to the <span className="font-semibold">Museum Researcher</span> for heritage validation before final approval.
-                    </AlertDescription>
-                  </Alert>
-                )}
               </div>
+            )}
+            
+            {/* Heritage Review Indicator - Shows when ICP/NCT is selected (always visible for parish users) */}
+            {!isChanceryEdit && !isMuseumResearcher && (formData.historicalDetails.heritageClassification === 'National Cultural Treasures' || 
+              formData.historicalDetails.heritageClassification === 'Important Cultural Properties') && (
+              <Alert className="bg-amber-50 border-amber-400 border-2 mt-3">
+                <Building2 className="h-5 w-5 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <strong className="text-amber-900">🏛️ Heritage Site Review Required:</strong> This church is classified as <span className="font-semibold">{formData.historicalDetails.heritageClassification}</span>. 
+                  {currentStatus === 'approved' 
+                    ? ' Any updates to this heritage site will require Museum Researcher approval after Chancery evaluation.'
+                    : ' After Chancery evaluation, your submission will be forwarded to the Museum Researcher dashboard for heritage validation before final approval.'}
+                </AlertDescription>
+              </Alert>
             )}
           </div>
         )}
