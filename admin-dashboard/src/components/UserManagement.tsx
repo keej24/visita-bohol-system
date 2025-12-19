@@ -495,17 +495,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                           </Badge>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Mail className="w-3 h-3" />
                             {user.email}
                           </div>
-                          {user.parish && (
-                            <div className="flex items-center gap-1">
-                              <Shield className="w-3 h-3" />
-                              {parishes.find(p => p.id === user.parish)?.name || user.parish}
-                            </div>
-                          )}
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             Created: {user.createdAt.toLocaleDateString()}
