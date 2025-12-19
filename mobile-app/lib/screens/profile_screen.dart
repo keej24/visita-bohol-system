@@ -905,10 +905,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (showPasswordFields &&
                     newPasswordController.text.isNotEmpty) {
                   try {
+                    debugPrint('🔐 Attempting to update password...');
                     await authService.updatePassword(
                       currentPasswordController.text,
                       newPasswordController.text,
                     );
+                    debugPrint('✅ Password update successful');
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -918,23 +920,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       );
                     }
                   } catch (e) {
-                    // Parse error message for user-friendly display
+                    debugPrint('❌ Password update failed: $e');
+                    // Extract the user-friendly error message
+                    // The authService now throws exceptions with clean messages
                     String errorMessage = e.toString();
-                    if (errorMessage.contains('incorrect') ||
-                        errorMessage.contains('wrong-password') ||
-                        errorMessage.contains('invalid') ||
-                        errorMessage.contains('malformed') ||
-                        errorMessage.contains('expired')) {
-                      errorMessage = 'Current password is incorrect';
-                    } else {
-                      errorMessage = errorMessage.replaceAll('Exception: ', '');
-                    }
+                    // Remove "Exception: " prefix if present
+                    errorMessage = errorMessage.replaceAll('Exception: ', '');
 
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(errorMessage),
                           backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 4),
                         ),
                       );
                     }

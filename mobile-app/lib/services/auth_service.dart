@@ -547,48 +547,93 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Update user password with re-authentication
+  ///
+  /// This method requires the user to provide their current password for
+  /// security verification before allowing a password change.
+  ///
+  /// Common Firebase Auth error codes:
+  /// - `invalid-credential`: Wrong password or expired credential (Firebase v5+)
+  /// - `wrong-password`: Legacy code for incorrect password
+  /// - `weak-password`: New password doesn't meet requirements
+  /// - `requires-recent-login`: Session expired, user needs to re-login
+  /// - `too-many-requests`: Too many failed attempts
   Future<void> updatePassword(
       String currentPassword, String newPassword) async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null || user.email == null) {
-        throw Exception('No user logged in');
-      }
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw Exception('No user logged in');
+    }
 
+    try {
       // Re-authenticate user with current password
       final credential = EmailAuthProvider.credential(
         email: user.email!,
         password: currentPassword,
       );
 
+      debugPrint('🔐 Attempting re-authentication for password change...');
       await user.reauthenticateWithCredential(credential);
+      debugPrint('✅ Re-authentication successful');
 
       // Update to new password
+      debugPrint('🔄 Updating password...');
       await user.updatePassword(newPassword);
+      debugPrint('✅ Password updated successfully');
 
       notifyListeners();
     } on FirebaseAuthException catch (e) {
       debugPrint(
-          'FirebaseAuthException during password update: ${e.code} - ${e.message}');
-      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        throw Exception('Current password is incorrect');
-      } else if (e.code == 'weak-password') {
-        throw Exception('New password is too weak');
-      } else {
-        throw Exception(e.message ?? 'Failed to update password');
+          '❌ FirebaseAuthException during password update: ${e.code} - ${e.message}');
+
+      // Handle specific Firebase Auth error codes
+      // Note: Firebase v5+ uses 'invalid-credential' instead of 'wrong-password'
+      switch (e.code) {
+        case 'wrong-password':
+        case 'invalid-credential':
+        case 'INVALID_LOGIN_CREDENTIALS':
+          throw Exception('Current password is incorrect');
+        case 'weak-password':
+          throw Exception(
+              'New password is too weak. Please use at least 6 characters.');
+        case 'requires-recent-login':
+          throw Exception(
+              'Session expired. Please log out and log back in, then try again.');
+        case 'too-many-requests':
+          throw Exception('Too many failed attempts. Please try again later.');
+        case 'network-request-failed':
+          throw Exception(
+              'Network error. Please check your internet connection.');
+        default:
+          throw Exception(e.message ?? 'Failed to update password');
       }
     } catch (e) {
-      debugPrint('Password update error: $e');
-      // Check if error message indicates wrong password
+      debugPrint('❌ Password update error: $e');
+
+      // If it's already an Exception we threw, rethrow it
+      if (e is Exception) {
+        final errorStr = e.toString();
+        if (errorStr.contains('Current password is incorrect') ||
+            errorStr.contains('too weak') ||
+            errorStr.contains('Session expired') ||
+            errorStr.contains('Too many failed') ||
+            errorStr.contains('Network error')) {
+          rethrow;
+        }
+      }
+
+      // Check if error message indicates wrong password (fallback handling)
       final errorStr = e.toString().toLowerCase();
       if (errorStr.contains('incorrect') ||
           errorStr.contains('wrong-password') ||
-          errorStr.contains('invalid') ||
+          errorStr.contains('invalid-credential') ||
+          errorStr.contains('invalid_login_credentials') ||
           errorStr.contains('malformed') ||
           errorStr.contains('expired')) {
         throw Exception('Current password is incorrect');
       }
-      rethrow;
+
+      // Unknown error - provide generic message
+      throw Exception('Failed to update password. Please try again.');
     }
   }
 

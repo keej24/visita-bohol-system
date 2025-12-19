@@ -22,6 +22,9 @@ const AccountSettings = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isLoadingPassword, setIsLoadingPassword] = useState(false);
 
   const [profileData, setProfileData] = useState({
     firstName: userProfile?.name?.split(' ')[0] || '',
@@ -171,7 +174,7 @@ const AccountSettings = () => {
     // Clear errors
     setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '', currentPassword: '', confirmPassword: '' });
 
-    setIsLoading(true);
+    setIsLoadingProfile(true);
     try {
       // Update Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
@@ -207,25 +210,26 @@ const AccountSettings = () => {
         variant: 'destructive'
       });
     } finally {
-      setIsLoading(false);
+      setIsLoadingProfile(false);
     }
   };
 
   const handlePasswordUpdate = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast({
-        title: 'Error',
-        description: 'New passwords do not match',
-        variant: 'destructive'
-      });
+    // Validate current password is provided
+    if (!passwordData.currentPassword) {
+      setErrors(prev => ({ ...prev, currentPassword: 'Current password is required' }));
       return;
     }
-    if (passwordData.newPassword.length < 8) {
-      toast({
-        title: 'Error',
-        description: 'Password must be at least 8 characters long',
-        variant: 'destructive'
-      });
+
+    // Validate new password
+    const passwordError = validatePassword(passwordData.newPassword);
+    if (passwordError) {
+      setErrors(prev => ({ ...prev, password: passwordError }));
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setErrors(prev => ({ ...prev, confirmPassword: 'Passwords do not match' }));
       return;
     }
 
@@ -238,7 +242,7 @@ const AccountSettings = () => {
       return;
     }
 
-    setIsLoading(true);
+    setIsLoadingPassword(true);
     try {
       // Re-authenticate user before changing password
       const credential = EmailAuthProvider.credential(
@@ -255,17 +259,24 @@ const AccountSettings = () => {
         description: 'Password updated successfully',
       });
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setErrors(prev => ({ ...prev, currentPassword: '', password: '', confirmPassword: '' }));
+      setIsEditingPassword(false);
     } catch (error: unknown) {
       console.error('Password update failed:', error);
       let errorMessage = 'Failed to update password. Please try again.';
 
       const authError = error as { code?: string };
-      if (authError.code === 'auth/wrong-password') {
-        errorMessage = 'Current password is not correct';
+      // Handle Firebase Auth error codes (including newer 'invalid-credential' code)
+      if (authError.code === 'auth/wrong-password' || authError.code === 'auth/invalid-credential') {
+        errorMessage = 'Current password is incorrect';
+        setErrors(prev => ({ ...prev, currentPassword: errorMessage }));
       } else if (authError.code === 'auth/weak-password') {
         errorMessage = 'Password is too weak. Please choose a stronger password.';
+        setErrors(prev => ({ ...prev, password: errorMessage }));
       } else if (authError.code === 'auth/requires-recent-login') {
         errorMessage = 'Please log out and log back in before changing your password';
+      } else if (authError.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
       }
 
       toast({
@@ -274,7 +285,7 @@ const AccountSettings = () => {
         variant: 'destructive'
       });
     } finally {
-      setIsLoading(false);
+      setIsLoadingPassword(false);
     }
   };
 
@@ -438,27 +449,36 @@ const AccountSettings = () => {
     }
   };
 
-  // Cancel edit and reset all changes
-  const handleCancelEdit = () => {
+  // Cancel profile edit and reset changes
+  const handleCancelProfileEdit = () => {
     // Reset profile data to original values
     setProfileData({
       firstName: userProfile?.name?.split(' ')[0] || '',
       lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
       email: userProfile?.email || '',
-      phone: '',
+      phone: userProfile?.phoneNumber || '',
       address: '',
       office: userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : 'Chancery Office',
       diocese: userProfile?.diocese || 'tagbilaran'
     });
     
-    // Clear password data
-    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    
-    // Clear all errors
-    setErrors({ phone: '', email: '', firstName: '', lastName: '', password: '', currentPassword: '', confirmPassword: '' });
+    // Clear profile errors
+    setErrors(prev => ({ ...prev, phone: '', email: '', firstName: '', lastName: '' }));
     
     // Exit edit mode
     setIsEditingProfile(false);
+  };
+
+  // Cancel password edit and reset changes
+  const handleCancelPasswordEdit = () => {
+    // Clear password data
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    
+    // Clear password errors
+    setErrors(prev => ({ ...prev, password: '', currentPassword: '', confirmPassword: '' }));
+    
+    // Exit edit mode
+    setIsEditingPassword(false);
   };
 
   return (
@@ -483,18 +503,13 @@ const AccountSettings = () => {
                 Edit Profile
               </CardTitle>
               {!isEditingProfile && (
-                <div className="flex flex-col items-end gap-1">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsEditingProfile(true)}
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                  {isSystemAccount && (
-                    <p className="text-xs text-gray-500">Contact information and password</p>
-                  )}
-                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditingProfile(true)}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
               )}
             </div>
           </CardHeader>
@@ -696,15 +711,54 @@ const AccountSettings = () => {
               </div>
             </div>
 
-            {/* Password Section (only visible in edit mode) */}
+            {/* Save/Cancel Buttons (only visible in edit mode) */}
             {isEditingProfile && (
-              <div className="space-y-4 pt-4 border-t">
-                <h4 className="font-medium text-gray-900 flex items-center gap-2">
-                  <Key className="w-4 h-4" />
-                  Change Password (Optional)
-                </h4>
-                <p className="text-sm text-gray-500">Leave blank if you don't want to change your password</p>
-                
+              <div className="flex gap-3 pt-4 border-t">
+                <Button onClick={handleProfileUpdate} className="flex-1" disabled={isLoadingProfile}>
+                  <Save className="w-4 h-4 mr-2" />
+                  {isLoadingProfile ? 'Saving...' : 'Save Profile'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCancelProfileEdit}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Change Password Card - Separate Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                Change Password
+              </CardTitle>
+              {!isEditingPassword && (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditingPassword(true)}
+                >
+                  <Lock className="w-4 h-4 mr-2" />
+                  Change Password
+                </Button>
+              )}
+            </div>
+            <CardDescription>
+              Update your password to keep your account secure
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {!isEditingPassword ? (
+              <div className="text-sm text-gray-500">
+                Click the button above to change your password.
+              </div>
+            ) : (
+              <>
                 <div>
                   <Label htmlFor="currentPassword">Current Password</Label>
                   <div className="relative">
@@ -826,24 +880,21 @@ const AccountSettings = () => {
                     </li>
                   </ul>
                 </div>
-              </div>
-            )}
 
-            {/* Save/Cancel Buttons (only visible in edit mode) */}
-            {isEditingProfile && (
-              <div className="flex gap-3 pt-4">
-                <Button onClick={handleCombinedUpdate} className="flex-1" disabled={isLoading}>
-                  <Save className="w-4 h-4 mr-2" />
-                  {isLoading ? 'Saving...' : 'Save Changes'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleCancelEdit}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button onClick={handlePasswordUpdate} className="flex-1" disabled={isLoadingPassword}>
+                    <Save className="w-4 h-4 mr-2" />
+                    {isLoadingPassword ? 'Updating...' : 'Update Password'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleCancelPasswordEdit}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
