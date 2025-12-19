@@ -44,7 +44,7 @@ import { upload360Image, uploadChurchImage, uploadDocument, deleteFile, compress
 
 interface ChurchProfileFormProps {
   initialData?: Partial<ChurchInfo>;
-  onSave: (data: ChurchInfo) => void;
+  onSave: (data: ChurchInfo) => Promise<string | void> | void; // Can return churchId after save
   onSubmit: (data: ChurchInfo) => void;
   onCancel?: () => void;
   currentStatus?: string;
@@ -74,7 +74,17 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   const [activeTab, setActiveTab] = useState(isMuseumResearcher ? 'historical' : 'basic');
   const [heritageAssessment, setHeritageAssessment] = useState<HeritageAssessment | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  // Track effective churchId - can be updated after auto-save
+  const [effectiveChurchId, setEffectiveChurchId] = useState<string | undefined>(churchId);
   // NOTE: Virtual tour now managed by VirtualTourManager component
+
+  // Update effectiveChurchId when prop changes
+  React.useEffect(() => {
+    if (churchId) {
+      setEffectiveChurchId(churchId);
+    }
+  }, [churchId]);
 
   // Form state with cleaner structure
   const [formData, setFormData] = useState<ChurchInfo>({
@@ -204,6 +214,62 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       setHeritageAssessment(null);
     }
   }, [formData, currentStatus]);
+
+  // Handle tab change - auto-save when switching to Media tab if no churchId exists
+  const handleTabChange = async (newTab: string) => {
+    // If switching to media tab and no churchId exists, auto-save first
+    if (newTab === 'media' && !effectiveChurchId && !isChanceryEdit && !isMuseumResearcher) {
+      // Validate minimum required fields before auto-save
+      if (!formData.parishName?.trim()) {
+        toast({
+          title: "Parish Name Required",
+          description: "Please enter a parish name before accessing the Media tab.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setAutoSaving(true);
+      try {
+        // Prepare data for save
+        const updatedData = {
+          ...formData,
+          name: formData.churchName || formData.parishName,
+          location: `${formData.locationDetails.streetAddress}, ${formData.locationDetails.barangay}, ${formData.locationDetails.municipality}`,
+          priest: formData.currentParishPriest,
+          founded: formData.historicalDetails.foundingYear,
+          classification: formData.historicalDetails.heritageClassification,
+          description: formData.historicalDetails.historicalBackground
+        };
+
+        // Call onSave and get the returned churchId
+        const result = await onSave(updatedData);
+        
+        if (result && typeof result === 'string') {
+          setEffectiveChurchId(result);
+          toast({
+            title: "Profile Auto-Saved",
+            description: "Your church profile has been saved as a draft. You can now manage virtual tours.",
+          });
+        }
+        
+        // Switch to the media tab
+        setActiveTab(newTab);
+      } catch (error) {
+        console.error('Auto-save error:', error);
+        toast({
+          title: "Auto-Save Failed",
+          description: "Could not save the profile. Please try saving manually first.",
+          variant: "destructive"
+        });
+      } finally {
+        setAutoSaving(false);
+      }
+    } else {
+      // Normal tab switch
+      setActiveTab(newTab);
+    }
+  };
 
   // Form field updaters
   const updateBasicField = (field: string, value: string) => {
@@ -1058,7 +1124,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         {/* Main Form */}
         <Card className={isModal ? "shadow-sm border" : "shadow-xl"}>
           <CardContent className="p-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               {/* Enhanced Tab Navigation */}
               <div className="bg-gray-50 px-6 py-4 border-b">
                 <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
@@ -1821,14 +1887,24 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
               {/* Media Tab */}
               <TabsContent value="media" className="p-6 space-y-8">
+                {/* Auto-saving indicator */}
+                {autoSaving && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4 flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <p className="text-sm text-blue-800">
+                      Auto-saving your church profile to enable media uploads...
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-8">
-                  {/* 360° Virtual Tour Section - Only for Parish users */}
-                  {!isChanceryEdit && (
+                  {/* 360° Virtual Tour Section - Only for Parish users (not Chancery or Museum Researcher) */}
+                  {!isChanceryEdit && !isMuseumResearcher && (
                     <>
                       <div className="space-y-4">
-                        {churchId ? (
+                        {effectiveChurchId ? (
                           <VirtualTourManager
-                            churchId={churchId}
+                            churchId={effectiveChurchId}
                             churchName={formData.churchName}
                           />
                         ) : (
@@ -1842,7 +1918,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                             </div>
                             <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
                               <p className="text-sm text-yellow-800">
-                                Please save the church profile first to enable virtual tour management.
+                                Please enter a parish name in the Basic Info tab first, then click here again to auto-save and enable virtual tour management.
                               </p>
                             </div>
                           </div>
@@ -1881,7 +1957,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   )}
 
                   {/* Info message for Chancery/Museum about media restrictions */}
-                  {isChanceryEdit && (
+                  {(isChanceryEdit || isMuseumResearcher) && (
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
                       <p className="text-sm text-blue-800">
                         <strong>Note:</strong> 360° Virtual Tour and Church Photos can only be managed by the parish. 

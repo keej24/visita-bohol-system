@@ -570,8 +570,8 @@ const ParishDashboard = () => {
     };
   };
 
-  // Form submission handlers
-  const handleProfileFormSave = async (data: ChurchInfo) => {
+  // Form submission handlers - returns churchId for auto-save feature
+  const handleProfileFormSave = async (data: ChurchInfo): Promise<string | void> => {
     if (!userProfile) {
       toast({
         title: "Error",
@@ -631,6 +631,9 @@ const ParishDashboard = () => {
           title: "Success", 
           description: "Church profile saved as draft!" 
         });
+        
+        // Return the existing church ID
+        return existingChurch.id;
       } else {
         // Create new church as draft (without submitting for review)
         const docRef = doc(db, 'churches', parishIdentifier);
@@ -661,6 +664,9 @@ const ParishDashboard = () => {
           title: "Success", 
           description: "Church profile created as draft!" 
         });
+        
+        // Return the new church ID
+        return parishIdentifier;
       }
     } catch (error) {
       console.error('Error saving draft:', error);
@@ -669,6 +675,7 @@ const ParishDashboard = () => {
         description: "Failed to save draft. Please try again.",
         variant: "destructive"
       });
+      return; // Return undefined on error
     } finally {
       setIsSaving(false);
     }
