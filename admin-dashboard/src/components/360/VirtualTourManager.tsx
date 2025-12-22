@@ -172,7 +172,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const MAX_SCENES = 8;
+    const MAX_SCENES = 15;
     const currentSceneCount = tour?.scenes.length || 0;
     const filesArray = Array.from(files);
 
@@ -494,23 +494,23 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Virtual Tour Manager</h3>
           <p className="text-sm text-gray-600">
-            Upload 360° panoramic images and add navigation hotspots (Max: 8 scenes)
+            Upload 360° panoramic images and add navigation hotspots (Max: 15 scenes)
           </p>
         </div>
         <div className="text-sm">
-          <span className={`font-semibold ${(tour?.scenes.length || 0) >= 8 ? 'text-red-600' : 'text-gray-900'}`}>
-            {tour?.scenes.length || 0} / 8 scenes
+          <span className={`font-semibold ${(tour?.scenes.length || 0) >= 15 ? 'text-red-600' : 'text-gray-900'}`}>
+            {tour?.scenes.length || 0} / 15 scenes
           </span>
-          {(tour?.scenes.length || 0) < 8 && (
+          {(tour?.scenes.length || 0) < 15 && (
             <span className="text-gray-500 ml-2">
-              ({8 - (tour?.scenes.length || 0)} remaining)
+              ({15 - (tour?.scenes.length || 0)} remaining)
             </span>
           )}
         </div>
       </div>
 
       {/* Upload Section */}
-      {(tour?.scenes.length || 0) < 8 ? (
+      {(tour?.scenes.length || 0) < 15 ? (
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
           <label className="flex flex-col items-center cursor-pointer">
             <Upload className="w-12 h-12 text-gray-400 mb-2" />
@@ -519,7 +519,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
               Click to select equirectangular panoramic images (images will be compressed)
             </span>
             <span className="text-xs text-blue-600 mt-1 font-medium">
-              ✓ Multiple files supported • Max 8 scenes total
+              ✓ Multiple files supported • Max 15 scenes total
             </span>
             <input
               type="file"
@@ -534,7 +534,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         <div className="border-2 border-dashed border-red-300 rounded-lg p-6 bg-red-50">
           <div className="flex flex-col items-center">
             <Upload className="w-12 h-12 text-red-400 mb-2" />
-            <span className="text-sm font-medium text-red-700">Maximum scenes reached (8/8)</span>
+            <span className="text-sm font-medium text-red-700">Maximum scenes reached (15/15)</span>
             <span className="text-xs text-red-600 mt-1">
               Please delete some scenes before uploading more
             </span>
