@@ -2152,7 +2152,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           <div className="bg-gray-50 px-6 py-4 border-t flex flex-col sm:flex-row gap-3 justify-between">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <CheckCircle className="w-4 h-4" />
-              <span>Auto-saved as draft</span>
+              <span>{currentStatus === 'approved' ? 'Auto-saved' : 'Auto-saved as draft'}</span>
             </div>
             
             <div className="flex gap-3">
@@ -2165,7 +2165,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
               <Button variant="outline" onClick={handleSave} className="flex items-center gap-2">
                 <Save className="w-4 h-4" />
-                Save Draft
+                {currentStatus === 'approved' ? 'Save Changes' : 'Save Draft'}
               </Button>
 
               <Button

@@ -67,6 +67,34 @@ service firebase.storage {
                       request.resource.size < 50 * 1024 * 1024; // 50MB limit for 360 images
     }
     
+    // Church documents (historical documents, certificates, etc.)
+    match /churches/{churchId}/documents/{documentId} {
+      // Public read access for church documents
+      allow read: if true;
+      
+      // Parish secretaries and chancery can upload documents
+      allow write: if (isParishSecretary() || isChanceryOffice()) &&
+                      isValidDocumentType() &&
+                      request.resource.size < 10 * 1024 * 1024; // 10MB limit for documents
+      
+      // Allow deletion
+      allow delete: if isParishSecretary() || isChanceryOffice();
+    }
+    
+    // Legacy document path - kept for backward compatibility
+    match /documents/{churchId}/{documentId} {
+      // Public read access
+      allow read: if true;
+      
+      // Parish secretaries and chancery can upload documents
+      allow write: if (isParishSecretary() || isChanceryOffice()) &&
+                      isValidDocumentType() &&
+                      request.resource.size < 10 * 1024 * 1024; // 10MB limit
+      
+      // Allow deletion
+      allow delete: if isParishSecretary() || isChanceryOffice();
+    }
+    
     // Heritage documents - restricted access
     match /heritage/{churchId}/documents/{documentId} {
       // Museum researchers and chancery office can read heritage documents

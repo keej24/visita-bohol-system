@@ -86,6 +86,7 @@ export async function upload360Image(
 
 /**
  * Upload historical document
+ * Documents are stored under churches/{churchId}/documents/
  */
 export async function uploadDocument(
   churchId: string,
@@ -94,11 +95,28 @@ export async function uploadDocument(
   onProgress?: (progress: UploadProgress) => void
 ): Promise<string> {
   try {
-    const fileName = `${documentType}-${Date.now()}.${file.name.split('.').pop()}`;
-    const storageRef = ref(storage, `documents/${churchId}/${fileName}`);
+    // Sanitize churchId to create a valid storage path
+    const sanitizedChurchId = churchId
+      .replace(/\s+/g, '_')           // Replace spaces with underscores
+      .replace(/[^a-zA-Z0-9._-]/g, '') // Remove special characters
+      .toLowerCase();
+    
+    // Sanitize filename
+    const cleanFileName = file.name
+      .replace(/\s+/g, '-')           // Replace spaces with hyphens
+      .replace(/[^a-zA-Z0-9._-]/g, '') // Remove special characters
+      .toLowerCase();
+    
+    const fileName = `${documentType}-${Date.now()}-${cleanFileName}`;
+    // Use the new path structure under churches/
+    const storageRef = ref(storage, `churches/${sanitizedChurchId}/documents/${fileName}`);
+    
+    console.log('[uploadDocument] Uploading to:', `churches/${sanitizedChurchId}/documents/${fileName}`);
     
     const snapshot = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    console.log('[uploadDocument] Upload successful:', downloadURL);
     return downloadURL;
   } catch (error) {
     console.error('Error uploading document:', error);

@@ -284,23 +284,23 @@ service cloud.firestore {
       allow create: if isChanceryOffice() &&
                        request.resource.data.diocese == getUserData().diocese;
 
-      // Chancery office can update/delete ONLY announcements they created
+      // Chancery office can update/delete announcements in their diocese
+      // (includes archiving announcements created by parish secretaries)
       allow update, delete: if isChanceryOffice() &&
-                               resource.data.diocese == getUserData().diocese &&
-                               resource.data.createdBy == request.auth.uid;
+                               resource.data.diocese == getUserData().diocese;
 
       // Parish secretaries can create parish-scoped announcements in their diocese
       allow create: if isParishSecretary() &&
                        request.resource.data.diocese == getUserData().diocese &&
                        request.resource.data.scope == 'parish' &&
-                       request.resource.data.parishId == getUserData().parish;
+                       request.resource.data.parishId == getUserData().parishId;
 
-      // Parish secretaries can update/delete ONLY their own parish announcements
+      // Parish secretaries can update/delete their own parish announcements
+      // (includes archiving their parish's announcements)
       allow update, delete: if isParishSecretary() &&
                                resource.data.diocese == getUserData().diocese &&
                                resource.data.scope == 'parish' &&
-                               resource.data.parishId == getUserData().parish &&
-                               resource.data.createdBy == request.auth.uid;
+                               resource.data.parishId == getUserData().parishId;
     }
 
     // Church Visited collection - Physical visit tracking

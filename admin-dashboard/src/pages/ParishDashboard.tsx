@@ -636,24 +636,30 @@ const ParishDashboard = () => {
       });
       
       if (existingChurch) {
-        // Update existing church as draft - manually set status to draft
+        // Update existing church - preserve status if already approved
         const docRef = doc(db, 'churches', existingChurch.id);
         
         console.log('🔍 [SAVE DRAFT] formData being saved:', formData);
         console.log('🔍 [SAVE DRAFT] feastDay value:', formData.feastDay);
         console.log('🔍 [SAVE DRAFT] original data.feastDay:', data.feastDay);
+        console.log('🔍 [SAVE DRAFT] existingChurch.status:', existingChurch.status);
+        
+        // Preserve 'approved' status - don't revert approved churches to draft
+        const preservedStatus = existingChurch.status === 'approved' ? 'approved' : 'draft';
         
         await updateDoc(docRef, {
           ...formData,
-          status: 'draft',
+          status: preservedStatus,
           parishId: parishIdentifier,
           updatedAt: serverTimestamp()
         });
         
-        setChurchInfo({ ...data, status: 'draft', id: existingChurch.id });
+        setChurchInfo({ ...data, status: preservedStatus, id: existingChurch.id });
         toast({ 
           title: "Success", 
-          description: "Church profile saved as draft!" 
+          description: preservedStatus === 'approved' 
+            ? "Church profile updated successfully!" 
+            : "Church profile saved as draft!"
         });
         
         // Return the existing church ID
