@@ -40,6 +40,7 @@ interface UserAccount {
   diocese: Diocese;
   parish?: string;
   status: 'active' | 'inactive' | 'pending';
+  emailVerified?: boolean;
   createdAt: Date;
   lastLogin?: Date;
   createdBy: string;
@@ -111,6 +112,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
             diocese: data.diocese,
             parish: data.parish,
             status: data.status || 'active',
+            emailVerified: data.emailVerified ?? false,
             createdAt: data.createdAt?.toDate() || new Date(),
             lastLogin: data.lastLogin?.toDate(),
             createdBy: data.createdBy || 'system'
@@ -493,6 +495,26 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                           <Badge className={`${getRoleColor(user.role)} text-xs`}>
                             {user.role.replace('_', ' ')}
                           </Badge>
+                          {/* Email Verification Badge */}
+                          <Badge 
+                            className={`text-xs ${
+                              user.emailVerified 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {user.emailVerified ? (
+                              <>
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Verified
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="w-3 h-3 mr-1" />
+                                Pending Verification
+                              </>
+                            )}
+                          </Badge>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
@@ -659,6 +681,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                     <p className="text-xs font-medium text-gray-500 uppercase mb-1">Status</p>
                     <Badge className={selectedUser.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
                       {selectedUser.status}
+                    </Badge>
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Email Verified</p>
+                    <Badge className={selectedUser.emailVerified ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}>
+                      {selectedUser.emailVerified ? 'Verified' : 'Pending'}
                     </Badge>
                   </div>
                   

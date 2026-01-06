@@ -50,9 +50,9 @@ interface PublicUser {
   isActive: boolean;
   isBlocked: boolean;
   blockReason?: string;
-  blockedAt?: any;
-  createdAt: any;
-  lastLoginAt?: any;
+  blockedAt?: Timestamp | null;
+  createdAt: Timestamp | null;
+  lastLoginAt?: Timestamp | null;
 }
 
 interface PublicUserManagementProps {
@@ -162,20 +162,21 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
       if (fetchedUsers.length === 0) {
         console.warn('⚠️ No public users found in the database');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string; message?: string; stack?: string };
       console.error('❌ Error fetching public users:', err);
-      console.error('❌ Error code:', err?.code);
-      console.error('❌ Error message:', err?.message);
-      console.error('❌ Error stack:', err?.stack);
+      console.error('❌ Error code:', firebaseError?.code);
+      console.error('❌ Error message:', firebaseError?.message);
+      console.error('❌ Error stack:', firebaseError?.stack);
 
       let errorMessage = 'Failed to load public users. Please try again.';
 
-      if (err?.code === 'permission-denied') {
+      if (firebaseError?.code === 'permission-denied') {
         errorMessage = 'Permission denied. Please ensure you are logged in as a Chancery Office user.';
-      } else if (err?.code === 'unavailable') {
+      } else if (firebaseError?.code === 'unavailable') {
         errorMessage = 'Firebase is unavailable. Please check your internet connection.';
-      } else if (err?.message) {
-        errorMessage = `Error: ${err.message}`;
+      } else if (firebaseError?.message) {
+        errorMessage = `Error: ${firebaseError.message}`;
       }
 
       setError(errorMessage);

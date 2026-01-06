@@ -7,11 +7,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 import type { Diocese } from '@/hooks/useAuth';
-import { createAuthUserWithoutAffectingSession, generateTempPassword } from '@/lib/accounts';
+import { createAuthUserAndSendPasswordReset } from '@/lib/accounts';
 import { generateParishId, formatParishFullName, getMunicipalitiesByDiocese } from '@/lib/parish-utils';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { Copy, Eye, EyeOff, Wand2, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Loader2, Mail } from 'lucide-react';
 
 interface Props {
   diocese: Diocese;
@@ -26,12 +26,8 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   const [municipality, setMunicipality] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [show, setShow] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [hasCopied, setHasCopied] = useState(false); // Tracks if credentials were copied at least once (persists until modal closes)
+  const [success, setSuccess] = useState(false); // Tracks successful account creation
+  const [createdEmail, setCreatedEmail] = useState(''); // Store the email for success message
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
   const [emailWarning, setEmailWarning] = useState<string | null>(null);
@@ -241,7 +237,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
       if (!userProfile) throw new Error('Not authenticated');
       
       // Validate all required fields
-      if (!parishName || !municipality || !email || !password || !confirm) {
+      if (!parishName || !municipality || !email) {
         throw new Error('Please complete all required fields.');
       }
       
@@ -282,22 +278,8 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
         throw new Error('An active account with this email already exists. Please use a different email or reactivate the existing account.');
       }
       
-      // Validate password is required
-      if (!password || password.trim().length === 0) {
-        throw new Error('Password is required. Please enter a password or use the Generate button.');
-      }
-      
-      if (password.length < 8) {
-        throw new Error('Password must be at least 8 characters');
-      }
-      
-      if (password !== confirm) {
-        throw new Error('Passwords do not match');
-      }
-      
-      const finalPassword = password;
-      
-      const cred = await createAuthUserWithoutAffectingSession(emailLower, finalPassword);
+      // Create user and send password reset email (user sets their own password)
+      const cred = await createAuthUserAndSendPasswordReset(emailLower);
       const uid = cred.user.uid;
       await setDoc(doc(db, 'users', uid), {
         uid,
@@ -319,12 +301,17 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
         // DEPRECATED: Keep for backward compatibility during migration
         parish: parishId,
         
+        // Email verification - will be true after user clicks password reset link
+        emailVerified: false,
+        passwordResetEmailSentAt: serverTimestamp(),
+        
         status: 'active',
         createdAt: serverTimestamp(),
         createdBy: { uid: userProfile.uid, email: userProfile.email, name: userProfile.name },
       });
       
-      setCredentials({ email: emailLower, password: finalPassword });
+      setCreatedEmail(emailLower);
+      setSuccess(true);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to create account';
       // Improve error messages for common Firebase Auth errors
@@ -346,31 +333,13 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
     }
   };
 
-  const copy = async () => {
-    if (!credentials) return;
-    const text = `VISITA Parish Secretary Credentials\nEmail: ${credentials.email}\nTemp Password: ${credentials.password}\nLogin URL: ${window.location.origin}/login`;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true); // Visual feedback (temporary)
-      setHasCopied(true); // Permanent flag - enables Done button
-      setTimeout(() => setCopied(false), 2000); // Only reset visual feedback
-    } catch (e) {
-      setError('Failed to copy');
-      setTimeout(() => setError(null), 2000);
-    }
-  };
-
   const reset = () => {
     setEmail('');
     setParishName('');
     setMunicipality('');
-    setPassword('');
-    setConfirm('');
-    setCredentials(null);
+    setSuccess(false);
+    setCreatedEmail('');
     setError(null);
-    setShow(false);
-    setCopied(false);
-    setHasCopied(false);
     setDuplicateWarning(null);
     setCheckingDuplicate(false);
     setSimilarChurches([]);
@@ -379,11 +348,6 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   };
 
   const handleOpenChange = (v: boolean) => {
-    // If trying to close and credentials exist but not copied, prevent closing
-    if (!v && credentials && !hasCopied) {
-      setError('Please copy the credentials before closing. You cannot view them again.');
-      return;
-    }
     setOpen(v);
     if (!v) reset();
   };
@@ -396,10 +360,10 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle>Create Parish Account</DialogTitle>
-          <DialogDescription>Create a parish account under the {diocese} diocese and share credentials.</DialogDescription>
+          <DialogDescription>Create a parish account under the {diocese} diocese.</DialogDescription>
         </DialogHeader>
 
-        {!credentials ? (
+        {!success ? (
           <form onSubmit={onSubmit} className="space-y-3" autoComplete="off">
             <Alert className="py-2">
               <AlertTriangle className="h-4 w-4" />
@@ -487,29 +451,14 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
                   <span>Email is available</span>
                 </div>
               )}
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">Password <span className="text-destructive">*</span></Label>
-                <button type="button" className="text-xs text-primary inline-flex items-center gap-1" onClick={() => {
-                  const p = generateTempPassword();
-                  setPassword(p);
-                  setConfirm(p);
-                }} title="Generate strong password">
-                  <Wand2 className="w-3 h-3" /> Generate
-                </button>
-              </div>
-              <div className="relative">
-                <Input type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password or click Generate" minLength={8} autoComplete="new-password" className="h-9 pr-9" />
-                <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShow(s => !s)} aria-label={show ? 'Hide password' : 'Show password'}>
-                  {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <Input type={show ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" minLength={8} autoComplete="new-password" className="h-9" />
+              
+              <p className="text-xs text-muted-foreground">
+                A password setup email will be sent to this address.
+              </p>
             </div>
             
             {/* Preview/Confirmation Banner - Shows all details before submission */}
-            {parishName && municipality && email && password && confirm && !duplicateWarning && !emailWarning && (
+            {parishName && municipality && email && !duplicateWarning && !emailWarning && email.includes('@') && (
               <Alert className="bg-amber-50 border-amber-500 border-2 py-3">
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
                 <AlertDescription>
@@ -529,11 +478,12 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
                       <span className="text-xs font-medium text-gray-600 uppercase">Email:</span>
                       <span className="text-sm font-mono text-gray-900 text-right break-all">{email}</span>
                     </div>
-                    <div className="flex justify-between items-start">
-                      <span className="text-xs font-medium text-gray-600 uppercase">Password:</span>
-                      <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded text-gray-900">{password}</code>
-                    </div>
                   </div>
+                  
+                  <p className="text-xs text-amber-800 mt-2">
+                    <Mail className="h-3 w-3 inline mr-1" />
+                    A password setup email will be sent to this address after account creation.
+                  </p>
                 </AlertDescription>
               </Alert>
             )}
@@ -557,80 +507,42 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
             </DialogFooter>
           </form>
         ) : (
-          <div className="space-y-3">
-            <Alert className="bg-green-50 border-green-200 py-3">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <div className="space-y-4">
+            <Alert className="bg-green-50 border-green-200 py-4">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
               <AlertDescription className="text-green-900">
-                <strong>Account created successfully!</strong> Share credentials securely with the parish secretary.
+                <p className="font-semibold text-base mb-1">Account created successfully!</p>
+                <p className="text-sm">A password setup email has been sent to:</p>
+                <code className="block mt-2 p-2 bg-white rounded border text-sm font-mono">{createdEmail}</code>
               </AlertDescription>
             </Alert>
             
-            <Alert className="bg-amber-50 border-amber-200 py-3">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-900 text-sm">
-                <strong>Important:</strong> Make sure to copy these credentials now. 
-                For security reasons, the password cannot be viewed again. However, you can always send a password reset email later if needed.
+            <Alert className="bg-blue-50 border-blue-200 py-3">
+              <Mail className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-900 text-sm">
+                <p className="font-medium mb-2">What happens next:</p>
+                <ol className="list-decimal list-inside space-y-1 text-xs">
+                  <li>The parish secretary will receive an email with a link to set their password</li>
+                  <li>After setting their password, their email will be automatically verified</li>
+                  <li>They can then log in to the VISITA admin dashboard</li>
+                </ol>
               </AlertDescription>
-            </Alert>            <div className="p-3 rounded border bg-secondary/40 text-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Email:</span>
-                <code className="px-2 py-1 bg-background rounded">{credentials.email}</code>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Temp Password:</span>
-                <code className="px-2 py-1 bg-background rounded font-semibold">{credentials.password}</code>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Login URL:</span>
-                <code className="px-2 py-1 bg-background rounded text-xs">{`${window.location.origin}/login`}</code>
-              </div>
-            </div>
+            </Alert>
             
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="secondary" onClick={copy} className="flex-1" aria-live="polite">
-                {copied ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 mr-1 text-success" /> Copied to Clipboard
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 mr-1" /> Copy All Details
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            {copied && (
-              <Alert className="bg-blue-50 border-blue-200 py-2">
-                <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-900 text-xs">
-                  Credentials copied! You can now paste them in an email or document to share with the parish secretary.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {error && (
-              <Alert variant="destructive" className="py-2">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
+            <Alert className="py-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                <strong>Tip:</strong> If the parish secretary doesn't receive the email, they can use the 
+                "Forgot Password" link on the login page, or you can resend from User Management.
+              </AlertDescription>
+            </Alert>
             
             <DialogFooter>
               <Button 
-                onClick={() => {
-                  if (!hasCopied) {
-                    setError('Please copy the credentials before closing. You cannot view them again.');
-                    return;
-                  }
-                  setOpen(false);
-                }} 
-                disabled={!hasCopied}
+                onClick={() => setOpen(false)} 
                 className="w-full btn-heritage"
               >
-                {hasCopied ? 'Done' : 'Copy Credentials First'}
+                Done
               </Button>
             </DialogFooter>
           </div>

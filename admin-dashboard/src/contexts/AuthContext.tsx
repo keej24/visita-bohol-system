@@ -52,7 +52,7 @@ import { createContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { getKnownAccountProfile, isPreconfiguredAccount } from '@/lib/auth-utils';
+import { getKnownAccountProfile } from '@/lib/auth-utils';
 
 /**
  * Type Definitions for User Roles and Profile
@@ -318,6 +318,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
+    // Note: Email verification is handled automatically through the password reset flow
+    // When users set their password via the reset link, emailVerified becomes true
   };
 
   const logout = async () => {
