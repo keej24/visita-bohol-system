@@ -61,9 +61,10 @@ import { Church, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/components/ui/use-toast';
+import { resolveUsernameToEmail, isValidAdminUsername, getUsernameDisplayName } from '@/lib/auth-utils';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -71,10 +72,21 @@ const Login = () => {
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [usernameHint, setUsernameHint] = useState<string | null>(null);
   
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Show hint when user types a valid admin username
+  const handleUsernameChange = (value: string) => {
+    setUsernameOrEmail(value);
+    if (isValidAdminUsername(value)) {
+      setUsernameHint(getUsernameDisplayName(value));
+    } else {
+      setUsernameHint(null);
+    }
+  };
 
   const handleForgotPassword = async () => {
     if (!resetEmail.trim()) {
@@ -145,13 +157,15 @@ const Login = () => {
     setError('');
 
     // Validate empty fields
-    if (!email.trim() || !password.trim()) {
+    if (!usernameOrEmail.trim() || !password.trim()) {
       setError('Please enter username and password.');
       setLoading(false);
       return;
     }
 
     try {
+      // Resolve username to email if needed
+      const email = resolveUsernameToEmail(usernameOrEmail);
       await login(email, password);
       
       // Show success toast
@@ -244,35 +258,51 @@ const Login = () => {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="username">Username or Email</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                id="username"
+                type="text"
+                value={usernameOrEmail}
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                placeholder="Enter username or email"
                 disabled={loading}
-                name="login_email"
+                name="login_username"
                 autoComplete="off"
                 autoCapitalize="none"
                 autoCorrect="off"
               />
+              {usernameHint && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <span>✓</span> {usernameHint}
+                </p>
+              )}
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                disabled={loading}
-                name="login_password"
-                autoComplete="new-password"
-                autoCapitalize="none"
-                autoCorrect="off"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  disabled={loading}
+                  name="login_password"
+                  autoComplete="new-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             
             <Button 
