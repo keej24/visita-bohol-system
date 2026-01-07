@@ -188,15 +188,15 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
       {churchStats.isLoading ? (
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center space-y-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+            <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 animate-spin text-primary mx-auto" />
             <div className="space-y-2">
-              <p className="text-lg font-semibold text-foreground">Loading Dashboard...</p>
-              <p className="text-sm text-muted-foreground">Please wait while we fetch your data</p>
+              <p className="text-base sm:text-lg font-semibold text-foreground">Loading Dashboard...</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Please wait while we fetch your data</p>
             </div>
           </div>
         </div>
       ) : (
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
         {/* Diocese Header */}
         <ErrorBoundary>
           <DashboardHeader diocese={diocese} userProfile={userProfile} />
@@ -209,9 +209,9 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
 
         {/* Main Content - Dashboard Overview */}
         <div className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Pending Reviews - Takes up more space on larger screens */}
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 order-2 lg:order-1">
                 <ErrorBoundary>
                   <ChanceryReviewList
                     diocese={diocese}
@@ -222,24 +222,24 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
               </div>
 
               {/* Info Panel */}
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4 order-1 lg:order-2">
                 {/* Status Summary */}
                 {churchStats.pendingCount > 0 && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                    <h3 className="font-semibold text-orange-900 mb-2">Action Required</h3>
-                    <p className="text-sm text-orange-800">
-                      You have {churchStats.pendingCount} submission{churchStats.pendingCount > 1 ? 's' : ''} waiting for your review.
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 sm:p-4">
+                    <h3 className="font-semibold text-orange-900 mb-1 sm:mb-2 text-sm sm:text-base">Action Required</h3>
+                    <p className="text-xs sm:text-sm text-orange-800">
+                      You have {churchStats.pendingCount} submission{churchStats.pendingCount > 1 ? 's' : ''} waiting for review.
                     </p>
                   </div>
                 )}
 
                 {/* Quick Tips */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-900 mb-2">Tips</h3>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• Review submissions promptly to help parishes</li>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                  <h3 className="font-semibold text-blue-900 mb-1 sm:mb-2 text-sm sm:text-base">Tips</h3>
+                  <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
+                    <li>• Review submissions promptly</li>
                     <li>• Heritage churches need special attention</li>
-                    <li>• Use reports to track diocese progress</li>
+                    <li className="hidden sm:list-item">• Use reports to track diocese progress</li>
                   </ul>
                 </div>
               </div>

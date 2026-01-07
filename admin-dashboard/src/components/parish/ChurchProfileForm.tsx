@@ -24,7 +24,6 @@ import {
   Calendar,
   Phone,
   Mail,
-  Globe,
   ExternalLink,
   User,
   Building,
@@ -49,6 +48,7 @@ interface ChurchProfileFormProps {
   onCancel?: () => void;
   currentStatus?: string;
   isSubmitting?: boolean;
+  isSaving?: boolean;
   showCancelButton?: boolean;
   isModal?: boolean;
   isChanceryEdit?: boolean; // New prop to determine if chancery/museum is editing
@@ -63,6 +63,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   onCancel,
   currentStatus,
   isSubmitting = false,
+  isSaving = false,
   showCancelButton = false,
   isModal = false,
   isChanceryEdit = false,
@@ -128,7 +129,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     feastDay: initialData?.feastDay || '',
     massSchedules: initialData?.massSchedules || [],
     contactInfo: {
-      phone: initialData?.contactInfo?.phone || '',
+      phone: initialData?.contactInfo?.phone || '+63 ',
       email: initialData?.contactInfo?.email || '',
       website: initialData?.contactInfo?.website || '',
       facebookPage: initialData?.contactInfo?.facebookPage || ''
@@ -853,8 +854,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         description: formData.historicalDetails.historicalBackground
       };
 
-      onSave(updatedData);
-      toast({ title: "Saved", description: "Church profile saved as draft!" });
+      // Call onSave - the parent component handles the toast notification
+      await onSave(updatedData);
     } catch (error) {
       console.error('Error during save:', error);
       toast({
@@ -1082,13 +1083,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
       onSubmit(updatedData);
 
-      const message = isChanceryEdit || isMuseumResearcher
-        ? "Church profile saved successfully!"
-        : isApprovedProfile
-          ? "Church profile updated successfully!"
-          : "Church profile submitted for review!";
-
-      toast({ title: "Success", description: message });
+      // Parent component handles the success toast notification
     } catch (error) {
       console.error('Error submitting profile:', error);
       toast({
@@ -1152,16 +1147,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               </div>
             )}
             
-            {/* Heritage Review Indicator - Shows when ICP/NCT is selected (always visible for parish users) */}
-            {!isChanceryEdit && !isMuseumResearcher && (formData.historicalDetails.heritageClassification === 'National Cultural Treasures' || 
+            {/* Heritage Review Indicator - Shows when ICP/NCT is selected and church is NOT yet approved */}
+            {!isChanceryEdit && !isMuseumResearcher && currentStatus !== 'approved' && (formData.historicalDetails.heritageClassification === 'National Cultural Treasures' || 
               formData.historicalDetails.heritageClassification === 'Important Cultural Properties') && (
               <Alert className="bg-amber-50 border-amber-400 border-2 mt-3">
                 <Building2 className="h-5 w-5 text-amber-600" />
                 <AlertDescription className="text-amber-800">
                   <strong className="text-amber-900">🏛️ Heritage Site Review Required:</strong> This church is classified as <span className="font-semibold">{formData.historicalDetails.heritageClassification}</span>. 
-                  {currentStatus === 'approved' 
-                    ? ' Any updates to this heritage site will require Museum Researcher approval after Chancery evaluation.'
-                    : ' After Chancery evaluation, your submission will be forwarded to the Museum Researcher dashboard for heritage validation before final approval.'}
+                  After Chancery evaluation, your submission will be forwarded to the Museum Researcher dashboard for heritage validation before final approval.
                 </AlertDescription>
               </Alert>
             )}
@@ -1195,10 +1188,10 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               {/* Enhanced Tab Navigation */}
               <div className="bg-gray-50 px-6 py-4 border-b">
-                <TabsList className="grid w-full grid-cols-4 bg-white shadow-sm">
+                <TabsList className="grid w-full grid-cols-4 h-12 bg-white shadow-sm rounded-lg p-1">
                   <TabsTrigger 
                     value="basic" 
-                    className={`flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100 ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-blue-100 data-[state=active]:shadow-sm ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={isMuseumResearcher}
                     title={isMuseumResearcher ? 'View only - managed by Parish Secretary' : undefined}
                   >
@@ -1207,14 +1200,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     {isMuseumResearcher && <span className="text-xs text-gray-400 hidden md:inline">(View)</span>}
                   </TabsTrigger>
                   
-                  <TabsTrigger value="historical" className="flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100">
+                  <TabsTrigger value="historical" className="flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-blue-100 data-[state=active]:shadow-sm">
                     <History className="w-4 h-4" />
                     <span className="hidden sm:inline">Historical</span>
                   </TabsTrigger>
                   
                   <TabsTrigger 
                     value="parish" 
-                    className={`flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100 ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-blue-100 data-[state=active]:shadow-sm ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={isMuseumResearcher}
                     title={isMuseumResearcher ? 'View only - managed by Parish Secretary' : undefined}
                   >
@@ -1225,7 +1218,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   
                   <TabsTrigger 
                     value="media" 
-                    className="flex items-center gap-2 py-3 hover:bg-gray-200 data-[state=active]:bg-blue-100"
+                    className="flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-blue-100 data-[state=active]:shadow-sm"
                   >
                     <Image className="w-4 h-4" />
                     <span className="hidden sm:inline">Media</span>
@@ -1343,9 +1336,11 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
                     {/* Coordinates */}
                     <div className="bg-blue-50 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-900 mb-3">
-                        GPS Coordinates <span className="text-red-500">*</span>
-                      </h4>
+                      <div className="mb-3">
+                        <h4 className="font-medium text-gray-900">
+                          GPS Coordinates <span className="text-red-500">*</span>
+                        </h4>
+                      </div>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="latitude" className="text-sm font-medium text-gray-700">
@@ -1392,17 +1387,19 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           )}
                         </div>
                       </div>
-                      <p className="text-xs text-gray-600 mt-2">
-                        <strong>Required:</strong> GPS coordinates are needed to pin your church on the map. 
-                        <a 
-                          href="https://www.google.com/maps" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline ml-1"
-                        >
-                          Get coordinates from Google Maps
-                        </a>
-                      </p>
+                      <div className="mt-3 p-3 bg-white rounded border border-blue-200">
+                        <p className="text-xs text-gray-700">
+                          <strong>📍 How to get coordinates:</strong>{' '}
+                          <a 
+                            href="https://www.google.com/maps" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            Open Google Maps
+                          </a>, find your church, right-click on it, and copy the coordinates.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1678,12 +1675,19 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           <Input
                             id="phone"
                             value={formData.contactInfo.phone}
-                            onChange={(e) => updateContactField('phone', e.target.value)}
+                            onChange={(e) => {
+                              // Ensure +63 prefix is maintained
+                              const value = e.target.value;
+                              const newValue = !value.startsWith('+63') 
+                                ? '+63 ' + value.replace(/^\+63\s*/, '')
+                                : value;
+                              updateContactField('phone', newValue);
+                            }}
                             onBlur={() => {
                               markFieldTouched('phone');
                               updateFieldError('phone', formData.contactInfo.phone);
                             }}
-                            placeholder="+63 xxx xxx xxxx"
+                            placeholder="9XX XXX XXXX"
                             className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''} ${getFieldError('phone') ? 'border-red-500 focus:ring-red-500' : ''}`}
                             disabled={isChanceryEdit}
                           />
@@ -2157,20 +2161,29 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             
             <div className="flex gap-3">
               {showCancelButton && (
-                <Button variant="outline" onClick={onCancel} className="flex items-center gap-2">
+                <Button variant="outline" onClick={onCancel} className="flex items-center gap-2" disabled={isSaving || isSubmitting}>
                   <X className="w-4 h-4" />
                   Cancel
                 </Button>
               )}
 
-              <Button variant="outline" onClick={handleSave} className="flex items-center gap-2">
-                <Save className="w-4 h-4" />
-                {currentStatus === 'approved' ? 'Save Changes' : 'Save Draft'}
+              <Button 
+                variant="outline" 
+                onClick={handleSave} 
+                disabled={isSaving || isSubmitting}
+                className="flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {isSaving ? 'Saving...' : (currentStatus === 'approved' ? 'Save Changes' : 'Save Draft')}
               </Button>
 
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || uploading || (completionPercentage < 80 && currentStatus !== 'approved')}
+                disabled={isSubmitting || uploading || isSaving || (completionPercentage < 80 && currentStatus !== 'approved')}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               >
                 {(isSubmitting || uploading) ? (
@@ -2178,7 +2191,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
-                {uploading ? 'Uploading files...' : isSubmitting ? 'Saving...' : isChanceryEdit ? 'Save' : (currentStatus === 'approved' ? 'Update Profile' : 'Submit for Review')}
+                {uploading ? 'Uploading files...' : isSubmitting ? 'Submitting...' : isChanceryEdit ? 'Save' : (currentStatus === 'approved' ? 'Update Profile' : 'Submit for Review')}
               </Button>
             </div>
           </div>

@@ -100,8 +100,9 @@ export function Layout({ children, activeTab, setActiveTab, churchApproved }: La
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
           onClick={closeMobileSidebar}
+          aria-hidden="true"
         />
       )}
       
@@ -122,14 +123,16 @@ export function Layout({ children, activeTab, setActiveTab, churchApproved }: La
         />
       </div>
       
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 w-full">
         <Header 
           activeTab={activeTab} 
           setActiveTab={setActiveTab}
           onMobileMenuClick={toggleMobileSidebar}
         />
-        <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-x-hidden">
-          {children}
+        <main className="flex-1 p-2 sm:p-4 md:p-6 overflow-x-hidden overflow-y-auto">
+          <div className="max-w-full">
+            {children}
+          </div>
         </main>
       </div>
     </div>

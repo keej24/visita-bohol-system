@@ -52,6 +52,7 @@ export interface OptimizedChurchFormProps {
   churchId?: string;
   mode: 'create' | 'edit';
   diocese: string;
+  currentStatus?: string;
   onSuccess?: (data: ChurchFormData) => void;
   onCancel?: () => void;
   className?: string;
@@ -75,6 +76,7 @@ export const OptimizedChurchForm: React.FC<OptimizedChurchFormProps> = ({
   churchId,
   mode,
   diocese,
+  currentStatus,
   onSuccess,
   onCancel,
   className,
@@ -410,8 +412,8 @@ export const OptimizedChurchForm: React.FC<OptimizedChurchFormProps> = ({
                     </Select>
                     <FormMessage />
                     
-                    {/* Heritage Review Indicator */}
-                    {(field.value === 'ICP' || field.value === 'NCT') && (
+                    {/* Heritage Review Indicator - Only show when not yet approved */}
+                    {currentStatus !== 'approved' && (field.value === 'ICP' || field.value === 'NCT') && (
                       <Alert className="mt-3 bg-amber-50 border-amber-300">
                         <Building2 className="h-4 w-4 text-amber-600" />
                         <AlertDescription className="text-amber-800 text-sm">
@@ -458,10 +460,17 @@ export const OptimizedChurchForm: React.FC<OptimizedChurchFormProps> = ({
                       <FormLabel>Contact Phone</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="+63 912 345 6789"
+                          placeholder="9XX XXX XXXX"
                           {...field}
+                          value={field.value || '+63 '}
                           onChange={(e) => {
-                            field.onChange(e);
+                            // Ensure +63 prefix is maintained
+                            const value = e.target.value;
+                            if (!value.startsWith('+63')) {
+                              field.onChange('+63 ' + value.replace(/^\+63\s*/, ''));
+                            } else {
+                              field.onChange(value);
+                            }
                             validateField('contactPhone', 1000);
                           }}
                         />

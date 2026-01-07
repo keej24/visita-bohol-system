@@ -142,12 +142,12 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
 
   return (
     <Card className="w-full max-w-4xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="w-5 h-5" />
+      <CardHeader className="p-3 sm:p-6">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
           {isEditing ? 'Edit Announcement' : 'Create New Announcement'}
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
           {isEditing 
             ? 'Update the announcement details below.'
             : `Create a new announcement for the ${diocese === 'tagbilaran' ? 'Diocese of Tagbilaran' : 'Diocese of Talibon'}.`
@@ -155,24 +155,24 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
         </CardDescription>
       </CardHeader>
 
-      <CardContent>
-        <form onSubmit={onSubmitWithValidation} className="space-y-6">
+      <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+        <form onSubmit={onSubmitWithValidation} className="space-y-4 sm:space-y-6">
           {generalError && (
             <Alert variant="destructive" className="border-red-200 bg-red-50 text-red-700">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{generalError}</AlertDescription>
+              <AlertTitle className="text-sm sm:text-base">Error</AlertTitle>
+              <AlertDescription className="text-xs sm:text-sm">{generalError}</AlertDescription>
             </Alert>
           )}
           {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
             <div className="md:col-span-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title" className="text-sm">Title</Label>
               <Input
                 id="title"
                 {...register('title')}
                 placeholder="Enter announcement title"
-                className={errors.title ? 'border-red-500' : ''}
+                className={`text-sm sm:text-base ${errors.title ? 'border-red-500' : ''}`}
               />
               {errors.title && (
                 <p className="text-sm text-red-600 mt-1">{errors.title.message}</p>
@@ -180,13 +180,13 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="text-sm">Description</Label>
               <Textarea
                 id="description"
                 {...register('description')}
                 placeholder="Describe the announcement details"
                 rows={4}
-                className={errors.description ? 'border-red-500' : ''}
+                className={`text-sm sm:text-base ${errors.description ? 'border-red-500' : ''}`}
               />
               {errors.description && (
                 <p className="text-sm text-red-600 mt-1">{errors.description.message}</p>
@@ -236,13 +236,13 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
           </div>
 
           {/* Event Details (Optional for non-event announcements) */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
               <Calendar className="w-4 h-4" />
-              <span>Event Details (Optional - fill if this is an event)</span>
+              <span>Event Details (Optional)</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <Label htmlFor="eventDate">Start Date</Label>
                 <Input
@@ -314,11 +314,11 @@ export const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end gap-4 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={onCancel}>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-4 pt-4 sm:pt-6 border-t">
+            <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading} className="btn-heritage">
+            <Button type="submit" disabled={isLoading} className="btn-heritage w-full sm:w-auto">
               {isLoading ? 'Posting...' : isEditing ? 'Update Announcement' : 'Post Announcement'}
             </Button>
           </div>

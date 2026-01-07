@@ -237,11 +237,11 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
     <div
       className={cn(
         "bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out flex flex-col h-full",
-        // Desktop: collapsible width
-        "md:relative md:translate-x-0",
-        isCollapsed ? "md:w-16" : "md:w-64",
-        // Mobile: full width, always expanded
-        "w-64",
+        // Desktop (lg+): collapsible width
+        "lg:relative lg:translate-x-0",
+        isCollapsed ? "lg:w-16" : "lg:w-64",
+        // Mobile & Tablet: full width drawer, always expanded content
+        "w-72 sm:w-80",
         getSidebarClass()
       )}
     >
@@ -266,21 +266,21 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
               </p>
             </div>
           )}
-          {/* Mobile close button */}
+          {/* Mobile close button - visible on screens smaller than lg */}
           <button
             onClick={onMobileClose}
             aria-label="Close sidebar"
             title="Close sidebar"
-            className="md:hidden w-8 h-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors duration-150 text-sidebar-foreground/80 hover:text-sidebar-foreground"
+            className="lg:hidden w-8 h-8 flex items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors duration-150 text-sidebar-foreground/80 hover:text-sidebar-foreground"
           >
             <X className="w-5 h-5" />
           </button>
-          {/* Desktop collapse button */}
+          {/* Desktop collapse button - only on lg screens and above */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="hidden md:flex w-8 h-8 items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors duration-150 text-sidebar-foreground/80 hover:text-sidebar-foreground"
+            className="hidden lg:flex w-8 h-8 items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors duration-150 text-sidebar-foreground/80 hover:text-sidebar-foreground"
           >
             {isCollapsed ? <Menu className="w-4 h-4" /> : <X className="w-4 h-4" />}
           </button>

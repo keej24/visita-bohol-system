@@ -362,14 +362,14 @@ const FeedbackReports = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-2">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground">
               Feedback Management
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Moderate user feedback and maintain community standards
             </p>
           </div>
@@ -386,50 +386,51 @@ const FeedbackReports = () => {
           <>
             {/* Tabs for Published vs Hidden */}
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'published' | 'hidden')} className="w-full">
-              <TabsList className="grid w-full max-w-md grid-cols-2">
-                <TabsTrigger value="published">
-                  Published {stats.publishedCount > 0 && `(${stats.publishedCount})`}
+              <TabsList className="grid w-full max-w-xs sm:max-w-md grid-cols-2">
+                <TabsTrigger value="published" className="text-xs sm:text-sm">
+                  <span className="hidden xs:inline">Published</span>
+                  <span className="xs:hidden">Pub</span> {stats.publishedCount > 0 && `(${stats.publishedCount})`}
                 </TabsTrigger>
-                <TabsTrigger value="hidden">
+                <TabsTrigger value="hidden" className="text-xs sm:text-sm">
                   Hidden {stats.hiddenCount > 0 && `(${stats.hiddenCount})`}
                 </TabsTrigger>
               </TabsList>
 
               {/* Published Tab */}
-              <TabsContent value="published" className="space-y-6 mt-6">
+              <TabsContent value="published" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
                 {/* Statistics Cards - Published Tab */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <MessageSquare className="w-4 h-4 text-green-600" />
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <MessageSquare className="w-4 h-4 text-green-600 mb-1 sm:mb-0" />
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Total Published</p>
-                          <p className="text-2xl font-bold text-green-600">{stats.total}</p>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Published</p>
+                          <p className="text-lg sm:text-2xl font-bold text-green-600">{stats.total}</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <AlertTriangle className="w-4 h-4 text-orange-600" />
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-orange-600 mb-1 sm:mb-0" />
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Hidden</p>
-                          <p className="text-2xl font-bold text-orange-600">{stats.hiddenCount}</p>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">Hidden</p>
+                          <p className="text-lg sm:text-2xl font-bold text-orange-600">{stats.hiddenCount}</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <Star className="w-4 h-4 text-yellow-600" />
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <Star className="w-4 h-4 text-yellow-600 mb-1 sm:mb-0" />
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
-                          <p className="text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Avg Rating</p>
+                          <p className="text-lg sm:text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -456,52 +457,52 @@ const FeedbackReports = () => {
                 </Card>
 
                 {/* Feedback List - Published Tab */}
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
               {filteredFeedback.map((feedback) => (
-                <div key={feedback.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold text-gray-900">{feedback.subject}</h4>
-                        <div className="flex gap-1">
+                <div key={feedback.id} className="border rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
+                        <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{feedback.subject}</h4>
+                        <div className="flex gap-0.5">
                           {renderStars(feedback.rating)}
                         </div>
-                        <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'}>
+                        <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'} className="text-xs">
                           {feedback.status}
                         </Badge>
                       </div>
-                      <p className="text-gray-600 mb-2 line-clamp-2">{feedback.message}</p>
+                      <p className="text-gray-600 mb-2 line-clamp-2 text-xs sm:text-sm">{feedback.message}</p>
 
                       {/* Display photos if available */}
                       {feedback.photos && feedback.photos.length > 0 && (
-                        <div className="flex gap-2 mb-2 flex-wrap">
+                        <div className="flex gap-1 sm:gap-2 mb-2 flex-wrap">
                           {feedback.photos.slice(0, 3).map((photoUrl, index) => (
                             <img
                               key={index}
                               src={photoUrl}
                               alt={`Feedback photo ${index + 1}`}
-                              className="w-20 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                              className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
                               onClick={() => window.open(photoUrl, '_blank')}
                             />
                           ))}
                           {feedback.photos.length > 3 && (
-                            <div className="w-20 h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-sm font-medium">
+                            <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-xs sm:text-sm font-medium">
                               +{feedback.photos.length - 3}
                             </div>
                           )}
                         </div>
                       )}
 
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span>By: {feedback.userName}</span>
-                        <span>•</span>
-                        <span>{feedback.churchName}</span>
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
+                        <span className="hidden sm:inline">By: {feedback.userName}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="truncate max-w-[120px] sm:max-w-none">{feedback.churchName}</span>
                         <span>•</span>
                         <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
                         {feedback.photos && feedback.photos.length > 0 && (
                           <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
+                            <span className="hidden sm:inline">•</span>
+                            <span className="hidden sm:flex items-center gap-1">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
@@ -511,13 +512,13 @@ const FeedbackReports = () => {
                         )}
                         {feedback.moderatedAt && (
                           <>
-                            <span>•</span>
-                            <span>Moderated by {feedback.moderatedBy}</span>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="hidden sm:inline">Moderated by {feedback.moderatedBy}</span>
                           </>
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2 ml-4">
+                    <div className="flex gap-1 sm:gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -525,19 +526,20 @@ const FeedbackReports = () => {
                           setSelectedFeedback(feedback);
                           setShowDetailsDialog(true);
                         }}
+                        className="text-xs sm:text-sm"
                       >
-                        <Eye className="w-4 h-4 mr-1" />
-                        View
+                        <Eye className="w-4 h-4 sm:mr-1" />
+                        <span className="hidden sm:inline">View</span>
                       </Button>
                       {feedback.status === 'published' && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleModerationRequest(feedback.id, 'hide')}
-                          className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                          className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs sm:text-sm"
                         >
-                          <EyeOff className="w-4 h-4 mr-1" />
-                          Hide
+                          <EyeOff className="w-4 h-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Hide</span>
                         </Button>
                       )}
                     </div>
@@ -559,40 +561,40 @@ const FeedbackReports = () => {
               </TabsContent>
 
               {/* Hidden Tab */}
-              <TabsContent value="hidden" className="space-y-6 mt-6">
+              <TabsContent value="hidden" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
                 {/* Statistics Cards - Hidden Tab */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <MessageSquare className="w-4 h-4 text-green-600" />
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <MessageSquare className="w-4 h-4 text-green-600 mb-1 sm:mb-0" />
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Published</p>
-                          <p className="text-2xl font-bold text-green-600">{stats.publishedCount}</p>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">Published</p>
+                          <p className="text-lg sm:text-2xl font-bold text-green-600">{stats.publishedCount}</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <AlertTriangle className="w-4 h-4 text-orange-600" />
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-orange-600 mb-1 sm:mb-0" />
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Total Hidden</p>
-                          <p className="text-2xl font-bold text-orange-600">{stats.total}</p>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Total Hidden</p>
+                          <p className="text-lg sm:text-2xl font-bold text-orange-600">{stats.total}</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center space-x-2">
-                        <Star className="w-4 h-4 text-yellow-600" />
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <Star className="w-4 h-4 text-yellow-600 mb-1 sm:mb-0" />
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Average Rating</p>
-                          <p className="text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Avg Rating</p>
+                          <p className="text-lg sm:text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -619,52 +621,52 @@ const FeedbackReports = () => {
                 </Card>
 
                 {/* Feedback List - Hidden Tab */}
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {filteredFeedback.map((feedback) => (
-                    <div key={feedback.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-gray-900">{feedback.subject}</h4>
-                            <div className="flex gap-1">
+                    <div key={feedback.id} className="border rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
+                            <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{feedback.subject}</h4>
+                            <div className="flex gap-0.5">
                               {renderStars(feedback.rating)}
                             </div>
-                            <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'}>
+                            <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'} className="text-xs">
                               {feedback.status}
                             </Badge>
                           </div>
-                          <p className="text-gray-600 mb-2 line-clamp-2">{feedback.message}</p>
+                          <p className="text-gray-600 mb-2 line-clamp-2 text-xs sm:text-sm">{feedback.message}</p>
 
                           {/* Display photos if available */}
                           {feedback.photos && feedback.photos.length > 0 && (
-                            <div className="flex gap-2 mb-2 flex-wrap">
+                            <div className="flex gap-1 sm:gap-2 mb-2 flex-wrap">
                               {feedback.photos.slice(0, 3).map((photoUrl, index) => (
                                 <img
                                   key={index}
                                   src={photoUrl}
                                   alt={`Feedback photo ${index + 1}`}
-                                  className="w-20 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                                  className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
                                   onClick={() => window.open(photoUrl, '_blank')}
                                 />
                               ))}
                               {feedback.photos.length > 3 && (
-                                <div className="w-20 h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-sm font-medium">
+                                <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-xs sm:text-sm font-medium">
                                   +{feedback.photos.length - 3}
                                 </div>
                               )}
                             </div>
                           )}
 
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
-                            <span>By: {feedback.userName}</span>
-                            <span>•</span>
-                            <span>{feedback.churchName}</span>
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
+                            <span className="hidden sm:inline">By: {feedback.userName}</span>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="truncate max-w-[120px] sm:max-w-none">{feedback.churchName}</span>
                             <span>•</span>
                             <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
                             {feedback.photos && feedback.photos.length > 0 && (
                               <>
-                                <span>•</span>
-                                <span className="flex items-center gap-1">
+                                <span className="hidden sm:inline">•</span>
+                                <span className="hidden sm:flex items-center gap-1">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                   </svg>
@@ -674,13 +676,13 @@ const FeedbackReports = () => {
                             )}
                             {feedback.moderatedAt && (
                               <>
-                                <span>•</span>
-                                <span>Moderated by {feedback.moderatedBy}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span className="hidden sm:inline">Moderated by {feedback.moderatedBy}</span>
                               </>
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex gap-1 sm:gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -688,18 +690,19 @@ const FeedbackReports = () => {
                               setSelectedFeedback(feedback);
                               setShowDetailsDialog(true);
                             }}
+                            className="text-xs sm:text-sm"
                           >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
+                            <Eye className="w-4 h-4 sm:mr-1" />
+                            <span className="hidden sm:inline">View</span>
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleModerationRequest(feedback.id, 'publish')}
-                            className="text-green-600 border-green-200 hover:bg-green-50"
+                            className="text-green-600 border-green-200 hover:bg-green-50 text-xs sm:text-sm"
                           >
-                            <Eye className="w-4 h-4 mr-1" />
-                            Unhide
+                            <Eye className="w-4 h-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Unhide</span>
                           </Button>
                         </div>
                       </div>
@@ -726,42 +729,42 @@ const FeedbackReports = () => {
       {/* Feedback Details Dialog */}
       {selectedFeedback && (
         <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl mx-2 sm:mx-auto w-[calc(100%-1rem)] sm:w-full max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{selectedFeedback.subject}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-base sm:text-lg">{selectedFeedback.subject}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
                 Feedback from {selectedFeedback.userName} at {selectedFeedback.churchName}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Rating</h4>
+                <h4 className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2">Rating</h4>
                 <div className="flex items-center gap-1">
                   {renderStars(selectedFeedback.rating)}
-                  <span className="ml-2 text-sm text-muted-foreground">
+                  <span className="ml-2 text-xs sm:text-sm text-muted-foreground">
                     ({selectedFeedback.rating}/5)
                   </span>
                 </div>
               </div>
 
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Message</h4>
-                <p className="text-sm leading-relaxed">{selectedFeedback.message}</p>
+                <h4 className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2">Message</h4>
+                <p className="text-xs sm:text-sm leading-relaxed">{selectedFeedback.message}</p>
               </div>
 
               {/* Display photos in detail view */}
               {selectedFeedback.photos && selectedFeedback.photos.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                  <h4 className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2">
                     Photos ({selectedFeedback.photos.length})
                   </h4>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {selectedFeedback.photos.map((photoUrl, index) => (
                       <img
                         key={index}
                         src={photoUrl}
                         alt={`Feedback photo ${index + 1}`}
-                        className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-75 transition-opacity"
+                        className="w-full h-24 sm:h-32 object-cover rounded border cursor-pointer hover:opacity-75 transition-opacity"
                         onClick={() => window.open(photoUrl, '_blank')}
                       />
                     ))}
@@ -770,13 +773,13 @@ const FeedbackReports = () => {
               )}
 
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Status</h4>
+                <h4 className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2">Status</h4>
                 <Badge className={getStatusColor(selectedFeedback.status)}>
                   {selectedFeedback.status}
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div>
                   <h4 className="font-medium text-muted-foreground mb-1">Submitted</h4>
                   <p>{new Date(selectedFeedback.createdAt).toLocaleString()}</p>
@@ -790,10 +793,11 @@ const FeedbackReports = () => {
                 )}
               </div>
 
-              <div className="flex gap-2 pt-4">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 pt-3 sm:pt-4">
                 {selectedFeedback.status === 'published' && (
                   <Button
                     variant="destructive"
+                    className="w-full sm:w-auto"
                     onClick={() => {
                       handleModerationRequest(selectedFeedback.id, 'hide');
                       setShowDetailsDialog(false);
@@ -804,7 +808,7 @@ const FeedbackReports = () => {
                   </Button>
                 )}
 
-                <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setShowDetailsDialog(false)}>
                   Close
                 </Button>
               </div>
@@ -815,32 +819,34 @@ const FeedbackReports = () => {
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
+        <DialogContent className="mx-2 sm:mx-auto w-[calc(100%-1rem)] sm:w-full max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">
               {pendingAction?.action === 'hide' ? 'Confirm Hide Feedback' : 'Confirm Publish Feedback'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               {pendingAction?.action === 'hide'
                 ? 'Are you sure you want to hide this feedback?'
                 : 'Are you sure you want to publish this feedback?'}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex gap-2 pt-4">
-            <Button
-              variant={pendingAction?.action === 'hide' ? 'destructive' : 'default'}
-              onClick={confirmModeration}
-            >
-              Yes
-            </Button>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-3 sm:pt-4">
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setShowConfirmDialog(false);
                 setPendingAction(null);
               }}
             >
               No
+            </Button>
+            <Button
+              variant={pendingAction?.action === 'hide' ? 'destructive' : 'default'}
+              className="w-full sm:w-auto"
+              onClick={confirmModeration}
+            >
+              Yes
             </Button>
           </DialogFooter>
         </DialogContent>

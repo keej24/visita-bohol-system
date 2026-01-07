@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, CheckCircle2, ArrowRight, AlertTriangle, Info, Clock, Building2, Eye, Edit3, Check, MessageSquare } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   diocese: "tagbilaran" | "talibon";
@@ -171,8 +172,8 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
 
   return (
     <Card className="heritage-card">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold text-primary">
+      <CardHeader className="pb-2 sm:pb-6">
+        <CardTitle className="text-base sm:text-lg font-semibold text-primary">
           Review Queue {isFetching && <Loader2 className="inline h-4 w-4 ml-2 animate-spin" />}
         </CardTitle>
       </CardHeader>
@@ -188,15 +189,15 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                 workflowStateMachine.getValidTransitions(c.status, userProfile.role) : [];
 
               return (
-                <div key={c.id} className="p-3 rounded-lg bg-secondary/30">
-                  <div className="flex items-center justify-between gap-3 mb-2">
+                <div key={c.id} className="p-2 sm:p-3 rounded-lg bg-secondary/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <div className="font-medium text-sm truncate">{c.name}</div>
                         {heritageAssessment && (
                           <Tooltip>
                             <TooltipTrigger>
-                              <div className={`w-2 h-2 rounded-full ${
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                 heritageAssessment.confidence === 'high' ? 'bg-orange-500' :
                                 heritageAssessment.confidence === 'medium' ? 'bg-yellow-500' :
                                 'bg-green-500'
@@ -215,16 +216,16 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                       <div className="text-xs text-muted-foreground">
                         {c.municipality ?? "Unknown"} • {c.classification ?? "Unclassified"}
                         {heritageAssessment && heritageAssessment.confidence === 'high' && (
-                          <span className="ml-2">
-                            • Heritage Assessment: {heritageAssessment.confidence}
+                          <span className="ml-2 hidden sm:inline">
+                            • Heritage: {heritageAssessment.confidence}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge
                         variant="outline"
-                        className={`text-xs capitalize ${getStatusBadgeColor(c.status)}`}
+                        className={`text-[10px] sm:text-xs capitalize ${getStatusBadgeColor(c.status)}`}
                       >
                         {c.status.replace("_", " ")}
                       </Badge>
@@ -232,7 +233,7 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                       {validTransitions.length > 0 && (
                         <Tooltip>
                           <TooltipTrigger>
-                            <div className="flex items-center text-xs text-muted-foreground">
+                            <div className="hidden sm:flex items-center text-xs text-muted-foreground">
                               <Clock className="w-3 h-3 mr-1" />
                               {validTransitions.length} action{validTransitions.length > 1 ? 's' : ''}
                             </div>
@@ -275,15 +276,15 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 justify-end">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 justify-end">
                     {/* View Church Details Button */}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => onViewChurch?.(c)}
-                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                      className="text-blue-600 border-blue-300 hover:bg-blue-50 h-8 px-2 sm:px-3 text-xs sm:text-sm"
                     >
-                      <Eye className="w-4 h-4 mr-1" /> View
+                      <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" /> <span className="hidden sm:inline">View</span>
                     </Button>
 
                     {/* Edit Church Button */}
@@ -291,9 +292,9 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                       variant="outline"
                       size="sm"
                       onClick={() => onEditChurch?.(c)}
-                      className="text-green-600 border-green-300 hover:bg-green-50"
+                      className="text-green-600 border-green-300 hover:bg-green-50 h-8 px-2 sm:px-3 text-xs sm:text-sm"
                     >
-                      <Edit3 className="w-4 h-4 mr-1" /> Edit
+                      <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" /> <span className="hidden sm:inline">Edit</span>
                     </Button>
 
                     {/* Heritage Review Button - Show for explicit heritage or high-confidence assessments */}
@@ -303,15 +304,17 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                         size="sm"
                         onClick={() => handleForwardHeritage(c)}
                         disabled={c.status === 'heritage_review'}
-                        className={c.status === 'heritage_review' 
-                          ? 'bg-orange-500 hover:bg-orange-500 text-white border-orange-500 cursor-default' 
-                          : 'text-orange-600 border-orange-300 hover:bg-orange-50'
-                        }
+                        className={cn(
+                          "h-8 px-2 sm:px-3 text-xs sm:text-sm",
+                          c.status === 'heritage_review' 
+                            ? 'bg-orange-500 hover:bg-orange-500 text-white border-orange-500 cursor-default' 
+                            : 'text-orange-600 border-orange-300 hover:bg-orange-50'
+                        )}
                       >
                         {c.status === 'heritage_review' ? (
-                          <><Check className="w-4 h-4 mr-1" /> Sent to Museum</>
+                          <><Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" /> <span className="hidden sm:inline">Sent to Museum</span><span className="sm:hidden">Sent</span></>
                         ) : (
-                          <><ArrowRight className="w-4 h-4 mr-1" /> Send to Museum Researcher</>
+                          <><ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" /> <span className="hidden sm:inline">Send to Museum Researcher</span><span className="sm:hidden">Museum</span></>
                         )}
                       </Button>
                     )}
@@ -323,10 +326,11 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                         variant="heritage"
                         size="sm"
                         onClick={() => handleApprove(c)}
-                        className={shouldAutoForward ? 'opacity-75' : ''}
+                        className={cn("h-8 px-2 sm:px-3 text-xs sm:text-sm", shouldAutoForward ? 'opacity-75' : '')}
                       >
-                        <CheckCircle2 className="w-4 h-4 mr-1" />
-                        {shouldAutoForward ? 'Review & Approve' : 'Publish'}
+                        <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" />
+                        <span className="hidden sm:inline">{shouldAutoForward ? 'Review & Approve' : 'Publish'}</span>
+                        <span className="sm:hidden">Publish</span>
                       </Button>
                     )}
                   </div>

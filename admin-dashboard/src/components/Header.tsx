@@ -170,34 +170,34 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
       }>
       <div className="flex items-center justify-between">
         {/* Left side - Mobile menu button + Title */}
-        <div className="flex items-center gap-3">
-          {/* Mobile hamburger menu */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile hamburger menu - visible on screens smaller than lg */}
           <button
             onClick={onMobileMenuClick}
             aria-label="Open menu"
             title="Open menu"
-            className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg hover:bg-accent transition-colors"
+            className="lg:hidden w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg hover:bg-accent transition-colors flex-shrink-0"
           >
-            <Menu className="w-6 h-6 text-foreground" />
+            <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-foreground" />
           </button>
           
           {isParish && (
-            <div className="hidden md:flex w-10 h-10 bg-accent rounded-lg items-center justify-center">
-              <ChurchIcon className="w-5 h-5 text-accent-foreground" />
+            <div className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 bg-accent rounded-lg items-center justify-center flex-shrink-0">
+              <ChurchIcon className="w-4 h-4 sm:w-5 sm:h-5 text-accent-foreground" />
             </div>
           )}
-          <div>
-            <h1 className="text-lg md:text-xl font-bold text-foreground">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base sm:text-lg md:text-xl font-bold text-foreground truncate">
               {/* Shorter titles on mobile */}
-              <span className="hidden md:inline">
+              <span className="hidden sm:inline">
                 {userProfile?.role === 'chancery_office' && 'Chancery Office Dashboard'}
                 {userProfile?.role === 'museum_researcher' && 'Museum Researcher Dashboard'}
                 {userProfile?.role === 'parish_secretary' && 'Parish Secretary Dashboard'}
               </span>
-              <span className="md:hidden">
-                {userProfile?.role === 'chancery_office' && 'Chancery Dashboard'}
-                {userProfile?.role === 'museum_researcher' && 'Museum Dashboard'}
-                {userProfile?.role === 'parish_secretary' && 'Parish Dashboard'}
+              <span className="sm:hidden">
+                {userProfile?.role === 'chancery_office' && 'Chancery'}
+                {userProfile?.role === 'museum_researcher' && 'Museum'}
+                {userProfile?.role === 'parish_secretary' && 'Parish'}
               </span>
             </h1>
             <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
@@ -217,18 +217,18 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
         </div>
 
         {/* Right side - Profile */}
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0">
           {/* TODO: Re-enable notification bell when backend is fully implemented */}
           {/* {!isParish && <NotificationDropdown />} */}
 
           {/* Profile Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 px-2 md:px-3">
-                <div className={isParish ? "w-8 h-8 bg-accent rounded-full flex items-center justify-center" : "w-8 h-8 bg-primary rounded-full flex items-center justify-center"}>
-                  <User className={isParish ? "w-4 h-4 text-accent-foreground" : "w-4 h-4 text-primary-foreground"} />
+              <Button variant="ghost" className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2 md:px-3 h-9 sm:h-10">
+                <div className={isParish ? "w-7 h-7 sm:w-8 sm:h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0" : "w-7 h-7 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0"}>
+                  <User className={isParish ? "w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent-foreground" : "w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground"} />
                 </div>
-                <div className="text-left hidden sm:block">
+                <div className="text-left hidden md:block">
                   <p className="text-sm font-medium">
                     {userProfile?.role === 'museum_researcher' 
                       ? 'National Museum of the Philippines - Bohol' 

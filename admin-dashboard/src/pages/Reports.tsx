@@ -535,69 +535,69 @@ const Reports = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-2 sm:gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground">
               Generate Reports
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               {isParishSecretary 
                 ? 'Create detailed reports for your parish church'
-                : `Create comprehensive diocesan reports for ${currentDiocese} diocese`
+                : `Create diocesan reports for ${currentDiocese} diocese`
               }
             </p>
           </div>
         </div>
 
         {/* Diocese/Parish Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center space-x-2">
-                <Church className="w-4 h-4 text-blue-600" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {isParishSecretary ? 'Parish Churches' : 'Total Churches'}
+                <Church className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">
+                    {isParishSecretary ? 'Churches' : 'Total Churches'}
                   </p>
-                  <p className="text-2xl font-bold">{summaryStats.totalChurches}</p>
+                  <p className="text-lg sm:text-2xl font-bold">{summaryStats.totalChurches}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center space-x-2">
-                <Award className="w-4 h-4 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Heritage Sites</p>
-                  <p className="text-2xl font-bold">{summaryStats.icpCount + summaryStats.nctCount}</p>
+                <Award className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Heritage</p>
+                  <p className="text-lg sm:text-2xl font-bold">{summaryStats.icpCount + summaryStats.nctCount}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-purple-600" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Visitors</p>
-                  <p className="text-2xl font-bold">{summaryStats.totalVisitors.toLocaleString()}</p>
+                <Users className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Visitors</p>
+                  <p className="text-lg sm:text-2xl font-bold">{summaryStats.totalVisitors.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center space-x-2">
-                <Star className="w-4 h-4 text-yellow-600" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Avg Rating</p>
-                  <p className="text-2xl font-bold">{summaryStats.avgRating}</p>
+                <Star className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Avg Rating</p>
+                  <p className="text-lg sm:text-2xl font-bold">{summaryStats.avgRating}</p>
                 </div>
               </div>
             </CardContent>
@@ -605,30 +605,32 @@ const Reports = () => {
         </div>
 
         {/* Main Report Tabs - Only 2 Reports for Chancery */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="church_summary" className="flex items-center gap-2">
-              <Building2 className="w-4 h-4" />
-              Church Summary Report
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-2 h-auto">
+            <TabsTrigger value="church_summary" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5 px-1 sm:px-3">
+              <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Church Summary Report</span>
+              <span className="sm:hidden">Church Summary</span>
             </TabsTrigger>
-            <TabsTrigger value="engagement_analytics" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Engagement & Feedback Analytics Report
+            <TabsTrigger value="engagement_analytics" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5 px-1 sm:px-3">
+              <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Engagement & Feedback Analytics Report</span>
+              <span className="sm:hidden">Engagement</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Church Summary Report Tab */}
-          <TabsContent value="church_summary" className="space-y-6">
+          <TabsContent value="church_summary" className="space-y-4 sm:space-y-6">
             {/* Filters */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                  <Filter className="w-5 h-5" />
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                  <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
                   Report Filters
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
                   {!isParishSecretary && (
                     <div className="space-y-2">
                       <Label>Municipality</Label>

@@ -656,9 +656,9 @@ const ParishDashboard = () => {
         
         setChurchInfo({ ...data, status: preservedStatus, id: existingChurch.id });
         toast({ 
-          title: "Success", 
+          title: "Saved", 
           description: preservedStatus === 'approved' 
-            ? "Church profile updated successfully!" 
+            ? "Changes saved successfully!" 
             : "Church profile saved as draft!"
         });
         
@@ -1016,27 +1016,29 @@ const ParishDashboard = () => {
 
   // Simple Parish Profile View for approved profiles
   const renderParishProfile = () => (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-50 to-sky-50 rounded-lg shadow-sm border border-indigo-200 p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
-              <ChurchIcon className="w-6 h-6 text-white" />
+      <div className="bg-gradient-to-r from-indigo-50 to-sky-50 rounded-lg shadow-sm border border-indigo-200 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+              <ChurchIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-indigo-900 mb-1">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold text-indigo-900 mb-1">
                 {getGreeting()}! 👋
               </h1>
-              <h2 className="text-xl font-semibold text-slate-800 mb-2">
+              <h2 className="text-base sm:text-xl font-semibold text-slate-800 mb-2 truncate">
                 {churchInfo.churchName || churchInfo.name || "Your Parish"}
               </h2>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {getStatusBadge()}
                 {churchInfo.locationDetails?.municipality && (
-                  <Badge variant="outline" className="text-indigo-800 border-indigo-300">
+                  <Badge variant="outline" className="text-indigo-800 border-indigo-300 text-xs sm:text-sm">
                     <MapPin className="w-3 h-3 mr-1" />
-                    {churchInfo.locationDetails.municipality}, {churchInfo.locationDetails.province}
+                    <span className="hidden xs:inline">{churchInfo.locationDetails.municipality}, </span>
+                    <span className="xs:hidden">{churchInfo.locationDetails.municipality?.substring(0, 10)}</span>
+                    <span className="hidden xs:inline">{churchInfo.locationDetails.province}</span>
                   </Badge>
                 )}
               </div>
@@ -1045,7 +1047,7 @@ const ParishDashboard = () => {
           
           <Button 
             onClick={() => setCurrentView('profile')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto"
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit Profile
@@ -1104,23 +1106,23 @@ const ParishDashboard = () => {
           {(churchInfo.contactInfo?.phone || churchInfo.contactInfo?.email || churchInfo.contactInfo?.website) && (
             <div>
               <h3 className="font-semibold text-gray-900 mb-3">Contact Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 {churchInfo.contactInfo?.phone && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Phone className="w-4 h-4" />
-                    <span>{churchInfo.contactInfo.phone}</span>
+                  <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
+                    <Phone className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{churchInfo.contactInfo.phone}</span>
                   </div>
                 )}
                 {churchInfo.contactInfo?.email && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Mail className="w-4 h-4" />
-                    <span>{churchInfo.contactInfo.email}</span>
+                  <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
+                    <Mail className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{churchInfo.contactInfo.email}</span>
                   </div>
                 )}
                 {churchInfo.contactInfo?.website && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Globe className="w-4 h-4" />
-                    <span>{churchInfo.contactInfo.website}</span>
+                  <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
+                    <Globe className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{churchInfo.contactInfo.website}</span>
                   </div>
                 )}
               </div>
@@ -1334,7 +1336,8 @@ const ParishDashboard = () => {
             }
           }}
           currentStatus={churchInfo.status}
-          isSubmitting={isSubmitting || isSaving}
+          isSubmitting={isSubmitting}
+          isSaving={isSaving}
           churchId={churchId || undefined}
         />
       ) : !existingChurch ? (

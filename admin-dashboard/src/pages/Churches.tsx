@@ -352,16 +352,16 @@ const Churches = () => {
         {/* Header Section with Hero Image */}
         <div className="heritage-card-accent overflow-hidden">
           <div 
-            className="h-48 bg-cover bg-center relative"
+            className="h-32 sm:h-40 md:h-48 bg-cover bg-center relative"
             // Dynamic background image requires inline style - this is the React-recommended approach
             style={{ backgroundImage: `url(${heroImage})` }}
           >
             <div className="absolute inset-0 bg-primary/80 flex items-center">
-              <div className="container mx-auto px-6">
-                <h1 className="text-3xl font-bold text-primary-foreground mb-2">
+              <div className="container mx-auto px-4 sm:px-6">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary-foreground mb-1 sm:mb-2">
                   Manage Churches
                 </h1>
-                <p className="text-primary-foreground/90">
+                <p className="text-sm sm:text-base text-primary-foreground/90">
                   Manage published churches and heritage sites in your diocese
                 </p>
               </div>
@@ -370,32 +370,33 @@ const Churches = () => {
         </div>
 
         {/* Controls Section */}
-        <div className="heritage-card p-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex-1 max-w-md">
+        <div className="heritage-card p-3 sm:p-4 md:p-6">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <div className="flex-1 w-full">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search churches by name, location, or description..."
+                    placeholder="Search churches..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 text-sm sm:text-base"
                   />
                 </div>
               </div>
               {canCreateChurch && (
-                <Button variant="heritage" className="gap-2">
+                <Button variant="heritage" className="gap-2 w-full sm:w-auto">
                   <Plus className="w-4 h-4" />
-                  Add New Church
+                  <span className="hidden sm:inline">Add New Church</span>
+                  <span className="sm:hidden">Add Church</span>
                 </Button>
               )}
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ChurchStatus | 'all')}>
-                <SelectTrigger className="w-full sm:w-48">
+                <SelectTrigger className="w-full text-sm sm:text-base">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -408,7 +409,7 @@ const Churches = () => {
               </Select>
 
               <Select value={classificationFilter} onValueChange={(value) => setClassificationFilter(value as ChurchClassification | 'all')}>
-                <SelectTrigger className="w-full sm:w-48">
+                <SelectTrigger className="w-full text-sm sm:text-base">
                   <SelectValue placeholder="Filter by classification" />
                 </SelectTrigger>
                 <SelectContent>
@@ -445,64 +446,65 @@ const Churches = () => {
 
         {/* Churches Grid */}
         {!isLoading && !error && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
             {churches.map((church) => (
               <Card key={church.id} className="heritage-card hover:shadow-[var(--shadow-medium)] transition-all duration-200 overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
+                <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg font-bold text-primary mb-1 truncate">
+                      <CardTitle className="text-base sm:text-lg font-bold text-primary mb-1 truncate">
                         {church.name}
                       </CardTitle>
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">
                         {church.fullName}
                       </p>
                     </div>
                     {getStatusBadge(church.status)}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <MapPin className="w-4 h-4" />
-                      <span>{church.location}</span>
+                <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6 pb-3 sm:pb-6">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                      <span className="truncate">{church.location}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span>Established {church.foundingYear}</span>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                      <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                      <span>Est. {church.foundingYear}</span>
                     </div>
                     {church.monthlyVisitors && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="w-4 h-4" />
-                        <span>{church.monthlyVisitors.toLocaleString()} monthly visitors</span>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                        <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span>{church.monthlyVisitors.toLocaleString()} visitors</span>
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-sm text-foreground line-clamp-3">{church.description}</p>
-                    <div className="flex gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs">
+                    <p className="text-xs sm:text-sm text-foreground line-clamp-2 sm:line-clamp-3">{church.description}</p>
+                    <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-[10px] sm:text-xs">
                         {church.classification.replace('_', ' ').toUpperCase()}
                       </Badge>
                       {church.category && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs hidden sm:inline-flex">
                           {church.category}
                         </Badge>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-border">
+                    <span className="text-[10px] sm:text-xs text-muted-foreground">
                       Updated {church.updatedAt.toLocaleDateString()}
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 justify-end">
                       <Button
                         variant="ghost"
                         size="sm"
                         title="View Details"
                         onClick={() => handleViewChurch(church)}
+                        className="h-8 w-8 p-0"
                       >
                         <Eye className="w-4 h-4" />
                       </Button>

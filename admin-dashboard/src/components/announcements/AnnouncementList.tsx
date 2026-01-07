@@ -158,26 +158,26 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
     <div className="space-y-6">
       {/* Header */}
       {showHeader && (
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Announcements</h2>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Announcements</h2>
             {diocese && (
-              <p className="text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Manage announcements for the {diocese === 'tagbilaran' ? 'Diocese of Tagbilaran' : 'Diocese of Talibon'}
               </p>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {getPastEventsCount() > 0 && onAutoArchive && (
-              <Button onClick={onAutoArchive} variant="outline" className="text-orange-600 border-orange-200">
-                <Archive className="w-4 h-4 mr-2" />
-                Archive Past Events ({getPastEventsCount()})
+              <Button onClick={onAutoArchive} variant="outline" size="sm" className="text-orange-600 border-orange-200 text-xs sm:text-sm">
+                <Archive className="w-4 h-4 sm:mr-2" />
+                <span className="hidden xs:inline">Archive Past</span> ({getPastEventsCount()})
               </Button>
             )}
             {onCreate && (
-              <Button onClick={onCreate} className="btn-heritage">
-                <Plus className="w-4 h-4 mr-2" />
-                New Announcement
+              <Button onClick={onCreate} size="sm" className="btn-heritage text-xs sm:text-sm">
+                <Plus className="w-4 h-4 sm:mr-2" />
+                <span className="hidden xs:inline">New</span> <span className="xs:hidden">+</span><span className="hidden sm:inline">Announcement</span>
               </Button>
             )}
           </div>
@@ -186,14 +186,14 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
 
       {/* Filters and Search */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
             Filters
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Search</label>
               <div className="relative">
@@ -258,35 +258,35 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
         ) : (
           filteredAnnouncements.map((announcement) => (
             <Card key={announcement.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">{announcement.title}</CardTitle>
-                      <Badge variant={getStatusColor(announcement)}>
+              <CardHeader className="p-3 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                      <CardTitle className="text-base sm:text-lg truncate">{announcement.title}</CardTitle>
+                      <Badge variant={getStatusColor(announcement)} className="text-xs">
                         {getStatusText(announcement)}
                       </Badge>
                       {showScope && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs hidden xs:inline-flex">
                           {announcement.scope}
                         </Badge>
                       )}
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                         {announcement.category}
                       </Badge>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-1 sm:gap-2">
                     {onView ? (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onView(announcement)}
                         title="View announcement details"
-                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                        className="text-blue-600 border-blue-300 hover:bg-blue-50 text-xs sm:text-sm"
                       >
                         <Search className="w-4 h-4" />
-                        <span className="ml-1">View</span>
+                        <span className="ml-1 hidden sm:inline">View</span>
                       </Button>
                     ) : (
                       <>
@@ -295,6 +295,7 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                           size="sm"
                           onClick={() => onEdit(announcement)}
                           title="Edit announcement"
+                          className="text-xs sm:text-sm"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -305,10 +306,10 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                               size="sm"
                               onClick={() => onArchive(announcement.id)}
                               title="Restore announcement to active list"
-                              className="text-green-600 border-green-300 hover:bg-green-50"
+                              className="text-green-600 border-green-300 hover:bg-green-50 text-xs sm:text-sm"
                             >
                               <Archive className="w-4 h-4" />
-                              <span className="ml-1">Unarchive</span>
+                              <span className="ml-1 hidden sm:inline">Unarchive</span>
                             </Button>
                           </>
                         ) : (
@@ -317,10 +318,10 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                             size="sm"
                             onClick={() => onArchive(announcement.id)}
                             title="Archive announcement"
-                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                            className="text-orange-600 border-orange-300 hover:bg-orange-50 text-xs sm:text-sm"
                           >
                             <Archive className="w-4 h-4" />
-                            <span className="ml-1">Archive</span>
+                            <span className="ml-1 hidden sm:inline">Archive</span>
                           </Button>
                         )}
                       </>
@@ -329,8 +330,8 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                 </div>
               </CardHeader>
               
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              <CardContent className="p-3 sm:p-6 pt-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
                   {announcement.eventDate && (
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -366,12 +367,12 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                 </div>
 
                 {/* Posted Date and Time */}
-                <div className="mt-4 pt-3 border-t border-border">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-border">
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-muted-foreground">
                     <Clock className="w-3 h-3" />
-                    <span>Posted on {format(new Date(announcement.createdAt), 'PPP \'at\' p')}</span>
+                    <span>Posted {format(new Date(announcement.createdAt), 'PPP')}</span>
                     {announcement.updatedAt && announcement.updatedAt.getTime() !== announcement.createdAt.getTime() && (
-                      <span className="ml-2">• Last updated {format(new Date(announcement.updatedAt), 'PPP \'at\' p')}</span>
+                      <span className="hidden sm:inline ml-2">• Updated {format(new Date(announcement.updatedAt), 'PPP')}</span>
                     )}
                   </div>
                 </div>

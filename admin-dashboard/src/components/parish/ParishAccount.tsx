@@ -44,7 +44,7 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
   const [profileData, setProfileData] = useState({
     parishName: 'Loading...',
     email: userProfile?.email || '',
-    phone: userProfile?.phoneNumber || '',
+    phone: userProfile?.phoneNumber || '+63 ',
     diocese: userProfile?.diocese 
       ? `Diocese of ${userProfile.diocese.charAt(0).toUpperCase() + userProfile.diocese.slice(1)}`
       : 'Diocese of Tagbilaran'
@@ -490,16 +490,23 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                   <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
                     id="phone"
-                    value={profileData.phone}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                    value={profileData.phone || '+63 '}
+                    onChange={(e) => {
+                      // Ensure +63 prefix is maintained
+                      const value = e.target.value;
+                      const newValue = !value.startsWith('+63') 
+                        ? '+63 ' + value.replace(/^\+63\s*/, '')
+                        : value;
+                      setProfileData(prev => ({ ...prev, phone: newValue }));
+                    }}
                     disabled={!isEditingProfile}
-                    className={`mt-1 pl-10 ${isEditingProfile && !profileData.phone.trim() ? 'border-red-500 focus:ring-red-500' : ''}`}
-                    placeholder="+63 xxx xxx xxxx"
+                    className={`mt-1 pl-10 ${isEditingProfile && (!profileData.phone.trim() || profileData.phone.trim() === '+63') ? 'border-red-500 focus:ring-red-500' : ''}`}
+                    placeholder="9XX XXX XXXX"
                     autoComplete="off"
                     data-form-type="other"
                   />
                 </div>
-                {isEditingProfile && !profileData.phone.trim() && (
+                {isEditingProfile && (!profileData.phone.trim() || profileData.phone.trim() === '+63') && (
                   <p className="text-xs text-red-600 mt-1">Phone is required</p>
                 )}
               </div>

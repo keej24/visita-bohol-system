@@ -320,30 +320,31 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Announcements</h2>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Announcements</h2>
           {diocese && (
-            <p className="text-muted-foreground">
-              Manage announcements for the {diocese === 'tagbilaran' ? 'Diocese of Tagbilaran' : 'Diocese of Talibon'}
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Manage announcements for {diocese === 'tagbilaran' ? 'Tagbilaran' : 'Talibon'} Diocese
             </p>
           )}
         </div>
-        <Button onClick={handleCreateAnnouncement} className="btn-heritage">
+        <Button onClick={handleCreateAnnouncement} className="btn-heritage w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
-          New Announcement
+          <span className="hidden sm:inline">New Announcement</span>
+          <span className="sm:hidden">New</span>
         </Button>
       </div>
 
       {/* Tabs for Active vs Archived */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'archived')} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="active">
+        <TabsList className="grid w-full max-w-md grid-cols-2 h-auto">
+          <TabsTrigger value="active" className="text-xs sm:text-sm py-2">
             Active {announcements.length > 0 && `(${announcements.length})`}
           </TabsTrigger>
-          <TabsTrigger value="archived">
+          <TabsTrigger value="archived" className="text-xs sm:text-sm py-2">
             Archived {archivedAnnouncements.length > 0 && `(${archivedAnnouncements.length})`}
           </TabsTrigger>
         </TabsList>
@@ -379,9 +380,9 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
       </Tabs>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto w-[calc(100%-1rem)] sm:w-full">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">
               {selectedAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
             </DialogTitle>
           </DialogHeader>

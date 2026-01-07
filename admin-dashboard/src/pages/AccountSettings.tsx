@@ -674,16 +674,21 @@ const AccountSettings = () => {
                         <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                         <Input
                           id="phone"
-                          value={profileData.phone}
+                          value={profileData.phone || '+63 '}
                           onChange={(e) => {
-                            setProfileData(prev => ({ ...prev, phone: e.target.value }));
+                            // Ensure +63 prefix is maintained
+                            const value = e.target.value;
+                            const newValue = !value.startsWith('+63') 
+                              ? '+63 ' + value.replace(/^\+63\s*/, '')
+                              : value;
+                            setProfileData(prev => ({ ...prev, phone: newValue }));
                             if (errors.phone) {
-                              setErrors(prev => ({ ...prev, phone: validatePhone(e.target.value) }));
+                              setErrors(prev => ({ ...prev, phone: validatePhone(newValue) }));
                             }
                           }}
                           disabled={!isEditingProfile}
                           className={`mt-1 pl-10 ${errors.phone && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
-                          placeholder="+63 xxx xxx xxxx"
+                          placeholder="9XX XXX XXXX"
                           autoComplete="off"
                           data-form-type="other"
                         />
