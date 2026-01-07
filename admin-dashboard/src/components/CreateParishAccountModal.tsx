@@ -359,7 +359,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      // Don't reset copied state - keep it true so user can close the dialog
     } catch (e) {
       setError('Failed to copy');
       setTimeout(() => setError(null), 2000);
