@@ -38,6 +38,7 @@ import { ChurchInfo, MassSchedule } from './types';
 import { VirtualTourManager } from '../360/VirtualTourManager';
 import PhotoUploader from './PhotoUploader';
 import DocumentUploader from './DocumentUploader';
+import { CoordinateMapPicker } from './CoordinateMapPicker';
 import { assessHeritageSignificance, type HeritageAssessment } from '@/lib/heritage-detection';
 import { upload360Image, uploadChurchImage, uploadDocument, deleteFile, compressImage } from '@/lib/storage';
 
@@ -1334,72 +1335,84 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </div>
                     </div>
 
-                    {/* Coordinates */}
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="mb-3">
+                    {/* GPS Coordinates with Interactive Map Picker */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
                         <h4 className="font-medium text-gray-900">
                           GPS Coordinates <span className="text-red-500">*</span>
                         </h4>
                       </div>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="latitude" className="text-sm font-medium text-gray-700">
-                            Latitude <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="latitude"
-                            type="number"
-                            step="any"
-                            value={formData.coordinates.lat || ''}
-                            onChange={(e) => updateCoordinates(parseFloat(e.target.value) || 0, formData.coordinates.lng)}
-                            onBlur={() => {
-                              markFieldTouched('latitude');
-                              updateFieldError('latitude', formData.coordinates.lat);
-                            }}
-                            placeholder="e.g., 9.6475"
-                            className={`h-11 ${getFieldError('latitude') ? 'border-red-500 focus:ring-red-500' : ''}`}
-                            required
-                          />
-                          {getFieldError('latitude') && (
-                            <p className="text-sm text-red-500">{getFieldError('latitude')}</p>
-                          )}
+                      
+                      {/* Interactive Map Picker */}
+                      <CoordinateMapPicker
+                        latitude={formData.coordinates.lat}
+                        longitude={formData.coordinates.lng}
+                        onCoordinatesChange={(lat, lng) => {
+                          updateCoordinates(lat, lng);
+                          // Mark fields as touched when selected via map
+                          markFieldTouched('latitude');
+                          markFieldTouched('longitude');
+                          updateFieldError('latitude', lat);
+                          updateFieldError('longitude', lng);
+                        }}
+                        parishName={formData.parishName}
+                        municipality={formData.locationDetails.municipality}
+                      />
+
+                      {/* Manual Input (Collapsible) */}
+                      <details className="bg-gray-50 rounded-lg border border-gray-200">
+                        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
+                          ⌨️ Enter coordinates manually
+                        </summary>
+                        <div className="px-4 pb-4 pt-2">
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="latitude" className="text-sm font-medium text-gray-700">
+                                Latitude <span className="text-red-500">*</span>
+                              </Label>
+                              <Input
+                                id="latitude"
+                                type="number"
+                                step="any"
+                                value={formData.coordinates.lat || ''}
+                                onChange={(e) => updateCoordinates(parseFloat(e.target.value) || 0, formData.coordinates.lng)}
+                                onBlur={() => {
+                                  markFieldTouched('latitude');
+                                  updateFieldError('latitude', formData.coordinates.lat);
+                                }}
+                                placeholder="e.g., 9.6475"
+                                className={`h-11 ${getFieldError('latitude') ? 'border-red-500 focus:ring-red-500' : ''}`}
+                                required
+                              />
+                              {getFieldError('latitude') && (
+                                <p className="text-sm text-red-500">{getFieldError('latitude')}</p>
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="longitude" className="text-sm font-medium text-gray-700">
+                                Longitude <span className="text-red-500">*</span>
+                              </Label>
+                              <Input
+                                id="longitude"
+                                type="number"
+                                step="any"
+                                value={formData.coordinates.lng || ''}
+                                onChange={(e) => updateCoordinates(formData.coordinates.lat, parseFloat(e.target.value) || 0)}
+                                onBlur={() => {
+                                  markFieldTouched('longitude');
+                                  updateFieldError('longitude', formData.coordinates.lng);
+                                }}
+                                placeholder="e.g., 123.8887"
+                                className={`h-11 ${getFieldError('longitude') ? 'border-red-500 focus:ring-red-500' : ''}`}
+                                required
+                              />
+                              {getFieldError('longitude') && (
+                                <p className="text-sm text-red-500">{getFieldError('longitude')}</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="longitude" className="text-sm font-medium text-gray-700">
-                            Longitude <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="longitude"
-                            type="number"
-                            step="any"
-                            value={formData.coordinates.lng || ''}
-                            onChange={(e) => updateCoordinates(formData.coordinates.lat, parseFloat(e.target.value) || 0)}
-                            onBlur={() => {
-                              markFieldTouched('longitude');
-                              updateFieldError('longitude', formData.coordinates.lng);
-                            }}
-                            placeholder="e.g., 123.8887"
-                            className={`h-11 ${getFieldError('longitude') ? 'border-red-500 focus:ring-red-500' : ''}`}
-                            required
-                          />
-                          {getFieldError('longitude') && (
-                            <p className="text-sm text-red-500">{getFieldError('longitude')}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-3 p-3 bg-white rounded border border-blue-200">
-                        <p className="text-xs text-gray-700">
-                          <strong>📍 How to get coordinates:</strong>{' '}
-                          <a 
-                            href="https://www.google.com/maps" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Open Google Maps
-                          </a>, find your church, right-click on it, and copy the coordinates.
-                        </p>
-                      </div>
+                      </details>
                     </div>
                   </div>
                 </div>
