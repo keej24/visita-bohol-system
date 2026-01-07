@@ -288,16 +288,18 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Bell className="w-6 h-6 text-blue-600" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+            <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
               Parish Announcements
             </h1>
-            <p className="text-gray-600">Manage announcements and events for your parish</p>
+            <p className="text-sm sm:text-base text-gray-600">Manage announcements and events for your parish</p>
           </div>
         </div>
         <Button
@@ -308,59 +310,59 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
             setDetailReturnMeta(null);
             setIsFormOpen(true);
           }}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
-          New Announcement
+          <span className="sm:inline">New Announcement</span>
         </Button>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Active Announcements</CardTitle>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 truncate">Active Announcements</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{announcements.length}</div>
-            <p className="text-xs text-gray-500">Currently published</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{announcements.length}</div>
+            <p className="text-xs text-gray-500 hidden sm:block">Currently published</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">This Month</CardTitle>
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 truncate">This Month</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold text-green-600">
               {announcements.filter(a => {
                 const eventDate = new Date(a.eventDate);
                 const now = new Date();
                 return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
               }).length}
             </div>
-            <p className="text-xs text-gray-500">Events this month</p>
+            <p className="text-xs text-gray-500 hidden sm:block">Events this month</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Archived</CardTitle>
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 truncate">Archived</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-600">{archivedAnnouncements.length}</div>
-            <p className="text-xs text-gray-500">Past events</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold text-gray-600">{archivedAnnouncements.length}</div>
+            <p className="text-xs text-gray-500 hidden sm:block">Past events</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabs for Active vs Archived */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'active' | 'archived')} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="active">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="active" className="text-xs sm:text-sm">
             Active {announcements.length > 0 && `(${announcements.length})`}
           </TabsTrigger>
-          <TabsTrigger value="archived">
+          <TabsTrigger value="archived" className="text-xs sm:text-sm">
             Archived {archivedAnnouncements.length > 0 && `(${archivedAnnouncements.length})`}
           </TabsTrigger>
         </TabsList>
@@ -406,9 +408,9 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
 
       {/* Form Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">
               {selectedAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
             </DialogTitle>
           </DialogHeader>

@@ -48,7 +48,7 @@
  */
 
 // Login page for VISITA admin dashboard
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -57,13 +57,60 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Church, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { Badge } from '@/components/ui/badge';
+import { Church, Loader2, Eye, EyeOff, Mail, Building2, Landmark, ArrowLeft, AlertCircle } from 'lucide-react';
+import { sendPasswordResetEmail, signOut } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/components/ui/use-toast';
-import { resolveUsernameToEmail, isValidAdminUsername, getUsernameDisplayName } from '@/lib/auth-utils';
+import { resolveUsernameToEmail, isValidAdminUsername, getUsernameDisplayName, getKnownAccountProfile } from '@/lib/auth-utils';
+import type { UserRole } from '@/contexts/AuthContext';
+
+// Role type for selection
+type LoginRole = 'chancery_office' | 'museum_researcher' | 'parish_secretary' | null;
+
+// Role configuration with visual properties
+const roleConfig = {
+  chancery_office: {
+    title: 'Chancery Office',
+    description: 'Diocese administrators for Tagbilaran or Talibon',
+    icon: Building2,
+    color: 'indigo',
+    bgGradient: 'from-indigo-500 to-blue-600',
+    borderColor: 'border-indigo-200 hover:border-indigo-400',
+    bgHover: 'hover:bg-indigo-50',
+    iconBg: 'bg-indigo-100',
+    iconColor: 'text-indigo-600',
+    badgeClass: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  },
+  museum_researcher: {
+    title: 'Museum Researcher',
+    description: 'Heritage site validators for ICP/NCT churches',
+    icon: Landmark,
+    color: 'amber',
+    bgGradient: 'from-amber-500 to-orange-600',
+    borderColor: 'border-amber-200 hover:border-amber-400',
+    bgHover: 'hover:bg-amber-50',
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-600',
+    badgeClass: 'bg-amber-100 text-amber-700 border-amber-200',
+  },
+  parish_secretary: {
+    title: 'Parish Secretary',
+    description: 'Individual church profile management',
+    icon: Church,
+    color: 'emerald',
+    bgGradient: 'from-emerald-500 to-teal-600',
+    borderColor: 'border-emerald-200 hover:border-emerald-400',
+    bgHover: 'hover:bg-emerald-50',
+    iconBg: 'bg-emerald-100',
+    iconColor: 'text-emerald-600',
+    badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  },
+};
 
 const Login = () => {
+  const [selectedRole, setSelectedRole] = useState<LoginRole>(null);
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -77,12 +124,38 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Remember last selected role for returning users
+  useEffect(() => {
+    const savedRole = localStorage.getItem('visita_last_login_role') as LoginRole;
+    if (savedRole && roleConfig[savedRole]) {
+      // Don't auto-select, but could show a hint
+    }
+  }, []);
+  
+  // Clear error when switching roles
+  useEffect(() => {
+    setError('');
+    setUsernameOrEmail('');
+    setPassword('');
+    setUsernameHint(null);
+  }, [selectedRole]);
 
-  // Show hint when user types a valid admin username
+  // Show hint when user types a valid admin username that matches the selected role
   const handleUsernameChange = (value: string) => {
     setUsernameOrEmail(value);
-    if (isValidAdminUsername(value)) {
-      setUsernameHint(getUsernameDisplayName(value));
+    
+    if (isValidAdminUsername(value) && selectedRole) {
+      // Get the email for this username, then check if the role matches
+      const email = resolveUsernameToEmail(value);
+      const profile = getKnownAccountProfile(email);
+      
+      // Only show hint if the username's role matches the selected role
+      if (profile && profile.role === selectedRole) {
+        setUsernameHint(getUsernameDisplayName(value));
+      } else {
+        setUsernameHint(null);
+      }
     } else {
       setUsernameHint(null);
     }
@@ -163,10 +236,55 @@ const Login = () => {
       return;
     }
 
+    // Ensure role is selected (shouldn't happen but safety check)
+    if (!selectedRole) {
+      setError('Please select your role first.');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Resolve username to email if needed
       const email = resolveUsernameToEmail(usernameOrEmail);
-      await login(email, password);
+      const userCredential = await login(email, password);
+      
+      // Fetch user profile from Firestore to validate role
+      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+      
+      if (!userDoc.exists()) {
+        // User authenticated but no profile exists
+        await signOut(auth);
+        setError('Account not set up. Please contact the administrator.');
+        setLoading(false);
+        return;
+      }
+
+      const userProfile = userDoc.data();
+      const actualRole = userProfile.role as UserRole;
+
+      // Validate that the selected role matches the user's actual role
+      if (actualRole !== selectedRole) {
+        // Sign out the user immediately
+        await signOut(auth);
+        
+        // Get the friendly name for the actual role
+        const actualRoleConfig = roleConfig[actualRole];
+        const selectedRoleConfig = roleConfig[selectedRole];
+        
+        if (actualRoleConfig) {
+          setError(
+            `This account is not a ${selectedRoleConfig.title} account. Please select "${actualRoleConfig.title}" to continue.`
+          );
+        } else {
+          setError('Invalid account role. Please contact the administrator.');
+        }
+        
+        setLoading(false);
+        return;
+      }
+      
+      // Save selected role for next time
+      localStorage.setItem('visita_last_login_role', selectedRole);
       
       // Show success toast
       toast({
@@ -235,109 +353,217 @@ const Login = () => {
         </div>
       )}
       
-      <div className="min-h-screen flex items-center justify-center bg-heritage-cream p-4">
-      <Card className="w-full max-w-md heritage-card">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-full flex items-center justify-center mb-4">
-            <Church className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-primary">VISITA Admin</CardTitle>
-          <CardDescription>
-            Bohol Churches Information System
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-            {/* Hidden dummy fields to absorb browser autofill */}
-            <input type="text" name="email" autoComplete="username" tabIndex={-1} aria-hidden="true" className="hidden" />
-            <input type="password" name="password" autoComplete="new-password" tabIndex={-1} aria-hidden="true" className="hidden" />
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="username">Username or Email</Label>
-              <Input
-                id="username"
-                type="text"
-                value={usernameOrEmail}
-                onChange={(e) => handleUsernameChange(e.target.value)}
-                placeholder="Enter username or email"
-                disabled={loading}
-                name="login_username"
-                autoComplete="off"
-                autoCapitalize="none"
-                autoCorrect="off"
-              />
-              {usernameHint && (
-                <p className="text-xs text-green-600 flex items-center gap-1">
-                  <span>✓</span> {usernameHint}
-                </p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  disabled={loading}
-                  name="login_password"
-                  autoComplete="new-password"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  className="pr-10"
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4">
+        {/* Step 1: Role Selection */}
+        {!selectedRole ? (
+          <div className="w-full max-w-4xl">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="mx-auto w-28 h-28 rounded-full overflow-hidden bg-white shadow-xl border-4 border-indigo-100 mb-6">
+                <img 
+                  src="/visita-logo.png" 
+                  alt="VISITA Logo" 
+                  className="w-full h-full object-cover scale-110"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
               </div>
+              <h1 className="text-3xl font-bold text-slate-800 mb-2">VISITA Admin</h1>
+              <p className="text-slate-600 text-lg">Bohol Churches Information System</p>
+              <p className="text-slate-500 mt-4">Select your role to continue</p>
             </div>
             
-            <Button 
-              type="submit" 
-              className="w-full btn-heritage" 
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                'Login'
-              )}
-            </Button>
-
-            {/* Forgot Password Link */}
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => setIsForgotPasswordOpen(true)}
-                className="text-sm text-primary hover:underline"
-                disabled={loading}
-              >
-                Forgot Password?
-              </button>
+            {/* Role Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              {(Object.keys(roleConfig) as Array<keyof typeof roleConfig>).map((role) => {
+                const config = roleConfig[role];
+                const IconComponent = config.icon;
+                
+                return (
+                  <button
+                    key={role}
+                    onClick={() => setSelectedRole(role)}
+                    className={`
+                      group relative bg-white rounded-2xl p-6 border-2 transition-all duration-300
+                      ${config.borderColor} ${config.bgHover}
+                      hover:shadow-xl hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                      text-left
+                    `}
+                  >
+                    {/* Icon */}
+                    <div className={`w-14 h-14 ${config.iconBg} rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110`}>
+                      <IconComponent className={`w-7 h-7 ${config.iconColor}`} />
+                    </div>
+                    
+                    {/* Title */}
+                    <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                      {config.title}
+                    </h3>
+                    
+                    {/* Description */}
+                    <p className="text-sm text-slate-500 leading-relaxed">
+                      {config.description}
+                    </p>
+                    
+                    {/* Hover Arrow */}
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          </form>
-          
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>For account access, contact the Chancery Office</p>
+            
+            {/* Footer */}
+            <div className="mt-8 text-center">
+              <p className="text-sm text-slate-500">
+                For account access, contact the Chancery Office
+              </p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        ) : (
+          /* Step 2: Login Form */
+          <Card className="w-full max-w-md shadow-xl border-0">
+            <CardHeader className="text-center pb-2">
+              {/* Back Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedRole(null)}
+                className="absolute left-4 top-4 text-slate-500 hover:text-slate-700"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              
+              {/* VISITA Logo */}
+              <div className="pt-2 mb-2">
+                <div className="mx-auto w-20 h-20 rounded-full overflow-hidden bg-white shadow-lg border-4 border-indigo-100">
+                  <img 
+                    src="/visita-logo.png" 
+                    alt="VISITA Logo" 
+                    className="w-full h-full object-cover scale-110"
+                  />
+                </div>
+              </div>
+              
+              {/* Role Badge */}
+              <div className="pt-2">
+                {selectedRole && (
+                  <Badge className={`${roleConfig[selectedRole].badgeClass} mb-3`}>
+                    {(() => {
+                      const IconComp = roleConfig[selectedRole].icon;
+                      return <IconComp className="w-3 h-3 mr-1 inline" />;
+                    })()}
+                    {roleConfig[selectedRole].title}
+                  </Badge>
+                )}
+              </div>
+              
+              <CardTitle className="text-2xl font-bold text-slate-800">Welcome Back</CardTitle>
+              <CardDescription className="text-slate-500">
+                Sign in to access your dashboard
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="pt-4">
+              <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+                {/* Hidden dummy fields to absorb browser autofill */}
+                <input type="text" name="email" autoComplete="username" tabIndex={-1} aria-hidden="true" className="hidden" />
+                <input type="password" name="password" autoComplete="new-password" tabIndex={-1} aria-hidden="true" className="hidden" />
+                
+                {error && (
+                  <Alert variant="destructive" className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-slate-700">
+                    {selectedRole === 'parish_secretary' ? 'Email Address' : 'Username'}
+                  </Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    value={usernameOrEmail}
+                    onChange={(e) => handleUsernameChange(e.target.value)}
+                    placeholder={selectedRole === 'parish_secretary' ? 'Enter your email' : 'Enter your username'}
+                    disabled={loading}
+                    name="login_username"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    className="h-11"
+                  />
+                  {usernameHint && (
+                    <p className="text-xs text-green-600 flex items-center gap-1">
+                      <span>✓</span> {usernameHint}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-slate-700">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      disabled={loading}
+                      name="login_password"
+                      autoComplete="new-password"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      className="pr-10 h-11"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  className={`w-full h-11 bg-gradient-to-r ${selectedRole ? roleConfig[selectedRole].bgGradient : 'from-indigo-600 to-blue-600'} hover:opacity-90 transition-opacity`}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    'Sign In'
+                  )}
+                </Button>
+
+                {/* Forgot Password Link */}
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPasswordOpen(true)}
+                    className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+                    disabled={loading}
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              </form>
+              
+              <div className="mt-6 pt-4 border-t text-center text-sm text-slate-500">
+                <p>Need help? Contact the Chancery Office</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Forgot Password Dialog */}
       <Dialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>

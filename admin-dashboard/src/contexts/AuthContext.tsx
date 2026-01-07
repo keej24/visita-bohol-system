@@ -49,7 +49,7 @@
 
 // React Context API for global authentication state
 import { createContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { User, UserCredential, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getKnownAccountProfile } from '@/lib/auth-utils';
@@ -135,7 +135,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   profileCreating: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
   hasRole: (role: UserRole) => boolean;
@@ -317,9 +317,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
     // Note: Email verification is handled automatically through the password reset flow
     // When users set their password via the reset link, emailVerified becomes true
+    return userCredential;
   };
 
   const logout = async () => {
