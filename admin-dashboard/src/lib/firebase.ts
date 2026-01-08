@@ -40,6 +40,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 // Environment variable loader with validation
 import { env } from "./env";
 
@@ -86,8 +87,12 @@ const app = initializeApp(firebaseConfig);
  * - storage: Firebase Cloud Storage
  *   Used for: Storing images, PDFs, 360° photos
  *   Organization: Files organized by type (churches/{id}/photos, documents, etc.)
+ *
+ * - functions: Firebase Cloud Functions
+ *   Used for: Server-side operations like sending professional emails via Resend
  */
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
 

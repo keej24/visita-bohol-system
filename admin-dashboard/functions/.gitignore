@@ -1,0 +1,16 @@
+# Compiled JavaScript
+lib/
+
+# Node modules
+node_modules/
+
+# Local environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log

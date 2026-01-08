@@ -9,6 +9,10 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs18"
+  },
   "hosting": {
     "site": "visita-admin",
     "public": "dist",

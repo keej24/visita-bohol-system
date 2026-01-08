@@ -59,8 +59,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Church, Loader2, Eye, EyeOff, Mail, Building2, Landmark, ArrowLeft, AlertCircle } from 'lucide-react';
-import { sendPasswordResetEmail, signOut } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { auth, db, functions } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/components/ui/use-toast';
 import { resolveUsernameToEmail, isValidAdminUsername, getUsernameDisplayName, getKnownAccountProfile } from '@/lib/auth-utils';
@@ -185,7 +186,10 @@ const Login = () => {
 
     setResetLoading(true);
     try {
-      await sendPasswordResetEmail(auth, resetEmail);
+      // Use Cloud Function for professional email delivery via Resend
+      const sendPasswordReset = httpsCallable(functions, 'sendPasswordResetEmail');
+      await sendPasswordReset({ email: resetEmail });
+      
       toast({
         title: "Success",
         description: "Password reset email sent! Check your inbox.",
@@ -195,19 +199,21 @@ const Login = () => {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to send reset email';
       
-      if (errorMessage.includes('auth/user-not-found')) {
+      if (errorMessage.includes('user-not-found')) {
+        // Don't reveal if user exists - show success anyway for security
         toast({
-          title: "Error",
-          description: "No account found with this email address",
-          variant: "destructive"
+          title: "Success",
+          description: "If an account exists with this email, a reset link has been sent.",
         });
-      } else if (errorMessage.includes('auth/invalid-email')) {
+        setIsForgotPasswordOpen(false);
+        setResetEmail('');
+      } else if (errorMessage.includes('invalid-email')) {
         toast({
           title: "Error",
           description: "Invalid email address",
           variant: "destructive"
         });
-      } else if (errorMessage.includes('auth/too-many-requests')) {
+      } else if (errorMessage.includes('too-many-requests')) {
         toast({
           title: "Error",
           description: "Too many requests. Please try again later.",
@@ -216,7 +222,7 @@ const Login = () => {
       } else {
         toast({
           title: "Error",
-          description: "Failed to send password reset email",
+          description: "Failed to send password reset email. Please try again.",
           variant: "destructive"
         });
       }
