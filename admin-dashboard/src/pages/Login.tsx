@@ -65,6 +65,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/components/ui/use-toast';
 import { resolveUsernameToEmail, isValidAdminUsername, getUsernameDisplayName, getKnownAccountProfile } from '@/lib/auth-utils';
 import type { UserRole } from '@/contexts/AuthContext';
+import visitaLogo from '@/assets/visita-logo.png';
 
 // Role type for selection
 type LoginRole = 'chancery_office' | 'museum_researcher' | 'parish_secretary' | null;
@@ -361,7 +362,7 @@ const Login = () => {
             <div className="text-center mb-8">
               <div className="mx-auto w-28 h-28 rounded-full overflow-hidden bg-white shadow-xl border-4 border-indigo-100 mb-6">
                 <img 
-                  src="/visita-logo.png" 
+                  src={visitaLogo} 
                   alt="VISITA Logo" 
                   className="w-full h-full object-cover scale-110"
                 />
@@ -440,7 +441,7 @@ const Login = () => {
               <div className="pt-2 mb-2">
                 <div className="mx-auto w-20 h-20 rounded-full overflow-hidden bg-white shadow-lg border-4 border-indigo-100">
                   <img 
-                    src="/visita-logo.png" 
+                    src={visitaLogo} 
                     alt="VISITA Logo" 
                     className="w-full h-full object-cover scale-110"
                   />
