@@ -49,6 +49,7 @@
 
 import { useState, ComponentType } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import visitaLogo from "/visita-logo.png";
 import {
   Home,
   Church,
@@ -250,7 +251,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-white">
             <img 
-              src="/visita-logo.png" 
+              src={visitaLogo} 
               alt="VISITA Logo" 
               className="w-full h-full object-cover"
             />
