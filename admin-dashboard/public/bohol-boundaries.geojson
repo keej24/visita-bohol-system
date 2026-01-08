@@ -1,0 +1,112 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Bohol",
+        "admin_level": 4
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [123.85, 9.50],
+          [124.60, 9.50],
+          [124.60, 10.30],
+          [123.85, 10.30],
+          [123.85, 9.50]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tagbilaran City",
+        "municipality": "tagbilaran",
+        "type": "city"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [123.84, 9.64],
+          [123.86, 9.64],
+          [123.86, 9.66],
+          [123.84, 9.66],
+          [123.84, 9.64]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Baclayon",
+        "municipality": "baclayon",
+        "type": "municipality"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [123.90, 9.61],
+          [123.92, 9.61],
+          [123.92, 9.63],
+          [123.90, 9.63],
+          [123.90, 9.61]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Loboc",
+        "municipality": "loboc",
+        "type": "municipality"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [124.02, 9.63],
+          [124.04, 9.63],
+          [124.04, 9.65],
+          [124.02, 9.65],
+          [124.02, 9.63]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tubigon",
+        "municipality": "tubigon",
+        "type": "municipality"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [123.95, 10.04],
+          [123.97, 10.04],
+          [123.97, 10.06],
+          [123.95, 10.06],
+          [123.95, 10.04]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Talibon",
+        "municipality": "talibon",
+        "type": "municipality"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [124.01, 10.23],
+          [124.03, 10.23],
+          [124.03, 10.25],
+          [124.01, 10.25],
+          [124.01, 10.23]
+        ]]
+      }
+    }
+  ]
+}

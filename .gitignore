@@ -72,6 +72,8 @@ dist
 # Gatsby files
 .cache/
 public
+# But don't ignore admin-dashboard/public (contains static assets like logo)
+!admin-dashboard/public/
 
 # Vite build outputs
 dist
