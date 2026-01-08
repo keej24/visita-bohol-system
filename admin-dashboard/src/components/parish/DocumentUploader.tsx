@@ -133,7 +133,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
         <div
           className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
             dragOver
-              ? 'border-blue-500 bg-blue-50'
+              ? 'border-emerald-500 bg-emerald-50'
               : 'border-gray-300 hover:border-gray-400'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           onDrop={handleDrop}
@@ -183,7 +183,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                         {getFileIcon(doc.type)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                        <p className="font-medium text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
                           {doc.name}
                         </p>
                         {doc.size && (
@@ -192,7 +192,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                           </p>
                         )}
                         {doc.url && !doc.url.startsWith('blob:') && (
-                          <p className="text-xs text-blue-500 flex items-center gap-1">
+                          <p className="text-xs text-emerald-500 flex items-center gap-1">
                             <ExternalLink className="w-3 h-3" />
                             Click to view
                           </p>
@@ -204,7 +204,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                         variant="ghost"
                         size="sm"
                         onClick={() => openDocument(doc)}
-                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                        className="text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50"
                         title="Open document"
                       >
                         <Eye className="w-4 h-4" />

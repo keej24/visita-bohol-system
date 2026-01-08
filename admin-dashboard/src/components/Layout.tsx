@@ -96,7 +96,7 @@ export function Layout({ children, activeTab, setActiveTab, churchApproved }: La
   };
 
   return (
-    <div className={isParish ? "min-h-screen flex w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 to-background" : "min-h-screen bg-background flex w-full"}>
+    <div className={isParish ? "min-h-screen flex w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/5 to-background" : "min-h-screen bg-background flex w-full"}>
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div 

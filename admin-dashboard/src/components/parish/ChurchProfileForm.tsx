@@ -1137,7 +1137,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-                  <span className="text-lg font-bold text-blue-600">{completionPercentage}%</span>
+                  <span className="text-lg font-bold text-emerald-600">{completionPercentage}%</span>
                 </div>
                 <Progress value={completionPercentage} className="h-3" />
                 <p className="text-sm text-gray-600">
@@ -1167,7 +1167,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           <div className="bg-white border-b p-4 mb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-lg flex items-center justify-center">
                   <Church className="w-4 h-4 text-white" />
                 </div>
                 <div>
@@ -1177,7 +1177,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               </div>
               <div className="text-right">
                 <span className="text-sm font-medium text-gray-700">Progress: </span>
-                <span className="text-sm font-bold text-blue-600">{completionPercentage}%</span>
+                <span className="text-sm font-bold text-emerald-600">{completionPercentage}%</span>
               </div>
             </div>
           </div>
@@ -1192,7 +1192,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                 <TabsList className="grid w-full grid-cols-4 h-12 bg-white shadow-sm rounded-lg p-1">
                   <TabsTrigger 
                     value="basic" 
-                    className={`flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-blue-100 data-[state=active]:shadow-sm ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-emerald-100 data-[state=active]:shadow-sm ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={isMuseumResearcher}
                     title={isMuseumResearcher ? 'View only - managed by Parish Secretary' : undefined}
                   >
@@ -1201,14 +1201,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     {isMuseumResearcher && <span className="text-xs text-gray-400 hidden md:inline">(View)</span>}
                   </TabsTrigger>
                   
-                  <TabsTrigger value="historical" className="flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-blue-100 data-[state=active]:shadow-sm">
+                  <TabsTrigger value="historical" className="flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-emerald-100 data-[state=active]:shadow-sm">
                     <History className="w-4 h-4" />
                     <span className="hidden sm:inline">Historical</span>
                   </TabsTrigger>
                   
                   <TabsTrigger 
                     value="parish" 
-                    className={`flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-blue-100 data-[state=active]:shadow-sm ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-emerald-100 data-[state=active]:shadow-sm ${isMuseumResearcher ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={isMuseumResearcher}
                     title={isMuseumResearcher ? 'View only - managed by Parish Secretary' : undefined}
                   >
@@ -1219,11 +1219,11 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   
                   <TabsTrigger 
                     value="media" 
-                    className="flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-blue-100 data-[state=active]:shadow-sm"
+                    className="flex items-center justify-center gap-2 rounded-md hover:bg-gray-100 data-[state=active]:bg-emerald-100 data-[state=active]:shadow-sm"
                   >
                     <Image className="w-4 h-4" />
                     <span className="hidden sm:inline">Media</span>
-                    {isMuseumResearcher && <span className="text-xs text-blue-500 hidden md:inline">(Docs)</span>}
+                    {isMuseumResearcher && <span className="text-xs text-emerald-500 hidden md:inline">(Docs)</span>}
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -1232,7 +1232,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               <TabsContent value="basic" className="p-6 space-y-8">
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 mb-6">
-                    <Building className="w-6 h-6 text-blue-600" />
+                    <Building className="w-6 h-6 text-emerald-600" />
                     <div>
                       <h2 className="text-xl font-semibold text-gray-900">Basic Church Information</h2>
                       <p className="text-gray-600">Essential details about your church</p>
@@ -1269,7 +1269,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   {/* Location Section */}
                   <div className="space-y-6">
                     <div className="flex items-center gap-3">
-                      <MapPin className="w-5 h-5 text-blue-600" />
+                      <MapPin className="w-5 h-5 text-emerald-600" />
                       <h3 className="text-lg font-semibold text-gray-900">Location Details</h3>
                     </div>
 
@@ -1422,7 +1422,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               <TabsContent value="historical" className="p-6 space-y-8">
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 mb-6">
-                    <History className="w-6 h-6 text-blue-600" />
+                    <History className="w-6 h-6 text-emerald-600" />
                     <div>
                       <h2 className="text-xl font-semibold text-gray-900">Historical & Cultural Information</h2>
                       <p className="text-gray-600">Share your church's heritage and history</p>
@@ -1573,7 +1573,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   {/* Architectural & Heritage Information Section */}
                   <div className="space-y-6">
                     <div className="flex items-center gap-3">
-                      <Landmark className="w-5 h-5 text-blue-600" />
+                      <Landmark className="w-5 h-5 text-emerald-600" />
                       <h3 className="text-lg font-semibold text-gray-900">Architectural & Heritage Information</h3>
                     </div>
 
@@ -1618,7 +1618,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               <TabsContent value="parish" className="p-6 space-y-8">
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 mb-6">
-                    <User className="w-6 h-6 text-blue-600" />
+                    <User className="w-6 h-6 text-emerald-600" />
                     <div>
                       <h2 className="text-xl font-semibold text-gray-900">Current Parish Information</h2>
                       <p className="text-gray-600">Current operations and contact details</p>
@@ -1669,7 +1669,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   {/* Contact Information */}
                   <div className="space-y-6">
                     <div className="flex items-center gap-3">
-                      <Phone className="w-5 h-5 text-blue-600" />
+                      <Phone className="w-5 h-5 text-emerald-600" />
                       <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
                       {isChanceryEdit && (
                         <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
@@ -1742,7 +1742,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   {/* Mass Schedules */}
                   <div className="space-y-6">
                     <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-blue-600" />
+                      <Calendar className="w-5 h-5 text-emerald-600" />
                       <h3 className="text-lg font-semibold text-gray-900">Mass Schedules</h3>
                     </div>
 
@@ -1941,7 +1941,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
                     {/* Add Mass Schedule - Hidden for Chancery */}
                     {!isChanceryEdit && (
-                    <div className="bg-blue-50 rounded-lg p-6">
+                    <div className="bg-emerald-50 rounded-lg p-6">
                       <h4 className="font-medium text-gray-900 mb-6">Add Mass Schedule</h4>
 
                       {/* Day Selection */}
@@ -1963,8 +1963,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                               key={day}
                               className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 cursor-pointer transition-all ${
                                 (scheduleForm.selectedDays || []).includes(day)
-                                  ? 'border-blue-600 bg-blue-100 text-blue-900'
-                                  : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
+                                  ? 'border-emerald-600 bg-emerald-100 text-emerald-900'
+                                  : 'border-gray-300 bg-white text-gray-700 hover:border-emerald-400'
                               }`}
                             >
                               <Checkbox
@@ -2059,9 +2059,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               <TabsContent value="media" className="p-6 space-y-8">
                 {/* Auto-saving indicator */}
                 {autoSaving && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4 flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                    <p className="text-sm text-blue-800">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg mb-4 flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600"></div>
+                    <p className="text-sm text-emerald-800">
                       Auto-saving your church profile to enable media uploads...
                     </p>
                   </div>
@@ -2080,7 +2080,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         ) : (
                           <div>
                             <div className="flex items-center gap-3 mb-4">
-                              <RotateCcw className="w-6 h-6 text-blue-600" />
+                              <RotateCcw className="w-6 h-6 text-emerald-600" />
                               <div>
                                 <h2 className="text-xl font-semibold text-gray-900">360° Virtual Tour</h2>
                                 <p className="text-gray-600">Upload panoramic images and add navigation hotspots</p>
@@ -2100,7 +2100,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       {/* Regular Photos Section - Only for Parish users */}
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                          <Image className="w-6 h-6 text-blue-600" />
+                          <Image className="w-6 h-6 text-emerald-600" />
                           <div>
                             <h2 className="text-xl font-semibold text-gray-900">Church Photos</h2>
                             <p className="text-gray-600">Share regular photos of your church (Optional)</p>
@@ -2128,8 +2128,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
                   {/* Info message for Chancery/Museum about media restrictions */}
                   {(isChanceryEdit || isMuseumResearcher) && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-                      <p className="text-sm text-blue-800">
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg mb-4">
+                      <p className="text-sm text-emerald-800">
                         <strong>Note:</strong> 360° Virtual Tour and Church Photos can only be managed by the parish. 
                         You can add or modify historical documents below.
                       </p>
@@ -2139,7 +2139,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                   {/* Historical Documents Section - Available for all users */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <Building className="w-6 h-6 text-blue-600" />
+                      <Building className="w-6 h-6 text-emerald-600" />
                       <div>
                         <h2 className="text-xl font-semibold text-gray-900">Historical Documents</h2>
                         <p className="text-gray-600">Upload heritage and historical documentation (Optional)</p>
@@ -2197,7 +2197,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting || uploading || isSaving || (completionPercentage < 80 && currentStatus !== 'approved')}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700"
               >
                 {(isSubmitting || uploading) ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

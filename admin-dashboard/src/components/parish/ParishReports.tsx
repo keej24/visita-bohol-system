@@ -505,10 +505,10 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
 
   // Chart color schemes
   const chartColors = {
-    primary: '#3B82F6',
-    secondary: '#10B981',
+    primary: '#059669',   // emerald-600
+    secondary: '#14B8A6', // teal-500
     accent: '#F59E0B',
-    purple: '#8B5CF6',
+    purple: '#0D9488',    // teal-600
     red: '#EF4444',
     slate: '#64748B'
   };
@@ -616,7 +616,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                 <Button 
                   onClick={() => handleDownloadReport('summary', summaryExportFormat)}
                   disabled={isGenerating}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-emerald-600 hover:bg-emerald-700"
                 >
                   {isGenerating ? (
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -629,7 +629,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
 
               {/* Basic Church Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="border-blue-200 bg-blue-50">
+                <Card className="border-emerald-200 bg-emerald-50">
                   <CardHeader>
                     <CardTitle className="text-lg">Church Information</CardTitle>
                   </CardHeader>
@@ -659,7 +659,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Religious Classification</Label>
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                      <Badge variant="secondary" className="bg-teal-100 text-teal-800">
                         {summaryReport.documentationDetails.religiousClassification}
                       </Badge>
                     </div>
@@ -841,13 +841,13 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
 
               {/* Visitor Statistics */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-blue-200 bg-blue-50">
+                <Card className="border-emerald-200 bg-emerald-50">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2">
-                      <Users className="w-5 h-5 text-blue-600" />
+                      <Users className="w-5 h-5 text-emerald-600" />
                       <div>
-                        <p className="text-2xl font-bold text-blue-900">{engagementReport.visitorStats.totalVisitors}</p>
-                        <p className="text-sm text-blue-700">Total Visitors</p>
+                        <p className="text-2xl font-bold text-emerald-900">{engagementReport.visitorStats.totalVisitors}</p>
+                        <p className="text-sm text-emerald-700">Total Visitors</p>
                       </div>
                     </div>
                   </CardContent>
@@ -865,13 +865,13 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                   </CardContent>
                 </Card>
 
-                <Card className="border-purple-200 bg-purple-50">
+                <Card className="border-teal-200 bg-teal-50">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2">
-                      <Star className="w-5 h-5 text-purple-600" />
+                      <Star className="w-5 h-5 text-teal-600" />
                       <div>
-                        <p className="text-2xl font-bold text-purple-900">{engagementReport.feedbackStats.averageRating}</p>
-                        <p className="text-sm text-purple-700">Avg Rating</p>
+                        <p className="text-2xl font-bold text-teal-900">{engagementReport.feedbackStats.averageRating}</p>
+                        <p className="text-sm text-teal-700">Avg Rating</p>
                       </div>
                     </div>
                   </CardContent>
@@ -914,7 +914,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                    <TrendingUp className="w-5 h-5 text-emerald-600" />
                     Daily Visitor Trends
                   </CardTitle>
                   <CardDescription>
@@ -926,7 +926,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                     {isLoadingAnalytics ? (
                       <div className="flex items-center justify-center h-full">
                         <div className="flex flex-col items-center space-y-2">
-                          <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+                          <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
                           <p className="text-sm text-gray-500">Loading chart data...</p>
                         </div>
                       </div>
@@ -1012,7 +1012,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Star className="w-5 h-5 text-purple-600" />
+                      <Star className="w-5 h-5 text-teal-600" />
                       Rating Distribution
                     </CardTitle>
                     <CardDescription>

@@ -188,6 +188,11 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
       setSelectedAnnouncement(null);
       await loadAnnouncements();
       
+      // Also refresh archived list if we're on that tab or if we just updated an archived announcement
+      if (activeTab === 'archived' || selectedAnnouncement?.isArchived) {
+        await loadArchivedAnnouncements();
+      }
+      
       // If edit was triggered from detail view, reopen detail dialog
       if (detailReturnMeta) {
         const refreshedList = await AnnouncementService.getAnnouncements(userProfile.diocese, {
@@ -206,9 +211,13 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
       }
     } catch (error) {
       console.error('Error saving announcement:', error);
+      
+      // Show specific error message if available
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       toast({
         title: "Error",
-        description: "Failed to save announcement",
+        description: errorMessage || (selectedAnnouncement ? 'Failed to update announcement' : 'Failed to create announcement'),
         variant: "destructive"
       });
     } finally {
@@ -292,7 +301,7 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
             <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
           <div className="min-w-0">
@@ -310,7 +319,7 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
             setDetailReturnMeta(null);
             setIsFormOpen(true);
           }}
-          className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+          className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
           <span className="sm:inline">New Announcement</span>
@@ -324,7 +333,7 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
             <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 truncate">Active Announcements</CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold text-blue-600">{announcements.length}</div>
+            <div className="text-xl sm:text-2xl font-bold text-emerald-600">{announcements.length}</div>
             <p className="text-xs text-gray-500 hidden sm:block">Currently published</p>
           </CardContent>
         </Card>

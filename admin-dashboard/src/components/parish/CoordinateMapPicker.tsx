@@ -283,12 +283,12 @@ export const CoordinateMapPicker: React.FC<CoordinateMapPickerProps> = ({
   }, [onCoordinatesChange]);
 
   return (
-    <Card className="border-blue-200 bg-blue-50/50">
+    <Card className="border-emerald-200 bg-emerald-50/50">
       <CardContent className="p-4 space-y-4">
         {/* Header with instructions */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-blue-600" />
+            <MapPin className="w-5 h-5 text-emerald-600" />
             <span className="font-medium text-gray-900">Select Church Location</span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -299,7 +299,7 @@ export const CoordinateMapPicker: React.FC<CoordinateMapPickerProps> = ({
                 size="sm"
                 onClick={searchPlaces}
                 disabled={isSearching || disabled}
-                className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                className="text-emerald-700 border-emerald-300 hover:bg-emerald-100"
               >
                 {isSearching ? (
                   <>
@@ -342,9 +342,9 @@ export const CoordinateMapPicker: React.FC<CoordinateMapPickerProps> = ({
 
         {/* Search Results - shown below when we have results */}
         {showResults && searchResults.length > 0 && (
-          <div className="bg-white border border-blue-200 rounded-lg shadow-sm">
-            <div className="px-3 py-2 bg-blue-50 border-b border-blue-200 rounded-t-lg">
-              <p className="text-sm font-medium text-blue-800">
+          <div className="bg-white border border-emerald-200 rounded-lg shadow-sm">
+            <div className="px-3 py-2 bg-emerald-50 border-b border-emerald-200 rounded-t-lg">
+              <p className="text-sm font-medium text-emerald-800">
                 Select a location for "{getSearchQuery()}"
               </p>
             </div>
@@ -353,11 +353,11 @@ export const CoordinateMapPicker: React.FC<CoordinateMapPickerProps> = ({
                 <button
                   key={index}
                   type="button"
-                  className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 focus:outline-none focus:bg-blue-50"
+                  className="w-full px-4 py-3 text-left hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 focus:outline-none focus:bg-emerald-50"
                   onClick={() => handleSelectResult(result)}
                 >
                   <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <MapPin className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
                     <span className="text-sm text-gray-700 line-clamp-2">{result.display_name}</span>
                   </div>
                 </button>
@@ -375,7 +375,7 @@ export const CoordinateMapPicker: React.FC<CoordinateMapPickerProps> = ({
             </AlertDescription>
           </Alert>
         )}        {/* Map Container */}
-        <div className="relative rounded-lg overflow-hidden border border-blue-200">
+        <div className="relative rounded-lg overflow-hidden border border-emerald-200">
           <MapContainer
             center={[mapCenter.lat, mapCenter.lng]}
             zoom={hasValidCoordinates ? 15 : 10}
@@ -399,7 +399,7 @@ export const CoordinateMapPicker: React.FC<CoordinateMapPickerProps> = ({
           {!hasValidCoordinates && !disabled && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none z-10">
               <div className="bg-white/95 px-4 py-3 rounded-lg shadow-lg text-center">
-                <Target className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                <Target className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
                 <p className="text-sm font-medium text-gray-800">Click on the map to select location</p>
                 {canSearch && (
                   <p className="text-xs text-gray-500 mt-1">or use "Find Location" button above</p>
@@ -410,7 +410,7 @@ export const CoordinateMapPicker: React.FC<CoordinateMapPickerProps> = ({
         </div>
 
         {/* Selected Coordinates Display */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-blue-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-emerald-200">
           <div className="flex items-center gap-2">
             {hasValidCoordinates ? (
               <>

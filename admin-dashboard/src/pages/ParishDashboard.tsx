@@ -1018,14 +1018,14 @@ const ParishDashboard = () => {
   const renderParishProfile = () => (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-50 to-sky-50 rounded-lg shadow-sm border border-indigo-200 p-4 sm:p-6">
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg shadow-sm border border-emerald-200 p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
               <ChurchIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold text-indigo-900 mb-1">
+              <h1 className="text-lg sm:text-2xl font-bold text-emerald-900 mb-1">
                 {getGreeting()}! 👋
               </h1>
               <h2 className="text-base sm:text-xl font-semibold text-slate-800 mb-2 truncate">
@@ -1034,7 +1034,7 @@ const ParishDashboard = () => {
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {getStatusBadge()}
                 {churchInfo.locationDetails?.municipality && (
-                  <Badge variant="outline" className="text-indigo-800 border-indigo-300 text-xs sm:text-sm">
+                  <Badge variant="outline" className="text-emerald-800 border-emerald-300 text-xs sm:text-sm">
                     <MapPin className="w-3 h-3 mr-1" />
                     <span className="hidden xs:inline">{churchInfo.locationDetails.municipality}, </span>
                     <span className="xs:hidden">{churchInfo.locationDetails.municipality?.substring(0, 10)}</span>
@@ -1047,7 +1047,7 @@ const ParishDashboard = () => {
           
           <Button 
             onClick={() => setCurrentView('profile')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit Profile
@@ -1056,10 +1056,10 @@ const ParishDashboard = () => {
       </div>
 
       {/* Parish Profile Summary */}
-      <Card className="border-indigo-200">
-        <CardHeader className="bg-gradient-to-r from-indigo-50/50 to-transparent">
-          <CardTitle className="flex items-center gap-2 text-indigo-900">
-            <ChurchIcon className="w-5 h-5 text-indigo-600" />
+      <Card className="border-emerald-200">
+        <CardHeader className="bg-gradient-to-r from-emerald-50/50 to-transparent">
+          <CardTitle className="flex items-center gap-2 text-emerald-900">
+            <ChurchIcon className="w-5 h-5 text-emerald-600" />
             Parish Profile
           </CardTitle>
           <CardDescription className="text-slate-600">
@@ -1271,11 +1271,11 @@ const ParishDashboard = () => {
             </div>
           )}
           {existingChurch.status === 'pending' && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-indigo-600" />
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-emerald-600" />
               <div>
-                <span className="font-medium text-blue-900">Review in Progress</span>
-                <p className="text-sm text-blue-700">Your church profile is being reviewed by the chancery office.</p>
+                <span className="font-medium text-emerald-900">Review in Progress</span>
+                <p className="text-sm text-emerald-700">Your church profile is being reviewed by the chancery office.</p>
               </div>
             </div>
           )}
@@ -1343,14 +1343,14 @@ const ParishDashboard = () => {
       ) : !existingChurch ? (
         // Welcome screen for new parishes without church profile
         <div className="max-w-4xl mx-auto">
-          <Card className="shadow-lg border-2 border-indigo-200">
-            <CardHeader className="text-center pb-4 bg-gradient-to-r from-indigo-50 to-sky-50">
+          <Card className="shadow-lg border-2 border-emerald-200">
+            <CardHeader className="text-center pb-4 bg-gradient-to-r from-emerald-50 to-teal-50">
               <div className="flex justify-center mb-4">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-full flex items-center justify-center shadow-lg">
                   <ChurchIcon className="w-10 h-10 text-white" />
                 </div>
               </div>
-              <CardTitle className="text-3xl font-bold text-indigo-900 mb-2">
+              <CardTitle className="text-3xl font-bold text-emerald-900 mb-2">
                 Welcome to {userProfile?.parishInfo?.name || userProfile?.name || 'Your Parish'} Dashboard! 👋
               </CardTitle>
               <CardDescription className="text-lg text-slate-700">
@@ -1358,37 +1358,37 @@ const ParishDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
-                <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6">
+                <h3 className="font-semibold text-emerald-900 mb-3 flex items-center gap-2">
                   <Info className="w-5 h-5" />
                   What you can do with your church profile:
                 </h3>
-                <ul className="space-y-2 text-indigo-800">
+                <ul className="space-y-2 text-emerald-800">
                   <li className="flex items-start gap-2">
-                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span className="text-emerald-600 mt-1">✓</span>
                     <span>Share your parish's rich history and heritage with visitors</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span className="text-emerald-600 mt-1">✓</span>
                     <span>Upload photos including 360° virtual tours of your church</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span className="text-emerald-600 mt-1">✓</span>
                     <span>Manage mass schedules and contact information</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span className="text-emerald-600 mt-1">✓</span>
                     <span>Post announcements and events for your parishioners</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-indigo-600 mt-1">✓</span>
+                    <span className="text-emerald-600 mt-1">✓</span>
                     <span>Track visitor engagement and generate reports</span>
                   </li>
                 </ul>
               </div>
 
-              <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
-                <p className="text-sky-900 text-sm flex items-start gap-2">
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <p className="text-teal-900 text-sm flex items-start gap-2">
                   <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <span>
                     <strong>Note:</strong> Your church profile will be submitted to the Chancery Office for review before it becomes visible to the public.
@@ -1400,7 +1400,7 @@ const ParishDashboard = () => {
                 <Button
                   onClick={() => setCurrentView('profile')}
                   size="lg"
-                  className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
                 >
                   <Plus className="w-5 h-5 mr-2" />
                   Add Profile

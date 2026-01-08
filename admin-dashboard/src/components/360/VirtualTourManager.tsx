@@ -632,11 +632,6 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
                     </span>
                   </div>
 
-                  {/* Image URL Preview */}
-                  <div className="text-xs text-gray-500 truncate mb-3">
-                    {scene.imageUrl.substring(0, 80)}...
-                  </div>
-
                   {/* Broken Image Warning */}
                   {brokenImageScenes.has(scene.id) && (
                     <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded mb-3">

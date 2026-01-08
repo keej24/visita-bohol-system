@@ -324,13 +324,13 @@ export const ParishDashboardShell: React.FC<ParishDashboardShellProps> = ({
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-3xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                  <p className="text-3xl font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
                     {stats.announcements}
                   </p>
                   <p className="text-sm font-medium text-slate-600 mt-1">Announcements</p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center group-hover:from-blue-200 group-hover:to-blue-300 transition-all">
-                  <Bell className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center group-hover:from-emerald-200 group-hover:to-emerald-300 transition-all">
+                  <Bell className="w-6 h-6 text-emerald-600" />
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-2 text-sm text-emerald-600">
@@ -440,9 +440,9 @@ export const ParishDashboardShell: React.FC<ParishDashboardShellProps> = ({
               priority={stats.totalPhotos === 0 ? 'high' : 'normal'}
             >
               <div className="grid grid-cols-3 gap-3">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 text-center">
-                  <div className="text-xl font-bold text-blue-900">{stats.totalPhotos}</div>
-                  <div className="text-xs text-blue-600">Total Photos</div>
+                <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-teal-900">{stats.totalPhotos}</div>
+                  <div className="text-xs text-teal-600">Total Photos</div>
                 </div>
                 <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 text-center">
                   <div className="text-xl font-bold text-green-900">{photos.filter(p=>p.status==='approved').length}</div>
@@ -472,9 +472,9 @@ export const ParishDashboardShell: React.FC<ParishDashboardShellProps> = ({
             >
               <div className="space-y-2">
                 {announcements.slice(0,2).map((announcement, i) => (
-                  <div key={i} className="p-3 bg-blue-50 rounded-lg">
-                    <h4 className="font-medium text-blue-900 text-sm mb-1">{announcement.title}</h4>
-                    <p className="text-xs text-blue-600">{announcement.date}</p>
+                  <div key={i} className="p-3 bg-emerald-50 rounded-lg">
+                    <h4 className="font-medium text-emerald-900 text-sm mb-1">{announcement.title}</h4>
+                    <p className="text-xs text-emerald-600">{announcement.date}</p>
                   </div>
                 ))}
                 {announcements.length === 0 && (

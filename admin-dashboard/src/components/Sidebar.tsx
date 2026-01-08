@@ -248,8 +248,12 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center flex-shrink-0">
-            <Church className="w-5 h-5 text-sidebar-primary-foreground" />
+          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-white">
+            <img 
+              src="/visita-logo.png" 
+              alt="VISITA Logo" 
+              className="w-full h-full object-cover"
+            />
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
@@ -311,8 +315,8 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
               )}
               {userProfile?.role === 'parish_secretary' && (
                 <div className="flex items-center gap-1 mt-1">
-                  <Church className="w-3 h-3 text-sky-400" />
-                  <span className="text-xs text-sky-400 font-medium">Parish Secretary</span>
+                  <Church className="w-3 h-3 text-emerald-400" />
+                  <span className="text-xs text-emerald-400 font-medium">Parish Secretary</span>
                 </div>
               )}
             </div>

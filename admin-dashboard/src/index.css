@@ -328,14 +328,14 @@
 
   /* Role-specific Sidebar Colors */
   .sidebar-parish {
-    --sidebar-background: 238 56% 13%;  /* Deep Indigo-900 #1e1b4b - trust, community leadership */
-    --sidebar-foreground: 238 20% 95%;  /* Indigo-50 #eef2ff for text */
-    --sidebar-primary: 199 89% 48%;     /* Sky-500 #0ea5e9 for primary elements */
+    --sidebar-background: 158 50% 18%;  /* Lighter Emerald - softer green */
+    --sidebar-foreground: 152 81% 96%;  /* Emerald-50 #ecfdf5 for text */
+    --sidebar-primary: 160 84% 39%;     /* Emerald-600 #059669 for primary elements */
     --sidebar-primary-foreground: 0 0% 100%;  /* White text on primary */
-    --sidebar-accent: 238 50% 20%;      /* Indigo-800 #3730a3 for hover states */
-    --sidebar-accent-foreground: 238 20% 95%;  /* Light text on accent */
-    --sidebar-border: 238 45% 25%;      /* Indigo-700 #4338ca for borders */
-    --sidebar-ring: 199 89% 48%;        /* Sky-500 focus ring */
+    --sidebar-accent: 158 50% 24%;      /* Lighter emerald for hover states */
+    --sidebar-accent-foreground: 152 81% 96%;  /* Light text on accent */
+    --sidebar-border: 158 45% 28%;      /* Lighter emerald for borders */
+    --sidebar-ring: 160 84% 39%;        /* Emerald-600 focus ring */
   }
 
   .sidebar-museum {
