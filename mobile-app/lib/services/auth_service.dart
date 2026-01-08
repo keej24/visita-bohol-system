@@ -57,6 +57,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 /// Simple AuthService with Firebase Authentication
 ///
@@ -472,76 +473,80 @@ class AuthService extends ChangeNotifier {
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       debugPrint('📧 Sending password reset email to: $email');
-      debugPrint('   Project: visitaproject-5cd9f');
-      debugPrint('   Auth Domain: visitaproject-5cd9f.firebaseapp.com');
+      debugPrint('   Using Cloud Function with Resend for professional delivery');
 
-      // Configure ActionCodeSettings to handle password reset properly
-      // This helps with mobile deep linking and better user experience
-      final actionCodeSettings = ActionCodeSettings(
-        // Use the default Firebase domain which is always authorized
-        url: 'https://visitaproject-5cd9f.firebaseapp.com',
-        // Don't try to handle in app - let it open in browser
-        // This is more reliable for password reset
-        handleCodeInApp: false,
-        // Include iOS bundle ID for better deep link support
-        iOSBundleId: 'com.example.visitaMobile',
-        // Include Android package name
-        androidPackageName: 'com.example.visita_mobile',
-        // Don't force app installation
-        androidInstallApp: false,
-        // Minimum version (optional)
-        androidMinimumVersion: '1.0.0',
-      );
+      // Use Cloud Function for professional email delivery via Resend
+      // This avoids spam filters and provides beautiful branded emails
+      final functions = FirebaseFunctions.instance;
+      final callable = functions.httpsCallable('sendPasswordResetEmail');
+      
+      final result = await callable.call<Map<String, dynamic>>({
+        'email': email,
+      });
 
-      await _auth.sendPasswordResetEmail(
-        email: email,
-        actionCodeSettings: actionCodeSettings,
-      );
-
-      debugPrint('✅ Password reset email sent successfully');
-      debugPrint('   Link will open in browser for reliable password reset');
-      debugPrint('');
-      debugPrint('⚠️  IMPORTANT FOR USER:');
-      debugPrint('   1. Check your email (including spam folder)');
-      debugPrint('   2. Use incognito/private browsing to open the link');
-      debugPrint('   3. Click the link ONCE only');
-      debugPrint('   4. Complete password reset immediately');
-      debugPrint('   5. Link expires in 1 hour');
-      debugPrint('');
+      final data = result.data;
+      if (data['success'] == true) {
+        debugPrint('✅ Password reset email sent successfully via Resend');
+        debugPrint('   Email should arrive in inbox (not spam!)');
+        debugPrint('');
+        debugPrint('⚠️  IMPORTANT FOR USER:');
+        debugPrint('   1. Check your email inbox');
+        debugPrint('   2. Click the "Reset Password" button');
+        debugPrint('   3. Complete password reset immediately');
+        debugPrint('   4. Link expires in 1 hour');
+        debugPrint('');
+      } else {
+        throw Exception(data['message'] ?? 'Failed to send email');
+      }
     } catch (e) {
       debugPrint('❌ Password reset error: $e');
 
       // Provide user-friendly error messages
       String errorMessage = 'Failed to send password reset email.';
+      final errorStr = e.toString().toLowerCase();
 
+      if (errorStr.contains('user-not-found') || errorStr.contains('not found')) {
+        // For security, don't reveal if user exists
+        debugPrint('✅ Returning success even though user not found (security)');
+        return; // Return silently for security
+      } else if (errorStr.contains('invalid-email') || errorStr.contains('invalid email')) {
+        errorMessage = 'Invalid email address.';
+      } else if (errorStr.contains('too-many-requests')) {
+        errorMessage = 'Too many requests. Please try again in a few minutes.';
+        debugPrint('⚠️  Too many password reset attempts detected.');
+      } else if (errorStr.contains('network') || errorStr.contains('unavailable')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (errorStr.contains('unauthenticated') || errorStr.contains('permission')) {
+        // Cloud function not deployed or misconfigured - fall back to Firebase Auth
+        debugPrint('⚠️  Cloud Function not available. Falling back to Firebase Auth.');
+        await _fallbackPasswordReset(email);
+        return;
+      }
+
+      throw Exception(errorMessage);
+    }
+  }
+
+  /// Fallback to Firebase Auth's built-in password reset
+  /// Used when Cloud Function is not available
+  Future<void> _fallbackPasswordReset(String email) async {
+    try {
+      debugPrint('📧 Using Firebase Auth fallback for password reset');
+      await _auth.sendPasswordResetEmail(email: email);
+      debugPrint('✅ Fallback password reset email sent');
+      debugPrint('⚠️  Note: Email may land in spam folder');
+    } catch (e) {
+      debugPrint('❌ Fallback also failed: $e');
+      String errorMessage = 'Failed to send password reset email.';
+      
       if (e.toString().contains('user-not-found')) {
-        errorMessage = 'No account found with this email address.';
+        return; // Security: don't reveal if user exists
       } else if (e.toString().contains('invalid-email')) {
         errorMessage = 'Invalid email address.';
       } else if (e.toString().contains('too-many-requests')) {
-        errorMessage = 'Too many requests. Please try again in a few minutes.';
-        debugPrint('⚠️  Too many password reset attempts detected.');
-        debugPrint('   This is a security measure. Please wait 5-10 minutes.');
-      } else if (e.toString().contains('network-request-failed')) {
-        errorMessage = 'Network error. Please check your internet connection.';
-      } else if (e.toString().contains('unauthorized-domain') ||
-          e.toString().contains('invalid-continue-uri')) {
-        errorMessage = 'Configuration error. Using default settings instead.';
-        debugPrint('⚠️  Domain authorization issue detected.');
-        debugPrint('   Falling back to default Firebase configuration.');
-
-        // Retry without custom ActionCodeSettings
-        try {
-          await _auth.sendPasswordResetEmail(email: email);
-          debugPrint('✅ Retry successful with default configuration');
-          return; // Success on retry
-        } catch (retryError) {
-          debugPrint('❌ Retry also failed: $retryError');
-          errorMessage =
-              'Failed to send password reset email. Please try again later.';
-        }
+        errorMessage = 'Too many requests. Please try again later.';
       }
-
+      
       throw Exception(errorMessage);
     }
   }
