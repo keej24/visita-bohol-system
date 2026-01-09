@@ -180,11 +180,41 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '1. Check your email inbox\n'
+                          '1. Check your email inbox (and spam/junk folder!)\n'
                           '2. Click the reset link ONCE\n'
                           '3. Complete the password reset in your browser\n'
                           '4. Return to the app and sign in with new password',
                           style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.blue.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade700,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Email may take 2-5 minutes to arrive. Check spam folder if not in inbox.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue.shade800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Container(

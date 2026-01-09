@@ -372,10 +372,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
     setSendingEmail(true);
     setEmailError(null);
     try {
-      await sendPasswordResetEmail(auth, credentials.email, {
-        url: `${window.location.origin}/login`,
-        handleCodeInApp: false
-      });
+      await sendPasswordResetEmail(auth, credentials.email);
       setEmailSent(true);
       console.log('✅ Password reset email resent to:', credentials.email);
     } catch (err) {

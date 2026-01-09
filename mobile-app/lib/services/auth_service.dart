@@ -472,8 +472,10 @@ class AuthService extends ChangeNotifier {
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       debugPrint('📧 Sending password reset email to: $email');
+
       await _auth.sendPasswordResetEmail(email: email);
-      debugPrint('✅ Password reset email sent using Firebase Auth');
+
+      debugPrint('✅ Password reset email sent successfully');
     } catch (e) {
       debugPrint('❌ Password reset error: $e');
       throw Exception('Failed to send password reset email.');

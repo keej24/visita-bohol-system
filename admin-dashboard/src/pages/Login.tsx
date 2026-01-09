@@ -185,11 +185,8 @@ const Login = () => {
 
     setResetLoading(true);
     try {
-      // Use Firebase Auth's native password reset (no domain required)
-      await sendPasswordResetEmail(auth, resetEmail, {
-        url: window.location.origin + '/login',
-        handleCodeInApp: false,
-      });
+      // Use Firebase Auth's native password reset
+      await sendPasswordResetEmail(auth, resetEmail);
       
       toast({
         title: "Success",
