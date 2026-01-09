@@ -473,63 +473,12 @@ class AuthService extends ChangeNotifier {
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       debugPrint('📧 Sending password reset email to: $email');
-      debugPrint(
-          '   Using Cloud Function with Resend for professional delivery');
-
-      // Use Cloud Function for professional email delivery via Resend
-      // This avoids spam filters and provides beautiful branded emails
-      final functions = FirebaseFunctions.instance;
-      final callable = functions.httpsCallable('sendPasswordResetEmail');
-
-      final result = await callable.call<Map<String, dynamic>>({
-        'email': email,
-      });
-
-      final data = result.data;
-      if (data['success'] == true) {
-        debugPrint('✅ Password reset email sent successfully via Resend');
-        debugPrint('   Email should arrive in inbox (not spam!)');
-        debugPrint('');
-        debugPrint('⚠️  IMPORTANT FOR USER:');
-        debugPrint('   1. Check your email inbox');
-        debugPrint('   2. Click the "Reset Password" button');
-        debugPrint('   3. Complete password reset immediately');
-        debugPrint('   4. Link expires in 1 hour');
-        debugPrint('');
-      } else {
-        throw Exception(data['message'] ?? 'Failed to send email');
-      }
+      await _auth.sendPasswordResetEmail(email: email);
+      debugPrint('✅ Password reset email sent using Firebase Auth');
+      debugPrint('⚠️  Note: Email may land in spam folder');
     } catch (e) {
       debugPrint('❌ Password reset error: $e');
-
-      // Provide user-friendly error messages
-      String errorMessage = 'Failed to send password reset email.';
-      final errorStr = e.toString().toLowerCase();
-
-      if (errorStr.contains('user-not-found') ||
-          errorStr.contains('not found')) {
-        // For security, don't reveal if user exists
-        debugPrint('✅ Returning success even though user not found (security)');
-        return; // Return silently for security
-      } else if (errorStr.contains('invalid-email') ||
-          errorStr.contains('invalid email')) {
-        errorMessage = 'Invalid email address.';
-      } else if (errorStr.contains('too-many-requests')) {
-        errorMessage = 'Too many requests. Please try again in a few minutes.';
-        debugPrint('⚠️  Too many password reset attempts detected.');
-      } else if (errorStr.contains('network') ||
-          errorStr.contains('unavailable')) {
-        errorMessage = 'Network error. Please check your internet connection.';
-      } else if (errorStr.contains('unauthenticated') ||
-          errorStr.contains('permission')) {
-        // Cloud function not deployed or misconfigured - fall back to Firebase Auth
-        debugPrint(
-            '⚠️  Cloud Function not available. Falling back to Firebase Auth.');
-        await _fallbackPasswordReset(email);
-        return;
-      }
-
-      throw Exception(errorMessage);
+      throw Exception('Failed to send password reset email.');
     }
   }
 
