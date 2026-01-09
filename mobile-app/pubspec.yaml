@@ -27,7 +27,6 @@ dependencies:
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.3
   firebase_storage: ^12.3.2
-  cloud_functions: ^5.1.3
   # New for location validation & photo uploads
   # Geolocator updated (ensure platform impl uses v2 embedding)
   geolocator: ^11.1.0

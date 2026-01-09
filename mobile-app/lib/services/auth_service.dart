@@ -57,7 +57,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 
 /// Simple AuthService with Firebase Authentication
 ///
@@ -475,34 +474,9 @@ class AuthService extends ChangeNotifier {
       debugPrint('📧 Sending password reset email to: $email');
       await _auth.sendPasswordResetEmail(email: email);
       debugPrint('✅ Password reset email sent using Firebase Auth');
-      debugPrint('⚠️  Note: Email may land in spam folder');
     } catch (e) {
       debugPrint('❌ Password reset error: $e');
       throw Exception('Failed to send password reset email.');
-    }
-  }
-
-  /// Fallback to Firebase Auth's built-in password reset
-  /// Used when Cloud Function is not available
-  Future<void> _fallbackPasswordReset(String email) async {
-    try {
-      debugPrint('📧 Using Firebase Auth fallback for password reset');
-      await _auth.sendPasswordResetEmail(email: email);
-      debugPrint('✅ Fallback password reset email sent');
-      debugPrint('⚠️  Note: Email may land in spam folder');
-    } catch (e) {
-      debugPrint('❌ Fallback also failed: $e');
-      String errorMessage = 'Failed to send password reset email.';
-
-      if (e.toString().contains('user-not-found')) {
-        return; // Security: don't reveal if user exists
-      } else if (e.toString().contains('invalid-email')) {
-        errorMessage = 'Invalid email address.';
-      } else if (e.toString().contains('too-many-requests')) {
-        errorMessage = 'Too many requests. Please try again later.';
-      }
-
-      throw Exception(errorMessage);
     }
   }
 
