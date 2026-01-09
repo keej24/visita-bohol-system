@@ -34,8 +34,8 @@ const getResendClient = () => {
 
 // Email templates
 const EMAIL_CONFIG = {
-  from: "VISITA Bohol Churches <noreply@visita-bohol.com>", // Update with your verified domain
-  replyTo: "support@visita-bohol.com", // Optional: where replies go
+  from: "VISITA Bohol Churches <noreply@visita-bohol-system.vercel.app>", // Use a domain you control
+  replyTo: "support@visita-bohol-system.vercel.app", // Optional: where replies go
 };
 
 /**
