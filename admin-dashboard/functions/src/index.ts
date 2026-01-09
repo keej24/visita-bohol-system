@@ -21,11 +21,13 @@ import { Resend } from "resend";
 // Initialize Firebase Admin
 admin.initializeApp();
 
-// Initialize Resend with API key from Firebase config
+// Initialize Resend with API key from environment params (Firebase Functions v2+)
 const getResendClient = () => {
-  const apiKey = functions.config().resend?.api_key;
+  const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    throw new Error("Resend API key not configured. Run: firebase functions:config:set resend.api_key=\"your-api-key\"");
+    throw new Error(
+      "Resend API key not configured. Set RESEND_API_KEY in params.yaml or your environment. See Firebase Functions params migration guide."
+    );
   }
   return new Resend(apiKey);
 };
