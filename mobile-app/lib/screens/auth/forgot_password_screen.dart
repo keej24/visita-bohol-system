@@ -180,10 +180,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '1. Check your email inbox (and spam/junk folder!)\n'
-                          '2. Click the reset link ONCE\n'
-                          '3. Complete the password reset in your browser\n'
-                          '4. Return to the app and sign in with new password',
+                          '1. Check your email inbox AND spam/junk folder\n'
+                          '2. Look for email from "noreply@visitaproject-5cd9f.firebaseapp.com"\n'
+                          '3. Mark as "Not Spam" if found in spam folder\n'
+                          '4. Click the reset link ONCE\n'
+                          '5. Complete the password reset in your browser',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 12),

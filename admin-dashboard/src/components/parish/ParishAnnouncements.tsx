@@ -48,22 +48,76 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
         userId: userProfile.uid
       });
 
-      // Auto-archive past events
-      const archivedCount = await AnnouncementService.autoArchivePastEvents(userProfile.diocese);
-
-      if (archivedCount > 0) {
-        toast({
-          title: "Auto-Archive",
-          description: `${archivedCount} past event${archivedCount > 1 ? 's' : ''} automatically archived`,
-        });
-      }
-
       // Load current parish announcements - only show announcements created by this user
       const data = await AnnouncementService.getAnnouncements(userProfile.diocese, {
         isArchived: false,
         scope: 'parish',
         createdBy: userProfile.uid // Only show announcements created by this user
       });
+
+      // Auto-archive past events only for this user's announcements
+      // (Parish secretaries can only archive their own announcements)
+      try {
+        const now = new Date();
+        let archivedCount = 0;
+        for (const announcement of data) {
+          let shouldArchive = false;
+
+          if (announcement.endDate && announcement.endDate < now) {
+            shouldArchive = true;
+          } else if (!announcement.endDate && announcement.eventDate) {
+            const eventDate = new Date(announcement.eventDate);
+            
+            if (announcement.endTime) {
+              const [hours, minutes] = announcement.endTime.split(':').map(Number);
+              const eventEndDateTime = new Date(eventDate);
+              eventEndDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+              if (eventEndDateTime < now) {
+                shouldArchive = true;
+              }
+            } else if (announcement.eventTime) {
+              const [hours, minutes] = announcement.eventTime.split(':').map(Number);
+              const eventDateTime = new Date(eventDate);
+              eventDateTime.setHours(hours || 0, minutes || 0, 0, 0);
+              if (eventDateTime < now) {
+                shouldArchive = true;
+              }
+            } else {
+              const eventEndOfDay = new Date(eventDate);
+              eventEndOfDay.setHours(23, 59, 59, 999);
+              if (eventEndOfDay < now) {
+                shouldArchive = true;
+              }
+            }
+          }
+
+          if (shouldArchive && !announcement.isArchived) {
+            console.log(`📦 Auto-archiving past announcement: "${announcement.title}"`);
+            await AnnouncementService.archiveAnnouncement(announcement.id);
+            archivedCount++;
+          }
+        }
+
+        if (archivedCount > 0) {
+          toast({
+            title: "Auto-Archive",
+            description: `${archivedCount} past event${archivedCount > 1 ? 's' : ''} automatically archived`,
+          });
+          // Reload data since we archived some announcements
+          const refreshedData = await AnnouncementService.getAnnouncements(userProfile.diocese, {
+            isArchived: false,
+            scope: 'parish',
+            createdBy: userProfile.uid
+          });
+          const parishAnnouncements = refreshedData.filter(a => a.parishId === churchId);
+          setAnnouncements(parishAnnouncements);
+          setIsLoading(false);
+          return;
+        }
+      } catch (archiveError) {
+        console.warn('Auto-archive failed (non-critical):', archiveError);
+        // Continue loading announcements even if auto-archive fails
+      }
 
       console.log('📋 [PARISH ANNOUNCEMENTS] Fetched announcements:', {
         total: data.length,
