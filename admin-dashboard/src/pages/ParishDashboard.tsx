@@ -328,12 +328,8 @@ const ParishDashboard = () => {
             setChurchId(church.id);
             setChurchInfo(convertChurchToInfo(church));
 
-            // Show form for draft or pending status, otherwise show overview
-            if (church.status === 'pending' || church.status === 'draft') {
-              setCurrentView('profile');
-            } else {
-              setCurrentView('overview');
-            }
+            // Always show overview on load - user can click Edit Profile to edit
+            setCurrentView('overview');
           } else {
             // No existing church - initialize with default data but don't show form yet
             console.log('⚠️ [PARISH DASHBOARD] No church found for:', {
@@ -442,24 +438,6 @@ const ParishDashboard = () => {
     const visitKey = `parish_dashboard_visited_${userProfile?.uid || 'user'}`;
     localStorage.setItem(visitKey, 'true');
   };
-
-  // Show profile form immediately on first visit
-  useEffect(() => {
-    let isMounted = true;
-    
-    const visitKey = `parish_dashboard_visited_${userProfile?.uid || 'user'}`;
-    const isFirstVisit = !localStorage.getItem(visitKey);
-    
-    // Show form immediately on first visit OR if profile status is pending/draft/incomplete
-    // Only update state if component is still mounted
-    if (isMounted && (isFirstVisit || churchInfo.status === 'pending' || churchInfo.status === 'draft' || !churchInfo.churchName)) {
-      setCurrentView('profile');
-    }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [churchInfo.churchName, userProfile?.uid]); // eslint-disable-line react-hooks/exhaustive-deps -- Removed churchInfo.status to prevent view changes on status updates
 
   // Handle activeTab changes from sidebar
   useEffect(() => {
