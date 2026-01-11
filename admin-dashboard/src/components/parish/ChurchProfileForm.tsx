@@ -123,7 +123,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       religiousClassification: initialData?.historicalDetails?.religiousClassification || 'None',
       religiousClassifications: initialData?.historicalDetails?.religiousClassifications || 
         (initialData?.historicalDetails?.religiousClassification && initialData?.historicalDetails?.religiousClassification !== 'None' 
-          ? [initialData?.historicalDetails?.religiousClassification as 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity'] 
+          ? [initialData?.historicalDetails?.religiousClassification as 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door'] 
           : []),
       supportingDocuments: initialData?.historicalDetails?.supportingDocuments || [],
       architecturalFeatures: initialData?.historicalDetails?.architecturalFeatures || '',
@@ -399,7 +399,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     }
   };
 
-  const toggleReligiousClassification = (classification: 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity') => {
+  const toggleReligiousClassification = (classification: 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door') => {
     setFormData(prev => {
       const current = prev.historicalDetails.religiousClassifications || [];
       const isSelected = current.includes(classification);
@@ -1549,7 +1549,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </Label>
                       <p className="text-xs text-gray-500 -mt-1">Select all that apply</p>
                       <div className="space-y-3 pl-1">
-                        {(['Diocesan Shrine', 'Jubilee Church', 'Papal Basilica Affinity'] as const).map((classification) => (
+                        {(['Diocesan Shrine', 'Jubilee Church', 'Papal Basilica Affinity', 'Holy Door'] as const).map((classification) => (
                           <div key={classification} className="flex items-center space-x-3">
                             <Checkbox
                               id={`religious-${classification}`}
@@ -1842,7 +1842,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                                             <span className="text-sm font-medium text-gray-800">
                                               {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
                                             </span>
-                                            {schedule.language && schedule.language !== 'Filipino' && (
+                                            {schedule.language && (
                                               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
                                                 🌐 {schedule.language}
                                               </Badge>
@@ -1900,7 +1900,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                                               <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                                                 {dayAbbreviations}
                                               </span>
-                                              {schedule.language && schedule.language !== 'Cebuano' && (
+                                              {schedule.language && (
                                                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
                                                   🌐 {schedule.language}
                                                 </Badge>
@@ -1951,7 +1951,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                                             <span className="text-sm font-medium text-gray-800">
                                               {formatTime(schedule.time)} – {formatTime(schedule.endTime)}
                                             </span>
-                                            {schedule.language && schedule.language !== 'Cebuano' && (
+                                            {schedule.language && (
                                               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
                                                 🌐 {schedule.language}
                                               </Badge>

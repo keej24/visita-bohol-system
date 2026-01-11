@@ -28,7 +28,7 @@ export interface LocationDetails {
   province: string;
 }
 
-export type ReligiousClassificationType = 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity';
+export type ReligiousClassificationType = 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door';
 
 export interface HistoricalDetails {
   foundingYear: string;

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, CheckCircle2, ArrowRight, AlertTriangle, Info, Clock, Building2, Eye, Edit3, Check, MessageSquare } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowRight, AlertTriangle, Info, Clock, Building2, Eye, Edit3, Check, MessageSquare, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SecurityReviewChecklist } from "./SecurityReviewChecklist";
 
@@ -29,6 +29,9 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
   // State for security review checklist dialog
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [churchToApprove, setChurchToApprove] = useState<Church | null>(null);
+  
+  // State for dismissed note banners (by church ID)
+  const [dismissedNotes, setDismissedNotes] = useState<Set<string>>(new Set());
 
   const { data, isLoading, isError, isFetching } = useQuery<Church[]>({
     queryKey: ["churches", diocese, statuses],
@@ -202,7 +205,7 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                 workflowStateMachine.getValidTransitions(c.status, userProfile.role) : [];
               
               // Check CURRENT heritage classification - prioritize historicalDetails over legacy classification field
-              const currentHeritageClass = (c as any).historicalDetails?.heritageClassification || c.classification;
+              const currentHeritageClass = c.historicalDetails?.heritageClassification || c.classification;
               const isCurrentlyHeritage = currentHeritageClass === 'National Cultural Treasures' || 
                                           currentHeritageClass === 'Important Cultural Properties' ||
                                           currentHeritageClass === 'ICP' || 
@@ -296,13 +299,20 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                   )}
 
                   {/* Note from Museum Researcher - shows when classification was changed to non-heritage */}
-                  {c.lastReviewNote && c.status === 'pending' && c.lastReviewNote.includes('Returned to Chancery') && (
-                    <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs">
-                      <div className="flex items-center gap-1 text-amber-700">
+                  {c.lastReviewNote && c.status === 'pending' && c.lastReviewNote.includes('Returned to Chancery') && !dismissedNotes.has(c.id) && (
+                    <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs relative">
+                      <button
+                        onClick={() => setDismissedNotes(prev => new Set(prev).add(c.id))}
+                        className="absolute top-1 right-1 p-0.5 text-amber-500 hover:text-amber-700 hover:bg-amber-100 rounded"
+                        aria-label="Dismiss note"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="flex items-center gap-1 text-amber-700 pr-4">
                         <MessageSquare className="w-3 h-3" />
                         <span className="font-medium">Note from Museum Researcher</span>
                       </div>
-                      <div className="text-amber-600 mt-1">
+                      <div className="text-amber-600 mt-1 pr-4">
                         {c.lastReviewNote}
                       </div>
                     </div>

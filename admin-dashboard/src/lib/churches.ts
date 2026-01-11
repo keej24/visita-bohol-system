@@ -70,6 +70,16 @@ export interface Church {
     dateIssued?: string; // ISO string for now
     notes?: string;
   };
+  // Parish form historical details (includes heritage classification)
+  historicalDetails?: {
+    heritageClassification?: 'National Cultural Treasures' | 'Important Cultural Properties' | 'None';
+    foundingYear?: string;
+    founders?: string;
+    architecturalStyle?: string;
+    historicalBackground?: string;
+    majorHistoricalEvents?: string;
+    religiousClassifications?: string[];
+  };
   heritageResearcher?: string; // uid
   lastHeritageUpdate?: Timestamp;
   createdAt?: Timestamp;
