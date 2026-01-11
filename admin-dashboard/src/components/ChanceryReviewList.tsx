@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getChurchesByDiocese, type Church, type ChurchStatus, updateChurchStatusWithValidation } from "@/lib/churches";
 import { shouldRequireHeritageReview, assessHeritageSignificance } from "@/lib/heritage-detection";
@@ -11,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, CheckCircle2, ArrowRight, AlertTriangle, Info, Clock, Building2, Eye, Edit3, Check, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SecurityReviewChecklist } from "./SecurityReviewChecklist";
 
 interface Props {
   diocese: "tagbilaran" | "talibon";
@@ -23,6 +25,10 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const statuses: ChurchStatus[] = ["pending", "heritage_review"];
+  
+  // State for security review checklist dialog
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [churchToApprove, setChurchToApprove] = useState<Church | null>(null);
 
   const { data, isLoading, isError, isFetching } = useQuery<Church[]>({
     queryKey: ["churches", diocese, statuses],
@@ -121,7 +127,14 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
     }
   };
 
-  const handleApprove = async (church: Church) => {
+  // Opens the security review checklist dialog instead of direct approval
+  const handleApproveClick = (church: Church) => {
+    setChurchToApprove(church);
+    setReviewDialogOpen(true);
+  };
+
+  // Called after security checklist is confirmed
+  const handleApproveConfirmed = async (church: Church) => {
     await handleStatusChange(church.id, 'approved', church);
   };
 
@@ -187,6 +200,13 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
               const shouldAutoForward = heritageAssessment?.shouldRequireReview;
               const validTransitions = userProfile ?
                 workflowStateMachine.getValidTransitions(c.status, userProfile.role) : [];
+              
+              // Check CURRENT heritage classification - prioritize historicalDetails over legacy classification field
+              const currentHeritageClass = (c as any).historicalDetails?.heritageClassification || c.classification;
+              const isCurrentlyHeritage = currentHeritageClass === 'National Cultural Treasures' || 
+                                          currentHeritageClass === 'Important Cultural Properties' ||
+                                          currentHeritageClass === 'ICP' || 
+                                          currentHeritageClass === 'NCT';
 
               return (
                 <div key={c.id} className="p-2 sm:p-3 rounded-lg bg-secondary/30">
@@ -223,12 +243,24 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] sm:text-xs capitalize ${getStatusBadgeColor(c.status)}`}
-                      >
-                        {c.status.replace("_", " ")}
-                      </Badge>
+                      {/* Status Badge - Show adjusted status if heritage classification changed */}
+                      {(() => {
+                        // If status is heritage_review but classification is no longer heritage, show "Pending" instead
+                        const displayStatus = (c.status === 'heritage_review' && !isCurrentlyHeritage) 
+                          ? 'pending' 
+                          : c.status;
+                        const displayColor = (c.status === 'heritage_review' && !isCurrentlyHeritage)
+                          ? getStatusBadgeColor('pending')
+                          : getStatusBadgeColor(c.status);
+                        return (
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] sm:text-xs capitalize ${displayColor}`}
+                          >
+                            {displayStatus.replace("_", " ")}
+                          </Badge>
+                        );
+                      })()}
 
                       {validTransitions.length > 0 && (
                         <Tooltip>
@@ -251,14 +283,14 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                     </div>
                   </div>
 
-                  {shouldAutoForward && (
+                  {isCurrentlyHeritage && c.status !== 'heritage_review' && (
                     <div className="mb-2 p-2 bg-orange-100 border border-orange-300 rounded text-xs">
                       <div className="flex items-center gap-1 text-orange-700">
                         <AlertTriangle className="w-3 h-3" />
                         <span className="font-medium">Heritage Review Required</span>
                       </div>
                       <div className="text-orange-600 mt-1">
-                        This church will be automatically forwarded for heritage validation.
+                        This church is classified as heritage and must be forwarded for museum validation.
                       </div>
                     </div>
                   )}
@@ -297,8 +329,8 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                       <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" /> <span className="hidden sm:inline">Edit</span>
                     </Button>
 
-                    {/* Heritage Review Button - Show for explicit heritage or high-confidence assessments */}
-                    {(c.classification === 'ICP' || c.classification === 'NCT' || shouldAutoForward) && (
+                    {/* Heritage Review Button - Only show for actual heritage churches (ICP/NCT) */}
+                    {isCurrentlyHeritage && (
                       <Button
                         variant={c.status === 'heritage_review' ? 'default' : 'outline'}
                         size="sm"
@@ -321,11 +353,11 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
 
 
                     {/* Smart Approval Button - Only show for non-heritage churches */}
-                    {c.classification !== 'ICP' && c.classification !== 'NCT' && (
+                    {!isCurrentlyHeritage && (
                       <Button
                         variant="heritage"
                         size="sm"
-                        onClick={() => handleApprove(c)}
+                        onClick={() => handleApproveClick(c)}
                         className={cn("h-8 px-2 sm:px-3 text-xs sm:text-sm", shouldAutoForward ? 'opacity-75' : '')}
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1" />
@@ -340,6 +372,18 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
           </TooltipProvider>
         )}
       </CardContent>
+
+      {/* Security Review Checklist Dialog */}
+      <SecurityReviewChecklist
+        church={churchToApprove}
+        isOpen={reviewDialogOpen}
+        onClose={() => {
+          setReviewDialogOpen(false);
+          setChurchToApprove(null);
+        }}
+        onApprove={handleApproveConfirmed}
+        isHeritage={churchToApprove?.classification === 'ICP' || churchToApprove?.classification === 'NCT'}
+      />
     </Card>
   );
 }

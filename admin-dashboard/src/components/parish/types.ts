@@ -28,6 +28,8 @@ export interface LocationDetails {
   province: string;
 }
 
+export type ReligiousClassificationType = 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity';
+
 export interface HistoricalDetails {
   foundingYear: string;
   founders: string;
@@ -35,7 +37,8 @@ export interface HistoricalDetails {
   historicalBackground: string;
   majorHistoricalEvents: string;
   heritageClassification: 'National Cultural Treasures' | 'Important Cultural Properties' | 'None';
-  religiousClassification: 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'None';
+  religiousClassification?: string; // Deprecated: use religiousClassifications
+  religiousClassifications: ReligiousClassificationType[];
   supportingDocuments?: FileUpload[];
   // Architectural and Heritage Information
   architecturalFeatures?: string;
@@ -53,6 +56,8 @@ export interface FileUpload {
   status: 'pending' | 'approved';
   fileSize?: number;
   description?: string;
+  /** Controls whether this file is visible to public users. 'internal' files are only visible to parish staff and reviewers */
+  visibility?: 'public' | 'internal';
 }
 
 export interface Virtual360Image {
@@ -70,6 +75,8 @@ export interface Virtual360Image {
   category: 'interior' | 'exterior' | 'altar' | 'entrance' | 'grounds';
   aspectRatio?: number;
   dimensions?: { width: number; height: number };
+  /** Controls whether this image is visible to public users. 'internal' images are only visible to parish staff and reviewers */
+  visibility?: 'public' | 'internal';
 }
 
 export interface ChurchInfo {
@@ -95,6 +102,12 @@ export interface ChurchInfo {
   photos: FileUpload[];
   documents: FileUpload[];
   virtual360Images: Virtual360Image[];
+  
+  // Consent & Ethics
+  /** Confirms the parish priest has reviewed and approved all content for public display */
+  parishConsentConfirmed?: boolean;
+  /** Confirms content contains no devotional materials requiring additional consent */
+  devotionalContentAcknowledged?: boolean;
   
   // Legacy fields for compatibility
   name: string;

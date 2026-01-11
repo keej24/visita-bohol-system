@@ -2,7 +2,9 @@ import React, { useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, Camera, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Upload, X, Camera, Loader2, ShieldAlert, Lock, Globe } from 'lucide-react';
 
 interface Photo {
   id: string;
@@ -13,6 +15,7 @@ interface Photo {
   type?: 'photo' | 'document' | '360' | 'heritage-doc';
   status?: 'pending' | 'approved';
   uploadDate?: string;
+  visibility?: 'public' | 'internal';
 }
 
 interface PhotoUploaderProps {
@@ -96,6 +99,14 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Security Notice */}
+      <Alert className="bg-amber-50 border-amber-200">
+        <ShieldAlert className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="text-amber-800 text-sm">
+          <strong>Photo Guidelines:</strong> Avoid close-up photos of removable valuable items such as antique statues, gold relics, or jewelry. Focus on architectural features and the overall church environment to protect sacred artifacts.
+        </AlertDescription>
+      </Alert>
+
       {/* Upload Area */}
       {canAddMore && (
         <div
@@ -137,24 +148,61 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
           <h4 className="font-medium text-gray-900 mb-3">
             Uploaded Photos ({photos.length}/{maxPhotos})
           </h4>
+          <TooltipProvider>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {photos.map((photo, index) => (
               <div key={photo.id || `photo-${index}`} className="relative group">
-                <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
+                <div className={`aspect-square rounded-lg overflow-hidden bg-gray-100 border-2 ${photo.visibility === 'internal' ? 'border-amber-400' : 'border-gray-200'}`}>
                   <img
                     src={photo.url}
                     alt={photo.name}
                     className="w-full h-full object-cover"
                   />
+                  {/* Internal badge overlay */}
+                  {photo.visibility === 'internal' && (
+                    <div className="absolute top-2 left-2">
+                      <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-300 shadow-sm">
+                        <Lock className="w-3 h-3 mr-1" /> Internal
+                      </Badge>
+                    </div>
+                  )}
                 </div>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => removePhoto(photo.id)}
-                  className="absolute top-2 right-2 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+                {/* Action buttons */}
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Visibility Toggle */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          const updatedPhotos = photos.map(p => 
+                            p.id === photo.id 
+                              ? { ...p, visibility: p.visibility === 'internal' ? 'public' as const : 'internal' as const }
+                              : p
+                          );
+                          onPhotosChange(updatedPhotos);
+                        }}
+                        className={`h-8 w-8 p-0 ${photo.visibility === 'internal' ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' : 'bg-white/90 hover:bg-white text-gray-600'}`}
+                      >
+                        {photo.visibility === 'internal' ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {photo.visibility === 'internal' 
+                        ? "Internal Only - Click to make public" 
+                        : "Public - Click to mark as internal"}
+                    </TooltipContent>
+                  </Tooltip>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => removePhoto(photo.id)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
                 <p className="text-xs text-gray-600 mt-1 truncate">{photo.name}</p>
                 {photo.size && (
                   <p className="text-xs text-gray-500">
@@ -164,6 +212,7 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
               </div>
             ))}
           </div>
+          </TooltipProvider>
         </div>
       )}
     </div>

@@ -2,7 +2,9 @@ import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, FileText, File, Loader2, ExternalLink, Eye } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Upload, X, FileText, File, Loader2, ExternalLink, Eye, ShieldAlert, Lock, Globe } from 'lucide-react';
 
 interface Document {
   id: string;
@@ -13,6 +15,7 @@ interface Document {
   type?: 'photo' | 'document' | '360' | 'heritage-doc';
   status?: 'pending' | 'approved';
   uploadDate?: string;
+  visibility?: 'public' | 'internal';
 }
 
 interface DocumentUploaderProps {
@@ -128,6 +131,14 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Security Notice */}
+      <Alert className="bg-amber-50 border-amber-200">
+        <ShieldAlert className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="text-amber-800 text-sm">
+          <strong>Document Guidelines:</strong> Do not upload documents containing artifact inventories, monetary valuations, security measure details, or storage locations of valuable church property.
+        </AlertDescription>
+      </Alert>
+
       {/* Upload Area */}
       {canAddMore && (
         <div
@@ -170,6 +181,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
             Uploaded Documents ({documents.length}/{maxDocuments})
           </h4>
           <div className="space-y-2">
+            <TooltipProvider>
             {documents.map((doc) => (
               <Card key={doc.id} className="hover:bg-gray-50 transition-colors">
                 <CardContent className="p-4">
@@ -183,9 +195,16 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                         {getFileIcon(doc.type)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
-                          {doc.name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
+                            {doc.name}
+                          </p>
+                          {doc.visibility === 'internal' && (
+                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
+                              <Lock className="w-3 h-3 mr-1" /> Internal
+                            </Badge>
+                          )}
+                        </div>
                         {doc.size && (
                           <p className="text-sm text-gray-500">
                             {(doc.size / (1024 * 1024)).toFixed(1)} MB
@@ -199,7 +218,34 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {/* Visibility Toggle */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const updatedDocs = documents.map(d => 
+                                d.id === doc.id 
+                                  ? { ...d, visibility: d.visibility === 'internal' ? 'public' as const : 'internal' as const }
+                                  : d
+                              );
+                              onDocumentsChange(updatedDocs);
+                            }}
+                            className={doc.visibility === 'internal' 
+                              ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" 
+                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"}
+                          >
+                            {doc.visibility === 'internal' ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {doc.visibility === 'internal' 
+                            ? "Internal Only - Not visible to public. Click to make public." 
+                            : "Public - Visible to all users. Click to mark as internal only."}
+                        </TooltipContent>
+                      </Tooltip>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -223,6 +269,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                 </CardContent>
               </Card>
             ))}
+            </TooltipProvider>
           </div>
         </div>
       )}

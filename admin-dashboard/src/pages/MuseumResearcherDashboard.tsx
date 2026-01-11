@@ -24,6 +24,7 @@ import { ChurchDetailModal } from '@/components/ChurchDetailModal';
 import { ChurchService } from '@/services/churchService';
 import { ChurchInfo } from '@/components/parish/types';
 import { notifyChurchStatusChange } from '@/lib/notifications';
+import { HeritageValidationChecklist } from '@/components/HeritageValidationChecklist';
 
 
 
@@ -37,6 +38,10 @@ const MuseumResearcherDashboard = () => {
   const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Heritage validation checklist dialog state
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [churchToValidate, setChurchToValidate] = useState<Church | null>(null);
 
 
   // Fetch heritage review churches from both dioceses
@@ -237,6 +242,13 @@ const MuseumResearcherDashboard = () => {
     }
   };
 
+  // Opens the heritage validation checklist dialog
+  const handleValidateClick = (church: Church) => {
+    setChurchToValidate(church);
+    setValidationDialogOpen(true);
+  };
+
+  // Called after validation checklist is confirmed
   const handleValidateChurch = async (church: Church) => {
     if (!userProfile) return;
 
@@ -471,11 +483,11 @@ const MuseumResearcherDashboard = () => {
                         <Edit className="w-4 h-4 mr-1" /> Edit
                       </Button>
 
-                      {/* Approve & Publish Button */}
+                      {/* Approve & Publish Button - Opens validation checklist */}
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleValidateChurch(church)}
+                        onClick={() => handleValidateClick(church)}
                         disabled={isSubmitting}
                         className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 disabled:opacity-50"
                       >
@@ -484,7 +496,7 @@ const MuseumResearcherDashboard = () => {
                         ) : (
                           <CheckCircle className="w-4 h-4 mr-1" />
                         )}
-                        Approve & Publish
+                        Validate & Publish
                       </Button>
                     </div>
                   </div>
@@ -494,6 +506,17 @@ const MuseumResearcherDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Heritage Validation Checklist Dialog */}
+      <HeritageValidationChecklist
+        church={churchToValidate}
+        isOpen={validationDialogOpen}
+        onClose={() => {
+          setValidationDialogOpen(false);
+          setChurchToValidate(null);
+        }}
+        onValidate={handleValidateChurch}
+      />
 
       {/* Church Detail Modal */}
       <ChurchDetailModal

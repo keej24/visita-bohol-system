@@ -32,7 +32,8 @@ import {
   Landmark,
   Image,
   RotateCcw,
-  Loader2
+  Loader2,
+  ShieldCheck
 } from 'lucide-react';
 import { ChurchInfo, MassSchedule } from './types';
 import { VirtualTourManager } from '../360/VirtualTourManager';
@@ -120,6 +121,10 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       majorHistoricalEvents: initialData?.historicalDetails?.majorHistoricalEvents || '',
       heritageClassification: initialData?.historicalDetails?.heritageClassification || 'None',
       religiousClassification: initialData?.historicalDetails?.religiousClassification || 'None',
+      religiousClassifications: initialData?.historicalDetails?.religiousClassifications || 
+        (initialData?.historicalDetails?.religiousClassification && initialData?.historicalDetails?.religiousClassification !== 'None' 
+          ? [initialData?.historicalDetails?.religiousClassification as 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity'] 
+          : []),
       supportingDocuments: initialData?.historicalDetails?.supportingDocuments || [],
       architecturalFeatures: initialData?.historicalDetails?.architecturalFeatures || '',
       heritageInformation: initialData?.historicalDetails?.heritageInformation || ''
@@ -140,6 +145,10 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     photos: initialData?.photos || [],
     documents: initialData?.documents || [],
     virtual360Images: initialData?.virtual360Images || [],
+
+    // Consent & Ethics
+    parishConsentConfirmed: initialData?.parishConsentConfirmed || false,
+    devotionalContentAcknowledged: initialData?.devotionalContentAcknowledged || false,
 
     // Legacy compatibility fields
     name: initialData?.name || '',
@@ -388,6 +397,25 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     if (touchedFields.has(field)) {
       updateFieldError(field, value);
     }
+  };
+
+  const toggleReligiousClassification = (classification: 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity') => {
+    setFormData(prev => {
+      const current = prev.historicalDetails.religiousClassifications || [];
+      const isSelected = current.includes(classification);
+      const updated = isSelected
+        ? current.filter(c => c !== classification)
+        : [...current, classification];
+      return {
+        ...prev,
+        historicalDetails: { 
+          ...prev.historicalDetails, 
+          religiousClassifications: updated,
+          // Keep legacy field in sync for backward compatibility
+          religiousClassification: updated.length > 0 ? updated[0] : 'None'
+        }
+      };
+    });
   };
 
   const updateContactField = (field: string, value: string) => {
@@ -1515,24 +1543,37 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="religiousClassification" className="text-sm font-medium text-gray-700">
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium text-gray-700">
                         Religious Classification
                       </Label>
-                      <Select
-                        value={formData.historicalDetails.religiousClassification}
-                        onValueChange={(value) => updateHistoricalField('religiousClassification', value)}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Select religious classification" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="None">None</SelectItem>
-                          <SelectItem value="Diocesan Shrine">Diocesan Shrine</SelectItem>
-                          <SelectItem value="Jubilee Church">Jubilee Church</SelectItem>
-                          <SelectItem value="Papal Basilica Affinity">Papal Basilica Affinity</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <p className="text-xs text-gray-500 -mt-1">Select all that apply</p>
+                      <div className="space-y-3 pl-1">
+                        {(['Diocesan Shrine', 'Jubilee Church', 'Papal Basilica Affinity'] as const).map((classification) => (
+                          <div key={classification} className="flex items-center space-x-3">
+                            <Checkbox
+                              id={`religious-${classification}`}
+                              checked={(formData.historicalDetails.religiousClassifications || []).includes(classification)}
+                              onCheckedChange={() => toggleReligiousClassification(classification)}
+                            />
+                            <Label
+                              htmlFor={`religious-${classification}`}
+                              className="text-sm font-normal text-gray-700 cursor-pointer"
+                            >
+                              {classification}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                      {(formData.historicalDetails.religiousClassifications || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {formData.historicalDetails.religiousClassifications.map((c) => (
+                            <Badge key={c} variant="secondary" className="text-xs">
+                              {c}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   </div>
@@ -2165,6 +2206,41 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             </Tabs>
           </CardContent>
 
+          {/* Parish Consent Section - Only show for non-Chancery edits */}
+          {!isChanceryEdit && currentStatus !== 'approved' && (
+            <div className="bg-blue-50 border-t border-b border-blue-200 px-6 py-4">
+              <div className="flex items-start gap-3 mb-3">
+                <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-blue-900">Content Verification</h4>
+                  <p className="text-sm text-blue-700">Please confirm the following before submitting for review</p>
+                </div>
+              </div>
+              <div className="space-y-3 pl-8">
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="parish-consent"
+                    checked={formData.parishConsentConfirmed}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, parishConsentConfirmed: checked === true }))}
+                  />
+                  <Label htmlFor="parish-consent" className="text-sm text-blue-800 font-normal cursor-pointer leading-relaxed">
+                    I confirm that the <strong>Parish Priest has reviewed and approved</strong> all content (text, photos, documents) for public display in the VISITA mobile app.
+                  </Label>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="devotional-content"
+                    checked={formData.devotionalContentAcknowledged}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, devotionalContentAcknowledged: checked === true }))}
+                  />
+                  <Label htmlFor="devotional-content" className="text-sm text-blue-800 font-normal cursor-pointer leading-relaxed">
+                    I confirm that no <strong>unpublished devotional materials, sacred imagery, or religious symbols</strong> not intended for public display have been included.
+                  </Label>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Footer Actions */}
           <div className="bg-gray-50 px-6 py-4 border-t flex flex-col sm:flex-row gap-3 justify-between">
             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -2196,7 +2272,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || uploading || isSaving || (completionPercentage < 80 && currentStatus !== 'approved')}
+                disabled={
+                  isSubmitting || 
+                  uploading || 
+                  isSaving || 
+                  (completionPercentage < 80 && currentStatus !== 'approved') ||
+                  // Require consent checkboxes for new submissions (not for approved profiles or chancery edits)
+                  (!isChanceryEdit && currentStatus !== 'approved' && (!formData.parishConsentConfirmed || !formData.devotionalContentAcknowledged))
+                }
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700"
               >
                 {(isSubmitting || uploading) ? (
