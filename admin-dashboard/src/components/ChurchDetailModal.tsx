@@ -437,17 +437,8 @@ export function ChurchDetailModal({
                             <ChurchIcon className="w-4 h-4 text-emerald-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Church Name</p>
-                            <p className="text-sm font-semibold text-gray-900">{church.name}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <BookOpen className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Full Parish Name</p>
-                            <p className="text-sm font-medium text-gray-900">{(churchData.fullName as string) || 'Not specified'}</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Parish Name</p>
+                            <p className="text-sm font-semibold text-gray-900">{(churchData.fullName as string) || church.name}</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
