@@ -56,6 +56,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Church as ChurchIcon,
@@ -71,7 +73,18 @@ import {
   Building,
   X,
   Plus,
-  Info
+  Info,
+  Calendar,
+  User,
+  Landmark,
+  Camera,
+  Image as ImageIcon,
+  FileText,
+  Eye,
+  ExternalLink,
+  Facebook,
+  History,
+  BookOpen
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Layout } from '@/components/Layout';
@@ -1024,196 +1037,651 @@ const ParishDashboard = () => {
   };
 
   // Simple Parish Profile View for approved profiles
-  const renderParishProfile = () => (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg shadow-sm border border-emerald-200 p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div className="flex items-start gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
-              <ChurchIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+  const renderParishProfile = () => {
+    // Get primary image for hero section
+    const primaryImage = existingChurch?.images?.[0] || null;
+    const hasImages = (existingChurch?.images?.length || 0) > 0;
+    const hasDocuments = (existingChurch?.documents?.length || 0) > 0;
+
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto">
+        {/* Hero Header with Image Background */}
+        <div className="relative rounded-2xl overflow-hidden shadow-xl">
+          {/* Background Image or Gradient */}
+          <div className="absolute inset-0 h-56 overflow-hidden">
+            {primaryImage ? (
+              <>
+                <img 
+                  src={primaryImage} 
+                  alt={churchInfo.churchName || 'Church'}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-slate-50" />
+              </>
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800">
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-50" />
+              </div>
+            )}
+          </div>
+
+          {/* Header Content */}
+          <div className="relative z-10 px-6 pt-6 pb-20">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  {getStatusBadge()}
+                  {churchInfo.historicalDetails?.heritageClassification && 
+                   churchInfo.historicalDetails.heritageClassification !== 'None' && (
+                    <Badge className="bg-amber-500/90 text-white border-0 shadow-sm">
+                      <Landmark className="w-3 h-3 mr-1" />
+                      {churchInfo.historicalDetails.heritageClassification}
+                    </Badge>
+                  )}
+                </div>
+                <div className={`flex items-center gap-3 ${primaryImage ? 'text-white drop-shadow-lg' : 'text-white'}`}>
+                  <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
+                    <ChurchIcon className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl sm:text-2xl font-bold mb-1">
+                      {getGreeting()}! 👋
+                    </h1>
+                    <h2 className="text-lg sm:text-xl font-semibold">
+                      {churchInfo.churchName || churchInfo.name || "Your Parish"}
+                    </h2>
+                  </div>
+                </div>
+                <div className={`flex items-center gap-2 mt-3 ${primaryImage ? 'text-white/90' : 'text-white/90'}`}>
+                  <MapPin className="w-4 h-4" />
+                  <span className="font-medium">
+                    {churchInfo.locationDetails?.municipality}, {churchInfo.locationDetails?.province || 'Bohol'}
+                  </span>
+                </div>
+              </div>
+              <Button 
+                onClick={() => setCurrentView('profile')}
+                className="bg-white/90 hover:bg-white text-gray-800 shadow-lg backdrop-blur-sm"
+              >
+                <Edit className="w-4 h-4 mr-1.5" /> Edit Profile
+              </Button>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold text-emerald-900 mb-1">
-                {getGreeting()}! 👋
-              </h1>
-              <h2 className="text-base sm:text-xl font-semibold text-slate-800 mb-2 truncate">
-                {churchInfo.churchName || churchInfo.name || "Your Parish"}
-              </h2>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                {getStatusBadge()}
-                {churchInfo.locationDetails?.municipality && (
-                  <Badge variant="outline" className="text-emerald-800 border-emerald-300 text-xs sm:text-sm">
-                    <MapPin className="w-3 h-3 mr-1" />
-                    <span className="hidden xs:inline">{churchInfo.locationDetails.municipality}, </span>
-                    <span className="xs:hidden">{churchInfo.locationDetails.municipality?.substring(0, 10)}</span>
-                    <span className="hidden xs:inline">{churchInfo.locationDetails.province}</span>
-                  </Badge>
-                )}
+          </div>
+
+          {/* Quick Stats Cards - Floating */}
+          <div className="relative z-20 px-6 -mt-10 pb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white rounded-xl p-3 shadow-lg border border-gray-100">
+                <div className="flex items-center gap-2 text-emerald-600 mb-1">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wide">Founded</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900">{churchInfo.historicalDetails?.foundingYear || '—'}</p>
+              </div>
+              <div className="bg-white rounded-xl p-3 shadow-lg border border-gray-100">
+                <div className="flex items-center gap-2 text-blue-600 mb-1">
+                  <User className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wide">Parish Priest</span>
+                </div>
+                <p className="text-sm font-semibold text-gray-900 truncate">{churchInfo.currentParishPriest || '—'}</p>
+              </div>
+              <div className="bg-white rounded-xl p-3 shadow-lg border border-gray-100">
+                <div className="flex items-center gap-2 text-purple-600 mb-1">
+                  <Landmark className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wide">Style</span>
+                </div>
+                <p className="text-sm font-semibold text-gray-900 truncate">{churchInfo.historicalDetails?.architecturalStyle || '—'}</p>
+              </div>
+              <div className="bg-white rounded-xl p-3 shadow-lg border border-gray-100">
+                <div className="flex items-center gap-2 text-amber-600 mb-1">
+                  <Camera className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wide">Media</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900">{(churchInfo.photos?.length || 0) + (churchInfo.documents?.length || 0)}</p>
               </div>
             </div>
           </div>
-          
-          <Button 
-            onClick={() => setCurrentView('profile')}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Edit Profile
-          </Button>
+        </div>
+
+        {/* Tabbed Content */}
+        <div className="bg-gradient-to-b from-slate-50 to-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <ScrollArea className="h-auto">
+            <Tabs defaultValue="overview" className="w-full">
+              <div className="px-6 pt-4">
+                <TabsList className="grid w-full grid-cols-4 bg-gray-100/80 p-1 rounded-xl h-12">
+                  <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    <span className="hidden sm:inline">Overview</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="historical" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    <span className="hidden sm:inline">History</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="pastoral" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span className="hidden sm:inline">Pastoral</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="media" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
+                    <Camera className="w-4 h-4" />
+                    <span className="hidden sm:inline">Media</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* Overview Tab */}
+              <TabsContent value="overview" className="mt-0 p-6 space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Church Details Card */}
+                  <Card className="shadow-sm border-0 bg-white/80 backdrop-blur">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                        <ChurchIcon className="w-4 h-4 text-emerald-600" />
+                        Church Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                            <ChurchIcon className="w-4 h-4 text-emerald-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Church Name</p>
+                            <p className="text-sm font-semibold text-gray-900">{churchInfo.churchName || 'Not specified'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <BookOpen className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Full Parish Name</p>
+                            <p className="text-sm font-medium text-gray-900">{churchInfo.parishName || 'Not specified'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                            <MapPin className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Location</p>
+                            <p className="text-sm font-medium text-gray-900">{churchInfo.locationDetails?.municipality}, Bohol</p>
+                            {churchInfo.locationDetails?.streetAddress && (
+                              <p className="text-xs text-gray-500 mt-0.5">{churchInfo.locationDetails.streetAddress}</p>
+                            )}
+                          </div>
+                        </div>
+                        {churchInfo.coordinates && churchInfo.coordinates.lat !== 0 && (
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                              <Globe className="w-4 h-4 text-gray-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Coordinates</p>
+                              <p className="text-sm font-mono text-gray-700">
+                                {churchInfo.coordinates.lat.toFixed(6)}, {churchInfo.coordinates.lng.toFixed(6)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Contact Information Card */}
+                  <Card className="shadow-sm border-0 bg-white/80 backdrop-blur">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                        <Phone className="w-4 h-4 text-blue-600" />
+                        Contact Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(churchInfo.contactInfo?.phone || churchInfo.contactInfo?.email || churchInfo.contactInfo?.website || churchInfo.contactInfo?.facebookPage) ? (
+                        <div className="space-y-3">
+                          {churchInfo.contactInfo?.phone && (
+                            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                <Phone className="w-5 h-5 text-green-600" />
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-500">Phone</p>
+                                <p className="text-sm font-semibold text-gray-900">{churchInfo.contactInfo.phone}</p>
+                              </div>
+                            </div>
+                          )}
+                          {churchInfo.contactInfo?.email && (
+                            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <Mail className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-500">Email</p>
+                                <p className="text-sm font-semibold text-gray-900">{churchInfo.contactInfo.email}</p>
+                              </div>
+                            </div>
+                          )}
+                          {churchInfo.contactInfo?.website && (
+                            <div 
+                              className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer" 
+                              onClick={() => window.open(churchInfo.contactInfo?.website, '_blank')}
+                            >
+                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                <Globe className="w-5 h-5 text-purple-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs font-medium text-gray-500">Website</p>
+                                <p className="text-sm font-semibold text-blue-600 hover:underline">{churchInfo.contactInfo.website}</p>
+                              </div>
+                              <ExternalLink className="w-4 h-4 text-gray-400" />
+                            </div>
+                          )}
+                          {churchInfo.contactInfo?.facebookPage && (
+                            <div 
+                              className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer" 
+                              onClick={() => window.open(churchInfo.contactInfo?.facebookPage, '_blank')}
+                            >
+                              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <Facebook className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs font-medium text-gray-500">Facebook</p>
+                                <p className="text-sm font-semibold text-blue-600 hover:underline truncate">Facebook Page</p>
+                              </div>
+                              <ExternalLink className="w-4 h-4 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-gray-500">
+                          <Phone className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          <p className="text-sm">No contact information available</p>
+                          <Button variant="outline" size="sm" className="mt-3" onClick={() => setCurrentView('profile')}>
+                            <Plus className="w-4 h-4 mr-1" /> Add Contact Info
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Historical Tab */}
+              <TabsContent value="historical" className="mt-0 p-6 space-y-6">
+                <Card className="shadow-sm border-0 bg-white/80 backdrop-blur">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                      <History className="w-4 h-4 text-amber-600" />
+                      Historical Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Quick Info Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100">
+                        <Calendar className="w-5 h-5 text-amber-600 mb-2" />
+                        <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">Founded</p>
+                        <p className="text-xl font-bold text-amber-900">{churchInfo.historicalDetails?.foundingYear || '—'}</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100">
+                        <Landmark className="w-5 h-5 text-purple-600 mb-2" />
+                        <p className="text-xs font-medium text-purple-700 uppercase tracking-wide">Style</p>
+                        <p className="text-sm font-bold text-purple-900">{churchInfo.historicalDetails?.architecturalStyle || '—'}</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
+                        <Badge variant="outline" className={`${
+                          churchInfo.historicalDetails?.heritageClassification === 'National Cultural Treasures' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                          churchInfo.historicalDetails?.heritageClassification === 'Important Cultural Properties' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                          'bg-gray-100 text-gray-600 border-gray-300'
+                        }`}>
+                          {churchInfo.historicalDetails?.heritageClassification === 'National Cultural Treasures' ? 'National Cultural Treasure' :
+                           churchInfo.historicalDetails?.heritageClassification === 'Important Cultural Properties' ? 'Important Cultural Property' :
+                           'Not classified'}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Text Sections */}
+                    {churchInfo.historicalDetails?.founders && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-500" /> Founders
+                        </h4>
+                        <p className="text-sm text-gray-600 leading-relaxed pl-6">{churchInfo.historicalDetails.founders}</p>
+                      </div>
+                    )}
+
+                    {churchInfo.historicalDetails?.historicalBackground && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-gray-500" /> Historical Background
+                        </h4>
+                        <div className="text-sm text-gray-600 leading-relaxed pl-6 max-h-48 overflow-y-auto">
+                          {churchInfo.historicalDetails.historicalBackground}
+                        </div>
+                      </div>
+                    )}
+
+                    {churchInfo.historicalDetails?.architecturalFeatures && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <Building className="w-4 h-4 text-gray-500" /> Architectural Features
+                        </h4>
+                        <p className="text-sm text-gray-600 leading-relaxed pl-6">{churchInfo.historicalDetails.architecturalFeatures}</p>
+                      </div>
+                    )}
+
+                    {churchInfo.historicalDetails?.majorHistoricalEvents && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <Landmark className="w-4 h-4 text-gray-500" /> Cultural Significance
+                        </h4>
+                        <p className="text-sm text-gray-600 leading-relaxed pl-6">{churchInfo.historicalDetails.majorHistoricalEvents}</p>
+                      </div>
+                    )}
+
+                    {churchInfo.historicalDetails?.heritageInformation && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <Info className="w-4 h-4 text-gray-500" /> Heritage Information
+                        </h4>
+                        <p className="text-sm text-gray-600 leading-relaxed pl-6">{churchInfo.historicalDetails.heritageInformation}</p>
+                      </div>
+                    )}
+
+                    {!churchInfo.historicalDetails?.founders && 
+                     !churchInfo.historicalDetails?.historicalBackground && 
+                     !churchInfo.historicalDetails?.architecturalFeatures && 
+                     !churchInfo.historicalDetails?.majorHistoricalEvents &&
+                     !churchInfo.historicalDetails?.heritageInformation && (
+                      <div className="text-center py-8 text-gray-500">
+                        <History className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p className="text-sm">No historical information available yet</p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => setCurrentView('profile')}>
+                          <Edit className="w-4 h-4 mr-1" /> Add Historical Details
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Pastoral Tab */}
+              <TabsContent value="pastoral" className="mt-0 p-6 space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Priest & Feast Day Card */}
+                  <Card className="shadow-sm border-0 bg-white/80 backdrop-blur">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                        <User className="w-4 h-4 text-blue-600" />
+                        Parish Leadership
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
+                        <div className="w-14 h-14 rounded-full bg-blue-200 flex items-center justify-center">
+                          <User className="w-7 h-7 text-blue-700" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Parish Priest</p>
+                          <p className="text-lg font-bold text-gray-900">{churchInfo.currentParishPriest || 'Not assigned'}</p>
+                        </div>
+                      </div>
+                      
+                      {churchInfo.feastDay && (
+                        <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
+                          <div className="w-14 h-14 rounded-full bg-amber-200 flex items-center justify-center">
+                            <Calendar className="w-7 h-7 text-amber-700" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-amber-600 uppercase tracking-wide">Feast Day</p>
+                            <p className="text-lg font-bold text-gray-900">{churchInfo.feastDay}</p>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Mass Schedules Card */}
+                  <Card className="shadow-sm border-0 bg-white/80 backdrop-blur">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                        <Clock className="w-4 h-4 text-emerald-600" />
+                        Mass Schedules
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {churchInfo.massSchedules && churchInfo.massSchedules.length > 0 ? (
+                        <div className="space-y-4">
+                          {(() => {
+                            const schedules = churchInfo.massSchedules;
+                            const allWeekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+                            
+                            const schedulesByDay: Record<string, typeof schedules> = {
+                              Sunday: schedules.filter(s => s.day === 'Sunday'),
+                              Monday: schedules.filter(s => s.day === 'Monday'),
+                              Tuesday: schedules.filter(s => s.day === 'Tuesday'),
+                              Wednesday: schedules.filter(s => s.day === 'Wednesday'),
+                              Thursday: schedules.filter(s => s.day === 'Thursday'),
+                              Friday: schedules.filter(s => s.day === 'Friday'),
+                              Saturday: schedules.filter(s => s.day === 'Saturday'),
+                            };
+
+                            const getScheduleKey = (s: typeof schedules[0]) => 
+                              `${s.time}-${s.language || ''}-${s.isFbLive || false}`;
+
+                            const weekdayKeys = allWeekdays.map(day => 
+                              new Set(schedulesByDay[day].map(getScheduleKey))
+                            );
+                            const dailyKeys = new Set<string>();
+                            if (weekdayKeys[0]) {
+                              weekdayKeys[0].forEach(key => {
+                                if (weekdayKeys.every(dayKeys => dayKeys.has(key))) {
+                                  dailyKeys.add(key);
+                                }
+                              });
+                            }
+
+                            const dailySchedules = schedulesByDay['Monday'].filter(s => dailyKeys.has(getScheduleKey(s)));
+
+                            const renderSchedule = (schedule: typeof schedules[0], index: number) => (
+                              <div key={index} className="flex items-center gap-2 text-sm">
+                                <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                                <span className="font-medium">{formatTime(schedule.time)}</span>
+                                {schedule.endTime && <span className="text-gray-400">– {formatTime(schedule.endTime)}</span>}
+                                {schedule.language && schedule.language !== 'Cebuano' && (
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                    🌐 {schedule.language}
+                                  </Badge>
+                                )}
+                                {schedule.isFbLive && (
+                                  <Badge className="text-xs bg-red-100 text-red-700 border-0">📺 FB Live</Badge>
+                                )}
+                              </div>
+                            );
+
+                            const sortByTime = (arr: typeof schedules) => 
+                              [...arr].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+
+                            return (
+                              <div className="space-y-3 max-h-64 overflow-y-auto">
+                                {schedulesByDay['Sunday'].length > 0 && (
+                                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+                                    <div className="font-semibold text-amber-800 mb-2 text-sm">☀️ Sunday</div>
+                                    <div className="space-y-1.5 pl-2">
+                                      {sortByTime(schedulesByDay['Sunday']).map(renderSchedule)}
+                                    </div>
+                                  </div>
+                                )}
+                                {dailySchedules.length > 0 && (
+                                  <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                                    <div className="font-semibold text-blue-800 mb-2 text-sm">📅 Daily (Mon–Fri)</div>
+                                    <div className="space-y-1.5 pl-2">
+                                      {sortByTime(dailySchedules).map(renderSchedule)}
+                                    </div>
+                                  </div>
+                                )}
+                                {schedulesByDay['Saturday'].length > 0 && (
+                                  <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
+                                    <div className="font-semibold text-purple-800 mb-2 text-sm">🌙 Saturday</div>
+                                    <div className="space-y-1.5 pl-2">
+                                      {sortByTime(schedulesByDay['Saturday']).map(renderSchedule)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-gray-500">
+                          <Clock className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          <p className="text-sm">No mass schedules available</p>
+                          <Button variant="outline" size="sm" className="mt-3" onClick={() => setCurrentView('profile')}>
+                            <Plus className="w-4 h-4 mr-1" /> Add Mass Schedule
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Media Tab */}
+              <TabsContent value="media" className="mt-0 p-6 space-y-6">
+                {/* Images Gallery */}
+                <Card className="shadow-sm border-0 bg-white/80 backdrop-blur">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                      <ImageIcon className="w-4 h-4 text-purple-600" />
+                      Photo Gallery
+                      {churchInfo.photos && churchInfo.photos.length > 0 && (
+                        <Badge variant="secondary" className="ml-2">{churchInfo.photos.length}</Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {hasImages ? (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {existingChurch?.images?.map((image, index) => (
+                          <div 
+                            key={index} 
+                            className="group relative aspect-square bg-gray-100 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all"
+                            onClick={() => window.open(image, '_blank')}
+                          >
+                            <img
+                              src={image}
+                              alt={`${churchInfo.churchName} - Photo ${index + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                              <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p className="text-sm">No photos uploaded yet</p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => setCurrentView('profile')}>
+                          <Camera className="w-4 h-4 mr-1" /> Add Photos
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* 360° Virtual Tours */}
+                {existingChurch?.virtualTour?.scenes && existingChurch.virtualTour.scenes.length > 0 && (
+                  <Card className="shadow-sm border-0 bg-white/80 backdrop-blur">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                        <Eye className="w-4 h-4 text-blue-600" />
+                        360° Virtual Tours
+                        <Badge variant="secondary" className="ml-2">{existingChurch.virtualTour.scenes.length}</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {existingChurch.virtualTour.scenes.map((scene, index) => (
+                          <div key={index} className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 hover:shadow-md transition-shadow cursor-pointer">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center">
+                                <Eye className="w-5 h-5 text-blue-700" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-gray-900">{scene.title || `Tour ${index + 1}`}</p>
+                                <p className="text-xs text-gray-500">360° View</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Documents */}
+                <Card className="shadow-sm border-0 bg-white/80 backdrop-blur">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                      <FileText className="w-4 h-4 text-amber-600" />
+                      Documents
+                      {hasDocuments && (
+                        <Badge variant="secondary" className="ml-2">{existingChurch?.documents?.length}</Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {hasDocuments ? (
+                      <div className="space-y-2">
+                        {existingChurch?.documents?.map((doc, index) => {
+                          const docUrl = typeof doc === 'string' ? doc : (doc as { url?: string })?.url;
+                          const docName = typeof doc === 'string' 
+                            ? `Document ${index + 1}` 
+                            : (doc as { name?: string })?.name || `Document ${index + 1}`;
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              className="flex items-center justify-between gap-3 p-3 rounded-lg bg-gray-50 hover:bg-amber-50 border border-gray-200 hover:border-amber-200 transition-all cursor-pointer group"
+                              onClick={() => docUrl && window.open(docUrl, '_blank', 'noopener,noreferrer')}
+                            >
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                  <FileText className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-gray-900 truncate group-hover:text-amber-700">{docName}</p>
+                                  <p className="text-xs text-gray-500">Click to open</p>
+                                </div>
+                              </div>
+                              <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-amber-600 transition-colors" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p className="text-sm">No documents uploaded yet</p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => setCurrentView('profile')}>
+                          <FileText className="w-4 h-4 mr-1" /> Add Documents
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </ScrollArea>
         </div>
       </div>
-
-      {/* Parish Profile Summary */}
-      <Card className="border-emerald-200">
-        <CardHeader className="bg-gradient-to-r from-emerald-50/50 to-transparent">
-          <CardTitle className="flex items-center gap-2 text-emerald-900">
-            <ChurchIcon className="w-5 h-5 text-emerald-600" />
-            Parish Profile
-          </CardTitle>
-          <CardDescription className="text-slate-600">
-            Your church information as displayed to visitors
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">Basic Information</h3>
-              <div className="space-y-2">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Parish Name:</span>
-                  <p className="text-gray-900">{churchInfo.parishName || 'Not specified'}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Parish Priest:</span>
-                  <p className="text-gray-900">{churchInfo.currentParishPriest || 'Not specified'}</p>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
-              <div className="space-y-2">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Address:</span>
-                  <p className="text-gray-900">{churchInfo.locationDetails?.streetAddress || 'Not specified'}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Barangay:</span>
-                  <p className="text-gray-900">{churchInfo.locationDetails?.barangay || 'Not specified'}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">Municipality:</span>
-                  <p className="text-gray-900">{churchInfo.locationDetails?.municipality || 'Not specified'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Information */}
-          {(churchInfo.contactInfo?.phone || churchInfo.contactInfo?.email || churchInfo.contactInfo?.website) && (
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">Contact Information</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                {churchInfo.contactInfo?.phone && (
-                  <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
-                    <Phone className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{churchInfo.contactInfo.phone}</span>
-                  </div>
-                )}
-                {churchInfo.contactInfo?.email && (
-                  <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
-                    <Mail className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{churchInfo.contactInfo.email}</span>
-                  </div>
-                )}
-                {churchInfo.contactInfo?.website && (
-                  <div className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
-                    <Globe className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{churchInfo.contactInfo.website}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Historical Information */}
-          {(churchInfo.historicalDetails?.foundingYear || 
-            churchInfo.historicalDetails?.architecturalStyle || 
-            churchInfo.historicalDetails?.heritageClassification !== 'None' || 
-            churchInfo.historicalDetails?.religiousClassification !== 'None' ||
-            churchInfo.historicalDetails?.historicalBackground) && (
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">Historical Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  {churchInfo.historicalDetails?.foundingYear && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Founding Year:</span>
-                      <p className="text-gray-900">{churchInfo.historicalDetails.foundingYear}</p>
-                    </div>
-                  )}
-                  {churchInfo.historicalDetails?.architecturalStyle && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Architectural Style:</span>
-                      <p className="text-gray-900">{churchInfo.historicalDetails.architecturalStyle}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {churchInfo.historicalDetails?.heritageClassification !== 'None' && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Heritage Classification:</span>
-                      <p className="text-gray-900">{churchInfo.historicalDetails.heritageClassification}</p>
-                    </div>
-                  )}
-                  {churchInfo.historicalDetails?.religiousClassification !== 'None' && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Religious Classification:</span>
-                      <p className="text-gray-900">{churchInfo.historicalDetails.religiousClassification}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {churchInfo.historicalDetails?.historicalBackground && (
-                <div className="mt-4">
-                  <span className="text-sm font-medium text-gray-500">Historical Background:</span>
-                  <p className="text-gray-900 mt-1 leading-relaxed">{churchInfo.historicalDetails.historicalBackground}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 360° Virtual Tour */}
-          {existingChurch?.virtualTour && existingChurch.virtualTour.scenes && existingChurch.virtualTour.scenes.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <span>🌐 360° Virtual Tour</span>
-                <Badge variant="secondary" className="text-xs">
-                  {existingChurch.virtualTour.scenes.length} scene{existingChurch.virtualTour.scenes.length === 1 ? '' : 's'}
-                </Badge>
-              </h3>
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  Virtual tour is configured with {existingChurch.virtualTour.scenes.length} scenes.
-                  Click "Edit Profile" to manage the virtual tour.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Mass Schedules */}
-          {churchInfo.massSchedules && churchInfo.massSchedules.length > 0 && (
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-4">Mass Schedules</h3>
-              {renderGroupedMassSchedulesDisplay()}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+    );
+  };
 
   // Show loading state while fetching church data
   if (isLoading) {
