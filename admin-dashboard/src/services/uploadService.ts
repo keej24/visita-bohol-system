@@ -253,47 +253,6 @@ class UploadService {
   }
 
   /**
-   * Upload 360° panoramic images
-   */
-  async upload360Images(
-    churchId: string,
-    files: File[],
-    onProgress?: (fileIndex: number, progress: UploadProgress) => void
-  ): Promise<Array<{ url: string; name: string; description?: string }>> {
-    const uploadPromises = files.map(async (file, index) => {
-      // Validate 360° image format
-      const isValid = await this.validate360Image(file);
-      if (!isValid) {
-        throw new Error(`File ${file.name} is not a valid equirectangular image`);
-      }
-
-      const url = await this.uploadFile(file, {
-        folder: `churches/${churchId}/360`,
-        filename: `360_${Date.now()}_${index}_${file.name}`,
-        onProgress: (progress) => onProgress?.(index, progress),
-        metadata: {
-          churchId,
-          imageType: '360_panorama',
-          aspectRatio: '2:1'
-        }
-      });
-
-      return {
-        url,
-        name: file.name,
-        description: `360° view of ${file.name.replace(/\.[^/.]+$/, '')}`
-      };
-    });
-
-    const results = await Promise.allSettled(uploadPromises);
-    return results
-      .filter((result): result is PromiseFulfilledResult<{ url: string; name: string; description?: string }> =>
-        result.status === 'fulfilled'
-      )
-      .map(result => result.value);
-  }
-
-  /**
    * Upload heritage documents
    */
   async uploadHeritageDocuments(
@@ -340,38 +299,6 @@ class UploadService {
       console.error('Error deleting file:', error);
       throw new Error('Failed to delete file');
     }
-  }
-
-  /**
-   * Validate if image is a proper 360° equirectangular format
-   */
-  private validate360Image(file: File): Promise<boolean> {
-    return new Promise((resolve) => {
-      if (!file.type.startsWith('image/')) {
-        resolve(false);
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        // Check if aspect ratio is 2:1 (equirectangular)
-        const aspectRatio = img.width / img.height;
-        const isEquirectangular = Math.abs(aspectRatio - 2) < 0.1;
-
-        // Additional checks for minimum resolution
-        const hasMinResolution = img.width >= 2048 && img.height >= 1024;
-
-        resolve(isEquirectangular && hasMinResolution);
-        URL.revokeObjectURL(img.src);
-      };
-
-      img.onerror = () => {
-        resolve(false);
-        URL.revokeObjectURL(img.src);
-      };
-
-      img.src = URL.createObjectURL(file);
-    });
   }
 
   /**

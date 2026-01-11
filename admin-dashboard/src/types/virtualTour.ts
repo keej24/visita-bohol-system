@@ -43,4 +43,7 @@ export interface Uploaded360Image {
   uploadProgress: number; // 0-100
   uploading: boolean;
   error?: string;
+  previewUrl?: string; // Object URL for preview before upload
+  uploadTask?: any; // Firebase UploadTask reference for cancellation
+  status: 'pending' | 'uploading' | 'completed' | 'error' | 'canceled';
 }

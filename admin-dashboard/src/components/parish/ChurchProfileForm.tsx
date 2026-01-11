@@ -41,7 +41,7 @@ import PhotoUploader from './PhotoUploader';
 import DocumentUploader from './DocumentUploader';
 import { CoordinateMapPicker } from './CoordinateMapPicker';
 import { assessHeritageSignificance, type HeritageAssessment } from '@/lib/heritage-detection';
-import { upload360Image, uploadChurchImage, uploadDocument, deleteFile, compressImage } from '@/lib/storage';
+import { uploadChurchImage, uploadDocument, deleteFile, compressImage } from '@/lib/storage';
 
 interface ChurchProfileFormProps {
   initialData?: Partial<ChurchInfo>;

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Upload, Trash2, Star, Edit, Eye, Navigation, Pencil, Check } from 'lucide-react';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { Upload, Trash2, Star, Edit, Eye, Navigation, Pencil, Check, AlertCircle, X, Play, GripVertical, Ban } from 'lucide-react';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject, UploadTask } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { VirtualTourService } from '@/services/virtualTourService';
 import type { VirtualTour, TourScene, Uploaded360Image } from '@/types/virtualTour';
 import { HotspotEditor } from './HotspotEditor';
+import { validate360Image } from '@/utils/validate360Image';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -89,12 +90,24 @@ async function compressImage(file: File, maxSizeMB: number = 2): Promise<Blob> {
 export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerProps) {
   const [tour, setTour] = useState<VirtualTour | null>(null);
   const [uploadingImages, setUploadingImages] = useState<Uploaded360Image[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<Uploaded360Image[]>([]); // Files staged for preview before upload
   const [loading, setLoading] = useState(true);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
   const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
   const [brokenImageScenes, setBrokenImageScenes] = useState<Set<string>>(new Set());
   const [savingSceneId, setSavingSceneId] = useState<string | null>(null);
   const [savedSceneId, setSavedSceneId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Array<{ name: string; message: string }>>([]);
+  const [duplicateWarnings, setDuplicateWarnings] = useState<string[]>([]);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  
+  // Upload queue management
+  const CONCURRENT_UPLOADS = 2;
+  const uploadQueueRef = useRef<Uploaded360Image[]>([]);
+  const activeUploadsRef = useRef(0);
+  const uploadTasksRef = useRef<Map<string, UploadTask>>(new Map());
   const titleDebounceRef = useRef<{ [sceneId: string]: NodeJS.Timeout }>({});
 
   // Delete scene confirmation dialog state
@@ -167,64 +180,272 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
     }
   }, [churchId]);
 
-  // Handle file selection
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  // Process files (shared between input and drag-drop) - Stage for preview
+  const processFiles = useCallback(async (filesArray: File[]) => {
+    setValidationErrors([]);
+    setDuplicateWarnings([]);
 
     const MAX_SCENES = 15;
     const currentSceneCount = tour?.scenes.length || 0;
-    const filesArray = Array.from(files);
+    const pendingCount = pendingFiles.length;
+    const uploadingCount = uploadingImages.length;
 
     console.log(`[VirtualTourManager] Selected ${filesArray.length} file(s) for upload`);
-    console.log(`[VirtualTourManager] Current scenes: ${currentSceneCount}/${MAX_SCENES}`);
+    console.log(`[VirtualTourManager] Current scenes: ${currentSceneCount}/${MAX_SCENES}, Pending: ${pendingCount}, Uploading: ${uploadingCount}`);
 
     // Check if adding these files would exceed the limit
-    const remainingSlots = MAX_SCENES - currentSceneCount;
+    const remainingSlots = MAX_SCENES - currentSceneCount - pendingCount - uploadingCount;
 
     if (remainingSlots <= 0) {
-      alert(`Maximum of ${MAX_SCENES} scenes allowed. Please delete some scenes before uploading more.`);
-      e.target.value = '';
+      alert(`Maximum of ${MAX_SCENES} scenes allowed. Please delete some scenes or pending files before adding more.`);
       return;
     }
 
-    if (filesArray.length > remainingSlots) {
+    // Create a mutable copy to potentially trim
+    let filesToProcess = [...filesArray];
+
+    if (filesToProcess.length > remainingSlots) {
       const allowedCount = remainingSlots;
       alert(
-        `You can only upload ${allowedCount} more scene(s). ` +
-        `Currently: ${currentSceneCount}/${MAX_SCENES} scenes. ` +
-        `Selected: ${filesArray.length} files.\n\n` +
-        `Uploading first ${allowedCount} file(s) only.`
+        `You can only add ${allowedCount} more file(s). ` +
+        `Currently: ${currentSceneCount} scenes, ${pendingCount} pending, ${uploadingCount} uploading.\n\n` +
+        `Adding first ${allowedCount} file(s) only.`
       );
-      // Only take the first N files that fit within the limit
-      filesArray.splice(allowedCount);
+      filesToProcess = filesToProcess.slice(0, allowedCount);
     }
 
-    console.log(`[VirtualTourManager] Uploading ${filesArray.length} file(s)`);
+    // Validate all files for 2:1 aspect ratio
+    console.log(`[VirtualTourManager] Validating ${filesToProcess.length} file(s) for equirectangular format...`);
+    const validFiles: File[] = [];
+    const errors: Array<{ name: string; message: string }> = [];
+    const duplicates: string[] = [];
 
-    const newUploads: Uploaded360Image[] = filesArray.map((file) => ({
-      id: `upload-${Date.now()}-${Math.random()}`,
+    // Get existing scene names for duplicate detection
+    const existingNames = new Set([
+      ...(tour?.scenes.map(s => s.title.toLowerCase()) || []),
+      ...pendingFiles.map(p => p.file?.name.replace(/\.[^/.]+$/, '').toLowerCase() || ''),
+      ...uploadingImages.map(u => u.file?.name.replace(/\.[^/.]+$/, '').toLowerCase() || '')
+    ]);
+
+    for (const file of filesToProcess) {
+      // Check for duplicates by filename
+      const baseName = file.name.replace(/\.[^/.]+$/, '').toLowerCase();
+      if (existingNames.has(baseName)) {
+        duplicates.push(file.name);
+        console.warn(`[VirtualTourManager] ⚠ ${file.name}: Duplicate name detected`);
+        continue; // Skip duplicates
+      }
+
+      const validation = await validate360Image(file);
+      if (validation.isValid) {
+        validFiles.push(file);
+        existingNames.add(baseName); // Add to set to catch duplicates in same batch
+        console.log(`[VirtualTourManager] ✓ ${file.name}: Valid (${validation.details?.width}x${validation.details?.height})`);
+      } else {
+        errors.push({ name: file.name, message: validation.message });
+        console.warn(`[VirtualTourManager] ✗ ${file.name}: ${validation.message}`);
+      }
+    }
+
+    // Show validation errors and duplicate warnings
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+    }
+    if (duplicates.length > 0) {
+      setDuplicateWarnings(duplicates);
+    }
+
+    // If no valid files, stop
+    if (validFiles.length === 0) {
+      console.log('[VirtualTourManager] No valid files to stage');
+      return;
+    }
+
+    console.log(`[VirtualTourManager] Staging ${validFiles.length} valid file(s) for preview`);
+
+    // Create pending uploads with preview URLs
+    const newPendingFiles: Uploaded360Image[] = validFiles.map((file) => ({
+      id: `pending-${Date.now()}-${Math.random()}`,
       file,
       url: '',
+      previewUrl: URL.createObjectURL(file),
       uploadProgress: 0,
-      uploading: true,
+      uploading: false,
+      status: 'pending' as const,
     }));
 
-    setUploadingImages((prev) => [...prev, ...newUploads]);
+    setPendingFiles((prev) => [...prev, ...newPendingFiles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [churchId, tour, pendingFiles, uploadingImages]);
 
-    // Start uploading each file
-    for (const upload of newUploads) {
-      uploadImage(upload);
+  // Remove a pending file
+  const removePendingFile = useCallback((id: string) => {
+    setPendingFiles((prev) => {
+      const file = prev.find(f => f.id === id);
+      if (file?.previewUrl) {
+        URL.revokeObjectURL(file.previewUrl);
+      }
+      return prev.filter(f => f.id !== id);
+    });
+  }, []);
+
+  // Reorder pending files
+  const movePendingFile = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setPendingFiles((prev) => {
+      const newFiles = [...prev];
+      const [removed] = newFiles.splice(fromIndex, 1);
+      newFiles.splice(toIndex, 0, removed);
+      return newFiles;
+    });
+  }, []);
+
+  // Drag and drop handlers for pending files reordering
+  const handlePendingDragStart = useCallback((e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    // Set a custom drag image (optional - uses default)
+    if (e.currentTarget instanceof HTMLElement) {
+      e.dataTransfer.setDragImage(e.currentTarget, 50, 50);
     }
+  }, []);
 
+  const handlePendingDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  }, [draggedIndex]);
+
+  const handlePendingDragLeave = useCallback(() => {
+    setDragOverIndex(null);
+  }, []);
+
+  const handlePendingDrop = useCallback((e: React.DragEvent, toIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== toIndex) {
+      movePendingFile(draggedIndex, toIndex);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }, [draggedIndex, movePendingFile]);
+
+  const handlePendingDragEnd = useCallback(() => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }, []);
+
+  // Clear all pending files
+  const clearAllPending = useCallback(() => {
+    pendingFiles.forEach(f => {
+      if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+    });
+    setPendingFiles([]);
+  }, [pendingFiles]);
+
+  // Process upload queue
+  const processQueue = useCallback(() => {
+    while (activeUploadsRef.current < CONCURRENT_UPLOADS && uploadQueueRef.current.length > 0) {
+      const next = uploadQueueRef.current.shift();
+      if (next) {
+        activeUploadsRef.current++;
+        uploadImage(next);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Start uploading all pending files
+  const startUploadAll = useCallback(() => {
+    if (pendingFiles.length === 0) return;
+
+    // Move pending files to uploading state
+    const uploadsToStart: Uploaded360Image[] = pendingFiles.map((pending) => ({
+      ...pending,
+      id: `upload-${Date.now()}-${Math.random()}`,
+      uploading: true,
+      status: 'uploading' as const,
+    }));
+
+    // Clear pending and add to uploading
+    setPendingFiles([]);
+    setUploadingImages((prev) => [...prev, ...uploadsToStart]);
+
+    // Add to queue and start processing
+    uploadQueueRef.current = [...uploadQueueRef.current, ...uploadsToStart];
+    processQueue();
+  }, [pendingFiles, processQueue]);
+
+  // Cancel an individual upload
+  const cancelUpload = useCallback((id: string) => {
+    const uploadTask = uploadTasksRef.current.get(id);
+    if (uploadTask) {
+      uploadTask.cancel();
+      uploadTasksRef.current.delete(id);
+    }
+    
+    setUploadingImages((prev) =>
+      prev.map((img) =>
+        img.id === id
+          ? { ...img, uploading: false, status: 'canceled' as const, error: 'Upload canceled' }
+          : img
+      )
+    );
+  }, []);
+
+  // Remove completed/errored upload from list
+  const dismissUpload = useCallback((id: string) => {
+    setUploadingImages((prev) => prev.filter((img) => img.id !== id));
+  }, []);
+
+  // Handle file selection (from input)
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(Array.from(files));
     // Reset input
     e.target.value = '';
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [churchId, tour]);
+  }, [processFiles]);
+
+  // Handle drag and drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    // Filter to only image files
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      alert('Please drop image files only.');
+      return;
+    }
+
+    await processFiles(imageFiles);
+  }, [processFiles]);
 
   // Upload image to Firebase Storage with compression
   const uploadImage = useCallback(async (upload: Uploaded360Image) => {
-    if (!upload.file) return;
+    if (!upload.file) {
+      activeUploadsRef.current = Math.max(0, activeUploadsRef.current - 1);
+      processQueue();
+      return;
+    }
 
     try {
       console.log(`[VirtualTourManager] Starting upload: ${upload.file.name}`);
@@ -233,7 +454,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
       // Compress image
       setUploadingImages((prev) =>
         prev.map((img) =>
-          img.id === upload.id ? { ...img, uploadProgress: 5 } : img
+          img.id === upload.id ? { ...img, uploadProgress: 5, status: 'uploading' as const } : img
         )
       );
 
@@ -277,6 +498,9 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         },
       });
 
+      // Store upload task reference for cancellation
+      uploadTasksRef.current.set(upload.id, uploadTask);
+
       uploadTask.on(
         'state_changed',
         (snapshot) => {
@@ -293,6 +517,11 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
           console.error('[VirtualTourManager] Error message:', error.message);
           console.error('[VirtualTourManager] Upload path:', storagePath);
 
+          // Cleanup and process next in queue
+          uploadTasksRef.current.delete(upload.id);
+          activeUploadsRef.current = Math.max(0, activeUploadsRef.current - 1);
+          processQueue();
+
           let errorMsg = error.message;
           if (error.code === 'storage/unauthorized') {
             errorMsg = 'Permission denied. Check Firebase Storage rules.';
@@ -307,12 +536,16 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
           setUploadingImages((prev) =>
             prev.map((img) =>
               img.id === upload.id
-                ? { ...img, uploading: false, error: errorMsg }
+                ? { ...img, uploading: false, status: 'error' as const, error: errorMsg }
                 : img
             )
           );
         },
         async () => {
+          // Cleanup upload task reference
+          uploadTasksRef.current.delete(upload.id);
+          activeUploadsRef.current = Math.max(0, activeUploadsRef.current - 1);
+          
           // Upload complete
           const url = await getDownloadURL(uploadTask.snapshot.ref);
           console.log('[VirtualTourManager] Upload complete:', url);
@@ -332,12 +565,23 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
             await VirtualTourService.addScene(churchId, newScene);
             console.log('[VirtualTourManager] ✓ Scene saved to Firestore successfully');
 
-            // Remove from uploading list
-            setUploadingImages((prev) => prev.filter((img) => img.id !== upload.id));
+            // Update status to completed
+            setUploadingImages((prev) =>
+              prev.map((img) =>
+                img.id === upload.id
+                  ? { ...img, uploading: false, status: 'completed' as const, uploadProgress: 100 }
+                  : img
+              )
+            );
 
             // Reload tour to ensure UI is in sync with Firestore
             console.log('[VirtualTourManager] Reloading tour data...');
             await loadTour();
+
+            // Auto-dismiss completed uploads after delay
+            setTimeout(() => {
+              setUploadingImages((prev) => prev.filter((img) => img.id !== upload.id));
+            }, 2000);
 
             console.log('[VirtualTourManager] ✓✓ Scene uploaded and tour refreshed - should be visible now');
           } catch (error) {
@@ -351,13 +595,13 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
             setUploadingImages((prev) =>
               prev.map((img) =>
                 img.id === upload.id
-                  ? { ...img, uploading: false, error: `Failed to save: ${error?.message || 'Unknown error'}` }
+                  ? { ...img, uploading: false, status: 'error' as const, error: `Failed to save: ${error?.message || 'Unknown error'}` }
                   : img
               )
             );
-
-            // Show alert to user
-            alert(`Failed to save scene "${newScene.title}" to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          } finally {
+            // Process next in queue
+            processQueue();
           }
         }
       );
@@ -368,19 +612,24 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         errorType: error instanceof Error ? error.name : typeof error,
       });
 
+      // Cleanup and process next in queue
+      activeUploadsRef.current = Math.max(0, activeUploadsRef.current - 1);
+      processQueue();
+
       setUploadingImages((prev) =>
         prev.map((img) =>
           img.id === upload.id
             ? {
                 ...img,
                 uploading: false,
+                status: 'error' as const,
                 error: error?.message || 'Upload failed. Please try again.',
               }
             : img
         )
       );
     }
-  }, [churchId, loadTour]);
+  }, [churchId, loadTour, processQueue]);
 
   // Update scene title
   const handleUpdateTitle = useCallback((sceneId: string, newTitle: string) => {
@@ -511,15 +760,26 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
 
       {/* Upload Section */}
       {(tour?.scenes.length || 0) < 15 ? (
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors">
+        <div 
+          className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
+            isDragging 
+              ? 'border-green-500 bg-green-50' 
+              : 'border-gray-300 hover:border-gray-400'
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <label className="flex flex-col items-center cursor-pointer">
-            <Upload className="w-12 h-12 text-gray-400 mb-2" />
-            <span className="text-sm font-medium text-gray-700">Upload 360° Images</span>
+            <Upload className={`w-12 h-12 mb-2 ${isDragging ? 'text-green-500' : 'text-gray-400'}`} />
+            <span className={`text-sm font-medium ${isDragging ? 'text-green-700' : 'text-gray-700'}`}>
+              {isDragging ? 'Drop images here' : 'Upload 360° Images'}
+            </span>
             <span className="text-xs text-gray-500 mt-1">
-              Click to select equirectangular panoramic images (images will be compressed)
+              Drag & drop or click to select equirectangular images (2:1 aspect ratio)
             </span>
             <span className="text-xs text-blue-600 mt-1 font-medium">
-              ✓ Multiple files supported • Max 15 scenes total
+              ✓ Multiple files supported • Max 15 scenes total • Images will be compressed
             </span>
             <input
               type="file"
@@ -542,31 +802,298 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         </div>
       )}
 
-      {/* Uploading Images */}
-      {uploadingImages.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700">Uploading...</h4>
-          {uploadingImages.map((upload) => (
-            <div key={upload.id} className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-700">{upload.file?.name}</span>
-                <span className="text-xs text-gray-500">
-                  {Math.round(upload.uploadProgress)}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
-                {/* @ts-ignore - Dynamic width for progress bar */}
-                <div
-                  className="bg-green-600 h-2 rounded-full transition-all"
-                  style={{ width: `${upload.uploadProgress}%` }}
-                />
-              </div>
-              {upload.error && (
-                <p className="text-xs text-red-600 mt-1">{upload.error}</p>
-              )}
+      {/* Validation Errors */}
+      {validationErrors.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-amber-800">
+                {validationErrors.length} file(s) skipped - Invalid 360° format
+              </h4>
+              <p className="text-xs text-amber-700 mt-1 mb-2">
+                360° images must have a 2:1 aspect ratio (equirectangular format)
+              </p>
+              <ul className="space-y-1">
+                {validationErrors.map((error, index) => (
+                  <li key={index} className="text-xs text-amber-700">
+                    <span className="font-medium">{error.name}:</span> {error.message}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => setValidationErrors([])}
+                className="text-xs text-amber-800 hover:text-amber-900 font-medium mt-2"
+              >
+                Dismiss
+              </button>
             </div>
-          ))}
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Warnings */}
+      {duplicateWarnings.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Ban className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-orange-800">
+                {duplicateWarnings.length} duplicate file(s) skipped
+              </h4>
+              <p className="text-xs text-orange-700 mt-1 mb-2">
+                These files have the same name as existing scenes or pending uploads:
+              </p>
+              <ul className="space-y-1">
+                {duplicateWarnings.map((name, index) => (
+                  <li key={index} className="text-xs text-orange-700 font-medium">
+                    {name}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => setDuplicateWarnings([])}
+                className="text-xs text-orange-800 hover:text-orange-900 font-medium mt-2"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pending Files Preview */}
+      {pendingFiles.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="text-sm font-medium text-blue-900">
+                Ready to Upload ({pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''})
+              </h4>
+              <p className="text-xs text-blue-700 mt-1">
+                Drag to reorder • First image will be the start scene
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={clearAllPending}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+              >
+                Clear All
+              </button>
+              <button
+                onClick={startUploadAll}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
+              >
+                <Play className="w-4 h-4" />
+                Upload All
+              </button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {pendingFiles.map((pending, index) => (
+              <div
+                key={pending.id}
+                draggable
+                onDragStart={(e) => handlePendingDragStart(e, index)}
+                onDragOver={(e) => handlePendingDragOver(e, index)}
+                onDragLeave={handlePendingDragLeave}
+                onDrop={(e) => handlePendingDrop(e, index)}
+                onDragEnd={handlePendingDragEnd}
+                className={`relative group bg-white rounded-lg overflow-hidden border-2 shadow-sm cursor-grab active:cursor-grabbing transition-all duration-200 ${
+                  draggedIndex === index 
+                    ? 'opacity-50 scale-95 border-blue-400' 
+                    : dragOverIndex === index 
+                      ? 'border-green-500 ring-2 ring-green-200 scale-105' 
+                      : 'border-blue-200 hover:border-blue-300'
+                }`}
+              >
+                {/* Drag Handle Indicator */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-60 transition-opacity z-10">
+                  <GripVertical className="w-8 h-8 text-gray-600" />
+                </div>
+                
+                {/* Preview Image */}
+                <div className="aspect-[2/1] bg-gray-100">
+                  {pending.previewUrl && (
+                    <img
+                      src={pending.previewUrl}
+                      alt={pending.file?.name}
+                      className="w-full h-full object-cover pointer-events-none"
+                      draggable={false}
+                    />
+                  )}
+                </div>
+                
+                {/* Order Badge */}
+                <div className={`absolute top-1 left-1 w-5 h-5 text-white text-xs font-bold rounded-full flex items-center justify-center transition-colors ${
+                  dragOverIndex === index ? 'bg-green-600' : 'bg-blue-600'
+                }`}>
+                  {dragOverIndex === index ? '→' : index + 1}
+                </div>
+                
+                {/* Remove Button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); removePendingFile(pending.id); }}
+                  className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                  title="Remove"
+                  draggable={false}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                
+                {/* Filename */}
+                <div className="p-1.5">
+                  <p className="text-xs text-gray-700 truncate" title={pending.file?.name}>
+                    {pending.file?.name}
+                  </p>
+                </div>
+                
+                {/* Start Scene Badge */}
+                {index === 0 && (
+                  <div className="absolute top-1 left-7 px-1.5 py-0.5 bg-green-500 text-white text-[10px] font-medium rounded">
+                    Start
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Upload Progress Summary & Active Uploads */}
+      {uploadingImages.length > 0 && (
+        <div className="space-y-3">
+          {/* Progress Summary */}
+          {(() => {
+            const completed = uploadingImages.filter(u => u.status === 'completed').length;
+            const uploading = uploadingImages.filter(u => u.status === 'uploading').length;
+            const errors = uploadingImages.filter(u => u.status === 'error').length;
+            const canceled = uploadingImages.filter(u => u.status === 'canceled').length;
+            const pending = uploadingImages.filter(u => u.status === 'pending').length;
+            const total = uploadingImages.length;
+            const totalProgress = uploadingImages.reduce((sum, u) => sum + u.uploadProgress, 0) / total;
+
+            return (
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-gray-900">
+                    Upload Progress
+                  </h4>
+                  <span className="text-sm text-gray-600">
+                    {completed} of {total} complete
+                    {errors > 0 && <span className="text-red-600 ml-1">({errors} failed)</span>}
+                    {canceled > 0 && <span className="text-gray-500 ml-1">({canceled} canceled)</span>}
+                  </span>
+                </div>
+                
+                {/* Overall Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                  <div
+                    className="bg-green-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${totalProgress}%` }}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>{Math.round(totalProgress)}% overall</span>
+                  <span>
+                    {uploading > 0 && `${uploading} uploading`}
+                    {pending > 0 && ` • ${pending} queued`}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Individual Upload Items */}
+          <div className="space-y-2">
+            {uploadingImages.map((upload) => (
+              <div 
+                key={upload.id} 
+                className={`rounded-lg p-3 ${
+                  upload.status === 'completed' ? 'bg-green-50 border border-green-200' :
+                  upload.status === 'error' ? 'bg-red-50 border border-red-200' :
+                  upload.status === 'canceled' ? 'bg-gray-100 border border-gray-200' :
+                  'bg-gray-50 border border-gray-200'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {/* Status Icon */}
+                    {upload.status === 'completed' && (
+                      <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    )}
+                    {upload.status === 'error' && (
+                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                    )}
+                    {upload.status === 'canceled' && (
+                      <Ban className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                    )}
+                    {(upload.status === 'uploading' || upload.status === 'pending') && (
+                      <div className="w-4 h-4 flex-shrink-0">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                      </div>
+                    )}
+                    
+                    <span className="text-sm text-gray-700 truncate">{upload.file?.name}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`text-xs ${
+                      upload.status === 'completed' ? 'text-green-600' :
+                      upload.status === 'error' ? 'text-red-600' :
+                      'text-gray-500'
+                    }`}>
+                      {upload.status === 'completed' ? 'Done' :
+                       upload.status === 'error' ? 'Failed' :
+                       upload.status === 'canceled' ? 'Canceled' :
+                       upload.status === 'pending' ? 'Queued' :
+                       `${Math.round(upload.uploadProgress)}%`}
+                    </span>
+                    
+                    {/* Cancel Button - only for active uploads */}
+                    {upload.status === 'uploading' && (
+                      <button
+                        onClick={() => cancelUpload(upload.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
+                        title="Cancel upload"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                    
+                    {/* Dismiss Button - for completed/error/canceled */}
+                    {(upload.status === 'error' || upload.status === 'canceled') && (
+                      <button
+                        onClick={() => dismissUpload(upload.id)}
+                        className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                        title="Dismiss"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Progress Bar - only for uploading */}
+                {upload.status === 'uploading' && (
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div
+                      className="bg-green-600 h-1.5 rounded-full transition-all"
+                      style={{ width: `${upload.uploadProgress}%` }}
+                    />
+                  </div>
+                )}
+                
+                {/* Error Message */}
+                {upload.error && upload.status !== 'canceled' && (
+                  <p className="text-xs text-red-600 mt-1">{upload.error}</p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

@@ -48,7 +48,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}) => {
 
   const uploadFiles = useCallback(async (
     files: File[],
-    uploadType: 'church_images' | '360_images' | 'heritage_documents' = 'church_images',
+    uploadType: 'church_images' | 'heritage_documents' = 'church_images',
     churchId?: string,
     documentType?: 'heritage_declaration' | 'historical_document' | 'restoration_record'
   ) => {
@@ -89,18 +89,6 @@ export const useFileUpload = (options: UseFileUploadOptions = {}) => {
               updateProgress(`file_${fileIndex}`, progress.progress);
             }
           );
-          break;
-
-        case '360_images':
-          if (!churchId) throw new Error('Church ID required for 360 images');
-          const uploaded360 = await uploadService.upload360Images(
-            churchId,
-            files,
-            (fileIndex, progress) => {
-              updateProgress(`file_${fileIndex}`, progress.progress);
-            }
-          );
-          uploadedUrls = uploaded360.map(item => item.url);
           break;
 
         case 'heritage_documents':

@@ -62,29 +62,6 @@ export async function uploadChurchImage(
 }
 
 /**
- * Upload 360° tour image
- */
-export async function upload360Image(
-  churchId: string,
-  file: File,
-  spotName: string,
-  onProgress?: (progress: UploadProgress) => void
-): Promise<string> {
-  try {
-    // Don't compress 360 images to maintain quality
-    const fileName = `${spotName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.${file.name.split('.').pop()}`;
-    const storageRef = ref(storage, `360-images/${churchId}/${fileName}`);
-    
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
-  } catch (error) {
-    console.error('Error uploading 360 image:', error);
-    throw new Error('Failed to upload 360° image');
-  }
-}
-
-/**
  * Upload historical document
  * Documents are stored under churches/{churchId}/documents/
  */
