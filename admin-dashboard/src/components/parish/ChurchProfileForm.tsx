@@ -874,8 +874,64 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   // Form submission handlers
   const handleSave = async () => {
     try {
+      // Use provided churchId or effectiveChurchId (from auto-save)
+      const uploadChurchId = churchId || effectiveChurchId;
+      
+      // Upload photos to Firebase Storage if we have a churchId
+      let uploadedPhotos = formData.photos;
+      let uploadedDocuments = formData.documents;
+      
+      if (uploadChurchId) {
+        // Upload photos that have files (new uploads with blob URLs)
+        const hasNewPhotos = formData.photos.some(p => p.file);
+        const hasNewDocs = formData.documents.some(d => d.file);
+        
+        if (hasNewPhotos || hasNewDocs) {
+          console.log('📸 [handleSave] Uploading new files before saving draft...');
+          
+          // Upload photos
+          const photoResults = await Promise.all(
+            formData.photos.map(async (photo) => {
+              if (photo.file) {
+                try {
+                  const compressedFile = await compressImage(photo.file);
+                  const url = await uploadChurchImage(uploadChurchId, compressedFile);
+                  return { ...photo, url, file: undefined };
+                } catch (error) {
+                  console.error('Error uploading photo:', error);
+                  return photo; // Keep original if upload fails
+                }
+              }
+              return photo;
+            })
+          );
+          uploadedPhotos = photoResults;
+          
+          // Upload documents
+          const docResults = await Promise.all(
+            formData.documents.map(async (doc) => {
+              if (doc.file) {
+                try {
+                  const url = await uploadDocument(uploadChurchId, doc.file, doc.type || 'document');
+                  return { ...doc, url, file: undefined };
+                } catch (error) {
+                  console.error('Error uploading document:', error);
+                  return doc; // Keep original if upload fails
+                }
+              }
+              return doc;
+            })
+          );
+          uploadedDocuments = docResults;
+          
+          console.log('📸 [handleSave] Files uploaded successfully');
+        }
+      }
+      
       const updatedData = {
         ...formData,
+        photos: uploadedPhotos,
+        documents: uploadedDocuments,
         name: formData.churchName,
         location: `${formData.locationDetails.streetAddress}, ${formData.locationDetails.barangay}, ${formData.locationDetails.municipality}`,
         priest: formData.currentParishPriest,
@@ -885,7 +941,21 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       };
 
       // Call onSave - the parent component handles the toast notification
-      await onSave(updatedData);
+      const result = await onSave(updatedData);
+      
+      // If we got a churchId back and didn't have one before, update effectiveChurchId
+      if (result && typeof result === 'string' && !effectiveChurchId) {
+        setEffectiveChurchId(result);
+      }
+      
+      // Update form data with uploaded URLs so they persist
+      if (uploadChurchId) {
+        setFormData(prev => ({
+          ...prev,
+          photos: uploadedPhotos,
+          documents: uploadedDocuments
+        }));
+      }
     } catch (error) {
       console.error('Error during save:', error);
       toast({
@@ -1035,8 +1105,29 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     try {
       setUploading(true);
 
-      // Use provided churchId or generate from parish name as fallback
-      const uploadChurchId = churchId || formData.parishName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      // Use provided churchId or effectiveChurchId (from auto-save)
+      // The churchId should always be provided from ParishDashboard with the correct format
+      // (e.g., tagbilaran_tagbilaran_city_saint_joseph_the_worker_cathedral_shrine)
+      const uploadChurchId = churchId || effectiveChurchId;
+      
+      if (!uploadChurchId) {
+        toast({
+          title: "Upload Error",
+          description: "Church ID not available. Please save the profile first before uploading photos.",
+          variant: "destructive"
+        });
+        setUploading(false);
+        return;
+      }
+      
+      console.log('📸 [ChurchProfileForm] Starting photo upload:', {
+        churchId,
+        effectiveChurchId,
+        uploadChurchId,
+        photosCount: formData.photos.length,
+        photosWithFiles: formData.photos.filter(p => p.file).length,
+        photosWithUrls: formData.photos.filter(p => p.url && !p.url.startsWith('blob:')).length
+      });
 
       // Upload regular photos to Firebase Storage with compression
       // NOTE: Virtual tour is now managed separately by VirtualTourManager component
@@ -1061,6 +1152,11 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           uploadedPhotoURLs.push(photo.url);
         }
       }
+
+      console.log('📸 [ChurchProfileForm] Photo upload complete:', {
+        uploadedPhotoURLs,
+        count: uploadedPhotoURLs.length
+      });
 
       // Upload documents to Firebase Storage
       const uploadedDocURLs: string[] = [];

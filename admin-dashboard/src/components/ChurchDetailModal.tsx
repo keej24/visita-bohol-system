@@ -850,9 +850,7 @@ export function ChurchDetailModal({
                       <div className="text-center py-8 text-gray-500">
                         <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                         <p className="text-sm">No photos available</p>
-                        <Button variant="outline" size="sm" className="mt-3" onClick={() => setEditMode(true)}>
-                          <Camera className="w-4 h-4 mr-1" /> Add Photos
-                        </Button>
+                        <p className="text-xs text-gray-400 mt-1">Photos can only be added by the parish</p>
                       </div>
                     )}
                   </CardContent>

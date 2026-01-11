@@ -1338,7 +1338,7 @@ const ParishDashboard = () => {
           currentStatus={churchInfo.status}
           isSubmitting={isSubmitting}
           isSaving={isSaving}
-          churchId={churchId || undefined}
+          churchId={churchId || existingChurch?.id || userProfile?.parishId || userProfile?.parish || undefined}
         />
       ) : !existingChurch ? (
         // Welcome screen for new parishes without church profile
