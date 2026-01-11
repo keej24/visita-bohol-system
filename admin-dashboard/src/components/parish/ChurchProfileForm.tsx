@@ -337,7 +337,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         const phoneRegex = /^[\d\s\-()+ ]+$/;
         if (!phoneRegex.test(String(value))) return 'Phone number contains invalid characters';
         const digitCount = String(value).replace(/\D/g, '').length;
-        if (digitCount < 7 || digitCount > 15) return 'Phone number must contain 7-15 digits';
+        // With +63 prefix (2 digits) + 10 digits (9XX-XXX-XXXX) = 12 total
+        if (digitCount !== 12) return 'Please enter 10 digits after +63 (e.g., +63 9XX-XXX-XXXX)';
         return '';
       }
       case 'email': {
@@ -974,8 +975,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         validationErrors.push("Phone number contains invalid characters");
       }
       const digitCount = formData.contactInfo.phone.replace(/\D/g, '').length;
-      if (digitCount < 7 || digitCount > 15) {
-        validationErrors.push("Phone number must contain 7-15 digits");
+      // With +63 prefix (2 digits) + 10 digits (9XX-XXX-XXXX) = 12 total
+      if (digitCount !== 12) {
+        validationErrors.push("Please enter 10 digits after +63 (e.g., +63 9XX-XXX-XXXX)");
       }
     }
 

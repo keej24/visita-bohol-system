@@ -1,9 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Upload, X, FileText, File, Loader2, ExternalLink, Eye, ShieldAlert, Lock, Globe } from 'lucide-react';
 
 interface Document {
@@ -177,11 +176,13 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
       {/* Uploaded Documents List */}
       {documents.length > 0 && (
         <div>
-          <h4 className="font-medium text-gray-900 mb-3">
+          <h4 className="font-medium text-gray-900 mb-2">
             Uploaded Documents ({documents.length}/{maxDocuments})
           </h4>
+          <p className="text-sm text-gray-600 mb-3">
+            <strong>Visibility:</strong> Click <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-medium"><Globe className="w-3 h-3 mr-1" />Public</span> or <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-xs font-medium"><Lock className="w-3 h-3 mr-1" />Internal Only</span> to toggle. Internal documents are only visible to administrators.
+          </p>
           <div className="space-y-2">
-            <TooltipProvider>
             {documents.map((doc) => (
               <Card key={doc.id} className="hover:bg-gray-50 transition-colors">
                 <CardContent className="p-4">
@@ -218,34 +219,35 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {/* Visibility Toggle */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const updatedDocs = documents.map(d => 
-                                d.id === doc.id 
-                                  ? { ...d, visibility: d.visibility === 'internal' ? 'public' as const : 'internal' as const }
-                                  : d
-                              );
-                              onDocumentsChange(updatedDocs);
-                            }}
-                            className={doc.visibility === 'internal' 
-                              ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" 
-                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"}
-                          >
-                            {doc.visibility === 'internal' ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {doc.visibility === 'internal' 
-                            ? "Internal Only - Not visible to public. Click to make public." 
-                            : "Public - Visible to all users. Click to mark as internal only."}
-                        </TooltipContent>
-                      </Tooltip>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Visibility Toggle - Explicit button with text */}
+                      <Button
+                        variant={doc.visibility === 'internal' ? "outline" : "secondary"}
+                        size="sm"
+                        onClick={() => {
+                          const updatedDocs = documents.map(d => 
+                            d.id === doc.id 
+                              ? { ...d, visibility: d.visibility === 'internal' ? 'public' as const : 'internal' as const }
+                              : d
+                          );
+                          onDocumentsChange(updatedDocs);
+                        }}
+                        className={doc.visibility === 'internal' 
+                          ? "text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100" 
+                          : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}
+                      >
+                        {doc.visibility === 'internal' ? (
+                          <>
+                            <Lock className="w-3 h-3 mr-1" />
+                            Internal Only
+                          </>
+                        ) : (
+                          <>
+                            <Globe className="w-3 h-3 mr-1" />
+                            Public
+                          </>
+                        )}
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -269,7 +271,6 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                 </CardContent>
               </Card>
             ))}
-            </TooltipProvider>
           </div>
         </div>
       )}
