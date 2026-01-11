@@ -129,8 +129,17 @@ export class VirtualTourService {
 
   /**
    * Add a new scene to the tour (atomic operation using Firestore transaction)
+   * @param churchId - The church ID
+   * @param scene - The scene to add
+   * @param originalIndex - Optional: The intended position in the scene list (0 = first/start scene)
+   * @param isFirstInBatch - Optional: Whether this is the first scene in a batch upload (should be start scene)
    */
-  static async addScene(churchId: string, scene: TourScene): Promise<void> {
+  static async addScene(
+    churchId: string,
+    scene: TourScene,
+    originalIndex?: number,
+    isFirstInBatch?: boolean
+  ): Promise<void> {
     try {
       const churchRef = doc(db, 'churches', churchId);
 
@@ -144,10 +153,46 @@ export class VirtualTourService {
         const data = churchDoc.data();
         const currentTour = data.virtualTour as VirtualTour | undefined;
 
-        // Add scene to existing tour or create new tour
         // Clean the scene to remove undefined values
         const cleanedScene = removeUndefinedValues(scene);
-        const updatedScenes = currentTour ? [...currentTour.scenes, cleanedScene] : [cleanedScene];
+
+        let updatedScenes: TourScene[];
+        
+        if (!currentTour || currentTour.scenes.length === 0) {
+          // First scene - create new tour, mark as start scene if first in batch
+          updatedScenes = [{
+            ...cleanedScene,
+            isStartScene: isFirstInBatch ?? (originalIndex === 0),
+          }];
+        } else if (originalIndex !== undefined) {
+          // Insert at the correct position based on original index
+          // Count how many scenes from this batch are already in place
+          const existingScenes = [...currentTour.scenes];
+          
+          // Find the correct insertion point
+          // Scenes should be ordered by their original index
+          let insertAt = existingScenes.length; // Default: append at end
+          
+          for (let i = 0; i < existingScenes.length; i++) {
+            // We need to maintain order relative to other batch scenes
+            // For simplicity, just append and we'll reorder after all uploads complete
+            insertAt = existingScenes.length;
+          }
+          
+          existingScenes.splice(insertAt, 0, cleanedScene);
+          updatedScenes = existingScenes;
+          
+          // If this is the first in batch, mark it as start scene
+          if (isFirstInBatch) {
+            updatedScenes = updatedScenes.map((s, idx) => ({
+              ...s,
+              isStartScene: s.id === cleanedScene.id,
+            }));
+          }
+        } else {
+          // No index specified, just append
+          updatedScenes = [...currentTour.scenes, cleanedScene];
+        }
 
         // Update with transaction (ensures atomicity)
         transaction.update(churchRef, {
@@ -155,12 +200,67 @@ export class VirtualTourService {
           updatedAt: Timestamp.now(),
         });
 
-        console.log('[VirtualTourService] ✓ Scene added via transaction:', scene.title);
+        console.log('[VirtualTourService] ✓ Scene added via transaction:', scene.title, 
+          originalIndex !== undefined ? `(originalIndex: ${originalIndex})` : '');
       });
 
       console.log('[VirtualTourService] ✓ Transaction committed successfully');
     } catch (error) {
       console.error('[VirtualTourService] ✗ Error adding scene:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reorder scenes after batch upload completes to ensure correct order
+   * This is called after all uploads finish to sort scenes by their original order
+   */
+  static async reorderScenesAfterBatchUpload(
+    churchId: string,
+    sceneOrderMap: Map<string, number> // Map of sceneId -> originalIndex
+  ): Promise<void> {
+    try {
+      const tour = await this.getVirtualTour(churchId);
+      if (!tour || tour.scenes.length === 0) return;
+
+      // Separate scenes that have order info from those that don't
+      const orderedScenes: Array<{ scene: TourScene; index: number }> = [];
+      const unorderedScenes: TourScene[] = [];
+
+      for (const scene of tour.scenes) {
+        const originalIndex = sceneOrderMap.get(scene.id);
+        if (originalIndex !== undefined) {
+          orderedScenes.push({ scene, index: originalIndex });
+        } else {
+          unorderedScenes.push(scene);
+        }
+      }
+
+      // Sort by original index
+      orderedScenes.sort((a, b) => a.index - b.index);
+
+      // Combine: existing scenes (not in batch) + newly ordered scenes
+      const reorderedScenes = [
+        ...unorderedScenes, // Keep existing scenes at the start
+        ...orderedScenes.map((o) => o.scene),
+      ];
+
+      // Ensure the first scene from the batch is the start scene
+      // (only if there were no existing scenes before)
+      if (unorderedScenes.length === 0 && reorderedScenes.length > 0) {
+        const firstSceneId = reorderedScenes[0].id;
+        const finalScenes = reorderedScenes.map((s) => ({
+          ...s,
+          isStartScene: s.id === firstSceneId,
+        }));
+        await this.saveVirtualTour(churchId, { scenes: finalScenes });
+      } else {
+        await this.saveVirtualTour(churchId, { scenes: reorderedScenes });
+      }
+
+      console.log('[VirtualTourService] ✓ Scenes reordered after batch upload');
+    } catch (error) {
+      console.error('[VirtualTourService] ✗ Error reordering scenes:', error);
       throw error;
     }
   }

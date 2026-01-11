@@ -766,7 +766,7 @@ export function ChurchDetailModal({
                               <div className="space-y-4">
                                 {schedulesByDay['Sunday'].length > 0 && (
                                   <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
-                                    <div className="font-semibold text-amber-800 mb-2 text-sm">☀️ Sunday</div>
+                                    <div className="font-semibold text-amber-800 mb-2 text-sm"> Sunday</div>
                                     <div className="space-y-1.5 pl-2">
                                       {sortByTime(schedulesByDay['Sunday']).map(renderSchedule)}
                                     </div>
@@ -774,7 +774,7 @@ export function ChurchDetailModal({
                                 )}
                                 {dailySchedules.length > 0 && (
                                   <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
-                                    <div className="font-semibold text-blue-800 mb-2 text-sm">📅 Daily (Mon–Fri)</div>
+                                    <div className="font-semibold text-blue-800 mb-2 text-sm"> Daily (Mon–Fri)</div>
                                     <div className="space-y-1.5 pl-2">
                                       {sortByTime(dailySchedules).map(renderSchedule)}
                                     </div>
@@ -782,7 +782,7 @@ export function ChurchDetailModal({
                                 )}
                                 {schedulesByDay['Saturday'].length > 0 && (
                                   <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
-                                    <div className="font-semibold text-purple-800 mb-2 text-sm">🌙 Saturday</div>
+                                    <div className="font-semibold text-purple-800 mb-2 text-sm"> Saturday</div>
                                     <div className="space-y-1.5 pl-2">
                                       {sortByTime(schedulesByDay['Saturday']).map(renderSchedule)}
                                     </div>

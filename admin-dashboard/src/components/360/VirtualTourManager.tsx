@@ -109,6 +109,19 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
   const activeUploadsRef = useRef(0);
   const uploadTasksRef = useRef<Map<string, UploadTask>>(new Map());
   const titleDebounceRef = useRef<{ [sceneId: string]: NodeJS.Timeout }>({});
+  
+  // Batch upload tracking for proper scene ordering
+  const batchUploadRef = useRef<{
+    totalInBatch: number;
+    completedInBatch: number;
+    sceneOrderMap: Map<string, number>; // Maps scene ID -> original index
+    batchId: string | null;
+  }>({
+    totalInBatch: 0,
+    completedInBatch: 0,
+    sceneOrderMap: new Map(),
+    batchId: null,
+  });
 
   // Delete scene confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -360,12 +373,24 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
   const startUploadAll = useCallback(() => {
     if (pendingFiles.length === 0) return;
 
-    // Move pending files to uploading state
-    const uploadsToStart: Uploaded360Image[] = pendingFiles.map((pending) => ({
+    // Initialize batch tracking
+    const batchId = `batch-${Date.now()}`;
+    batchUploadRef.current = {
+      totalInBatch: pendingFiles.length,
+      completedInBatch: 0,
+      sceneOrderMap: new Map(),
+      batchId,
+    };
+    
+    console.log(`[VirtualTourManager] Starting batch upload: ${batchId} with ${pendingFiles.length} files`);
+
+    // Move pending files to uploading state, preserving order with originalIndex
+    const uploadsToStart: Uploaded360Image[] = pendingFiles.map((pending, index) => ({
       ...pending,
       id: `upload-${Date.now()}-${Math.random()}`,
       uploading: true,
       status: 'uploading' as const,
+      originalIndex: index, // Track the original position (0 = first = start scene)
     }));
 
     // Clear pending and add to uploading
@@ -550,20 +575,59 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
           const url = await getDownloadURL(uploadTask.snapshot.ref);
           console.log('[VirtualTourManager] Upload complete:', url);
 
-          // Create new scene
+          // Create new scene with a predictable ID for tracking
+          const sceneId = `scene-${Date.now()}-${Math.random()}`;
           const newScene: TourScene = {
-            id: `scene-${Date.now()}-${Math.random()}`,
+            id: sceneId,
             title: upload.file?.name.replace(/\.[^/.]+$/, '') || 'New Scene',
             imageUrl: url,
-            isStartScene: false, // We'll determine this based on position
+            isStartScene: false, // Will be set during reordering
             hotspots: [],
           };
+          
+          // Track this scene's original index for batch reordering
+          const originalIndex = upload.originalIndex ?? 0;
+          const isFirstInBatch = originalIndex === 0;
+          
+          console.log(`[VirtualTourManager] Scene "${newScene.title}" has originalIndex: ${originalIndex}, isFirstInBatch: ${isFirstInBatch}`);
 
           try {
             // Use atomic transaction-based addScene to prevent race conditions during parallel uploads
+            // Pass the original index so the service can handle ordering
             console.log('[VirtualTourManager] Saving scene to Firestore:', newScene.title);
-            await VirtualTourService.addScene(churchId, newScene);
+            await VirtualTourService.addScene(churchId, newScene, originalIndex, isFirstInBatch);
             console.log('[VirtualTourManager] ✓ Scene saved to Firestore successfully');
+            
+            // Track this scene in the batch for final reordering
+            batchUploadRef.current.sceneOrderMap.set(sceneId, originalIndex);
+            batchUploadRef.current.completedInBatch++;
+            
+            console.log(`[VirtualTourManager] Batch progress: ${batchUploadRef.current.completedInBatch}/${batchUploadRef.current.totalInBatch}`);
+            
+            // Check if all uploads in the batch are complete
+            if (batchUploadRef.current.completedInBatch === batchUploadRef.current.totalInBatch) {
+              console.log('[VirtualTourManager] All batch uploads complete! Reordering scenes...');
+              
+              try {
+                // Reorder scenes to match the original file order
+                await VirtualTourService.reorderScenesAfterBatchUpload(
+                  churchId,
+                  batchUploadRef.current.sceneOrderMap
+                );
+                console.log('[VirtualTourManager] ✓ Scenes reordered successfully');
+              } catch (reorderError) {
+                console.error('[VirtualTourManager] Error reordering scenes:', reorderError);
+                // Non-fatal: scenes are uploaded, just potentially in wrong order
+              }
+              
+              // Reset batch tracking
+              batchUploadRef.current = {
+                totalInBatch: 0,
+                completedInBatch: 0,
+                sceneOrderMap: new Map(),
+                batchId: null,
+              };
+            }
 
             // Update status to completed
             setUploadingImages((prev) =>
