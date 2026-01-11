@@ -315,8 +315,8 @@ const ParishDashboard = () => {
             setChurchId(church.id);
             setChurchInfo(convertChurchToInfo(church));
 
-            // Show form only if status is pending
-            if (church.status === 'pending') {
+            // Show form for draft or pending status, otherwise show overview
+            if (church.status === 'pending' || church.status === 'draft') {
               setCurrentView('profile');
             } else {
               setCurrentView('overview');
@@ -437,16 +437,16 @@ const ParishDashboard = () => {
     const visitKey = `parish_dashboard_visited_${userProfile?.uid || 'user'}`;
     const isFirstVisit = !localStorage.getItem(visitKey);
     
-    // Show form immediately on first visit OR if profile status is pending/incomplete
+    // Show form immediately on first visit OR if profile status is pending/draft/incomplete
     // Only update state if component is still mounted
-    if (isMounted && (isFirstVisit || churchInfo.status === 'pending' || !churchInfo.churchName)) {
+    if (isMounted && (isFirstVisit || churchInfo.status === 'pending' || churchInfo.status === 'draft' || !churchInfo.churchName)) {
       setCurrentView('profile');
     }
     
     return () => {
       isMounted = false;
     };
-  }, [churchInfo.status, churchInfo.churchName, userProfile?.uid]);
+  }, [churchInfo.churchName, userProfile?.uid]); // eslint-disable-line react-hooks/exhaustive-deps -- Removed churchInfo.status to prevent view changes on status updates
 
   // Handle activeTab changes from sidebar
   useEffect(() => {
@@ -644,8 +644,11 @@ const ParishDashboard = () => {
         console.log('🔍 [SAVE DRAFT] original data.feastDay:', data.feastDay);
         console.log('🔍 [SAVE DRAFT] existingChurch.status:', existingChurch.status);
         
-        // Preserve 'approved' status - don't revert approved churches to draft
-        const preservedStatus = existingChurch.status === 'approved' ? 'approved' : 'draft';
+        // Preserve 'approved', 'pending', and 'heritage_review' statuses - don't revert to draft
+        // Only use 'draft' if the church was already a draft
+        const preservedStatus = ['approved', 'pending', 'heritage_review'].includes(existingChurch.status) 
+          ? existingChurch.status 
+          : 'draft';
         
         await updateDoc(docRef, {
           ...formData,
@@ -655,11 +658,17 @@ const ParishDashboard = () => {
         });
         
         setChurchInfo({ ...data, status: preservedStatus, id: existingChurch.id });
+        
+        // Show appropriate message based on status
+        const statusMessages: Record<string, string> = {
+          'approved': "Changes saved successfully!",
+          'pending': "Changes saved! Your profile remains in the review queue.",
+          'heritage_review': "Changes saved! Your profile remains in heritage review.",
+          'draft': "Church profile saved as draft!"
+        };
         toast({ 
           title: "Saved", 
-          description: preservedStatus === 'approved' 
-            ? "Changes saved successfully!" 
-            : "Church profile saved as draft!"
+          description: statusMessages[preservedStatus] || "Changes saved successfully!"
         });
         
         // Return the existing church ID
