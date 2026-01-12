@@ -305,20 +305,12 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
                 {userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : toTitleCase(userProfile?.name || userProfile?.email)}
               </p>
               <p className="text-sidebar-foreground/70 text-xs truncate">
-                {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : `${toTitleCase(userProfile?.role)} • ${toTitleCase(userProfile?.diocese)}`}
+                {userProfile?.role === 'museum_researcher' 
+                  ? 'Museum Researcher' 
+                  : userProfile?.role === 'parish_secretary'
+                    ? `Parish Secretary • ${toTitleCase(userProfile?.diocese)}`
+                    : `${toTitleCase(userProfile?.role)} • ${toTitleCase(userProfile?.diocese)}`}
               </p>
-              {userProfile?.role === 'museum_researcher' && (
-                <div className="flex items-center gap-1 mt-1">
-                  <Crown className="w-3 h-3 text-yellow-400" />
-                  <span className="text-xs text-yellow-400 font-medium">Museum Researcher</span>
-                </div>
-              )}
-              {userProfile?.role === 'parish_secretary' && (
-                <div className="flex items-center gap-1 mt-1">
-                  <Church className="w-3 h-3 text-emerald-400" />
-                  <span className="text-xs text-emerald-400 font-medium">Parish Secretary</span>
-                </div>
-              )}
             </div>
           </div>
           

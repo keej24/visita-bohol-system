@@ -27,22 +27,47 @@ export class DioceseReportService {
     const isSingleChurch = analytics.totalChurches === 1;
     const singleChurch = isSingleChurch ? analytics.topChurches[0] : null;
 
-    // Header
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${dioceseName} Diocese`, 105, yPos, { align: 'center' });
-    yPos += 8;
+    // ============================
+    // COVER HEADER WITH BRANDING
+    // ============================
+    // Sidebar color: HSL(220, 72%, 24%) = RGB(17, 40, 110) - Deep Ecclesiastical Blue
+    doc.setFillColor(17, 40, 110);
+    doc.rect(0, 0, 210, 45, 'F');
 
-    doc.setFontSize(16);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Diocese of ${dioceseName}`, 105, 18, { align: 'center' });
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
     if (isSingleChurch && singleChurch) {
-      doc.text('Parish Report', 105, yPos, { align: 'center' });
-      yPos += 8;
-      doc.setFontSize(14);
-      doc.text(singleChurch.name, 105, yPos, { align: 'center' });
+      doc.text('PARISH SUMMARY REPORT', 105, 28, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(singleChurch.name, 105, 38, { align: 'center' });
     } else {
-      doc.text('Church Summary Report', 105, yPos, { align: 'center' });
+      doc.text('CHURCH SUMMARY REPORT', 105, 28, { align: 'center' });
+      doc.setFontSize(11);
+      doc.text(`Total: ${analytics.totalChurches} Churches`, 105, 38, { align: 'center' });
     }
-    yPos += 15;
+
+    doc.setTextColor(0, 0, 0);
+    yPos = 55;
+
+    // Report metadata
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`, 20, yPos);
+    doc.text('VISITA Bohol Churches Information System', 190, yPos, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    yPos += 10;
 
     // For single church, show detailed church info first
     if (isSingleChurch && singleChurch) {
@@ -72,7 +97,7 @@ export class DioceseReportService {
         head: [['Detail', 'Information']],
         body: churchInfoRows,
         theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] },
+        headStyles: { fillColor: [17, 40, 110] },
         margin: { left: 20, right: 20 },
       });
 
@@ -201,11 +226,20 @@ export class DioceseReportService {
       }
 
     } else {
+      // ============================
+      // DIOCESE OVERVIEW SECTION
+      // ============================
       // Multiple churches - show diocese overview
-      doc.setFontSize(12);
+      
+      // Draw section header with colored background
+      doc.setFillColor(219, 234, 254); // Light blue background to match sidebar
+      doc.rect(15, yPos - 5, 180, 12, 'F');
+      doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
-      doc.text('Diocese Overview', 20, yPos);
-      yPos += 7;
+      doc.setTextColor(17, 40, 110);
+      doc.text('DIOCESE OVERVIEW', 20, yPos + 3);
+      doc.setTextColor(0, 0, 0);
+      yPos += 15;
 
       // Build statistics rows dynamically based on filtered data
       const statsRows: [string, string][] = [
@@ -235,7 +269,7 @@ export class DioceseReportService {
         head: [['Metric', 'Count']],
         body: statsRows,
         theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] },
+        headStyles: { fillColor: [17, 40, 110] },
         margin: { left: 20, right: 20 },
       });
 
@@ -267,7 +301,7 @@ export class DioceseReportService {
           head: [['Municipality', 'Number of Churches', 'Percentage']],
           body: municipalityData,
           theme: 'grid',
-          headStyles: { fillColor: [59, 130, 246] },
+          headStyles: { fillColor: [17, 40, 110] },
           margin: { left: 20, right: 20 },
         });
 
@@ -303,7 +337,7 @@ export class DioceseReportService {
           head: [['#', 'Church Name', 'Municipality', 'Founded', 'Class.', 'Visitors', 'Rating', 'Feedback']],
           body: topChurchesData,
           theme: 'grid',
-          headStyles: { fillColor: [59, 130, 246], fontSize: 9 },
+          headStyles: { fillColor: [17, 40, 110], fontSize: 9 },
           bodyStyles: { fontSize: 8 },
           columnStyles: {
             0: { cellWidth: 8 },
@@ -345,7 +379,7 @@ export class DioceseReportService {
           head: [['#', 'Church Name', 'Municipality', 'Founded', 'Classification', 'Status']],
           body: allChurchesData,
           theme: 'striped',
-          headStyles: { fillColor: [59, 130, 246], fontSize: 10 },
+          headStyles: { fillColor: [17, 40, 110], fontSize: 10 },
           bodyStyles: { fontSize: 9 },
           columnStyles: {
             0: { cellWidth: 10 },

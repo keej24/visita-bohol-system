@@ -133,6 +133,60 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [churchId]);
 
+  // Helper function to check if an image URL is valid with retries
+  const checkImageWithRetry = useCallback(async (
+    sceneId: string, 
+    imageUrl: string, 
+    title: string,
+    retries: number = 2
+  ): Promise<{ sceneId: string; isBroken: boolean }> => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const result = await new Promise<{ sceneId: string; isBroken: boolean }>((resolve) => {
+        const img = new Image();
+        
+        // Increase timeout for first attempt, shorter for retries
+        const timeoutMs = attempt === 0 ? 10000 : 5000;
+        const timeout = setTimeout(() => {
+          console.warn(`[VirtualTourManager] Scene "${title}" image check timeout (attempt ${attempt + 1})`);
+          resolve({ sceneId, isBroken: true });
+        }, timeoutMs);
+
+        img.onload = () => {
+          clearTimeout(timeout);
+          resolve({ sceneId, isBroken: false });
+        };
+
+        img.onerror = () => {
+          clearTimeout(timeout);
+          if (attempt < retries) {
+            console.warn(`[VirtualTourManager] Scene "${title}" image failed, will retry...`);
+          }
+          resolve({ sceneId, isBroken: true });
+        };
+
+        // Add cache-busting parameter to force fresh load on retries
+        const urlWithCacheBust = attempt > 0 
+          ? `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}_t=${Date.now()}`
+          : imageUrl;
+        img.src = urlWithCacheBust;
+      });
+
+      // If image loaded successfully, return immediately
+      if (!result.isBroken) {
+        return result;
+      }
+      
+      // Wait a bit before retrying
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+    
+    // All retries exhausted
+    console.warn(`[VirtualTourManager] Scene "${title}" has broken image after ${retries + 1} attempts`);
+    return { sceneId, isBroken: true };
+  }, []);
+
   const loadTour = useCallback(async () => {
     try {
       setLoading(true);
@@ -140,36 +194,14 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
       setTour(existingTour);
       console.log('[VirtualTourManager] Loaded tour:', existingTour);
 
-      // Check for broken images (using image loading instead of fetch to avoid CORS issues)
-      if (existingTour) {
+      // Check for broken images with retry logic
+      if (existingTour && existingTour.scenes.length > 0) {
         const broken = new Set<string>();
 
-        // Use Promise.allSettled to check all images in parallel
-        const imageChecks = existingTour.scenes.map((scene) => {
-          return new Promise<{ sceneId: string; isBroken: boolean }>((resolve) => {
-            const img = new Image();
-
-            // Set a timeout to avoid hanging
-            const timeout = setTimeout(() => {
-              console.warn(`[VirtualTourManager] Scene "${scene.title}" image check timeout`);
-              resolve({ sceneId: scene.id, isBroken: true });
-            }, 5000);
-
-            img.onload = () => {
-              clearTimeout(timeout);
-              resolve({ sceneId: scene.id, isBroken: false });
-            };
-
-            img.onerror = (err) => {
-              clearTimeout(timeout);
-              console.warn(`[VirtualTourManager] Scene "${scene.title}" has broken image`);
-              resolve({ sceneId: scene.id, isBroken: true });
-            };
-
-            // Trigger the load
-            img.src = scene.imageUrl;
-          });
-        });
+        // Check all images in parallel with retries
+        const imageChecks = existingTour.scenes.map((scene) => 
+          checkImageWithRetry(scene.id, scene.imageUrl, scene.title)
+        );
 
         const results = await Promise.allSettled(imageChecks);
         results.forEach((result) => {
@@ -185,13 +217,16 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         } else {
           console.log('[VirtualTourManager] All scene images are accessible');
         }
+      } else {
+        // Clear broken images state when no tour exists
+        setBrokenImageScenes(new Set());
       }
     } catch (error) {
       console.error('[VirtualTourManager] Error loading tour:', error);
     } finally {
       setLoading(false);
     }
-  }, [churchId]);
+  }, [churchId, checkImageWithRetry]);
 
   // Process files (shared between input and drag-drop) - Stage for preview
   const processFiles = useCallback(async (filesArray: File[]) => {

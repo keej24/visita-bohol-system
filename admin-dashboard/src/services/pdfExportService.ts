@@ -82,7 +82,7 @@ export class PDFExportService {
     title: string,
     yPos: number,
     fontSize: number = 14,
-    color: [number, number, number] = [59, 130, 246]
+    color: [number, number, number] = [17, 40, 110]
   ): number {
     doc.setFontSize(fontSize);
     doc.setFont('helvetica', 'bold');
@@ -151,7 +151,8 @@ export class PDFExportService {
     // ============================
     // 1. COVER PAGE / HEADER
     // ============================
-    doc.setFillColor(59, 130, 246);
+    // Sidebar color: HSL(220, 72%, 24%) = RGB(17, 40, 110) - Deep Ecclesiastical Blue
+    doc.setFillColor(17, 40, 110);
     doc.rect(0, 0, 210, 50, 'F');
 
     doc.setFontSize(24);
@@ -214,7 +215,7 @@ export class PDFExportService {
       head: [['Field', 'Details']],
       body: basicInfoBody,
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      headStyles: { fillColor: [17, 40, 110], textColor: 255, fontStyle: 'bold' },
       styles: { fontSize: 10, cellPadding: 4 },
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 }, 1: { cellWidth: 110 } },
       margin: { left: 20, right: 20 },
@@ -238,7 +239,7 @@ export class PDFExportService {
         ['Architectural Style', churchInfo.historicalDetails?.architecturalStyle || 'Not specified'],
       ],
       theme: 'grid',
-      headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
+      headStyles: { fillColor: [17, 40, 110], textColor: 255, fontStyle: 'bold' },
       styles: { fontSize: 10, cellPadding: 4 },
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 }, 1: { cellWidth: 100 } },
       margin: { left: 20, right: 20 },
@@ -518,28 +519,48 @@ export class PDFExportService {
     const doc = new jsPDF();
     let yPos = 20;
 
-    // Header
-    doc.setFontSize(20);
+    // ============================
+    // COVER HEADER WITH BRANDING
+    // ============================
+    // Sidebar color: HSL(220, 72%, 24%) = RGB(17, 40, 110) - Deep Ecclesiastical Blue
+    doc.setFillColor(17, 40, 110);
+    doc.rect(0, 0, 210, 45, 'F');
+
+    doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('Engagement & Analytics Report', 105, yPos, { align: 'center' });
+    doc.setTextColor(255, 255, 255);
+    doc.text('ENGAGEMENT & ANALYTICS REPORT', 105, 18, { align: 'center' });
 
-    yPos += 10;
-    doc.setFontSize(14);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'normal');
-    doc.text(churchName, 105, yPos, { align: 'center' });
+    doc.text(churchName, 105, 30, { align: 'center' });
 
-    yPos += 7;
     doc.setFontSize(10);
     doc.text(
-      `Period: ${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`,
+      `${dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
       105,
-      yPos,
+      40,
       { align: 'center' }
     );
 
-    yPos += 15;
+    doc.setTextColor(0, 0, 0);
+    yPos = 55;
 
-    // Statistics Summary
+    // Report metadata
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`, 20, yPos);
+    doc.text('VISITA Bohol Churches Information System', 190, yPos, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    yPos += 12;
+
+    // Summary Statistics Table
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('Summary Statistics', 20, yPos);
@@ -555,7 +576,7 @@ export class PDFExportService {
         ['Growth Rate', `${analyticsData.stats.growthRate >= 0 ? '+' : ''}${analyticsData.stats.growthRate.toFixed(1)}%`],
       ],
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
+      headStyles: { fillColor: [17, 40, 110] },
       margin: { left: 20, right: 20 },
     });
 
@@ -632,7 +653,7 @@ export class PDFExportService {
         `${((count / totalVisitors) * 100).toFixed(1)}%`,
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
+      headStyles: { fillColor: [17, 40, 110] },
       margin: { left: 20, right: 20 },
     });
 
@@ -686,7 +707,7 @@ export class PDFExportService {
     let yPos = 20;
 
     // Header
-    doc.setFillColor(59, 130, 246);
+    doc.setFillColor(17, 40, 110);
     doc.rect(0, 0, 210, 45, 'F');
 
     doc.setFontSize(20);
@@ -723,7 +744,7 @@ export class PDFExportService {
     // Summary Statistics
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(59, 130, 246);
+    doc.setTextColor(17, 40, 110);
     doc.text('Summary Statistics', 20, yPos);
     doc.setTextColor(0, 0, 0);
     yPos += 7;
@@ -742,7 +763,7 @@ export class PDFExportService {
         ['Average Rating', `${analytics.avgRating.toFixed(1)} / 5.0`],
       ],
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      headStyles: { fillColor: [17, 40, 110], textColor: 255, fontStyle: 'bold' },
       styles: { fontSize: 10, cellPadding: 4 },
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 }, 1: { cellWidth: 100 } },
       margin: { left: 20, right: 20 },
@@ -753,7 +774,7 @@ export class PDFExportService {
     // Peak Visiting Periods (Real data from Firestore)
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(59, 130, 246);
+    doc.setTextColor(17, 40, 110);
     doc.text('Visitor Activity by Time of Day', 20, yPos);
     doc.setTextColor(0, 0, 0);
     yPos += 7;
@@ -770,7 +791,7 @@ export class PDFExportService {
         period.peak ? '[PEAK]' : ''
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
+      headStyles: { fillColor: [17, 40, 110], textColor: 255, fontStyle: 'bold' },
       styles: { fontSize: 10, cellPadding: 4 },
       columnStyles: { 
         0: { cellWidth: 55 }, 
@@ -786,7 +807,7 @@ export class PDFExportService {
     // Rating Distribution (Real data from Firestore)
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(59, 130, 246);
+    doc.setTextColor(17, 40, 110);
     doc.text('Rating Distribution', 20, yPos);
     doc.setTextColor(0, 0, 0);
     yPos += 7;
@@ -802,7 +823,7 @@ export class PDFExportService {
           `${r.percentage}%`
         ]),
       theme: 'grid',
-      headStyles: { fillColor: [234, 179, 8], textColor: 0, fontStyle: 'bold' },
+      headStyles: { fillColor: [17, 40, 110], textColor: 255, fontStyle: 'bold' },
       styles: { fontSize: 10, cellPadding: 4 },
       columnStyles: { 
         0: { cellWidth: 70 }, 
@@ -823,7 +844,7 @@ export class PDFExportService {
 
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(59, 130, 246);
+      doc.setTextColor(17, 40, 110);
       doc.text('Monthly Visitor Trends', 20, yPos);
       doc.setTextColor(0, 0, 0);
       yPos += 7;
@@ -836,7 +857,7 @@ export class PDFExportService {
           m.visitors.toLocaleString()
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+        headStyles: { fillColor: [17, 40, 110], textColor: 255, fontStyle: 'bold' },
         styles: { fontSize: 10, cellPadding: 4 },
         columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 50, halign: 'right' } },
         margin: { left: 20, right: 20 },
@@ -853,7 +874,7 @@ export class PDFExportService {
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(59, 130, 246);
+    doc.setTextColor(17, 40, 110);
     doc.text('Top 10 Churches by Visitor Engagement', 20, yPos);
     doc.setTextColor(0, 0, 0);
     yPos += 7;
@@ -870,7 +891,7 @@ export class PDFExportService {
         church.feedbackCount.toString()
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      headStyles: { fillColor: [17, 40, 110], textColor: 255, fontStyle: 'bold', fontSize: 9 },
       bodyStyles: { fontSize: 9 },
       columnStyles: { 
         0: { cellWidth: 10 },
@@ -894,7 +915,7 @@ export class PDFExportService {
 
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(59, 130, 246);
+      doc.setTextColor(17, 40, 110);
       doc.text('Top Rated Churches', 20, yPos);
       doc.setTextColor(0, 0, 0);
       yPos += 7;
@@ -908,7 +929,7 @@ export class PDFExportService {
           church.feedbackCount.toString()
         ]),
         theme: 'grid',
-        headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
+        headStyles: { fillColor: [17, 40, 110], textColor: 255, fontStyle: 'bold' },
         styles: { fontSize: 10, cellPadding: 4 },
         columnStyles: { 
           0: { cellWidth: 90 }, 

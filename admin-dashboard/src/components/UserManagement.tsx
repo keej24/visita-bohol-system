@@ -490,9 +490,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                             {getStatusIcon(user.status)}
                             <span className="ml-1">{user.status}</span>
                           </Badge>
-                          <Badge className={`${getRoleColor(user.role)} text-xs`}>
-                            {user.role.replace('_', ' ')}
-                          </Badge>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
@@ -686,36 +683,33 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                   </div>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-2">
-                <Button
-                  variant={selectedUser.status === 'active' ? 'destructive' : 'default'}
-                  className="w-full justify-start"
-                  onClick={() => {
-                    setUserToToggle(selectedUser);
-                    setIsAccountViewOpen(false);
-                    setIsStatusDialogOpen(true);
-                  }}
-                >
-                  {selectedUser.status === 'active' ? (
-                    <>
-                      <UserX className="w-4 h-4 mr-2" />
-                      Deactivate Account
-                    </>
-                  ) : (
-                    <>
-                      <UserCheck className="w-4 h-4 mr-2" />
-                      Activate Account
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex flex-row gap-2 sm:justify-between">
+            <Button
+              variant={selectedUser?.status === 'active' ? 'destructive' : 'default'}
+              size="sm"
+              onClick={() => {
+                setUserToToggle(selectedUser);
+                setIsAccountViewOpen(false);
+                setIsStatusDialogOpen(true);
+              }}
+            >
+              {selectedUser?.status === 'active' ? (
+                <>
+                  <UserX className="w-4 h-4 mr-2" />
+                  Deactivate Account
+                </>
+              ) : (
+                <>
+                  <UserCheck className="w-4 h-4 mr-2" />
+                  Activate Account
+                </>
+              )}
+            </Button>
             <Button 
-              variant="outline" 
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setIsAccountViewOpen(false);
                 setSelectedUser(null);

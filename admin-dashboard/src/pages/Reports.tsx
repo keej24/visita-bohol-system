@@ -267,7 +267,12 @@ const Reports = () => {
 
     // Apply classification filter
     if (selectedClassification !== 'all') {
-      filtered = filtered.filter(c => c.classification === selectedClassification);
+      if (selectedClassification === 'non_heritage') {
+        // Non-heritage includes any classification that is not ICP or NCT
+        filtered = filtered.filter(c => !['ICP', 'NCT'].includes(c.classification));
+      } else {
+        filtered = filtered.filter(c => c.classification === selectedClassification);
+      }
     }
 
     return filtered;
@@ -372,7 +377,7 @@ const Reports = () => {
         const filteredChurches = availableChurches.filter(church =>
           (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
           (selectedClassification === 'all' ||
-           (selectedClassification === 'non-heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
+           (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
            church.classification === selectedClassification)
         );
 
@@ -682,7 +687,7 @@ const Reports = () => {
                         <SelectItem value="all">All Classifications</SelectItem>
                         <SelectItem value="ICP">Important Cultural Property</SelectItem>
                         <SelectItem value="NCT">National Cultural Treasure</SelectItem>
-                        <SelectItem value="non-heritage">Non-Heritage</SelectItem>
+                        <SelectItem value="non_heritage">Non-Heritage</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -708,7 +713,7 @@ const Reports = () => {
                       disabled={availableChurches.filter(church =>
                         (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
                         (selectedClassification === 'all' ||
-                         (selectedClassification === 'non-heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
+                         (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
                          church.classification === selectedClassification)
                       ).length === 0}
                     >
@@ -722,7 +727,7 @@ const Reports = () => {
                 {availableChurches.filter(church =>
                   (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
                   (selectedClassification === 'all' ||
-                   (selectedClassification === 'non-heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
+                   (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
                    church.classification === selectedClassification)
                 ).length === 0 && (
                   <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
@@ -744,7 +749,7 @@ const Reports = () => {
                         No churches match your selected filters. Try adjusting your filter criteria:
                         {selectedMunicipality !== 'all' && <><br />• Municipality: {selectedMunicipality}</>}
                         {selectedParish !== 'all' && <><br />• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</>}
-                        {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</>}
+                        {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non_heritage' ? 'Non-Heritage' : selectedClassification}</>}
                       </>
                     ) : (
                       <>
@@ -780,7 +785,7 @@ const Reports = () => {
                   const filteredForDisplay = availableChurches.filter(church =>
                     (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
                     (selectedClassification === 'all' ||
-                     (selectedClassification === 'non-heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
+                     (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
                      church.classification === selectedClassification)
                   );
 
@@ -794,7 +799,7 @@ const Reports = () => {
                             No churches match your selected filters:
                             {selectedMunicipality !== 'all' && <><br />• Municipality: {selectedMunicipality}</>}
                             {selectedParish !== 'all' && <><br />• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</>}
-                            {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</>}
+                            {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non_heritage' ? 'Non-Heritage' : selectedClassification}</>}
                           </p>
                           <div className="flex gap-3 justify-center">
                             <Button 
@@ -1375,7 +1380,7 @@ const Reports = () => {
                             <li>• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</li>
                           )}
                           {selectedClassification !== 'all' && (
-                            <li>• Classification: {selectedClassification === 'non-heritage' ? 'Non-Heritage' : selectedClassification}</li>
+                            <li>• Classification: {selectedClassification === 'non_heritage' ? 'Non-Heritage' : selectedClassification}</li>
                           )}
                           {selectedMunicipality === 'all' && selectedParish === 'all' && selectedClassification === 'all' && (
                             <li>• All churches in {currentDiocese} diocese</li>
