@@ -3,6 +3,14 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import type { DioceseAnalytics, ChurchSummaryData } from './dioceseAnalyticsService';
 
+// Type for jsPDF with autoTable extension
+interface jsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: { finalY: number };
+}
+
+// Type for Excel sheet data rows
+type ExcelRow = (string | number | null | undefined)[];
+
 // Helper function to safely convert field to array
 const toArray = (value: string | string[] | undefined | null): string[] => {
   if (!value) return [];
@@ -101,7 +109,7 @@ export class DioceseReportService {
         margin: { left: 20, right: 20 },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
       // Helper function to check and add page break if needed
       const checkPageBreak = (requiredSpace: number = 30) => {
@@ -273,7 +281,7 @@ export class DioceseReportService {
         margin: { left: 20, right: 20 },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
       // Churches by Municipality - only show if more than 1 municipality
       const municipalityCount = Object.keys(analytics.churchesByMunicipality).length;
@@ -305,7 +313,7 @@ export class DioceseReportService {
           margin: { left: 20, right: 20 },
         });
 
-        yPos = (doc as any).lastAutoTable.finalY + 15;
+        yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
       }
 
       // Top Churches - only show if more than 1 church
@@ -352,7 +360,7 @@ export class DioceseReportService {
           margin: { left: 20, right: 20 },
         });
 
-        yPos = (doc as any).lastAutoTable.finalY + 15;
+        yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
       }
 
       // Complete Church Directory - only if more than 1 church
@@ -525,7 +533,7 @@ export class DioceseReportService {
       // ========== SINGLE CHURCH EXPORT ==========
       
       // Sheet 1: Parish Information
-      const parishInfoData: any[][] = [
+      const parishInfoData: ExcelRow[] = [
         [`${singleChurch.name} - Parish Report`],
         ['Diocese:', dioceseName],
         ['Generated:', new Date().toLocaleDateString()],
@@ -555,7 +563,7 @@ export class DioceseReportService {
       const majorEvents = toArray(singleChurch.majorEvents);
       const historicalBackground = singleChurch.historicalBackground || '';
 
-      const historicalData: any[][] = [
+      const historicalData: ExcelRow[] = [
         ['Historical Background'],
         [],
         ['Founders'],
@@ -583,7 +591,7 @@ export class DioceseReportService {
       const architecturalFeatures = singleChurch.architecturalFeatures || '';
       const heritageInformation = singleChurch.heritageInformation || '';
 
-      const heritageData: any[][] = [
+      const heritageData: ExcelRow[] = [
         ['Architectural & Heritage Information'],
         [],
         ['Architectural Features'],
@@ -606,7 +614,7 @@ export class DioceseReportService {
     // ========== MULTI-CHURCH / DIOCESE EXPORT ==========
     
     // Sheet 1: Diocese Overview - Build rows dynamically based on filtered data
-    const overviewData: any[][] = [
+    const overviewData: ExcelRow[] = [
       ['Diocese Church Summary Report'],
       ['Diocese:', dioceseName],
       ['Generated:', new Date().toLocaleDateString()],
