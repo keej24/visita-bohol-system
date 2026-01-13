@@ -6,6 +6,7 @@ class ParishDocument {
   final String url;
   final DateTime? uploadedAt;
   final String? contentType;
+  final String visibility; // 'public' or 'internal' - defaults to 'public'
 
   ParishDocument({
     required this.id,
@@ -13,7 +14,11 @@ class ParishDocument {
     required this.url,
     this.uploadedAt,
     this.contentType,
+    this.visibility = 'public',
   });
+
+  /// Returns true if this document is visible to the public (mobile app users)
+  bool get isPublic => visibility == 'public';
 
   factory ParishDocument.fromSnapshot(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -25,6 +30,7 @@ class ParishDocument {
       url: data['url'] as String? ?? '',
       uploadedAt: (data['uploadedAt'] as Timestamp?)?.toDate(),
       contentType: data['contentType'] as String?,
+      visibility: data['visibility'] as String? ?? 'public',
     );
   }
 }

@@ -38,6 +38,7 @@ const MuseumResearcherDashboard = () => {
   const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Heritage validation checklist dialog state
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
@@ -111,6 +112,7 @@ const MuseumResearcherDashboard = () => {
   const handleSaveChurch = async (data: ChurchInfo) => {
     if (!selectedChurch || !userProfile) return;
 
+    setIsSaving(true);
     try {
       // Determine classification
       const newClassification = data.historicalDetails.heritageClassification === 'National Cultural Treasures' ? 'NCT' as const :
@@ -121,6 +123,7 @@ const MuseumResearcherDashboard = () => {
         (selectedChurch.classification === 'ICP' || selectedChurch.classification === 'NCT');
 
       // Museum researchers can update heritage-related fields and historical tab fields
+      // Save as draft - data is saved but modal stays open for further editing
       const heritageData = {
         // Heritage fields
         culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
@@ -134,11 +137,15 @@ const MuseumResearcherDashboard = () => {
         foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
         founders: data.historicalDetails.founders || '',
         classification: newClassification,
-        // Documents
-        documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+        // Documents - preserve visibility metadata
+        documents: (data.documents || []).map(doc => ({
+          url: doc.url || '',
+          name: doc.name || '',
+          visibility: doc.visibility || 'public'
+        })).filter(doc => doc.url !== ''),
         lastReviewNote: isChangingToNonHeritage 
           ? 'Heritage classification changed to non-heritage. Returned to Chancery for approval.'
-          : 'Heritage information saved by Museum Researcher',
+          : 'Heritage information saved as draft by Museum Researcher',
       };
 
       await ChurchService.updateChurchHeritage(
@@ -158,11 +165,12 @@ const MuseumResearcherDashboard = () => {
         await queryClient.invalidateQueries({ queryKey: ['churches'] });
       } else {
         toast({
-          title: "Success",
-          description: "Heritage information saved successfully!"
+          title: "Draft Saved",
+          description: "Heritage information saved as draft. Continue editing or click 'Save' to finalize."
         });
         // Invalidate queries to refresh the data without closing modal
         await queryClient.invalidateQueries({ queryKey: ['churches'] });
+        // Note: Modal stays open so user can continue editing
       }
     } catch (error) {
       console.error('Error saving church:', error);
@@ -171,6 +179,8 @@ const MuseumResearcherDashboard = () => {
         description: "Failed to save heritage information",
         variant: "destructive"
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -201,8 +211,12 @@ const MuseumResearcherDashboard = () => {
         foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
         founders: data.historicalDetails.founders || '',
         classification: newClassification,
-        // Documents
-        documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+        // Documents - preserve visibility metadata
+        documents: (data.documents || []).map(doc => ({
+          url: doc.url || '',
+          name: doc.name || '',
+          visibility: doc.visibility || 'public'
+        })).filter(doc => doc.url !== ''),
         lastReviewNote: isChangingToNonHeritage 
           ? 'Heritage classification changed to non-heritage. Returned to Chancery for approval.'
           : 'Heritage information updated by Museum Researcher',
@@ -527,6 +541,7 @@ const MuseumResearcherDashboard = () => {
         onSave={handleSaveChurch} // Heritage reviewer can save edits
         onSubmit={handleSubmitChurch} // Heritage reviewer can submit edits
         isSubmitting={isSubmitting}
+        isSaving={isSaving}
         isMuseumResearcher={true} // Enable museum researcher mode - only historical tab and documents editable
       />
     </Layout>

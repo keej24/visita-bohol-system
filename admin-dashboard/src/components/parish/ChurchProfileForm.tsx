@@ -1158,14 +1158,23 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         count: uploadedPhotoURLs.length
       });
 
-      // Upload documents to Firebase Storage
-      const uploadedDocURLs: string[] = [];
+      // Upload documents to Firebase Storage - preserve visibility metadata
+      interface UploadedDoc {
+        url: string;
+        name: string;
+        visibility: 'public' | 'internal';
+      }
+      const uploadedDocs: UploadedDoc[] = [];
       for (const doc of formData.documents) {
         if (doc.file) {
           // New file to upload
           try {
             const url = await uploadDocument(uploadChurchId, doc.file, doc.type || 'document');
-            uploadedDocURLs.push(url);
+            uploadedDocs.push({
+              url,
+              name: doc.name || 'document',
+              visibility: doc.visibility || 'public'
+            });
           } catch (error) {
             console.error('Error uploading document:', error);
             toast({
@@ -1175,10 +1184,19 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             });
           }
         } else if (doc.url && !doc.url.startsWith('blob:')) {
-          // Existing URL from Firebase Storage
-          uploadedDocURLs.push(doc.url);
+          // Existing URL from Firebase Storage - preserve visibility
+          uploadedDocs.push({
+            url: doc.url,
+            name: doc.name || 'document',
+            visibility: doc.visibility || 'public'
+          });
         }
       }
+
+      console.log('📄 [ChurchProfileForm] Document upload complete:', {
+        uploadedDocs,
+        count: uploadedDocs.length
+      });
 
       const updatedData = {
         ...formData,
@@ -1198,13 +1216,15 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
           status: 'approved' as const,
           type: 'photo' as const
         })),
-        documents: uploadedDocURLs.map((url, index) => ({
+        // Documents with visibility preserved from uploadedDocs
+        documents: uploadedDocs.map((doc, index) => ({
           id: `doc-${Date.now()}-${index}`,
-          url,
-          name: formData.documents[index]?.name || `document-${index}`,
+          url: doc.url,
+          name: doc.name,
           uploadDate: new Date().toISOString(),
           status: 'approved' as const,
-          type: 'document' as const
+          type: 'document' as const,
+          visibility: doc.visibility
         }))
       };
 

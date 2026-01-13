@@ -36,6 +36,7 @@ const ApprovedChurches = () => {
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch approved heritage churches from both dioceses
   const { data: tagbilaranApproved, isLoading: tagbilaranLoading } = useQuery<Church[]>({
@@ -89,7 +90,7 @@ const ApprovedChurches = () => {
   const handleSaveChurch = async (data: ChurchInfo) => {
     if (!selectedChurch || !userProfile) return;
 
-    setIsSubmitting(true);
+    setIsSaving(true);
     try {
       // Determine new classification
       const newClassification = data.historicalDetails.heritageClassification === 'National Cultural Treasures' ? 'NCT' as const :
@@ -112,7 +113,12 @@ const ApprovedChurches = () => {
         foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
         founders: data.historicalDetails.founders || '',
         classification: newClassification,
-        documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+        // Preserve document visibility metadata
+        documents: (data.documents || []).map(doc => ({
+          url: doc.url || '',
+          name: doc.name || '',
+          visibility: doc.visibility || 'public'
+        })).filter(doc => doc.url !== ''),
         lastReviewNote: isChangingToNonHeritage 
           ? 'Heritage classification removed from approved church. Returned to Chancery for review.'
           : 'Heritage information updated by Museum Researcher',
@@ -134,13 +140,14 @@ const ApprovedChurches = () => {
         setSelectedChurch(null);
       } else {
         toast({
-          title: "Success",
-          description: "Heritage information saved successfully!"
+          title: "Draft Saved",
+          description: "Heritage information saved. Continue editing or click 'Submit' to finalize."
         });
       }
 
       // Invalidate all church queries to update all dashboards (and mobile app on next fetch)
       await queryClient.invalidateQueries({ queryKey: ['churches'] });
+      // Note: Modal stays open so user can continue editing
     } catch (error) {
       console.error('Error saving church:', error);
       toast({
@@ -149,14 +156,78 @@ const ApprovedChurches = () => {
         variant: "destructive"
       });
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
   };
 
+  // Handle submitting church data (saves and closes modal)
   const handleSubmitChurch = async (data: ChurchInfo) => {
-    await handleSaveChurch(data);
-    setIsModalOpen(false);
-    setSelectedChurch(null);
+    if (!selectedChurch || !userProfile) return;
+
+    setIsSubmitting(true);
+    try {
+      // Determine new classification
+      const newClassification = data.historicalDetails.heritageClassification === 'National Cultural Treasures' ? 'NCT' as const :
+                               data.historicalDetails.heritageClassification === 'Important Cultural Properties' ? 'ICP' as const : 
+                               'non_heritage' as const;
+      
+      // Check if classification is changing to non-heritage
+      const isChangingToNonHeritage = newClassification === 'non_heritage' && 
+        (selectedChurch.classification === 'ICP' || selectedChurch.classification === 'NCT');
+
+      const heritageData = {
+        culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
+        heritageNotes: data.historicalDetails.historicalBackground || '',
+        heritageInformation: data.historicalDetails.heritageInformation || '',
+        architecturalFeatures: data.historicalDetails.architecturalFeatures || '',
+        historicalBackground: data.historicalDetails.historicalBackground || '',
+        description: data.historicalDetails.historicalBackground || '',
+        architecturalStyle: data.historicalDetails.architecturalStyle || '',
+        foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
+        founders: data.historicalDetails.founders || '',
+        classification: newClassification,
+        documents: (data.documents || []).map(doc => ({
+          url: doc.url || '',
+          name: doc.name || '',
+          visibility: doc.visibility || 'public'
+        })).filter(doc => doc.url !== ''),
+        lastReviewNote: isChangingToNonHeritage 
+          ? 'Heritage classification removed from approved church. Returned to Chancery for review.'
+          : 'Heritage information updated by Museum Researcher',
+      };
+
+      await ChurchService.updateChurchHeritage(
+        selectedChurch.id,
+        heritageData,
+        userProfile.uid
+      );
+
+      if (isChangingToNonHeritage) {
+        toast({
+          title: "Classification Changed",
+          description: "Heritage status removed. Church has been returned to Chancery for review.",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Heritage information updated successfully!"
+        });
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['churches'] });
+
+      setIsModalOpen(false);
+      setSelectedChurch(null);
+    } catch (error) {
+      console.error('Error updating church:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update heritage information",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -329,6 +400,7 @@ const ApprovedChurches = () => {
           onSave={handleSaveChurch}
           onSubmit={handleSubmitChurch}
           isSubmitting={isSubmitting}
+          isSaving={isSaving}
           isMuseumResearcher={userProfile?.role === 'museum_researcher'}
         />
       </div>

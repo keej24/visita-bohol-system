@@ -42,6 +42,7 @@ class HistoryTab extends StatelessWidget {
   }
 
   /// Extracts and formats a clean filename from the document URL
+  /// Strips timestamp and document type prefixes added during upload
   String _getDocumentName(String documentUrl, int index) {
     try {
       // Get the filename from the URL path
@@ -57,6 +58,14 @@ class HistoryTab extends StatelessWidget {
       if (filename.contains('%2F')) {
         filename = filename.split('%2F').last;
       }
+
+      // Strip timestamp and document type prefixes
+      // Pattern: {type}-{timestamp}-{originalname} or {type}_{timestamp}_{index}_{originalname}
+      // Examples: "document-1704067200000-myfile.pdf" -> "myfile.pdf"
+      final prefixPattern = RegExp(
+          r'^(?:document|heritage-doc|historical_document)[_-]\d+[_-](?:\d+[_-])?',
+          caseSensitive: false);
+      filename = filename.replaceFirst(prefixPattern, '');
 
       // Truncate if too long
       if (filename.length > 35) {
@@ -232,15 +241,18 @@ class HistoryTab extends StatelessWidget {
               child: Column(
                 children: church.documents!.asMap().entries.map((entry) {
                   final index = entry.key;
-                  final documentUrl = entry.value;
-                  final documentName = _getDocumentName(documentUrl, index);
+                  final doc = entry.value;
+                  // Use stored name if available, otherwise extract from URL
+                  final documentName = doc.name.isNotEmpty
+                      ? doc.name
+                      : _getDocumentName(doc.url, index);
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () => _openDocument(context, documentUrl),
+                        onTap: () => _openDocument(context, doc.url),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           padding: const EdgeInsets.all(16),

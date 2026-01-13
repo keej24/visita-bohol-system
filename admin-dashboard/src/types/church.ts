@@ -3,6 +3,13 @@ export type ChurchClassification = 'ICP' | 'NCT' | 'non_heritage' | 'parish_chur
 export type ArchitecturalStyle = 'baroque' | 'gothic' | 'romanesque' | 'neoclassical' | 'modern' | 'mixed' | 'other';
 export type ReligiousClassification = 'diocesan_shrine' | 'jubilee_church' | 'papal_basilica_affinity' | 'none';
 
+// Document with visibility control
+export interface ChurchDocument {
+  url: string;
+  name?: string;
+  visibility: 'public' | 'internal';
+}
+
 export interface Coordinates {
   latitude: number;
   longitude: number;
@@ -46,7 +53,7 @@ export interface Church {
 
   // Media
   images: string[];
-  documents: string[];
+  documents: (string | ChurchDocument)[]; // Supports both legacy string URLs and new format with visibility
   virtualTour?: import('@/types/virtualTour').VirtualTour; // 360° virtual tour with scenes and hotspots
 
   // Heritage specific
@@ -102,7 +109,7 @@ export interface ChurchFormData {
   coordinates?: Coordinates;
   contactInfo?: ContactInfo;
   images: string[];
-  documents: string[];
+  documents: (string | ChurchDocument)[]; // Supports both legacy string URLs and new format with visibility
   virtualTour360?: string[];
   culturalSignificance?: string;
   preservationHistory?: string;

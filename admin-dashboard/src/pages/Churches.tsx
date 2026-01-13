@@ -107,6 +107,7 @@ const Churches = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const reviewMutation = useChurchReview();
   const deleteMutation = useDeleteChurch();
 
@@ -185,7 +186,12 @@ const Churches = () => {
         facebookPage: data.contactInfo?.facebookPage || ''
       },
       images: (data.photos || []).map(photo => photo.url || '').filter(url => url !== ''),
-      documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+      // Preserve document visibility metadata for internal-only vs public documents
+      documents: (data.documents || []).map(doc => ({
+        url: doc.url || '',
+        name: doc.name || '',
+        visibility: doc.visibility || 'public'
+      })).filter(doc => doc.url !== ''),
       culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
       architecturalFeatures: data.historicalDetails.architecturalFeatures || '',
       heritageInformation: data.historicalDetails.heritageInformation || '',
@@ -193,8 +199,42 @@ const Churches = () => {
     };
   };
 
-  // Handle saving church data (for Chancery editing published churches)
+  // Handle saving church data as draft (keeps modal open)
   const handleSaveChurch = async (data: ChurchInfo) => {
+    if (!selectedChurch || !userProfile) return;
+
+    setIsSaving(true);
+    try {
+      const formData = convertChurchInfoToFormData(data);
+      await ChurchService.updateChurch(
+        selectedChurch.id,
+        formData,
+        userProfile.diocese,
+        userProfile.uid
+      );
+
+      toast({
+        title: "Draft Saved",
+        description: "Changes saved. Continue editing or click 'Save' to finalize."
+      });
+
+      // Invalidate all church queries to update all dashboards
+      await queryClient.invalidateQueries({ queryKey: ['churches'] });
+      // Note: Modal stays open so user can continue editing
+    } catch (error) {
+      console.error('Error saving church:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save church information",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle submitting church data (saves and closes modal)
+  const handleSubmitChurch = async (data: ChurchInfo) => {
     if (!selectedChurch || !userProfile) return;
 
     setIsSubmitting(true);
@@ -209,27 +249,24 @@ const Churches = () => {
 
       toast({
         title: "Success",
-        description: "Church information saved successfully!"
+        description: "Church information updated successfully!"
       });
 
       // Invalidate all church queries to update all dashboards
       await queryClient.invalidateQueries({ queryKey: ['churches'] });
+
+      setIsModalOpen(false);
+      setSelectedChurch(null);
     } catch (error) {
-      console.error('Error saving church:', error);
+      console.error('Error updating church:', error);
       toast({
         title: "Error",
-        description: "Failed to save church information",
+        description: "Failed to update church information",
         variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleSubmitChurch = async (data: ChurchInfo) => {
-    await handleSaveChurch(data);
-    setIsModalOpen(false);
-    setSelectedChurch(null);
   };
 
   const handleReviewChurch = async (churchId: string, action: 'approve' | 'forward_to_museum', notes?: string) => {
@@ -620,6 +657,7 @@ const Churches = () => {
         onSave={handleSaveChurch}
         onSubmit={handleSubmitChurch}
         isSubmitting={isSubmitting}
+        isSaving={isSaving}
         isMuseumResearcher={userProfile?.role === 'museum_researcher'}
       />
 

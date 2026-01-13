@@ -10,6 +10,8 @@ class ParishDocumentService {
   FirebaseStorage? get _storage =>
       Firebase.apps.isNotEmpty ? FirebaseStorage.instance : null;
 
+  /// Streams public documents for a church (filters out internal/private documents)
+  /// Documents with visibility='internal' are only for administrators, not mobile app users
   Stream<List<ParishDocument>> streamDocuments(String churchId) {
     final fs = _firestore;
     if (fs == null) return const Stream<List<ParishDocument>>.empty();
@@ -22,45 +24,54 @@ class ParishDocumentService {
         .orderBy('uploadedAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
-          // If subcollection has documents, return them
-          if (snapshot.docs.isNotEmpty) {
-            return snapshot.docs
-                .map((d) => ParishDocument.fromSnapshot(d))
-                .toList();
-          }
+      // If subcollection has documents, return them (filtered by visibility)
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs
+            .map((d) => ParishDocument.fromSnapshot(d))
+            .where((doc) => doc.isPublic) // Only include public documents
+            .toList();
+      }
 
-          // Otherwise, check the documents array field (old structure from admin dashboard)
-          final churchDoc = await fs.collection('churches').doc(churchId).get();
-          final data = churchDoc.data();
-          if (data == null || data['documents'] == null) {
-            return <ParishDocument>[];
-          }
+      // Otherwise, check the documents array field (old structure from admin dashboard)
+      final churchDoc = await fs.collection('churches').doc(churchId).get();
+      final data = churchDoc.data();
+      if (data == null || data['documents'] == null) {
+        return <ParishDocument>[];
+      }
 
-          final docs = data['documents'] as List<dynamic>;
-          return docs.asMap().entries.map((entry) {
+      final docs = data['documents'] as List<dynamic>;
+      return docs
+          .asMap()
+          .entries
+          .map((entry) {
             final index = entry.key;
             final doc = entry.value;
 
             // Handle both string URLs and object structures
             if (doc is String) {
-              // Just a URL string
+              // Just a URL string - legacy format, assume public
               final fileName = doc.split('/').last.split('?').first;
               return ParishDocument(
                 id: 'doc_$index',
                 name: Uri.decodeComponent(fileName),
                 url: doc,
                 uploadedAt: null,
+                visibility: 'public', // Legacy format defaults to public
               );
             } else if (doc is Map) {
-              // Object with url and possibly name
+              // Object with url, name, and visibility
+              final visibility = doc['visibility']?.toString() ?? 'public';
               return ParishDocument(
                 id: doc['id']?.toString() ?? 'doc_$index',
-                name: doc['name']?.toString() ?? doc['url']?.toString().split('/').last.split('?').first ?? 'Document ${index + 1}',
+                name: doc['name']?.toString() ??
+                    doc['url']?.toString().split('/').last.split('?').first ??
+                    'Document ${index + 1}',
                 url: doc['url']?.toString() ?? '',
                 uploadedAt: doc['uploadedAt'] != null
                     ? (doc['uploadedAt'] as Timestamp).toDate()
                     : null,
                 contentType: doc['contentType']?.toString(),
+                visibility: visibility,
               );
             }
 
@@ -69,9 +80,12 @@ class ParishDocumentService {
               name: 'Document ${index + 1}',
               url: '',
               uploadedAt: null,
+              visibility: 'public',
             );
-          }).toList();
-        });
+          })
+          .where((doc) => doc.isPublic) // Only include public documents
+          .toList();
+    });
   }
 
   Future<ParishDocument?> uploadDocument(String churchId) async {
@@ -79,7 +93,7 @@ class ParishDocumentService {
     final storage = _storage;
     if (fs == null || storage == null) return null;
 
-  final result = await FilePicker.platform.pickFiles(withData: true);
+    final result = await FilePicker.platform.pickFiles(withData: true);
     if (result == null || result.files.isEmpty) return null;
 
     final file = result.files.single;

@@ -131,7 +131,8 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
       : data.coordinates,
     contactInfo: data.contactInfo,
     images: (data.images || []) as string[],
-    documents: (data.documents || []) as string[],
+    // Preserve document visibility metadata - can be string URLs (legacy) or objects with visibility
+    documents: (data.documents || []) as (string | { url: string; name?: string; visibility: 'public' | 'internal' })[],
     virtualTour: data.virtualTour, // 360° virtual tour managed by VirtualTourService
     heritageDeclaration: data.heritageDeclaration as string,
     culturalSignificance: data.culturalSignificance as string,
@@ -371,7 +372,7 @@ export class ChurchService {
       classification?: 'ICP' | 'NCT' | 'non_heritage';
       foundingYear?: number;
       founders?: string;
-      documents?: string[];
+      documents?: (string | { url: string; name?: string; visibility: 'public' | 'internal' })[];
     },
     userId: string
   ): Promise<void> {

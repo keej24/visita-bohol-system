@@ -3,6 +3,37 @@
 /// This file defines the Church class, which represents a church entity in the
 /// VISITA mobile application. It serves as the core data structure for all
 /// church-related information displayed to users.
+
+import 'dart:math' as math; // Math library for distance calculations
+import 'package:flutter/foundation.dart'; // Flutter utilities (debugPrint)
+// Enum definitions for architectural styles, heritage classifications
+import 'enums.dart';
+// Church status helper functions
+import 'church_status.dart';
+// Virtual tour data model
+import 'virtual_tour.dart';
+
+/// Represents a document attached to a church (PDF, etc.)
+/// Stores both the URL and original filename for display purposes.
+class ChurchDocument {
+  final String url;
+  final String name;
+
+  const ChurchDocument({required this.url, required this.name});
+
+  factory ChurchDocument.fromMap(Map<String, dynamic> map) {
+    return ChurchDocument(
+      url: map['url']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'Document',
+    );
+  }
+
+  Map<String, dynamic> toMap() => {'url': url, 'name': name};
+
+  @override
+  String toString() => 'ChurchDocument(name: $name, url: $url)';
+}
+
 ///
 /// KEY RESPONSIBILITIES:
 /// - Define church data structure with all properties
@@ -40,15 +71,6 @@
 /// - Easy to extend with new fields
 /// - Supports both online and offline modes
 
-import 'dart:math' as math; // Math library for distance calculations
-import 'package:flutter/foundation.dart'; // Flutter utilities (debugPrint)
-// Enum definitions for architectural styles, heritage classifications
-import 'enums.dart';
-// Church status helper functions
-import 'church_status.dart';
-// Virtual tour data model
-import 'virtual_tour.dart';
-
 /// Church Class - Core Data Model
 ///
 /// Represents a church with complete information including:
@@ -79,7 +101,7 @@ class Church {
   final Map<String, String>?
       contactInfo; // Contact information (phone, email, address)
   final List<String> images;
-  final List<String>? documents; // PDF documents
+  final List<ChurchDocument>? documents; // PDF documents with name and URL
   final bool isHeritage;
   final String diocese; // Diocese of Tagbilaran or Diocese of Talibon
   final String? feastDay; // Feast day of the parish patron saint
@@ -353,7 +375,7 @@ class Church {
         'massSchedules': massSchedules,
         'contactInfo': contactInfo,
         'images': images,
-        'documents': documents,
+        'documents': documents?.map((d) => d.toMap()).toList(),
         'isHeritage': isHeritage,
         'latitude': latitude,
         'longitude': longitude,
@@ -495,27 +517,65 @@ class Church {
   }
 
   // Helper method to parse documents field which might be objects or strings
-  static List<String> _parseDocuments(dynamic documentsData) {
+  // Only includes PUBLIC documents - internal documents are filtered out for mobile app
+  // Returns ChurchDocument objects with both URL and name preserved
+  static List<ChurchDocument> _parseDocuments(dynamic documentsData) {
     if (documentsData == null) return [];
 
     if (documentsData is List) {
-      final List<String> result = [];
+      final List<ChurchDocument> result = [];
       for (var item in documentsData) {
         if (item is String) {
-          // Direct string URL
-          result.add(item);
+          // Direct string URL - legacy format, assume public
+          // Extract filename from URL for display
+          final name = _extractFilenameFromUrl(item);
+          result.add(ChurchDocument(url: item, name: name));
         } else if (item is Map) {
-          // Object with 'url' property (from admin dashboard)
-          final url = item['url'];
-          if (url != null && url is String) {
-            result.add(url);
+          // Object with 'url', 'name', and 'visibility' properties (from admin dashboard)
+          final visibility = item['visibility']?.toString() ?? 'public';
+          // Only include documents with 'public' visibility (or no visibility set = default public)
+          if (visibility == 'public') {
+            final url = item['url'];
+            if (url != null && url is String) {
+              final name =
+                  item['name']?.toString() ?? _extractFilenameFromUrl(url);
+              result.add(ChurchDocument(url: url, name: name));
+            }
           }
+          // Skip documents with visibility == 'internal'
         }
       }
       return result;
     }
 
     return [];
+  }
+
+  // Helper to extract the original readable filename from a URL
+  // Strips timestamp and document type prefixes added during upload
+  static String _extractFilenameFromUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      String filename =
+          uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'Document';
+      // Remove query parameters and decode
+      filename = Uri.decodeComponent(filename.split('?').first);
+      // Clean up Firebase Storage encoded paths
+      if (filename.contains('%2F')) {
+        filename = filename.split('%2F').last;
+      }
+      // Strip timestamp and document type prefixes
+      // Pattern: {type}-{timestamp}-{originalname} or {type}_{timestamp}_{index}_{originalname}
+      // Examples: "document-1704067200000-myfile.pdf" -> "myfile.pdf"
+      //           "heritage-doc_1704067200000_0_myfile.pdf" -> "myfile.pdf"
+      final prefixPattern = RegExp(
+          r'^(?:document|heritage-doc|historical_document)[_-]\d+[_-](?:\d+[_-])?',
+          caseSensitive: false);
+      filename = filename.replaceFirst(prefixPattern, '');
+      return filename.isNotEmpty ? filename : 'Document';
+    } catch (e) {
+      return 'Document';
+    }
   }
 
   // Helper method to parse mass schedules

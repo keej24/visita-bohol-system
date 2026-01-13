@@ -45,6 +45,7 @@ interface Props {
   onSave?: (data: ChurchInfo) => void;
   onSubmit?: (data: ChurchInfo) => void;
   isSubmitting?: boolean;
+  isSaving?: boolean;
   isMuseumResearcher?: boolean; // Museum researcher can only edit historical tab and documents
 }
 
@@ -55,8 +56,7 @@ export function ChurchDetailModal({
   mode,
   onSave,
   onSubmit,
-  isSubmitting = false,
-  isMuseumResearcher = false
+  isSubmitting = false,  isSaving = false,  isMuseumResearcher = false
 }: Props) {
   const [editMode, setEditMode] = useState(mode === 'edit');
 
@@ -156,17 +156,42 @@ export function ChurchDetailModal({
         uploadDate: new Date().toISOString(),
         status: 'approved' as const
       })),
-      // Convert documents array to FileUpload format
-      documents: (churchData.documents || []).map((doc: string | { url?: string; name?: string }, index: number) => {
+      // Convert documents array to FileUpload format, preserving visibility
+      documents: (churchData.documents || []).map((doc: string | { url?: string; name?: string; visibility?: 'public' | 'internal' }, index: number) => {
         const url = typeof doc === 'string' ? doc : doc.url || '';
-        const name = typeof doc === 'string' ? `Document ${index + 1}` : doc.name || `Document ${index + 1}`;
+        // Extract original filename from URL if name not provided
+        // Strips timestamp and document type prefixes added during upload
+        const extractFilename = (docUrl: string): string => {
+          try {
+            const decodedUrl = decodeURIComponent(docUrl);
+            const pathPart = decodedUrl.split('?')[0]; // Remove query params
+            const segments = pathPart.split('/');
+            let filename = segments[segments.length - 1];
+            // Handle Firebase Storage encoded paths
+            if (filename.includes('%2F')) {
+              filename = filename.split('%2F').pop() || `Document ${index + 1}`;
+            }
+            // Strip timestamp and document type prefixes (e.g., "document-1704067200000-" or "heritage-doc_1704067200000_0_")
+            // Pattern: {type}-{timestamp}-{originalname} or {type}_{timestamp}_{index}_{originalname}
+            const prefixPattern = /^(?:document|heritage-doc|historical_document)[_-]\d+[_-](?:\d+[_-])?/i;
+            filename = filename.replace(prefixPattern, '');
+            return filename || `Document ${index + 1}`;
+          } catch {
+            return `Document ${index + 1}`;
+          }
+        };
+        const name = typeof doc === 'string' 
+          ? extractFilename(doc) 
+          : (doc.name || extractFilename(doc.url || ''));
+        const visibility = typeof doc === 'string' ? 'public' : (doc.visibility || 'public');
         return {
           id: `doc-${index}`,
           name: name,
           type: 'document' as const,
           url: url,
           uploadDate: new Date().toISOString(),
-          status: 'approved' as const
+          status: 'approved' as const,
+          visibility: visibility as 'public' | 'internal'
         };
       }),
       virtual360Images: churchData.virtualTour360 || [],
@@ -264,6 +289,7 @@ export function ChurchDetailModal({
                 onSave={handleFormSave}
                 onSubmit={handleFormSubmit}
                 isSubmitting={isSubmitting}
+                isSaving={isSaving}
                 showCancelButton={true}
                 onCancel={() => setEditMode(false)}
                 isModal={true}

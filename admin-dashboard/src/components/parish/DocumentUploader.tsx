@@ -68,7 +68,8 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
         url: URL.createObjectURL(file),
         name: file.name,
         size: file.size,
-        type: docType
+        type: docType,
+        visibility: 'public' // Default to public visibility
       };
 
       validFiles.push(doc);

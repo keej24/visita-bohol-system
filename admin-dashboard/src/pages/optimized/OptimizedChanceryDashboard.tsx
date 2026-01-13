@@ -31,6 +31,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
   const [modalMode, setModalMode] = useState<'view' | 'edit'>('view');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleViewChurch = (church: Church) => {
     setSelectedChurch(church);
@@ -52,9 +53,10 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
   const handleSaveChurch = async (data: ChurchInfo) => {
     if (!selectedChurch || !userProfile) return;
 
-    setIsSubmitting(true);
+    setIsSaving(true);
     try {
       // Convert ChurchInfo to ChurchFormData format and update
+      // Save as draft - data is saved but no status change, modal stays open
       const formData = convertChurchInfoToFormData(data);
       await ChurchService.updateChurch(
         selectedChurch.id,
@@ -64,12 +66,13 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
       );
 
       toast({
-        title: "Success",
-        description: "Church information saved successfully!"
+        title: "Draft Saved",
+        description: "Changes saved as draft. Continue editing or click 'Save' to finalize."
       });
 
       // Invalidate all church queries to update all dashboards
       await queryClient.invalidateQueries({ queryKey: ['churches'] });
+      // Note: Modal stays open so user can continue editing
     } catch (error) {
       console.error('Error saving church:', error);
       toast({
@@ -78,7 +81,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         variant: "destructive"
       });
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
   };
 
@@ -171,7 +174,12 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         facebookPage: data.contactInfo?.facebookPage || ''
       },
       images: (data.photos || []).map(photo => photo.url || '').filter(url => url !== ''),
-      documents: (data.documents || []).map(doc => doc.url || '').filter(url => url !== ''),
+      // Preserve document visibility metadata
+      documents: (data.documents || []).map(doc => ({
+        url: doc.url || '',
+        name: doc.name || '',
+        visibility: doc.visibility || 'public'
+      })).filter(doc => doc.url !== ''),
       virtualTour360: (data.virtual360Images || []).map(img => img.url).filter(url => url !== ''),
       culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
       preservationHistory: '',
@@ -257,6 +265,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         onSave={handleSaveChurch}
         onSubmit={handleSubmitChurch}
         isSubmitting={isSubmitting}
+        isSaving={isSaving}
         isMuseumResearcher={false}
       />
     </Layout>

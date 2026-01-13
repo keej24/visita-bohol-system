@@ -95,7 +95,7 @@ import { ParishAccount } from '@/components/parish/ParishAccount';
 import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
 import { ParishFeedback } from '@/components/parish/ParishFeedback';
 import { ChurchService } from '@/services/churchService';
-import type { ArchitecturalStyle, ChurchClassification, Church } from '@/types/church';
+import type { ArchitecturalStyle, ChurchClassification, Church, ChurchDocument } from '@/types/church';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
@@ -266,14 +266,31 @@ const ParishDashboard = () => {
         uploadDate: new Date().toISOString(),
         status: 'approved' as const
       })),
-      documents: (church.documents || []).map((url, index) => ({
-        id: `doc-${index}`,
-        name: `Document ${index + 1}`,
-        type: 'document' as const,
-        url: url,
-        uploadDate: new Date().toISOString(),
-        status: 'approved' as const
-      })),
+      // Convert documents from Firestore format to form format, preserving visibility
+      documents: (church.documents || []).map((doc: string | ChurchDocument, index: number) => {
+        if (typeof doc === 'string') {
+          // Legacy string format
+          return {
+            id: `doc-${index}`,
+            name: `Document ${index + 1}`,
+            type: 'document' as const,
+            url: doc,
+            uploadDate: new Date().toISOString(),
+            status: 'approved' as const,
+            visibility: 'public' as const
+          };
+        }
+        // ChurchDocument object format
+        return {
+          id: `doc-${index}`,
+          name: doc.name || `Document ${index + 1}`,
+          type: 'document' as const,
+          url: doc.url,
+          uploadDate: new Date().toISOString(),
+          status: 'approved' as const,
+          visibility: (doc.visibility || 'public') as 'public' | 'internal'
+        };
+      }),
       virtual360Images: (church.virtualTour?.scenes || [])
         .map((scene, index) => {
           // Validate URL and aspect ratio (basic check)
@@ -571,9 +588,18 @@ const ParishDashboard = () => {
       images: (data.photos || []).map(photo =>
         typeof photo === 'string' ? photo : (photo?.url || '')
       ).filter(Boolean),
-      documents: (data.documents || []).map(doc =>
-        typeof doc === 'string' ? doc : (doc?.url || '')
-      ).filter(Boolean),
+      // Preserve document visibility metadata for internal-only vs public documents
+      documents: (data.documents || []).map(doc => {
+        if (typeof doc === 'string') {
+          // Legacy string format - assume public
+          return { url: doc, name: '', visibility: 'public' as const };
+        }
+        return {
+          url: doc?.url || '',
+          name: doc?.name || '',
+          visibility: doc?.visibility || 'public'
+        };
+      }).filter(doc => doc.url !== ''),
       virtualTour360: (data.virtual360Images || []).map(img =>
         typeof img === 'string' ? img : (img?.url || '')
       ).filter(Boolean),
