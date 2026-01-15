@@ -98,6 +98,9 @@ dist/
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+# Claude AI local settings
+.claude/
+
 # yarn v2
 .yarn/cache
 .yarn/unplugged

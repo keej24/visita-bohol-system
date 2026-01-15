@@ -196,9 +196,26 @@ const ParishDashboard = () => {
         case 'diocesan_shrine': return 'Diocesan Shrine';
         case 'jubilee_church': return 'Jubilee Church';
         case 'papal_basilica_affinity': return 'Papal Basilica Affinity';
+        case 'holy_door': return 'Holy Door';
         case 'none':
         default: return 'None';
       }
+    };
+
+    // Helper to convert religiousClassifications array from Firestore to form format
+    const convertReligiousClassifications = (classifications?: string[]): import('@/components/parish/types').ReligiousClassificationType[] => {
+      if (!classifications || !Array.isArray(classifications)) return [];
+      return classifications.map(c => {
+        switch (c) {
+          case 'diocesan_shrine': return 'Diocesan Shrine';
+          case 'jubilee_church': return 'Jubilee Church';
+          case 'papal_basilica_affinity': return 'Papal Basilica Affinity';
+          case 'holy_door': return 'Holy Door';
+          default: return c as import('@/components/parish/types').ReligiousClassificationType;
+        }
+      }).filter((c): c is import('@/components/parish/types').ReligiousClassificationType => 
+        ['Diocesan Shrine', 'Jubilee Church', 'Papal Basilica Affinity', 'Holy Door'].includes(c)
+      );
     };
 
     // Helper to convert architectural style from Firestore to form format
@@ -214,6 +231,10 @@ const ParishDashboard = () => {
         default: return 'Other';
       }
     };
+
+    // Get religiousClassifications from historicalDetails object in Firestore
+    const firestoreHistoricalDetails = (church as unknown as { historicalDetails?: { religiousClassifications?: string[] } }).historicalDetails;
+    const rawClassifications = firestoreHistoricalDetails?.religiousClassifications || [];
 
     return {
       id: church.id,
@@ -238,7 +259,7 @@ const ParishDashboard = () => {
         heritageClassification: church.classification === 'NCT' ? 'National Cultural Treasures' :
                                church.classification === 'ICP' ? 'Important Cultural Properties' : 'None',
         religiousClassification: convertReligiousClassification(church.religiousClassification),
-        religiousClassifications: (church as unknown as { historicalDetails?: { religiousClassifications?: string[] } }).historicalDetails?.religiousClassifications as import('@/components/parish/types').ReligiousClassificationType[] || [],
+        religiousClassifications: convertReligiousClassifications(rawClassifications),
         supportingDocuments: [],
         architecturalFeatures: church.architecturalFeatures || '',
         heritageInformation: church.heritageInformation || ''
@@ -563,6 +584,20 @@ const ParishDashboard = () => {
       return styleMap[style] || 'other';
     };
 
+    // Helper function to map religious classifications array to Firestore format
+    const mapReligiousClassifications = (classifications: string[]) => {
+      if (!classifications || classifications.length === 0) return [];
+      return classifications.map(c => {
+        switch (c) {
+          case 'Diocesan Shrine': return 'diocesan_shrine';
+          case 'Jubilee Church': return 'jubilee_church';
+          case 'Papal Basilica Affinity': return 'papal_basilica_affinity';
+          case 'Holy Door': return 'holy_door';
+          default: return c.toLowerCase().replace(/\s+/g, '_');
+        }
+      });
+    };
+
     return {
       name: data.churchName || '',
       fullName: data.parishName || data.churchName || '',
@@ -576,6 +611,10 @@ const ParishDashboard = () => {
       description: data.historicalDetails.historicalBackground || '',
       classification: mapHeritageClassification(data.historicalDetails.heritageClassification) as ChurchClassification,
       religiousClassification: mapReligiousClassification(data.historicalDetails.religiousClassification || 'None') as import('@/types/church').ReligiousClassification,
+      // Save religiousClassifications array in historicalDetails for persistence
+      historicalDetails: {
+        religiousClassifications: mapReligiousClassifications(data.historicalDetails.religiousClassifications || [])
+      },
       assignedPriest: data.currentParishPriest || '',
       feastDay: data.feastDay || '',
       massSchedules: convertMassSchedules(data.massSchedules || []),
@@ -720,7 +759,7 @@ const ParishDashboard = () => {
         
         toast({ 
           title: "Success", 
-          description: "Church profile created as draft!" 
+          description: "Church profile saved as draft!" 
         });
         
         // Return the new church ID
