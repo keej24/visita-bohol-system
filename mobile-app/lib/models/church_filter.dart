@@ -50,15 +50,25 @@ class ChurchFilterCriteria {
       ChurchFilterCriteria(
         search: search ?? this.search,
         heritageOnly: heritageOnly ?? this.heritageOnly,
-        foundingYear: foundingYear == _undefined ? this.foundingYear : foundingYear as int?,
+        foundingYear: foundingYear == _undefined
+            ? this.foundingYear
+            : foundingYear as int?,
         diocese: diocese == _undefined ? this.diocese : diocese as Diocese?,
-        heritageClassification: heritageClassification == _undefined ? this.heritageClassification : heritageClassification as HeritageClassification?,
-        architecturalStyle: architecturalStyle == _undefined ? this.architecturalStyle : architecturalStyle as ArchitecturalStyle?,
+        heritageClassification: heritageClassification == _undefined
+            ? this.heritageClassification
+            : heritageClassification as HeritageClassification?,
+        architecturalStyle: architecturalStyle == _undefined
+            ? this.architecturalStyle
+            : architecturalStyle as ArchitecturalStyle?,
         location: location == _undefined ? this.location : location as String?,
-        foundingYearRange: foundingYearRange == _undefined ? this.foundingYearRange : foundingYearRange as RangeValues?,
+        foundingYearRange: foundingYearRange == _undefined
+            ? this.foundingYearRange
+            : foundingYearRange as RangeValues?,
         architecturalStyles: architecturalStyles ?? this.architecturalStyles,
-        heritageClassifications: heritageClassifications ?? this.heritageClassifications,
-        religiousClassifications: religiousClassifications ?? this.religiousClassifications,
+        heritageClassifications:
+            heritageClassifications ?? this.heritageClassifications,
+        religiousClassifications:
+            religiousClassifications ?? this.religiousClassifications,
         dioceses: dioceses ?? this.dioceses,
       );
 
@@ -163,7 +173,8 @@ List<Church> applyChurchFilter(List<Church> source, ChurchFilterCriteria c) {
 
     // Location filter (municipality or barangay)
     if (c.location != null && c.location!.isNotEmpty) {
-      final locationMatch = church.location.toLowerCase().contains(c.location!.toLowerCase());
+      final locationMatch =
+          church.location.toLowerCase().contains(c.location!.toLowerCase());
       if (!locationMatch) return false;
     }
 
@@ -192,8 +203,12 @@ List<Church> applyChurchFilter(List<Church> source, ChurchFilterCriteria c) {
     }
 
     // Religious classifications filter (multi-select)
+    // Match if church has ANY of the selected classifications
     if (c.religiousClassifications.isNotEmpty) {
-      if (!c.religiousClassifications.contains(church.religiousClassification)) {
+      final churchClassifications = church.allReligiousClassifications;
+      final hasMatch = c.religiousClassifications
+          .any((filterClass) => churchClassifications.contains(filterClass));
+      if (!hasMatch) {
         return false;
       }
     }
@@ -212,23 +227,25 @@ List<Church> applyChurchFilter(List<Church> source, ChurchFilterCriteria c) {
 
 // Helper function to get churches by specific criteria
 List<Church> getHeritageChurches(List<Church> source) {
-  return source.where((church) =>
-      church.isPublicVisible &&
-      (church.heritageClassification == HeritageClassification.icp ||
-       church.heritageClassification == HeritageClassification.nct)
-  ).toList();
+  return source
+      .where((church) =>
+          church.isPublicVisible &&
+          (church.heritageClassification == HeritageClassification.icp ||
+              church.heritageClassification == HeritageClassification.nct))
+      .toList();
 }
 
 List<Church> getChurchesByDiocese(List<Church> source, Diocese diocese) {
-  return source.where((church) =>
-      church.isPublicVisible &&
-      church.diocese == diocese.label
-  ).toList();
+  return source
+      .where(
+          (church) => church.isPublicVisible && church.diocese == diocese.label)
+      .toList();
 }
 
-List<Church> getChurchesByArchitecturalStyle(List<Church> source, ArchitecturalStyle style) {
-  return source.where((church) =>
-      church.isPublicVisible &&
-      church.architecturalStyle == style
-  ).toList();
+List<Church> getChurchesByArchitecturalStyle(
+    List<Church> source, ArchitecturalStyle style) {
+  return source
+      .where((church) =>
+          church.isPublicVisible && church.architecturalStyle == style)
+      .toList();
 }

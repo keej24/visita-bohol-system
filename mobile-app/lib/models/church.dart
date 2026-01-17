@@ -93,7 +93,9 @@ class Church {
   final List<String>? keyFigures; // Important historical figures
   final ArchitecturalStyle architecturalStyle;
   final HeritageClassification heritageClassification;
-  final ReligiousClassification religiousClassification;
+  final ReligiousClassification religiousClassification; // Legacy single value
+  final List<ReligiousClassification>
+      religiousClassifications; // Multiple classifications
   final String? history; // Historical background
   final String? description; // Church description
   final String? assignedPriest; // Current priest
@@ -136,6 +138,7 @@ class Church {
     this.architecturalStyle = ArchitecturalStyle.other,
     this.heritageClassification = HeritageClassification.none,
     this.religiousClassification = ReligiousClassification.none,
+    this.religiousClassifications = const [],
     this.history,
     this.description,
     this.assignedPriest,
@@ -157,6 +160,23 @@ class Church {
     this.tags,
     this.category,
   });
+
+  /// Helper to check if church has any religious classification
+  bool get hasReligiousClassification =>
+      religiousClassifications.isNotEmpty ||
+      religiousClassification != ReligiousClassification.none;
+
+  /// Get all religious classifications (combining legacy single + new list)
+  List<ReligiousClassification> get allReligiousClassifications {
+    if (religiousClassifications.isNotEmpty) {
+      return religiousClassifications;
+    }
+    // Fallback to legacy single value
+    if (religiousClassification != ReligiousClassification.none) {
+      return [religiousClassification];
+    }
+    return [];
+  }
 
   /// =============================================================================
   /// FACTORY CONSTRUCTOR - fromJson
@@ -219,6 +239,25 @@ class Church {
         })(),
         religiousClassification:
             ReligiousClassificationX.fromLabel(j['religiousClassification']),
+        // Parse religiousClassifications array from historicalDetails
+        religiousClassifications: (() {
+          // First try historicalDetails.religiousClassifications (new format from admin)
+          final historicalDetails = j['historicalDetails'];
+          if (historicalDetails != null && historicalDetails is Map) {
+            final classifications =
+                historicalDetails['religiousClassifications'];
+            if (classifications != null && classifications is List) {
+              return ReligiousClassificationX.fromLabelList(classifications);
+            }
+          }
+          // Fallback: use legacy single religiousClassification
+          final legacyClassification =
+              ReligiousClassificationX.fromLabel(j['religiousClassification']);
+          if (legacyClassification != ReligiousClassification.none) {
+            return [legacyClassification];
+          }
+          return <ReligiousClassification>[];
+        })(),
         history: j['history'] ?? j['historicalBackground'],
         description: j['description'],
         assignedPriest: j['assignedPriest'],

@@ -33,6 +33,8 @@ class _ChurchCardState extends State<ChurchCard> {
         return Icons.celebration;
       case ReligiousClassification.papalBasilicaAffinity:
         return Icons.account_balance;
+      case ReligiousClassification.holyDoor:
+        return Icons.door_front_door;
       default:
         return Icons.info;
     }
@@ -47,6 +49,8 @@ class _ChurchCardState extends State<ChurchCard> {
         return const Color(0xFF0891B2); // Cyan
       case ReligiousClassification.papalBasilicaAffinity:
         return const Color(0xFFFB923C); // Orange
+      case ReligiousClassification.holyDoor:
+        return const Color(0xFF7C3AED); // Purple
       default:
         return const Color(0xFF6B7280); // Gray
     }
@@ -231,36 +235,41 @@ class _ChurchCardState extends State<ChurchCard> {
                                   ),
                                 ],
                               ),
-                              if (widget.church.religiousClassification !=
-                                  ReligiousClassification.none) ...[
+                              if (widget.church.hasReligiousClassification) ...[
                                 const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      _getReligiousClassificationIcon(widget
-                                          .church.religiousClassification),
-                                      size: 14,
-                                      color: _getReligiousClassificationColor(
-                                          widget
-                                              .church.religiousClassification),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        widget.church.religiousClassification
-                                            .label,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                                color: _getReligiousClassificationColor(
-                                                    widget.church
-                                                        .religiousClassification),
-                                                fontWeight: FontWeight.w600),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
+                                // Display all religious classifications
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: widget
+                                      .church.allReligiousClassifications
+                                      .map((classification) {
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _getReligiousClassificationIcon(
+                                              classification),
+                                          size: 14,
+                                          color:
+                                              _getReligiousClassificationColor(
+                                                  classification),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          classification.label,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                  color:
+                                                      _getReligiousClassificationColor(
+                                                          classification),
+                                                  fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
                                 ),
                               ],
                             ],

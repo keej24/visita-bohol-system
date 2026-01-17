@@ -5,12 +5,7 @@ enum Diocese { tagbilaran, talibon }
 
 enum AnnouncementScope { diocese, parish }
 
-enum HeritageClassification {
-  none,
-  icp,
-  nct,
-  nonHeritage
-}
+enum HeritageClassification { none, icp, nct, nonHeritage }
 
 enum ArchitecturalStyle {
   baroque,
@@ -29,7 +24,8 @@ enum ReligiousClassification {
   none,
   diocesanShrine,
   jubileeChurch,
-  papalBasilicaAffinity
+  papalBasilicaAffinity,
+  holyDoor
 }
 
 extension DioceseX on Diocese {
@@ -180,6 +176,8 @@ extension ReligiousClassificationX on ReligiousClassification {
         return 'Jubilee Church';
       case ReligiousClassification.papalBasilicaAffinity:
         return 'Papal Basilica Affinity';
+      case ReligiousClassification.holyDoor:
+        return 'Holy Door';
     }
   }
 
@@ -194,9 +192,21 @@ extension ReligiousClassificationX on ReligiousClassification {
       case 'papal_basilica_affinity':
       case 'papal basilica affinity':
         return ReligiousClassification.papalBasilicaAffinity;
+      case 'holy_door':
+      case 'holy door':
+        return ReligiousClassification.holyDoor;
       case 'none':
       default:
         return ReligiousClassification.none;
     }
+  }
+
+  /// Parse a list of religious classification strings to enum list
+  static List<ReligiousClassification> fromLabelList(List<dynamic>? values) {
+    if (values == null || values.isEmpty) return [];
+    return values
+        .map((v) => fromLabel(v?.toString()))
+        .where((c) => c != ReligiousClassification.none)
+        .toList();
   }
 }

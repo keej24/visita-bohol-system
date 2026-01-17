@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,11 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { isPreconfiguredAccount } from '@/lib/auth-utils';
-import { User, Shield, Save, Camera, Lock, Eye, EyeOff, Crown, Mail, Phone, MapPin, Edit, Key } from 'lucide-react';
+import { User, Shield, Save, Camera, Lock, Eye, EyeOff, Crown, Mail, Phone, MapPin, Edit, Key, Loader2, Briefcase } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, storage } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import imageCompression from 'browser-image-compression';
 
 const AccountSettings = () => {
   const { userProfile, user, refreshUserProfile } = useAuth();
@@ -25,15 +27,20 @@ const AccountSettings = () => {
   const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profileData, setProfileData] = useState({
     firstName: userProfile?.name?.split(' ')[0] || '',
     lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
     email: userProfile?.email || '',
     phone: userProfile?.phoneNumber || '',
-    address: '',
+    address: userProfile?.address || '',
     office: userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : 'Chancery Office',
-    diocese: userProfile?.diocese || 'tagbilaran'
+    diocese: userProfile?.diocese || 'tagbilaran',
+    position: userProfile?.position || '',
+    department: userProfile?.department || '',
+    profileImageUrl: userProfile?.profileImageUrl || ''
   });
 
   // Sync phone number from userProfile when it changes
@@ -48,11 +55,15 @@ const AccountSettings = () => {
       setProfileData(prev => ({
         ...prev,
         email: userProfile.email || prev.email,
-        phone: userProfile.phoneNumber || prev.phone
+        phone: userProfile.phoneNumber || prev.phone,
+        address: userProfile.address || prev.address,
+        position: userProfile.position || prev.position,
+        department: userProfile.department || prev.department,
+        profileImageUrl: userProfile.profileImageUrl || prev.profileImageUrl
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile?.email, userProfile?.phoneNumber]);
+  }, [userProfile?.email, userProfile?.phoneNumber, userProfile?.profileImageUrl]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -135,6 +146,106 @@ const AccountSettings = () => {
     return '';
   };
 
+  // Handle profile photo upload
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please select an image file (JPEG, PNG, etc.)',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB before compression)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please select an image smaller than 5MB',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      // Compress image before upload
+      const compressedFile = await imageCompression(file, {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 400,
+        useWebWorker: true,
+        fileType: 'image/jpeg' as const
+      });
+
+      // Delete old profile image if exists
+      if (profileData.profileImageUrl) {
+        try {
+          const oldImageRef = ref(storage, profileData.profileImageUrl);
+          await deleteObject(oldImageRef);
+        } catch (deleteError) {
+          console.warn('Could not delete old profile image:', deleteError);
+        }
+      }
+
+      // Upload new image
+      const storageRef = ref(storage, `profile-images/${user.uid}/${Date.now()}_profile.jpg`);
+      const uploadTask = uploadBytesResumable(storageRef, compressedFile, {
+        contentType: 'image/jpeg',
+        customMetadata: {
+          uploadedBy: user.uid,
+          uploadedAt: new Date().toISOString()
+        }
+      });
+
+      // Wait for upload to complete
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          null,
+          (error) => reject(error),
+          () => resolve()
+        );
+      });
+
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Update Firestore
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        profileImageUrl: downloadURL
+      });
+
+      // Update local state
+      setProfileData(prev => ({ ...prev, profileImageUrl: downloadURL }));
+
+      // Refresh user profile
+      await refreshUserProfile();
+
+      toast({
+        title: 'Success',
+        description: 'Profile photo updated successfully'
+      });
+    } catch (error) {
+      console.error('Photo upload failed:', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload profile photo. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleProfileUpdate = async () => {
     if (!user || !userProfile) {
       toast({
@@ -179,8 +290,10 @@ const AccountSettings = () => {
       // Update Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
       const updateData: Record<string, string | null> = {
-        phoneNumber: profileData.phone || null, // Use phoneNumber to match other components
+        phoneNumber: profileData.phone || null,
         address: profileData.address || null,
+        position: profileData.position || null,
+        department: profileData.department || null
       };
 
       // For non-system accounts, allow name updates
@@ -457,9 +570,12 @@ const AccountSettings = () => {
       lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
       email: userProfile?.email || '',
       phone: userProfile?.phoneNumber || '',
-      address: '',
+      address: userProfile?.address || '',
       office: userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : 'Chancery Office',
-      diocese: userProfile?.diocese || 'tagbilaran'
+      diocese: userProfile?.diocese || 'tagbilaran',
+      position: userProfile?.position || '',
+      department: userProfile?.department || '',
+      profileImageUrl: userProfile?.profileImageUrl || ''
     });
     
     // Clear profile errors
@@ -516,15 +632,55 @@ const AccountSettings = () => {
           <CardContent className="space-y-6">
             {/* Profile Picture & Basic Info */}
             <div className="flex items-center gap-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
-                {userProfile?.role === 'museum_researcher' ? 'NM' : `${profileData.firstName[0]}${profileData.lastName[0]}`}
+              <div className="relative group">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handlePhotoUpload}
+                  accept="image/*"
+                  className="hidden"
+                  id="profile-photo-input"
+                  aria-label="Upload profile photo"
+                />
+                <div 
+                  className="w-20 h-20 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden cursor-pointer transition-all hover:ring-4 hover:ring-blue-200"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploadingPhoto ? (
+                    <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-gray-600" />
+                    </div>
+                  ) : profileData.profileImageUrl ? (
+                    <Avatar className="w-20 h-20">
+                      <AvatarImage src={profileData.profileImageUrl} alt="Profile" />
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-xl">
+                        {userProfile?.role === 'museum_researcher' ? 'NM' : `${profileData.firstName[0] || ''}${profileData.lastName[0] || ''}`}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                      {userProfile?.role === 'museum_researcher' ? 'NM' : `${profileData.firstName[0] || ''}${profileData.lastName[0] || ''}`}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 bg-white border border-gray-200 rounded-full p-1.5 shadow-sm hover:bg-gray-50 transition-colors"
+                  disabled={isUploadingPhoto}
+                >
+                  {isUploadingPhoto ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-gray-600" />
+                  ) : (
+                    <Camera className="w-3 h-3 text-gray-600" />
+                  )}
+                </button>
               </div>
               <div>
                 <h3 className="text-lg font-semibold">
                   {userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : `${profileData.firstName} ${profileData.lastName}`}
                 </h3>
                 <p className="text-gray-600">
-                  {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : 'Chancery Office'}
+                  {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : userProfile?.role === 'parish_secretary' ? 'Parish Secretary' : 'Chancery Office'}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   {userProfile?.role === 'museum_researcher' ? (
@@ -544,6 +700,7 @@ const AccountSettings = () => {
                     </Badge>
                   )}
                 </div>
+                <p className="text-xs text-gray-500 mt-2">Click photo to upload a new image</p>
               </div>
             </div>
 
@@ -711,6 +868,35 @@ const AccountSettings = () => {
                         />
                       </div>
                     </div>
+                    <div>
+                      <Label htmlFor="position">Position / Title</Label>
+                      <div className="relative">
+                        <Briefcase className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="position"
+                          value={profileData.position}
+                          onChange={(e) => setProfileData(prev => ({ ...prev, position: e.target.value }))}
+                          disabled={!isEditingProfile}
+                          className="mt-1 pl-10"
+                          placeholder={userProfile?.role === 'museum_researcher' ? 'Heritage Specialist' : userProfile?.role === 'parish_secretary' ? 'Parish Secretary' : 'Administrator'}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Your job title or position</p>
+                    </div>
+                    {userProfile?.role === 'museum_researcher' && (
+                      <div>
+                        <Label htmlFor="department">Department</Label>
+                        <Input
+                          id="department"
+                          value={profileData.department}
+                          onChange={(e) => setProfileData(prev => ({ ...prev, department: e.target.value }))}
+                          disabled={!isEditingProfile}
+                          className="mt-1"
+                          placeholder="e.g., Cultural Properties Division"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Your department or division</p>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

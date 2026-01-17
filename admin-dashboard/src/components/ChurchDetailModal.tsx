@@ -84,14 +84,31 @@ export function ChurchDetailModal({
 
   // Helper function to convert database religious classification to display value
   // Must match the conversion in ParishDashboard
-  const getReligiousClassificationDisplay = (classification?: string): 'None' | 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' => {
+  const getReligiousClassificationDisplay = (classification?: string): 'None' | 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door' => {
     switch (classification?.toLowerCase()) {
       case 'diocesan_shrine': return 'Diocesan Shrine';
       case 'jubilee_church': return 'Jubilee Church';
       case 'papal_basilica_affinity': return 'Papal Basilica Affinity';
+      case 'holy_door': return 'Holy Door';
       case 'none':
       default: return 'None';
     }
+  };
+
+  // Helper function to convert religiousClassifications array from Firestore to display format
+  const getReligiousClassificationsDisplay = (classifications?: string[]): ('Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door')[] => {
+    if (!classifications || !Array.isArray(classifications)) return [];
+    return classifications.map(c => {
+      switch (c?.toLowerCase()) {
+        case 'diocesan_shrine': return 'Diocesan Shrine';
+        case 'jubilee_church': return 'Jubilee Church';
+        case 'papal_basilica_affinity': return 'Papal Basilica Affinity';
+        case 'holy_door': return 'Holy Door';
+        default: return c as 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door';
+      }
+    }).filter((c): c is 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door' => 
+      ['Diocesan Shrine', 'Jubilee Church', 'Papal Basilica Affinity', 'Holy Door'].includes(c)
+    );
   };
 
   // Convert Church to ChurchInfo format for editing
@@ -122,8 +139,8 @@ export function ChurchDetailModal({
         majorHistoricalEvents: churchData.culturalSignificance || '',
         heritageClassification: churchData.classification === 'NCT' ? 'National Cultural Treasures' :
                                churchData.classification === 'ICP' ? 'Important Cultural Properties' : 'None',
-        religiousClassification: getReligiousClassificationDisplay(churchData.religiousClassification) as 'None' | 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity',
-        religiousClassifications: churchData.historicalDetails?.religiousClassifications || [],
+        religiousClassification: getReligiousClassificationDisplay(churchData.religiousClassification) as 'None' | 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door',
+        religiousClassifications: getReligiousClassificationsDisplay(churchData.historicalDetails?.religiousClassifications),
         supportingDocuments: [],
         architecturalFeatures: churchData.architecturalFeatures || '',
         heritageInformation: churchData.heritageInformation || ''

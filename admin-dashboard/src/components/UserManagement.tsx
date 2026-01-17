@@ -14,6 +14,7 @@ import { db, auth } from '@/lib/firebase';
 import { useAuth, type Diocese } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { generateParishId, formatParishFullName, getMunicipalitiesByDiocese } from '@/lib/parish-utils';
+import { CreateParishAccountModal } from '@/components/CreateParishAccountModal';
 import {
   Users,
   Plus,
@@ -28,7 +29,8 @@ import {
   UserX,
   UserCheck,
   RefreshCw,
-  Info
+  Info,
+  Pencil
 } from 'lucide-react';
 
 interface UserAccount {
@@ -39,6 +41,9 @@ interface UserAccount {
   role: 'chancery_office' | 'parish_secretary' | 'museum_researcher';
   diocese: Diocese;
   parish?: string;
+  parishId?: string;
+  municipality?: string;
+  address?: string;
   status: 'active' | 'inactive' | 'pending';
   createdAt: Date;
   lastLogin?: Date;
@@ -71,6 +76,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [userToToggle, setUserToToggle] = useState<UserAccount | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    municipality: ''
+  });
 
   // New user form state (Parish Secretary only)
   const [newUser, setNewUser] = useState({
@@ -110,6 +121,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
             role: data.role,
             diocese: data.diocese,
             parish: data.parish,
+            parishId: data.parishId,
+            municipality: data.parishInfo?.municipality || data.municipality || '',
+            address: data.address || '',
             status: data.status || 'active',
             createdAt: data.createdAt?.toDate() || new Date(),
             lastLogin: data.lastLogin?.toDate(),
@@ -338,6 +352,97 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
     }
   };
 
+  // Handle opening the edit modal
+  const handleOpenEditModal = (user: UserAccount) => {
+    setEditingUser(user);
+    setEditFormData({
+      name: user.name || '',
+      municipality: user.municipality || ''
+    });
+    setIsAccountViewOpen(false);
+    setIsEditModalOpen(true);
+  };
+
+  // Handle updating user account details
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+
+    // Validate required fields
+    if (!editFormData.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Parish name is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const userRef = doc(db, 'users', editingUser.id);
+      
+      // Prepare update data
+      const updateData: Record<string, unknown> = {
+        name: editFormData.name.trim(),
+        updatedAt: new Date(),
+        updatedBy: userProfile?.uid || 'system'
+      };
+
+      // If municipality changed, update parishInfo and regenerate parishId
+      if (editFormData.municipality && editFormData.municipality !== editingUser.municipality) {
+        const newParishId = generateParishId(diocese, editFormData.municipality, editFormData.name);
+        const newFullName = formatParishFullName(editFormData.name, editFormData.municipality);
+        
+        updateData.parishId = newParishId;
+        updateData.parish = newParishId; // Keep backward compatibility
+        updateData.parishInfo = {
+          name: editFormData.name.trim(),
+          municipality: editFormData.municipality,
+          fullName: newFullName
+        };
+      } else if (editFormData.name !== editingUser.name) {
+        // Name changed but not municipality - update parishInfo.name and parishInfo.fullName
+        const municipality = editFormData.municipality || editingUser.municipality || '';
+        if (municipality) {
+          const newParishId = generateParishId(diocese, municipality, editFormData.name);
+          const newFullName = formatParishFullName(editFormData.name, municipality);
+          
+          updateData.parishId = newParishId;
+          updateData.parish = newParishId;
+          updateData.parishInfo = {
+            name: editFormData.name.trim(),
+            municipality: municipality,
+            fullName: newFullName
+          };
+        }
+      }
+
+      await updateDoc(userRef, updateData);
+
+      toast({
+        title: "Success",
+        description: "Parish account updated successfully",
+      });
+
+      setIsEditModalOpen(false);
+      setEditingUser(null);
+      
+      // Reload users to reflect changes
+      await loadData();
+
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update parish account",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -407,7 +512,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                 View and manage existing parish secretary accounts
               </CardDescription>
             </div>
-            {/* Removed: Add Parish Account button - use CreateParishAccountModal instead */}
+            <CreateParishAccountModal 
+              diocese={diocese}
+              trigger={
+                <Button className="flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Parish Account
+                </Button>
+              }
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -651,6 +764,20 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                     <p className="text-xs font-medium text-gray-500 uppercase mb-1">Email Address</p>
                     <p className="text-sm font-mono text-gray-900 break-all">{selectedUser.email}</p>
                   </div>
+
+                  {selectedUser.municipality && (
+                    <div className="col-span-3">
+                      <p className="text-xs font-medium text-gray-500 uppercase mb-1">Municipality</p>
+                      <p className="text-sm text-gray-900">{selectedUser.municipality}</p>
+                    </div>
+                  )}
+
+                  {selectedUser.address && (
+                    <div className="col-span-3">
+                      <p className="text-xs font-medium text-gray-500 uppercase mb-1">Address</p>
+                      <p className="text-sm text-gray-900">{selectedUser.address}</p>
+                    </div>
+                  )}
                   
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase mb-1">Status</p>
@@ -686,27 +813,39 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
             </div>
           )}
           <DialogFooter className="flex flex-row gap-2 sm:justify-between">
-            <Button
-              variant={selectedUser?.status === 'active' ? 'destructive' : 'default'}
-              size="sm"
-              onClick={() => {
-                setUserToToggle(selectedUser);
-                setIsAccountViewOpen(false);
-                setIsStatusDialogOpen(true);
-              }}
-            >
-              {selectedUser?.status === 'active' ? (
-                <>
-                  <UserX className="w-4 h-4 mr-2" />
-                  Deactivate Account
-                </>
-              ) : (
-                <>
-                  <UserCheck className="w-4 h-4 mr-2" />
-                  Activate Account
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant={selectedUser?.status === 'active' ? 'destructive' : 'default'}
+                size="sm"
+                onClick={() => {
+                  setUserToToggle(selectedUser);
+                  setIsAccountViewOpen(false);
+                  setIsStatusDialogOpen(true);
+                }}
+              >
+                {selectedUser?.status === 'active' ? (
+                  <>
+                    <UserX className="w-4 h-4 mr-2" />
+                    Deactivate
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="w-4 h-4 mr-2" />
+                    Activate
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectedUser && handleOpenEditModal(selectedUser)}
+                title="Edit parish name and municipality"
+                className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400 active:bg-blue-100 transition-colors"
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit Details
+              </Button>
+            </div>
             <Button 
               variant="outline"
               size="sm"
@@ -715,7 +854,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                 setSelectedUser(null);
               }}
             >
-              Exit Account View
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -789,6 +928,76 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
               {submitting 
                 ? (userToToggle?.status === 'active' ? 'Deactivating...' : 'Activating...') 
                 : (userToToggle?.status === 'active' ? 'Deactivate Account' : 'Activate Account')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Parish Account Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-blue-600" />
+              Edit Parish Account
+            </DialogTitle>
+            <DialogDescription>
+              Update the parish account details. Email address cannot be changed.
+            </DialogDescription>
+          </DialogHeader>
+          {editingUser && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Parish Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., San Isidro Labrador Parish"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-municipality">Municipality</Label>
+                <Select
+                  value={editFormData.municipality}
+                  onValueChange={(value) => setEditFormData(prev => ({ ...prev, municipality: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select municipality" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getMunicipalitiesByDiocese(diocese).map((municipality) => (
+                      <SelectItem key={municipality} value={municipality}>
+                        {municipality}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Email Address (cannot be changed)</p>
+                <p className="text-sm font-mono text-gray-600">{editingUser.email}</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setEditingUser(null);
+              }}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateUser} 
+              disabled={submitting}
+            >
+              {submitting ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>

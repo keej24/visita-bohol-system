@@ -105,6 +105,14 @@ export interface UserProfile {
   
   // Contact information
   phoneNumber?: string;  // Parish contact number (editable in account settings)
+  address?: string;      // User's address
+  
+  // Profile image
+  profileImageUrl?: string;  // URL to profile image in Firebase Storage
+  
+  // Role-specific information
+  position?: string;       // Job title/position (e.g., "Heritage Specialist", "Parish Secretary")
+  department?: string;     // For Museum Researchers
   
   createdAt: Date;
   lastLoginAt: Date;

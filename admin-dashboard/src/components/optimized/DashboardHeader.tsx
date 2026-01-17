@@ -1,9 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { MapPin, UserPlus } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import type { Diocese } from '@/contexts/AuthContext';
-import { CreateParishAccountModal } from '@/components/CreateParishAccountModal';
 
 interface DashboardHeaderProps {
   diocese: Diocese;
@@ -43,18 +41,6 @@ export const DashboardHeader = React.memo<DashboardHeaderProps>(({ diocese, user
             </p>
           </div>
         </div>
-        
-        {/* Add Parish Account Button */}
-        <CreateParishAccountModal 
-          diocese={diocese}
-          trigger={
-            <Button className="flex items-center justify-center gap-2 w-full sm:w-auto h-9 sm:h-10 text-sm">
-              <UserPlus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Parish Account</span>
-              <span className="sm:hidden">Add Parish</span>
-            </Button>
-          }
-        />
       </div>
     </div>
   );
