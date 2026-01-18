@@ -228,11 +228,24 @@ const Reports = () => {
     loadAnalytics();
   }, [currentDiocese, startDate, endDate, toast, isValidDateRange, dateRangeError]);
 
-  // Get unique municipalities from church data
+  // Helper function to normalize municipality names (consistent Title Case)
+  const normalizeMunicipality = (name: string): string => {
+    if (!name) return '';
+    return name.split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Get unique municipalities from church data (normalized to avoid duplicates from case differences)
   const availableMunicipalities = useMemo(() => {
     if (!churchSummaryData) return [];
-    const municipalities = [...new Set(churchSummaryData.map(c => c.municipality))].filter(Boolean);
-    return municipalities.sort();
+    const normalizedSet = new Set(
+      churchSummaryData
+        .map(c => c.municipality)
+        .filter(Boolean)
+        .map(m => normalizeMunicipality(m))
+    );
+    return [...normalizedSet].sort();
   }, [churchSummaryData]);
 
   // Get unique parishes (church names) from church data, filtered by selected municipality
@@ -240,7 +253,7 @@ const Reports = () => {
     if (!churchSummaryData) return [];
     let filtered = churchSummaryData;
     if (selectedMunicipality !== 'all') {
-      filtered = filtered.filter(c => c.municipality === selectedMunicipality);
+      filtered = filtered.filter(c => normalizeMunicipality(c.municipality) === selectedMunicipality);
     }
     return filtered.map(c => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [churchSummaryData, selectedMunicipality]);
@@ -255,9 +268,9 @@ const Reports = () => {
 
     let filtered = churchSummaryData;
 
-    // Apply municipality filter
+    // Apply municipality filter (using normalized comparison for case-insensitive matching)
     if (selectedMunicipality !== 'all') {
-      filtered = filtered.filter(c => c.municipality === selectedMunicipality);
+      filtered = filtered.filter(c => normalizeMunicipality(c.municipality) === selectedMunicipality);
     }
 
     // Apply parish filter
@@ -375,7 +388,7 @@ const Reports = () => {
         // availableChurches is already filtered by municipality and classification
         // Apply any additional UI-level filters for display
         const filteredChurches = availableChurches.filter(church =>
-          (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
+          (selectedMunicipality === 'all' || normalizeMunicipality(church.municipality) === selectedMunicipality) &&
           (selectedClassification === 'all' ||
            (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
            church.classification === selectedClassification)
@@ -711,7 +724,7 @@ const Reports = () => {
                       onClick={() => handleExportClick(exportFormat, 'church_summary')}
                       className="w-full h-10"
                       disabled={availableChurches.filter(church =>
-                        (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
+                        (selectedMunicipality === 'all' || normalizeMunicipality(church.municipality) === selectedMunicipality) &&
                         (selectedClassification === 'all' ||
                          (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
                          church.classification === selectedClassification)
@@ -725,7 +738,7 @@ const Reports = () => {
 
                 {/* Export Error Message */}
                 {availableChurches.filter(church =>
-                  (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
+                  (selectedMunicipality === 'all' || normalizeMunicipality(church.municipality) === selectedMunicipality) &&
                   (selectedClassification === 'all' ||
                    (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
                    church.classification === selectedClassification)
@@ -783,7 +796,7 @@ const Reports = () => {
               <>
                 {(() => {
                   const filteredForDisplay = availableChurches.filter(church =>
-                    (selectedMunicipality === 'all' || church.municipality === selectedMunicipality) &&
+                    (selectedMunicipality === 'all' || normalizeMunicipality(church.municipality) === selectedMunicipality) &&
                     (selectedClassification === 'all' ||
                      (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
                      church.classification === selectedClassification)

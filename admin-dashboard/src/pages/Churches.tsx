@@ -78,7 +78,7 @@ import {
   AlertCircle,
   Eye
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import heroImage from "@/assets/baclayon-church-hero.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChurches, useChurchReview, useDeleteChurch } from "@/hooks/useChurches";
@@ -88,7 +88,8 @@ import type { ChurchStatus, ChurchClassification, Church, ArchitecturalStyle, Re
 import { ChurchDetailModal } from "@/components/ChurchDetailModal";
 import { ChurchInfo } from "@/components/parish/types";
 import { ChurchService } from "@/services/churchService";
-import { Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const Churches = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,6 +103,7 @@ const Churches = () => {
   // Unpublish confirmation dialog state
   const [unpublishDialogOpen, setUnpublishDialogOpen] = useState(false);
   const [churchToUnpublish, setChurchToUnpublish] = useState<{ id: string; name: string } | null>(null);
+  const [totalMonthlyVisitors, setTotalMonthlyVisitors] = useState(0);
 
   const { userProfile } = useAuth();
   const { toast } = useToast();
@@ -122,6 +124,50 @@ const Churches = () => {
   }, [searchTerm, statusFilter, classificationFilter, userProfile?.diocese]);
 
   const { data: churches = [], isLoading, error } = useChurches(filters);
+
+  // Fetch visitor count from church_visited collection
+  useEffect(() => {
+    const fetchVisitorCount = async () => {
+      if (!churches.length) {
+        setTotalMonthlyVisitors(0);
+        return;
+      }
+
+      try {
+        // Get visits from the last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const churchIds = churches.map(c => c.id);
+        const visitorRef = collection(db, 'church_visited');
+        
+        // Simple query - filter in memory to avoid needing composite index
+        const visitorQuery = query(
+          visitorRef,
+          where('visit_status', '==', 'validated')
+        );
+
+        const snapshot = await getDocs(visitorQuery);
+        let count = 0;
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          // Filter by church and date in memory
+          const visitDate = data.visit_date?.toDate?.();
+          if (churchIds.includes(data.church_id) && visitDate && visitDate >= thirtyDaysAgo) {
+            count++;
+          }
+        });
+
+        console.log('📊 Visitor count:', count, 'from', snapshot.size, 'validated visits');
+        setTotalMonthlyVisitors(count);
+      } catch (err) {
+        console.error('Error fetching visitor count:', err);
+        setTotalMonthlyVisitors(0);
+      }
+    };
+
+    fetchVisitorCount();
+  }, [churches]);
 
   const handleViewChurch = (church: Church) => {
     setSelectedChurch(church);
@@ -628,10 +674,7 @@ const Churches = () => {
             <Card className="stats-card text-center">
               <CardContent className="pt-6">
                 <div className="stats-value">
-                  {churches
-                    .filter(c => c.monthlyVisitors)
-                    .reduce((sum, c) => sum + (c.monthlyVisitors || 0), 0)
-                    .toLocaleString()}
+                  {totalMonthlyVisitors.toLocaleString()}
                 </div>
                 <div className="stats-label">Total Monthly Visitors</div>
               </CardContent>
