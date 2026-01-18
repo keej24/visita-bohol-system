@@ -67,7 +67,7 @@ const AccountSetup = () => {
     },
     {
       role: 'Museum Researcher',
-      email: 'researcher.heritage@museum.ph',
+      email: 'bohol@nationalmuseum.gov.ph',
   password: 'HeritageResearcher2024!',
       access: 'Heritage validation across both dioceses'
     }

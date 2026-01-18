@@ -113,6 +113,7 @@ export interface UserProfile {
   // Role-specific information
   position?: string;       // Job title/position (e.g., "Heritage Specialist", "Parish Secretary")
   department?: string;     // For Museum Researchers
+  institutionName?: string; // Editable institution name for system accounts
   
   createdAt: Date;
   lastLoginAt: Date;

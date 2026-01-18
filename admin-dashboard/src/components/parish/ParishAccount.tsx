@@ -518,7 +518,7 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                   disabled
                   className="mt-1 bg-gray-50"
                 />
-                <p className="text-xs text-gray-500 mt-1">Contact admin to change diocese assignment</p>
+                
               </div>
             </div>
           </div>

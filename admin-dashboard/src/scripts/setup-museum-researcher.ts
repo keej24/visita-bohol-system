@@ -5,7 +5,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 // Password loaded from environment variable for security
 const museumResearcherAccount = {
-  email: 'researcher.heritage@museum.ph',
+  email: 'bohol@nationalmuseum.gov.ph',
   password: import.meta.env.VITE_DEFAULT_PASSWORD_HERITAGE || 'HeritageResearcher2025!',
   profile: {
     role: 'museum_researcher',

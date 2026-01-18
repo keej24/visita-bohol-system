@@ -5,7 +5,7 @@ import { deleteUser, signInWithEmailAndPassword } from 'firebase/auth';
 const accountsToDelete = [
   'dioceseoftagbilaran1941@gmail.com',
   'talibonchancery@gmail.com', 
-  'researcher.heritage@museum.ph'
+  'bohol@nationalmuseum.gov.ph'
 ];
 
 export const clearExistingAccounts = async () => {

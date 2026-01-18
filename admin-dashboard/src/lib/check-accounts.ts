@@ -32,7 +32,7 @@ const accountsToCheck = [
     }
   },
   {
-    email: 'researcher.heritage@museum.ph',
+    email: 'bohol@nationalmuseum.gov.ph',
     password: import.meta.env.VITE_DEFAULT_PASSWORD_HERITAGE || 'HeritageResearcher2025!',
     profile: {
       role: 'museum_researcher',

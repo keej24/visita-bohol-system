@@ -103,7 +103,7 @@ Create these accounts in Firebase Authentication:
    - Diocese: `talibon`
 
 3. **Museum Researcher**
-   - Email: `researcher.heritage@museum.ph`
+   - Email: `bohol@nationalmuseum.gov.ph`
    - Role: `museum_researcher`
    - Diocese: `tagbilaran`
 

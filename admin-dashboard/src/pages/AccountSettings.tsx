@@ -40,10 +40,11 @@ const AccountSettings = () => {
     diocese: userProfile?.diocese || 'tagbilaran',
     position: userProfile?.position || '',
     department: userProfile?.department || '',
-    profileImageUrl: userProfile?.profileImageUrl || ''
+    profileImageUrl: userProfile?.profileImageUrl || '',
+    institutionName: userProfile?.institutionName || (userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : userProfile?.name || '')
   });
 
-  // Sync phone number from userProfile when it changes
+  // Sync profile data from userProfile when it changes
   useEffect(() => {
     if (userProfile) {
       console.log('🔍 [AccountSettings] UserProfile loaded:', {
@@ -59,11 +60,12 @@ const AccountSettings = () => {
         address: userProfile.address || prev.address,
         position: userProfile.position || prev.position,
         department: userProfile.department || prev.department,
-        profileImageUrl: userProfile.profileImageUrl || prev.profileImageUrl
+        profileImageUrl: userProfile.profileImageUrl || prev.profileImageUrl,
+        institutionName: userProfile.institutionName || userProfile.name || prev.institutionName
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile?.email, userProfile?.phoneNumber, userProfile?.profileImageUrl]);
+  }, [userProfile?.email, userProfile?.phoneNumber, userProfile?.profileImageUrl, userProfile?.institutionName]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -290,17 +292,26 @@ const AccountSettings = () => {
       // Update Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
       const updateData: Record<string, string | null> = {
-        phoneNumber: profileData.phone || null,
         address: profileData.address || null,
         position: profileData.position || null,
         department: profileData.department || null
       };
 
-      // For non-system accounts, allow name updates
-      if (!isSystemAccount) {
+      // For system accounts (chancery/museum), save institution name but not phone
+      // For parish secretaries, save phone number
+      if (isSystemAccount) {
+        updateData.institutionName = profileData.institutionName || null;
+        updateData.name = profileData.institutionName || null;
+        // Only save phone for parish secretary
+        if (userProfile?.role === 'parish_secretary') {
+          updateData.phoneNumber = profileData.phone || null;
+        }
+      } else {
+        // For non-system accounts, allow name and phone updates
         updateData.name = `${profileData.firstName} ${profileData.lastName}`;
         updateData.firstName = profileData.firstName;
         updateData.lastName = profileData.lastName;
+        updateData.phoneNumber = profileData.phone || null;
       }
 
       await updateDoc(userDocRef, updateData);
@@ -575,7 +586,8 @@ const AccountSettings = () => {
       diocese: userProfile?.diocese || 'tagbilaran',
       position: userProfile?.position || '',
       department: userProfile?.department || '',
-      profileImageUrl: userProfile?.profileImageUrl || ''
+      profileImageUrl: userProfile?.profileImageUrl || '',
+      institutionName: userProfile?.institutionName || (userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : userProfile?.name || '')
     });
     
     // Clear profile errors
@@ -654,12 +666,16 @@ const AccountSettings = () => {
                     <Avatar className="w-20 h-20">
                       <AvatarImage src={profileData.profileImageUrl} alt="Profile" />
                       <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-xl">
-                        {userProfile?.role === 'museum_researcher' ? 'NM' : `${profileData.firstName[0] || ''}${profileData.lastName[0] || ''}`}
+                        {isSystemAccount 
+                          ? (profileData.institutionName || 'IN').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                          : `${profileData.firstName[0] || ''}${profileData.lastName[0] || ''}`}
                       </AvatarFallback>
                     </Avatar>
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                      {userProfile?.role === 'museum_researcher' ? 'NM' : `${profileData.firstName[0] || ''}${profileData.lastName[0] || ''}`}
+                      {isSystemAccount 
+                        ? (profileData.institutionName || 'IN').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                        : `${profileData.firstName[0] || ''}${profileData.lastName[0] || ''}`}
                     </div>
                   )}
                 </div>
@@ -677,7 +693,7 @@ const AccountSettings = () => {
               </div>
               <div>
                 <h3 className="text-lg font-semibold">
-                  {userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : `${profileData.firstName} ${profileData.lastName}`}
+                  {isSystemAccount ? (profileData.institutionName || userProfile?.institutionName || userProfile?.name || 'Institution Name') : `${profileData.firstName} ${profileData.lastName}`}
                 </h3>
                 <p className="text-gray-600">
                   {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : userProfile?.role === 'parish_secretary' ? 'Parish Secretary' : 'Chancery Office'}
@@ -715,15 +731,14 @@ const AccountSettings = () => {
                   // System Account - Institutional Display
                   <>
                     <div>
-                      <Label htmlFor="institutionName" className="flex items-center gap-2">
-                        Institution Name
-                        <Lock className="w-3 h-3 text-gray-400" />
-                      </Label>
+                      <Label htmlFor="institutionName">Institution Name</Label>
                       <Input
                         id="institutionName"
-                        value={userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : `${profileData.firstName} ${profileData.lastName}`}
-                        disabled
-                        className="mt-1 bg-gray-50"
+                        value={profileData.institutionName}
+                        onChange={(e) => setProfileData(prev => ({ ...prev, institutionName: e.target.value }))}
+                        disabled={!isEditingProfile}
+                        className="mt-1"
+                        placeholder={userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : 'Institution name'}
                       />
                       <p className="text-xs text-gray-500 mt-1">Official institutional name</p>
                     </div>
@@ -744,33 +759,35 @@ const AccountSettings = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-1">Official institutional email</p>
                     </div>
-                    <div>
-                      <Label htmlFor="phone">Contact Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                        <Input
-                          id="phone"
-                          value={profileData.phone}
-                          onChange={(e) => {
-                            setProfileData(prev => ({ ...prev, phone: e.target.value }));
-                            if (errors.phone) {
-                              setErrors(prev => ({ ...prev, phone: validatePhone(e.target.value) }));
-                            }
-                          }}
-                          disabled={!isEditingProfile}
-                          className={`mt-1 pl-10 ${errors.phone && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
-                          placeholder="+63 xxx xxx xxxx"
-                          autoComplete="off"
-                          data-form-type="other"
-                        />
+                    {userProfile?.role === 'parish_secretary' && (
+                      <div>
+                        <Label htmlFor="phone">Contact Number</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                          <Input
+                            id="phone"
+                            value={profileData.phone}
+                            onChange={(e) => {
+                              setProfileData(prev => ({ ...prev, phone: e.target.value }));
+                              if (errors.phone) {
+                                setErrors(prev => ({ ...prev, phone: validatePhone(e.target.value) }));
+                              }
+                            }}
+                            disabled={!isEditingProfile}
+                            className={`mt-1 pl-10 ${errors.phone && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                            placeholder="+63 xxx xxx xxxx"
+                            autoComplete="off"
+                            data-form-type="other"
+                          />
+                        </div>
+                        {errors.phone && isEditingProfile && (
+                          <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
+                        )}
+                        {!errors.phone && (
+                          <p className="text-xs text-gray-500 mt-1">Primary contact number for the parish</p>
+                        )}
                       </div>
-                      {errors.phone && isEditingProfile && (
-                        <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
-                      )}
-                      {!errors.phone && (
-                        <p className="text-xs text-gray-500 mt-1">Primary contact number for the office</p>
-                      )}
-                    </div>
+                    )}
                   </>
                 ) : (
                   // Regular User Accounts - Account Information

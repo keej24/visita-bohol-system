@@ -13,7 +13,7 @@ const usernameToEmailMap: Record<string, string> = {
   'tagbilaran_chancery': 'dioceseoftagbilaran@gmail.com',
   'talibon_chancery': 'talibonchancery@gmail.com',
   // Museum Researcher account
-  'museum_researcher': 'researcher.heritage@museum.ph',
+  'museum_researcher': 'bohol@nationalmuseum.gov.ph',
 };
 
 /**
@@ -71,7 +71,7 @@ export function getKnownAccountProfile(email: string): KnownAccountProfile | nul
       role: 'chancery_office',
       diocese: 'talibon',
     },
-    'researcher.heritage@museum.ph': {
+    'bohol@nationalmuseum.gov.ph': {
       name: 'Museum Researcher',
       role: 'museum_researcher',
       diocese: 'tagbilaran',
@@ -86,7 +86,7 @@ export function isPreconfiguredAccount(email: string): boolean {
   const preconfiguredEmails = [
     'dioceseoftagbilaran@gmail.com',
     'talibonchancery@gmail.com',
-    'researcher.heritage@museum.ph'
+    'bohol@nationalmuseum.gov.ph'
   ];
   return preconfiguredEmails.includes(email);
 }

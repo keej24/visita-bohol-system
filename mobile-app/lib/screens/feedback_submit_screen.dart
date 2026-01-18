@@ -203,12 +203,14 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
                     child: TextField(
                       controller: _commentCtl,
                       maxLines: 6,
+                      maxLength: 500,
                       decoration: const InputDecoration(
                         hintText:
-                            'Share your thoughts about the church, its architecture, atmosphere, or spiritual significance...\n(At least 10 characters)',
+                            'Share your thoughts about the church, its architecture, atmosphere, or spiritual significance...\n(10-500 characters)',
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.all(16),
                         hintStyle: TextStyle(color: Color(0xFF9E9E9E)),
+                        counterStyle: TextStyle(color: Color(0xFF6B6B6B)),
                       ),
                       onChanged: (_) => setState(() {}),
                     ),

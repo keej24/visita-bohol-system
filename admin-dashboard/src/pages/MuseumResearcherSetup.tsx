@@ -62,7 +62,7 @@ export function MuseumResearcherSetup() {
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <h3 className="font-medium text-amber-800 mb-2">Account Details</h3>
                 <div className="space-y-1">
-                  <p><strong>Email:</strong> researcher.heritage@museum.ph</p>
+                  <p><strong>Email:</strong> bohol@nationalmuseum.gov.ph</p>
                   <p><strong>Role:</strong> Museum Researcher</p>
                   <p><strong>Permissions:</strong> Heritage validation, cross-diocese access</p>
                   <p><strong>Primary Diocese:</strong> Tagbilaran (with Talibon access)</p>
@@ -131,7 +131,7 @@ export function MuseumResearcherSetup() {
                 <h3 className="font-medium text-green-800 mb-2">Next Steps</h3>
                 <ol className="text-green-700 space-y-1 text-sm">
                   <li>1. Navigate to the login page</li>
-                  <li>2. Use the credentials: researcher.heritage@museum.ph</li>
+                  <li>2. Use the credentials: bohol@nationalmuseum.gov.ph</li>
                   <li>3. Access the Museum Researcher Dashboard</li>
                   <li>4. Begin heritage validation workflow</li>
                 </ol>
