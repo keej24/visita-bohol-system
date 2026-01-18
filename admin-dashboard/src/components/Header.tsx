@@ -57,8 +57,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-// TODO: Re-enable when notification system is fully implemented
-// import { NotificationDropdown } from "@/components/NotificationDropdown";
+import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { ChurchService } from "@/services/churchService";
@@ -218,8 +217,8 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
 
         {/* Right side - Profile */}
         <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0">
-          {/* TODO: Re-enable notification bell when backend is fully implemented */}
-          {/* {!isParish && <NotificationDropdown />} */}
+          {/* Notification Bell */}
+          <NotificationDropdown />
 
           {/* Profile Menu */}
           <DropdownMenu>

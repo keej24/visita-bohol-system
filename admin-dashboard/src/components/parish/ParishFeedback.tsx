@@ -24,6 +24,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 import { FeedbackService, FeedbackItem as FeedbackServiceItem } from '@/services/feedbackService';
 
@@ -61,14 +63,41 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
 
     const unsubscribe = FeedbackService.subscribeToFeedbackByChurch(
       churchId,
-      (feedback) => {
+      async (feedback) => {
         console.log('📬 [PARISH FEEDBACK] Received feedback:', {
           churchId,
           count: feedback.length,
           items: feedback.map(f => ({ id: f.id, church_id: f.church_id, status: f.status }))
         });
-        // churchName is only used for display, not for subscription logic
-        setFeedbackData(feedback.map(f => ({ ...f, churchName })));
+        
+        // Resolve moderator IDs to names
+        const moderatorIds = [...new Set(feedback.map(f => f.moderatedBy).filter(Boolean))] as string[];
+        const moderatorNameMap = new Map<string, string>();
+        
+        // Fetch user names for all unique moderator IDs
+        await Promise.all(moderatorIds.map(async (uid) => {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              // Use name, parishInfo.name, or email as fallback
+              moderatorNameMap.set(uid, userData.name || userData.parishInfo?.name || userData.email || uid);
+            }
+          } catch (error) {
+            console.warn(`Could not fetch user name for ${uid}:`, error);
+          }
+        }));
+
+        // Update feedback items with resolved moderator names
+        const feedbackWithNames = feedback.map(f => ({
+          ...f,
+          churchName,
+          moderatedBy: f.moderatedBy && moderatorNameMap.has(f.moderatedBy) 
+            ? moderatorNameMap.get(f.moderatedBy) 
+            : f.moderatedBy
+        }));
+
+        setFeedbackData(feedbackWithNames);
         setIsLoading(false);
       }
     );

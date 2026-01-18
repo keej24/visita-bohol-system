@@ -424,6 +424,24 @@ export const useMarkNotificationAsRead = () => {
   });
 };
 
+/**
+ * useMarkAllNotificationsAsRead - Mutation for marking all notifications as read
+ */
+export const useMarkAllNotificationsAsRead = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (userProfile: UserProfile) => 
+      notificationService.markAllAsRead(userProfile),
+    
+    onSuccess: (_, userProfile) => {
+      // Invalidate both notification list and unread count
+      queryClient.invalidateQueries({ queryKey: notificationKeys.user(userProfile.uid) });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unread(userProfile.uid) });
+    },
+  });
+};
+
 // =============================================================================
 // SUBSCRIPTION MANAGER - Prevents memory leaks with real-time listeners
 // =============================================================================

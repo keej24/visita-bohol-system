@@ -303,6 +303,25 @@ export class NotificationService {
   }
 
   /**
+   * Mark all notifications as read for a user
+   */
+  async markAllAsRead(userProfile: UserProfile): Promise<void> {
+    try {
+      const notifications = await this.getUserNotifications(userProfile, 100, true);
+      const unreadNotifications = notifications.filter(n => !n.readBy?.includes(userProfile.uid));
+      
+      await Promise.all(
+        unreadNotifications.map(notification => 
+          this.markAsRead(notification.id!, userProfile.uid)
+        )
+      );
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get unread notification count for user
    */
   async getUnreadCount(userProfile: UserProfile | null): Promise<number> {

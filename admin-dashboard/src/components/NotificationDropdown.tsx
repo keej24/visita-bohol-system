@@ -1,7 +1,7 @@
-import { Bell, Check, ExternalLink, Loader2, X } from "lucide-react";
+import { Bell, Check, CheckCheck, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserNotifications, useUnreadNotificationCount, useMarkNotificationAsRead } from "@/lib/optimized/queries";
+import { useUserNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/optimized/queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,6 +13,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
 import type { Notification } from "@/lib/notifications";
 
@@ -21,9 +27,10 @@ export function NotificationDropdown() {
   const navigate = useNavigate();
 
   // Fetch notifications and unread count
-  const { data: notifications = [], isLoading } = useUserNotifications(userProfile);
+  const { data: notifications = [], isLoading, refetch } = useUserNotifications(userProfile);
   const { data: unreadCount = 0 } = useUnreadNotificationCount(userProfile);
   const markAsReadMutation = useMarkNotificationAsRead();
+  const markAllAsReadMutation = useMarkAllNotificationsAsRead();
 
   const handleNotificationClick = (notification: Notification) => {
     if (!userProfile) return;
@@ -40,6 +47,15 @@ export function NotificationDropdown() {
     if (notification.actionUrl) {
       navigate(notification.actionUrl);
     }
+  };
+
+  const handleMarkAllAsRead = () => {
+    if (!userProfile || unreadCount === 0) return;
+    markAllAsReadMutation.mutate(userProfile);
+  };
+
+  const handleRefresh = () => {
+    refetch();
   };
 
   const getNotificationIcon = (type: string) => {
@@ -106,13 +122,62 @@ export function NotificationDropdown() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-96">
-        <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Notifications</span>
-          {unreadCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {unreadCount} unread
-            </Badge>
-          )}
+        <DropdownMenuLabel className="flex items-center justify-between py-2">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">Notifications</span>
+            {unreadCount > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {unreadCount} unread
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleRefresh();
+                    }}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh notifications</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {unreadCount > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleMarkAllAsRead();
+                      }}
+                      disabled={markAllAsReadMutation.isPending}
+                    >
+                      {markAllAsReadMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCheck className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Mark all as read</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -135,7 +200,7 @@ export function NotificationDropdown() {
                 <DropdownMenuItem
                   key={notification.id}
                   className={`flex flex-col items-start gap-2 p-3 cursor-pointer ${
-                    isUnread(notification) ? 'bg-blue-50/50' : ''
+                    isUnread(notification) ? 'bg-blue-50/50 dark:bg-blue-950/30' : ''
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >

@@ -59,6 +59,39 @@ interface PublicUserManagementProps {
   churchId?: string;
 }
 
+// Helper function to format timestamps that may be in different formats
+const formatTimestamp = (
+  timestamp: Timestamp | number | null | undefined, 
+  options?: Intl.DateTimeFormatOptions
+): string => {
+  if (!timestamp) return 'Unknown';
+  
+  const defaultOptions: Intl.DateTimeFormatOptions = options || { 
+    year: 'numeric', 
+    month: 'numeric', 
+    day: 'numeric' 
+  };
+  
+  try {
+    // Handle Firestore Timestamp with toDate method
+    if (typeof (timestamp as Timestamp)?.toDate === 'function') {
+      return new Date((timestamp as Timestamp).toDate()).toLocaleDateString('en-US', defaultOptions);
+    }
+    // Handle milliseconds since epoch (number)
+    if (typeof timestamp === 'number') {
+      return new Date(timestamp).toLocaleDateString('en-US', defaultOptions);
+    }
+    // Handle Firestore Timestamp structure with seconds property
+    if (typeof (timestamp as unknown as {seconds?: number}).seconds === 'number') {
+      return new Date((timestamp as unknown as {seconds: number}).seconds * 1000).toLocaleDateString('en-US', defaultOptions);
+    }
+  } catch (error) {
+    console.warn('Error formatting timestamp:', error);
+  }
+  
+  return 'Unknown';
+};
+
 export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ churchId }) => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<PublicUser[]>([]);
@@ -426,9 +459,7 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                           )}
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            Joined: {user.createdAt?.toDate?.()
-                              ? new Date(user.createdAt.toDate()).toLocaleDateString()
-                              : 'Unknown'}
+                            Joined: {formatTimestamp(user.createdAt)}
                           </div>
                         </div>
                       </div>
@@ -510,15 +541,13 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                   <div className="col-span-3">
                     <p className="text-xs font-medium text-gray-500 uppercase mb-1">Joined</p>
                     <p className="text-sm text-gray-700">
-                      {selectedUser.createdAt?.toDate?.()
-                        ? new Date(selectedUser.createdAt.toDate()).toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })
-                        : 'Unknown'}
+                      {formatTimestamp(selectedUser.createdAt, { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </p>
                   </div>
 
@@ -526,15 +555,13 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                     <div className="col-span-3">
                       <p className="text-xs font-medium text-gray-500 uppercase mb-1">Last Login</p>
                       <p className="text-sm text-gray-700">
-                        {selectedUser.lastLoginAt?.toDate?.()
-                          ? new Date(selectedUser.lastLoginAt.toDate()).toLocaleDateString('en-US', { 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })
-                          : 'Never'}
+                        {formatTimestamp(selectedUser.lastLoginAt, { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) || 'Never'}
                       </p>
                     </div>
                   )}

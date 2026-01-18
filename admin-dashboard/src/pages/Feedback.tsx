@@ -78,7 +78,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FeedbackService } from '@/services/feedbackService';
 
@@ -200,9 +200,34 @@ const FeedbackReports = () => {
             createdAt: data.date_submitted?.toDate?.()?.toISOString() || new Date().toISOString(),
             photos: Array.isArray(data.photos) ? data.photos : [],
             moderatedAt: data.moderatedAt?.toDate?.()?.toISOString(),
-            moderatedBy: data.moderatedBy
+            moderatedBy: data.moderatedBy // Will be resolved to name below
           });
         }
+
+        // Resolve moderator IDs to names
+        const moderatorIds = [...new Set(allFeedback.map(f => f.moderatedBy).filter(Boolean))] as string[];
+        const moderatorNameMap = new Map<string, string>();
+        
+        // Fetch user names for all unique moderator IDs
+        await Promise.all(moderatorIds.map(async (uid) => {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              // Use name, parishInfo.name, or email as fallback
+              moderatorNameMap.set(uid, userData.name || userData.parishInfo?.name || userData.email || uid);
+            }
+          } catch (error) {
+            console.warn(`Could not fetch user name for ${uid}:`, error);
+          }
+        }));
+
+        // Update feedback items with resolved moderator names
+        allFeedback.forEach(feedback => {
+          if (feedback.moderatedBy && moderatorNameMap.has(feedback.moderatedBy)) {
+            feedback.moderatedBy = moderatorNameMap.get(feedback.moderatedBy);
+          }
+        });
 
         // Sort all feedback by date
         allFeedback.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
