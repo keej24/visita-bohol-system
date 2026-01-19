@@ -255,7 +255,18 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                   child: _buildDropdown(
                 'Category',
                 _category,
-                ['All', 'Festival', 'Mass', 'Exhibit', 'Community Event', 'Celebration', 'Pilgrimage', 'Conference', 'Meeting', 'Other'],
+                [
+                  'All',
+                  'Festival',
+                  'Mass',
+                  'Exhibit',
+                  'Community Event',
+                  'Celebration',
+                  'Pilgrimage',
+                  'Conference',
+                  'Meeting',
+                  'Other'
+                ],
                 (v) => setState(() => _category = v),
                 isDark,
               )),
@@ -450,19 +461,25 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
               children: [
                 if (grouped['active']!.isNotEmpty)
                   _buildSection(
-                      _showArchived ? 'Archived Announcements' : 'Active Announcements',
+                      _showArchived
+                          ? 'Archived Announcements'
+                          : 'Active Announcements',
                       grouped['active']!,
                       isDark,
                       _showArchived ? Icons.archive : Icons.campaign_rounded),
                 if (grouped['upcoming']!.isNotEmpty)
                   _buildSection(
-                      _showArchived ? 'Archived Upcoming Events' : 'Upcoming Events',
+                      _showArchived
+                          ? 'Archived Upcoming Events'
+                          : 'Upcoming Events',
                       grouped['upcoming']!,
                       isDark,
                       _showArchived ? Icons.archive : Icons.upcoming),
                 if (grouped['ongoing']!.isNotEmpty)
                   _buildSection(
-                      _showArchived ? 'Archived Ongoing Events' : 'Ongoing Events',
+                      _showArchived
+                          ? 'Archived Ongoing Events'
+                          : 'Ongoing Events',
                       grouped['ongoing']!,
                       isDark,
                       _showArchived ? Icons.archive : Icons.timelapse),
@@ -495,8 +512,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
         _scope == 'All' || a.scope.toLowerCase() == _scope.toLowerCase();
 
     // Diocese filter - normalize comparison
-    final matchesDiocese = _diocese == 'All' ||
-        a.diocese.toLowerCase() == _diocese.toLowerCase();
+    final matchesDiocese =
+        _diocese == 'All' || a.diocese.toLowerCase() == _diocese.toLowerCase();
 
     // Category filter
     final matchesCategory = _category == 'All' || a.category == _category;
@@ -506,31 +523,40 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
     final now = DateTime.now();
     switch (_dateFilter) {
       case DateFilter.thisWeek:
-        if (a.dateTime != null) {
+        // When date filter is active, exclude non-event announcements (no dateTime)
+        if (a.dateTime == null) {
+          matchesDate = false;
+        } else {
           final weekStart = now.subtract(Duration(days: now.weekday - 1));
           final weekEnd = weekStart.add(const Duration(days: 6));
-          matchesDate =
-              a.dateTime!.isAfter(weekStart) && a.dateTime!.isBefore(weekEnd);
-        } else {
-          matchesDate = true; // Non-event announcements match all date filters
+          matchesDate = a.dateTime!
+                  .isAfter(weekStart.subtract(const Duration(days: 1))) &&
+              a.dateTime!.isBefore(weekEnd.add(const Duration(days: 1)));
         }
         break;
       case DateFilter.thisMonth:
-        if (a.dateTime != null) {
+        // When date filter is active, exclude non-event announcements (no dateTime)
+        if (a.dateTime == null) {
+          matchesDate = false;
+        } else {
           final monthStart = DateTime(now.year, now.month, 1);
           final monthEnd = DateTime(now.year, now.month + 1, 0);
-          matchesDate =
-              a.dateTime!.isAfter(monthStart) && a.dateTime!.isBefore(monthEnd);
-        } else {
-          matchesDate = true; // Non-event announcements match all date filters
+          matchesDate = a.dateTime!
+                  .isAfter(monthStart.subtract(const Duration(days: 1))) &&
+              a.dateTime!.isBefore(monthEnd.add(const Duration(days: 1)));
         }
         break;
       case DateFilter.custom:
-        if (_customDateRange != null && a.dateTime != null) {
-          matchesDate = a.dateTime!.isAfter(_customDateRange!.start) &&
-              a.dateTime!.isBefore(_customDateRange!.end);
-        } else if (a.dateTime == null) {
-          matchesDate = true; // Non-event announcements match all date filters
+        // When custom date filter is active, exclude non-event announcements (no dateTime)
+        if (_customDateRange != null) {
+          if (a.dateTime == null) {
+            matchesDate = false;
+          } else {
+            matchesDate = a.dateTime!.isAfter(_customDateRange!.start
+                    .subtract(const Duration(days: 1))) &&
+                a.dateTime!.isBefore(
+                    _customDateRange!.end.add(const Duration(days: 1)));
+          }
         }
         break;
       case DateFilter.all:
@@ -580,7 +606,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
       if (a.dateTime == null || b.dateTime == null) return 0;
       return b.dateTime!.compareTo(a.dateTime!);
     });
-    grouped['active']!.sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
+    grouped['active']!.sort((a, b) => (b.createdAt ?? DateTime.now())
+        .compareTo(a.createdAt ?? DateTime.now()));
 
     return grouped;
   }
@@ -617,8 +644,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
               decoration: BoxDecoration(
                 color: const Color(0xFF2563EB).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: const Color(0xFF2563EB).withOpacity(0.3)),
+                border:
+                    Border.all(color: const Color(0xFF2563EB).withOpacity(0.3)),
               ),
               child: Text(
                 '${announcements.length}',
@@ -660,107 +687,110 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with badges
-            Row(
-              children: [
-                _buildBadge(announcement.scope.toUpperCase(),
-                    _getScopeColor(announcement.scope)),
-                const SizedBox(width: 8),
-                _buildBadge(announcement.category, const Color(0xFF6B7280)),
-                const Spacer(),
-                _buildStatusBadge(announcement.status, statusColor),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Title and description
-            Text(
-              announcement.title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF1F2937),
-                height: 1.2,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            Text(
-              announcement.description,
-              style: TextStyle(
-                fontSize: 15,
-                color: isDark ? Colors.white70 : const Color(0xFF6B7280),
-                height: 1.5,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-
-            const SizedBox(height: 20),
-
-            // Event details
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color:
-                    isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F9FA),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF3A3A3A)
-                      : const Color(0xFFE5E7EB),
-                ),
-              ),
-              child: Column(
-                children: [
-                  if (announcement.dateTime != null) ...[
-                    _buildDetailRow(
-                      Icons.schedule_rounded,
-                      _formatDateTimeRange(announcement),
-                      isDark,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  if (announcement.venue != null && announcement.venue!.isNotEmpty) ...[
-                    _buildDetailRow(
-                      Icons.location_on_rounded,
-                      announcement.venue!,
-                      isDark,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  _buildDetailRow(
-                    Icons.account_balance_rounded,
-                    _formatDioceseName(announcement.diocese),
-                    isDark,
-                  ),
-                ],
-              ),
-            ),
-
-            // Action buttons
-            if (announcement.contactInfo != null && announcement.contactInfo!.isNotEmpty) ...[
-              const SizedBox(height: 16),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with badges
               Row(
                 children: [
-                  Expanded(
-                    child: _buildActionButton(
-                      'Contact',
-                      Icons.phone_rounded,
-                      () => _showContactInfo(announcement.contactInfo!),
-                      isDark,
-                      isSecondary: true,
-                    ),
-                  ),
+                  _buildBadge(announcement.scope.toUpperCase(),
+                      _getScopeColor(announcement.scope)),
+                  const SizedBox(width: 8),
+                  _buildBadge(announcement.category, const Color(0xFF6B7280)),
+                  const Spacer(),
+                  _buildStatusBadge(announcement.status, statusColor),
                 ],
               ),
+
+              const SizedBox(height: 16),
+
+              // Title and description
+              Text(
+                announcement.title,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF1F2937),
+                  height: 1.2,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                announcement.description,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isDark ? Colors.white70 : const Color(0xFF6B7280),
+                  height: 1.5,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+
+              const SizedBox(height: 20),
+
+              // Event details
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF2A2A2A)
+                      : const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF3A3A3A)
+                        : const Color(0xFFE5E7EB),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    if (announcement.dateTime != null) ...[
+                      _buildDetailRow(
+                        Icons.schedule_rounded,
+                        _formatDateTimeRange(announcement),
+                        isDark,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (announcement.venue != null &&
+                        announcement.venue!.isNotEmpty) ...[
+                      _buildDetailRow(
+                        Icons.location_on_rounded,
+                        announcement.venue!,
+                        isDark,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    _buildDetailRow(
+                      Icons.account_balance_rounded,
+                      _formatDioceseName(announcement.diocese),
+                      isDark,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Action buttons
+              if (announcement.contactInfo != null &&
+                  announcement.contactInfo!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildActionButton(
+                        'Contact',
+                        Icons.phone_rounded,
+                        () => _showContactInfo(announcement.contactInfo!),
+                        isDark,
+                        isSecondary: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
         ),
       ),
     );
@@ -784,97 +814,107 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
-          children: [
-            // Status indicator
-            Container(
-              width: 4,
-              height: 60,
-              decoration: BoxDecoration(
-                color: statusColor,
-                borderRadius: BorderRadius.circular(2),
+            children: [
+              // Status indicator
+              Container(
+                width: 4,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
 
-            const SizedBox(width: 16),
+              const SizedBox(width: 16),
 
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          announcement.title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color:
-                                isDark ? Colors.white : const Color(0xFF1F2937),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildStatusBadge(announcement.status, statusColor,
-                          isCompact: true),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  if (announcement.dateTime != null) ...[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.schedule_rounded,
-                          size: 14,
-                          color: isDark ? Colors.white54 : const Color(0xFF9CA3AF),
-                        ),
-                        const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            _formatDateTimeRange(announcement),
+                            announcement.title,
                             style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? Colors.white70 : const Color(0xFF6B7280),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                  ],
-                  if (announcement.venue != null && announcement.venue!.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_rounded,
-                          size: 14,
-                          color: isDark ? Colors.white54 : const Color(0xFF9CA3AF),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            announcement.venue!,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? Colors.white54 : const Color(0xFF9CA3AF),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1F2937),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        _buildStatusBadge(announcement.status, statusColor,
+                            isCompact: true),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    if (announcement.dateTime != null) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.schedule_rounded,
+                            size: 14,
+                            color: isDark
+                                ? Colors.white54
+                                : const Color(0xFF9CA3AF),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _formatDateTimeRange(announcement),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark
+                                    ? Colors.white70
+                                    : const Color(0xFF6B7280),
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                    ],
+                    if (announcement.venue != null &&
+                        announcement.venue!.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_rounded,
+                            size: 14,
+                            color: isDark
+                                ? Colors.white54
+                                : const Color(0xFF9CA3AF),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              announcement.venue!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark
+                                    ? Colors.white54
+                                    : const Color(0xFF9CA3AF),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -1073,9 +1113,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
 
   // Helper methods
   Color _getStatusColor(Announcement announcement) {
-    if (announcement.isArchived) return const Color(0xFF9CA3AF); // Gray for archived
-    if (announcement.isUpcoming) return const Color(0xFF10B981); // Green for upcoming
-    if (announcement.isOngoing) return const Color(0xFFF59E0B); // Orange for ongoing
+    if (announcement.isArchived)
+      return const Color(0xFF9CA3AF); // Gray for archived
+    if (announcement.isUpcoming)
+      return const Color(0xFF10B981); // Green for upcoming
+    if (announcement.isOngoing)
+      return const Color(0xFFF59E0B); // Orange for ongoing
     return const Color(0xFF10B981); // Green for active
   }
 
@@ -1104,13 +1147,16 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
       // Multi-day event
       if (startDate.year == endDate.year && startDate.month == endDate.month) {
         // Same month: "June 15-17, 2024"
-        dateStr = '${DateFormat('MMMM d').format(startDate)}-${DateFormat('d, y').format(endDate)}';
+        dateStr =
+            '${DateFormat('MMMM d').format(startDate)}-${DateFormat('d, y').format(endDate)}';
       } else if (startDate.year == endDate.year) {
         // Same year: "June 15 - July 2, 2024"
-        dateStr = '${DateFormat('MMMM d').format(startDate)} - ${DateFormat('MMMM d, y').format(endDate)}';
+        dateStr =
+            '${DateFormat('MMMM d').format(startDate)} - ${DateFormat('MMMM d, y').format(endDate)}';
       } else {
         // Different years: "Dec 30, 2024 - Jan 2, 2025"
-        dateStr = '${DateFormat('MMM d, y').format(startDate)} - ${DateFormat('MMM d, y').format(endDate)}';
+        dateStr =
+            '${DateFormat('MMM d, y').format(startDate)} - ${DateFormat('MMM d, y').format(endDate)}';
       }
     } else {
       // Single day event
@@ -1124,7 +1170,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
         final parsedStartTime = _parseTimeString(startTime);
         if (endTime != null && endTime.isNotEmpty) {
           final parsedEndTime = _parseTimeString(endTime);
-          timeStr = ' · ${DateFormat('h:mm a').format(parsedStartTime)} - ${DateFormat('h:mm a').format(parsedEndTime)}';
+          timeStr =
+              ' · ${DateFormat('h:mm a').format(parsedStartTime)} - ${DateFormat('h:mm a').format(parsedEndTime)}';
         } else {
           timeStr = ' · ${DateFormat('h:mm a').format(parsedStartTime)}';
         }
@@ -1154,7 +1201,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
       if (timeStr.contains('AM') || timeStr.contains('PM')) {
         // 12-hour format
         final parsed = DateFormat('h:mm a').parse(timeStr);
-        return DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
+        return DateTime(
+            now.year, now.month, now.day, parsed.hour, parsed.minute);
       } else {
         // 24-hour format
         final parts = timeStr.split(':');
@@ -1246,10 +1294,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                           _buildBadge(announcement.scope.toUpperCase(),
                               _getScopeColor(announcement.scope)),
                           const SizedBox(width: 8),
-                          _buildBadge(announcement.category, const Color(0xFF6B7280)),
+                          _buildBadge(
+                              announcement.category, const Color(0xFF6B7280)),
                           const Spacer(),
-                          _buildStatusBadge(
-                              announcement.status, _getStatusColor(announcement)),
+                          _buildStatusBadge(announcement.status,
+                              _getStatusColor(announcement)),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -1259,7 +1308,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.white : const Color(0xFF1F2937),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF1F2937),
                           height: 1.2,
                         ),
                       ),
@@ -1346,7 +1396,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  announcement.dateTime != null || (announcement.venue != null && announcement.venue!.isNotEmpty)
+                                  announcement.dateTime != null ||
+                                          (announcement.venue != null &&
+                                              announcement.venue!.isNotEmpty)
                                       ? 'Event Details'
                                       : 'Details',
                                   style: TextStyle(
@@ -1367,15 +1419,19 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                                 isDark,
                               ),
                             ],
-                            if (announcement.venue != null && announcement.venue!.isNotEmpty) ...[
-                              if (announcement.dateTime != null) const SizedBox(height: 12),
+                            if (announcement.venue != null &&
+                                announcement.venue!.isNotEmpty) ...[
+                              if (announcement.dateTime != null)
+                                const SizedBox(height: 12),
                               _buildDetailRow(
                                 Icons.location_on_rounded,
                                 announcement.venue!,
                                 isDark,
                               ),
                             ],
-                            if (announcement.dateTime != null || (announcement.venue != null && announcement.venue!.isNotEmpty))
+                            if (announcement.dateTime != null ||
+                                (announcement.venue != null &&
+                                    announcement.venue!.isNotEmpty))
                               const SizedBox(height: 12),
                             _buildDetailRow(
                               Icons.account_balance_rounded,
@@ -1386,12 +1442,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                         ),
                       ),
                       // Contact info
-                      if (announcement.contactInfo != null && announcement.contactInfo!.isNotEmpty) ...[
+                      if (announcement.contactInfo != null &&
+                          announcement.contactInfo!.isNotEmpty) ...[
                         const SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: () => _showContactInfo(announcement.contactInfo!),
+                            onPressed: () =>
+                                _showContactInfo(announcement.contactInfo!),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF2563EB),
                               foregroundColor: Colors.white,

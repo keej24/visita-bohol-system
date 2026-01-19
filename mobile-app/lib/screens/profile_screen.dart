@@ -706,24 +706,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: emailController,
-                    decoration: const InputDecoration(
+                    enabled: false, // Email is read-only for security
+                    decoration: InputDecoration(
                       labelText: 'Email',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      suffixIcon: Tooltip(
+                        message: 'Email cannot be changed for security reasons',
+                        child: Icon(
+                          Icons.lock_outline,
+                          color: Colors.grey.shade600,
+                          size: 20,
+                        ),
+                      ),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      final v = value?.trim() ?? '';
-                      if (v.isEmpty) return 'Please enter your email';
-                      final emailRegex =
-                          RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4} ?$');
-                      // Fallback if regex above mishandles due to escape: use a simpler check
-                      final simpleEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                      if (!(emailRegex.hasMatch(v) ||
-                          simpleEmail.hasMatch(v))) {
-                        return 'Please enter a valid email address';
-                      }
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
                   InkWell(
@@ -835,59 +833,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // If nothing changed and not changing password, avoid unnecessary update
                 final newName = nameController.text.trim();
-                final newEmail = emailController.text.trim();
                 final nameChanged = newName != (profile.displayName);
-                final emailChanged = newEmail != (profile.email);
 
-                // Handle email change - requires password and sends verification
-                if (emailChanged) {
-                  // Email change requires current password
-                  if (currentPasswordController.text.isEmpty) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                              'Please enter your current password to change your email'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      // Open the password fields section
-                      setState(() => showPasswordFields = true);
-                    }
-                    return;
-                  }
-
-                  try {
-                    await authService.updateEmailWithVerification(
-                      newEmail,
-                      currentPasswordController.text,
-                    );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                              'Verification email sent to new address. Please verify to complete the change.'),
-                          backgroundColor: Colors.blue,
-                          duration: Duration(seconds: 4),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    String errorMessage = e.toString();
-                    errorMessage = errorMessage.replaceAll('Exception: ', '');
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(errorMessage),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                    return;
-                  }
-                }
-
-                // Update display name (no verification needed)
+                // Update display name
                 if (nameChanged) {
                   await service.updateProfile(displayName: newName);
                   if (context.mounted) {

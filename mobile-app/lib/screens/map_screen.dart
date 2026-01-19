@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
+import 'dart:ui' as ui;
 import '../models/church.dart';
 import '../repositories/church_repository.dart';
 import '../models/app_state.dart';
@@ -310,17 +311,26 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       ),
       children: [
         TileLayer(
-          // Use subdomain pattern for better load balancing
-          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          subdomains: const ['a', 'b', 'c'],
+          // Use direct URL without subdomains for better compatibility
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           // CRITICAL: User-Agent required by OSM tile usage policy
           userAgentPackageName: 'com.example.visita_mobile',
           // Maximum zoom level for native tiles
           maxNativeZoom: 19,
           // Keep tiles in memory for smoother panning
           keepBuffer: 2,
-          // Additional headers that may help with some networks
-          tileProvider: NetworkTileProvider(),
+          // Headers required for OSM tile servers - CRITICAL for release builds
+          tileProvider: NetworkTileProvider(
+            headers: {
+              'User-Agent':
+                  'VISITA-Bohol-Churches/1.0 (+https://visita-bohol.web.app)',
+              'Accept': 'image/png,image/*',
+            },
+          ),
+          // Error tile builder for failed tiles
+          errorTileCallback: (tile, error, stackTrace) {
+            debugPrint('Map tile error: $error');
+          },
         ),
         // Church markers with clustering (using clustered markers only)
         MarkerClusterLayerWidget(
@@ -378,8 +388,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
       return Marker(
         point: LatLng(church.latitude!, church.longitude!),
-        width: isSelected ? 70 : 50,
-        height: isSelected ? 70 : 50,
+        width: isSelected ? 44 : 32,
+        height: isSelected ? 52 : 40,
+        anchorPos: AnchorPos.align(
+            AnchorAlign.top), // Anchor at pin tip (bottom of marker)
         builder: (context) => GestureDetector(
           onTap: () => setState(() => _selectedChurch = church),
           child: AnimatedContainer(
@@ -593,7 +605,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 }
 
-// Custom church marker widget
+// Custom church marker widget - pin style that points to exact location
 class _CustomChurchMarker extends StatelessWidget {
   final Church church;
   final bool isVisited;
@@ -621,29 +633,71 @@ class _CustomChurchMarker extends StatelessWidget {
       icon = Icons.church;
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: primaryColor,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white,
-          width: isSelected ? 4 : 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withValues(alpha: 0.4),
-            blurRadius: isSelected ? 16 : 8,
-            offset: const Offset(0, 4),
+    final pinSize = isSelected ? 44.0 : 32.0;
+    final iconSize = isSelected ? 18.0 : 14.0;
+    final circleSize = isSelected ? 32.0 : 24.0;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Circle with icon
+        Container(
+          width: circleSize,
+          height: circleSize,
+          decoration: BoxDecoration(
+            color: primaryColor,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white,
+              width: isSelected ? 3 : 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withValues(alpha: 0.4),
+                blurRadius: isSelected ? 12 : 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: isSelected ? 28 : 20,
-      ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: iconSize,
+          ),
+        ),
+        // Pin pointer triangle
+        CustomPaint(
+          size: Size(isSelected ? 12 : 8, isSelected ? 10 : 8),
+          painter: _PinPointerPainter(color: primaryColor),
+        ),
+      ],
     );
   }
+}
+
+// Custom painter for the pin pointer triangle
+class _PinPointerPainter extends CustomPainter {
+  final Color color;
+
+  _PinPointerPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = ui.Paint()
+      ..color = color
+      ..style = ui.PaintingStyle.fill;
+
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // Filter chip widget

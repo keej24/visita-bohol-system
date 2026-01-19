@@ -8,10 +8,13 @@
         </trust-anchors>
     </base-config>
     
-    <!-- Explicitly trust OpenStreetMap tile servers -->
+    <!-- Explicitly trust OpenStreetMap tile servers (all subdomains) -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">openstreetmap.org</domain>
         <domain includeSubdomains="true">tile.openstreetmap.org</domain>
+        <domain includeSubdomains="true">a.tile.openstreetmap.org</domain>
+        <domain includeSubdomains="true">b.tile.openstreetmap.org</domain>
+        <domain includeSubdomains="true">c.tile.openstreetmap.org</domain>
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
@@ -23,6 +26,7 @@
         <domain includeSubdomains="true">firebaseio.com</domain>
         <domain includeSubdomains="true">firebase.google.com</domain>
         <domain includeSubdomains="true">firebaseapp.com</domain>
+        <domain includeSubdomains="true">firebasestorage.googleapis.com</domain>
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

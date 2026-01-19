@@ -17,8 +17,6 @@ import {
   ResponsiveContainer,
   RadialBarChart,
   RadialBar,
-  ScatterChart,
-  Scatter,
   ComposedChart,
 } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -36,29 +34,16 @@ import {
   TrendingDown, 
   Download, 
   RefreshCw,
-  Calendar,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-// Color palettes for consistent theming
-export const chartColors = {
-  primary: ['#3B82F6', '#1D4ED8', '#1E40AF', '#1E3A8A', '#172554'],
-  success: ['#10B981', '#059669', '#047857', '#065F46', '#064E3B'],
-  warning: ['#F59E0B', '#D97706', '#B45309', '#92400E', '#78350F'],
-  danger: ['#EF4444', '#DC2626', '#B91C1C', '#991B1B', '#7F1D1D'],
-  heritage: ['#8B5A3C', '#A0522D', '#CD853F', '#DEB887', '#F5DEB3'],
-  mixed: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'],
-};
+import { chartColors } from './chartConstants';
 
 // Base chart data types
 type ChartDataPoint = Record<string, string | number | boolean>;
 
 // Base chart props interface
 interface BaseChartProps {
-  data: ChartDataPoint[];
+  data?: ChartDataPoint[];
   title?: string;
   subtitle?: string;
   height?: number;
@@ -72,6 +57,18 @@ interface BaseChartProps {
   animate?: boolean;
 }
 
+// Chart wrapper props (without data requirement)
+interface ChartWrapperProps {
+  title?: string;
+  subtitle?: string;
+  className?: string;
+  loading?: boolean;
+  error?: string;
+  onRefresh?: () => void;
+  onExport?: () => void;
+  children: React.ReactNode;
+}
+
 // Tooltip props interface
 interface TooltipProps {
   active?: boolean;
@@ -82,7 +79,7 @@ interface TooltipProps {
     name?: string;
   }>;
   label?: string;
-  formatter?: (value: number | string, name?: string) => [string | number, string];
+  formatter?: (value: number | string, name?: string) => [string | number, string] | (string | number)[];
 }
 
 // Custom tooltip component
@@ -109,7 +106,7 @@ const CustomTooltip: React.FC<TooltipProps> = ({ active, payload, label, formatt
 };
 
 // Chart wrapper component
-const ChartWrapper: React.FC<BaseChartProps & { children: React.ReactNode }> = ({
+const ChartWrapper: React.FC<ChartWrapperProps> = ({
   title,
   subtitle,
   className,
@@ -186,9 +183,9 @@ export const ChurchStatusChart: React.FC<BaseChartProps & {
     'heritage_review': chartColors.primary[0],
   };
 
-  const formatTooltip = (value: number, name: string) => {
+  const formatTooltip = (value: number | string, name?: string): [string | number, string] => {
     const item = data.find(d => d.status === name);
-    return [`${value} churches (${item?.percentage}%)`, name.replace('_', ' ').toUpperCase()];
+    return [`${value} churches (${item?.percentage}%)`, (name || '').replace('_', ' ').toUpperCase()];
   };
 
   return (
@@ -220,12 +217,12 @@ export const ChurchStatusChart: React.FC<BaseChartProps & {
       {/* Status Legend */}
       <div className="flex flex-wrap gap-2 mt-4">
         {data.map((item) => (
-          <Badge key={item.status} variant="outline" className="flex items-center gap-2">
+          <Badge key={String(item.status)} variant="outline" className="flex items-center gap-2">
             <div 
               className="w-3 h-3 rounded-full"
               style={{ backgroundColor: statusColors[item.status as keyof typeof statusColors] }}
             />
-            {item.status.replace('_', ' ').toUpperCase()}: {item.count}
+            {String(item.status).replace('_', ' ').toUpperCase()}: {item.count}
             {showPercentages && ` (${item.percentage}%)`}
           </Badge>
         ))}
@@ -252,17 +249,25 @@ export const MonthlyTrendChart: React.FC<BaseChartProps & {
   metric = 'all',
   ...props 
 }) => {
-  const formatTooltip = (value: number, name: string) => {
+  const formatTooltip = (value: number | string, name?: string): [string | number, string] => {
     const labelMap: { [key: string]: string } = {
       'submissions': 'New Submissions',
       'approvals': 'Approved Churches',
       'rejections': 'Revision Requests',
     };
-    return [value, labelMap[name] || name];
+    return [value, labelMap[name || ''] || name || ''];
   };
 
   return (
-    <ChartWrapper title={title} {...props}>
+    <ChartWrapper 
+      title={title}
+      subtitle={props.subtitle}
+      className={props.className}
+      loading={props.loading}
+      error={props.error}
+      onRefresh={props.onRefresh}
+      onExport={props.onExport}
+    >
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -333,7 +338,15 @@ export const DioceseComparisonChart: React.FC<BaseChartProps & {
   };
 
   return (
-    <ChartWrapper title={title} {...props}>
+    <ChartWrapper 
+      title={title}
+      subtitle={props.subtitle}
+      className={props.className}
+      loading={props.loading}
+      error={props.error}
+      onRefresh={props.onRefresh}
+      onExport={props.onExport}
+    >
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -369,14 +382,20 @@ export const HeritageProgressChart: React.FC<BaseChartProps & {
   ...props 
 }) => {
   return (
-    <ChartWrapper title={title} {...props}>
+    <ChartWrapper 
+      title={title}
+      subtitle={props.subtitle}
+      className={props.className}
+      loading={props.loading}
+      error={props.error}
+      onRefresh={props.onRefresh}
+      onExport={props.onExport}
+    >
       <ResponsiveContainer width="100%" height={height}>
         <RadialBarChart cx="50%" cy="50%" innerRadius="20%" outerRadius="80%" data={data}>
           <RadialBar
-            minAngle={15}
             label={{ position: 'insideStart', fill: '#fff' }}
             background
-            clockWise
             dataKey="percentage"
           />
           <Legend />
@@ -387,7 +406,7 @@ export const HeritageProgressChart: React.FC<BaseChartProps & {
       {/* Progress Details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         {data.map((item) => (
-          <div key={item.classification} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+          <div key={String(item.classification)} className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div>
               <p className="font-medium">{item.classification}</p>
               <p className="text-sm text-muted-foreground">
@@ -428,17 +447,25 @@ export const ActivityTimelineChart: React.FC<BaseChartProps & {
   dateRange = '30d',
   ...props 
 }) => {
-  const formatTooltip = (value: number, name: string) => {
+  const formatTooltip = (value: number | string, name?: string): [string | number, string] => {
     const labelMap: { [key: string]: string } = {
       'submissions': 'New Submissions',
       'reviews': 'Under Review',
       'approvals': 'Approved',
     };
-    return [value, labelMap[name] || name];
+    return [value, labelMap[name || ''] || name || ''];
   };
 
   return (
-    <ChartWrapper title={title} {...props}>
+    <ChartWrapper 
+      title={title}
+      subtitle={props.subtitle}
+      className={props.className}
+      loading={props.loading}
+      error={props.error}
+      onRefresh={props.onRefresh}
+      onExport={props.onExport}
+    >
       <div className="flex items-center gap-2 mb-4">
         <Select defaultValue={dateRange}>
           <SelectTrigger className="w-32">

@@ -17,7 +17,7 @@ const stats = [
     trend: "up"
   },
   {
-    title: "Pending Feedback Reports",
+    title: "Pending Visitor Feedbacks",
     value: "8",
     change: "Review needed",
     icon: MessageSquare,

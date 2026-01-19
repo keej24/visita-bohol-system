@@ -10,6 +10,18 @@
 -keep class net.tlabs.** { *; }
 -keep class com.example.visita_mobile.** { *; }
 
+## CRITICAL: Keep HTTP client classes for map tile loading
+-keep class org.apache.http.** { *; }
+-keep class android.net.http.** { *; }
+-dontwarn org.apache.http.**
+-dontwarn android.net.http.**
+
+## Keep OkHttp for network requests (used by some plugins)
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
 ## Geolocator
 -keep class com.baseflow.geolocator.** { *; }
 
