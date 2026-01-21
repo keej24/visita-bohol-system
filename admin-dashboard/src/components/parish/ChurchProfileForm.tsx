@@ -1129,16 +1129,25 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         photosWithUrls: formData.photos.filter(p => p.url && !p.url.startsWith('blob:')).length
       });
 
-      // Upload regular photos to Firebase Storage with compression
+      // Upload regular photos to Firebase Storage with compression - preserve visibility metadata
       // NOTE: Virtual tour is now managed separately by VirtualTourManager component
-      const uploadedPhotoURLs: string[] = [];
+      interface UploadedPhoto {
+        url: string;
+        name: string;
+        visibility: 'public' | 'internal';
+      }
+      const uploadedPhotos: UploadedPhoto[] = [];
       for (const photo of formData.photos) {
         if (photo.file) {
           // New file to upload - compress and upload
           try {
             const compressedFile = await compressImage(photo.file);
             const url = await uploadChurchImage(uploadChurchId, compressedFile);
-            uploadedPhotoURLs.push(url);
+            uploadedPhotos.push({
+              url,
+              name: photo.name || 'photo',
+              visibility: photo.visibility || 'public'
+            });
           } catch (error) {
             console.error('Error uploading photo:', error);
             toast({
@@ -1148,14 +1157,18 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             });
           }
         } else if (photo.url && !photo.url.startsWith('blob:')) {
-          // Existing URL from Firebase Storage
-          uploadedPhotoURLs.push(photo.url);
+          // Existing URL from Firebase Storage - preserve visibility
+          uploadedPhotos.push({
+            url: photo.url,
+            name: photo.name || 'photo',
+            visibility: photo.visibility || 'public'
+          });
         }
       }
 
       console.log('📸 [ChurchProfileForm] Photo upload complete:', {
-        uploadedPhotoURLs,
-        count: uploadedPhotoURLs.length
+        uploadedPhotos,
+        count: uploadedPhotos.length
       });
 
       // Upload documents to Firebase Storage - preserve visibility metadata
@@ -1208,13 +1221,15 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         description: formData.historicalDetails.historicalBackground,
         status: isApprovedProfile ? 'approved' as const : 'pending' as const,
         // NOTE: virtualTour is managed separately by VirtualTourManager component
-        photos: uploadedPhotoURLs.map((url, index) => ({
+        // Photos with visibility preserved from uploadedPhotos
+        photos: uploadedPhotos.map((photo, index) => ({
           id: `photo-${Date.now()}-${index}`,
-          url,
-          name: formData.photos[index]?.name || `photo-${index}`,
+          url: photo.url,
+          name: photo.name,
           uploadDate: new Date().toISOString(),
           status: 'approved' as const,
-          type: 'photo' as const
+          type: 'photo' as const,
+          visibility: photo.visibility
         })),
         // Documents with visibility preserved from uploadedDocs
         documents: uploadedDocs.map((doc, index) => ({

@@ -49,8 +49,9 @@ export interface Church {
     facebookPage?: string;
   };
   // Media fields
-  images?: string[];
-  documents?: string[];
+  images?: string[]; // Legacy - simple URL array
+  photos?: (string | { url: string; name?: string; visibility?: 'public' | 'internal' })[]; // Photos with visibility
+  documents?: (string | { url: string; name?: string; visibility?: 'public' | 'internal' })[];
   virtualTour360?: string[];
   // Heritage-related fields (museum researcher)
   culturalSignificance?: string;

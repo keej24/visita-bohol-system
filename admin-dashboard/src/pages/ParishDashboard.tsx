@@ -188,6 +188,37 @@ const ParishDashboard = () => {
     diocese: userProfile?.diocese || 'tagbilaran'
   }));
 
+  // Helper to extract filename from Firebase Storage URL
+  // Strips timestamp and document type prefixes added during upload
+  const extractFilenameFromUrl = (url: string): string => {
+    try {
+      // Firebase Storage URLs have paths like:
+      // .../o/churches%2FchurchId%2Fdocuments%2Fdocument-timestamp-filename.pdf?alt=media...
+      // We need to decode the path and extract just the filename
+      
+      // First, get the path part (before query string)
+      let path = url.split('?')[0];
+      
+      // Decode URL encoding (%2F -> /)
+      path = decodeURIComponent(path);
+      
+      // Get the last segment (the actual filename)
+      const segments = path.split('/');
+      let filename = segments[segments.length - 1] || 'Document';
+      
+      // Strip timestamp and document type prefixes
+      // Pattern: {type}-{timestamp}-{originalname} or {type}_{timestamp}_{index}_{originalname}
+      // Examples: "document-1704067200000-myfile.pdf" -> "myfile.pdf"
+      //           "heritage-doc_1704067200000_0_myfile.pdf" -> "myfile.pdf"
+      const prefixPattern = /^(?:document|heritage-doc|historical_document)[_-]\d+[_-](?:\d+[_-])?/i;
+      filename = filename.replace(prefixPattern, '');
+      
+      return filename || 'Document';
+    } catch {
+      return 'Document';
+    }
+  };
+
   // Convert Church from Firebase to ChurchInfo format
   const convertChurchToInfo = useCallback((church: Church): ChurchInfo => {
     // Helper to convert religious classification from Firestore to form format
@@ -279,21 +310,44 @@ const ParishDashboard = () => {
         website: '',
         facebookPage: ''
       },
-      photos: (church.images || []).map((url, index) => ({
-        id: `photo-${index}`,
-        name: `Photo ${index + 1}`,
-        type: 'photo' as const,
-        url: url,
-        uploadDate: new Date().toISOString(),
-        status: 'approved' as const
-      })),
+      // Convert photos from Firestore format to form format, preserving visibility
+      // Try church.photos first (new format with visibility), then fall back to church.images (legacy)
+      photos: (() => {
+        // Check photos first, but only use it if it has items (not empty array)
+        const churchPhotos = (church as any).photos;
+        const photosData = (churchPhotos && churchPhotos.length > 0) ? churchPhotos : (church.images || []);
+        return photosData.map((photo: string | { url?: string; name?: string; visibility?: string }, index: number) => {
+          if (typeof photo === 'string') {
+            // Legacy string format - assume public
+            return {
+              id: `photo-${index}`,
+              name: `Photo ${index + 1}`,
+              type: 'photo' as const,
+              url: photo,
+              uploadDate: new Date().toISOString(),
+              status: 'approved' as const,
+              visibility: 'public' as const
+            };
+          }
+          // Object format with visibility
+          return {
+            id: `photo-${index}`,
+            name: photo.name || `Photo ${index + 1}`,
+            type: 'photo' as const,
+            url: photo.url || '',
+            uploadDate: new Date().toISOString(),
+            status: 'approved' as const,
+            visibility: (photo.visibility || 'public') as 'public' | 'internal'
+          };
+        });
+      })(),
       // Convert documents from Firestore format to form format, preserving visibility
       documents: (church.documents || []).map((doc: string | ChurchDocument, index: number) => {
         if (typeof doc === 'string') {
-          // Legacy string format
+          // Legacy string format - extract filename from URL
           return {
             id: `doc-${index}`,
-            name: `Document ${index + 1}`,
+            name: extractFilenameFromUrl(doc),
             type: 'document' as const,
             url: doc,
             uploadDate: new Date().toISOString(),
@@ -301,10 +355,12 @@ const ParishDashboard = () => {
             visibility: 'public' as const
           };
         }
-        // ChurchDocument object format
+        // ChurchDocument object format - use name if it looks like a real filename, otherwise extract from URL
+        // Generic names like "Document 1", "Document 2" should be replaced with extracted filename
+        const isGenericName = !doc.name || /^Document\s*\d*$/i.test(doc.name);
         return {
           id: `doc-${index}`,
-          name: doc.name || `Document ${index + 1}`,
+          name: isGenericName ? extractFilenameFromUrl(doc.url) : doc.name,
           type: 'document' as const,
           url: doc.url,
           uploadDate: new Date().toISOString(),
@@ -624,18 +680,36 @@ const ParishDashboard = () => {
         email: data.contactInfo?.email || '',
         address: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '')
       },
+      // Legacy images field - just URLs for backward compatibility
       images: (data.photos || []).map(photo =>
         typeof photo === 'string' ? photo : (photo?.url || '')
       ).filter(Boolean),
+      // Photos with visibility metadata - this is the primary field for photos
+      photos: (data.photos || []).map(photo => {
+        if (typeof photo === 'string') {
+          // Legacy string format - assume public
+          return { url: photo, name: '', visibility: 'public' as const };
+        }
+        return {
+          url: photo?.url || '',
+          name: photo?.name || '',
+          visibility: photo?.visibility || 'public'
+        };
+      }).filter(photo => photo.url !== ''),
       // Preserve document visibility metadata for internal-only vs public documents
       documents: (data.documents || []).map(doc => {
         if (typeof doc === 'string') {
-          // Legacy string format - assume public
-          return { url: doc, name: '', visibility: 'public' as const };
+          // Legacy string format - extract filename from URL
+          const extractedName = extractFilenameFromUrl(doc);
+          return { url: doc, name: extractedName, visibility: 'public' as const };
         }
+        // Use stored name if it's a real filename, otherwise extract from URL
+        // Generic names like "Document 1", "Document 2" should be replaced with extracted filename
+        const isGenericName = !doc?.name || /^Document\s*\d*$/i.test(doc.name);
+        const docName = isGenericName ? extractFilenameFromUrl(doc?.url || '') : doc.name;
         return {
           url: doc?.url || '',
-          name: doc?.name || '',
+          name: docName,
           visibility: doc?.visibility || 'public'
         };
       }).filter(doc => doc.url !== ''),
@@ -698,8 +772,8 @@ const ParishDashboard = () => {
         const docRef = doc(db, 'churches', existingChurch.id);
         
         console.log('🔍 [SAVE DRAFT] formData being saved:', formData);
-        console.log('🔍 [SAVE DRAFT] feastDay value:', formData.feastDay);
-        console.log('🔍 [SAVE DRAFT] original data.feastDay:', data.feastDay);
+        console.log('� [SAVE DRAFT] photos field:', formData.photos);
+        console.log('📸 [SAVE DRAFT] data.photos (input):', data.photos);
         console.log('🔍 [SAVE DRAFT] existingChurch.status:', existingChurch.status);
         
         // Preserve 'approved', 'pending', and 'heritage_review' statuses - don't revert to draft

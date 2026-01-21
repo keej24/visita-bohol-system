@@ -16,9 +16,14 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
   const [saving, setSaving] = useState(false);
   const [viewerReady, setViewerReady] = useState(false);
   const [isEditingText, setIsEditingText] = useState(false); // Prevents viewer updates during text input only
+  const [viewerKey, setViewerKey] = useState(0); // Force viewer rebuild on delete
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const currentHotspotIds = useRef<string[]>([]); // Track which hotspots are currently in the viewer
+
+  // Store hotspots in a ref for the viewer init to always have latest value
+  const hotspotsRef = useRef<TourHotspot[]>(hotspots);
+  hotspotsRef.current = hotspots;
 
   // Initialize Pannellum viewer
   useEffect(() => {
@@ -52,14 +57,17 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
 
       // Create viewer container
       const viewerDiv = document.createElement('div');
-      viewerDiv.id = 'pannellum-viewer';
+      viewerDiv.id = `pannellum-viewer-${viewerKey}`;
       viewerDiv.style.width = '100%';
       viewerDiv.style.height = '500px';
       containerRef.current.innerHTML = '';
       containerRef.current.appendChild(viewerDiv);
 
+      // Use ref to get current hotspots (not stale closure value)
+      const currentHotspots = hotspotsRef.current;
+      
       // Initialize viewer
-      const viewer = pannellum.viewer('pannellum-viewer', {
+      const viewer = pannellum.viewer(`pannellum-viewer-${viewerKey}`, {
         type: 'equirectangular',
         panorama: scene.imageUrl,
         autoLoad: true,
@@ -67,7 +75,7 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
         showFullscreenCtrl: false,
         showZoomCtrl: true,
         mouseZoom: true,
-        hotSpots: hotspots.map((h) => ({
+        hotSpots: currentHotspots.map((h) => ({
           ...h,
           cssClass: h.type === 'info' ? 'info-hotspot' : 'navigation-hotspot',
           createTooltipFunc: function(hotSpotDiv: HTMLElement) {
@@ -82,6 +90,10 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
       });
 
       viewerRef.current = viewer;
+      
+      // Initialize tracking with hotspots added during viewer init
+      currentHotspotIds.current = currentHotspots.map(h => h.id);
+      
       setViewerReady(true);
 
       // Add click handler to add hotspots
@@ -93,9 +105,10 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
     return () => {
       if (viewerRef.current) {
         viewerRef.current.destroy();
+        viewerRef.current = null;
       }
     };
-  }, [scene.imageUrl]);
+  }, [scene.imageUrl, viewerKey]);
 
   // Update hotspots in viewer when they change (but not while editing text or saving)
   useEffect(() => {
@@ -211,8 +224,28 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
 
   // Delete hotspot
   const handleDeleteHotspot = (id: string) => {
+    console.log('[HotspotEditor] Deleting hotspot:', id);
+    
+    // Reset editing state
+    setIsEditingText(false);
+    
+    // Update state first
     setHotspots((prev) => prev.filter((h) => h.id !== id));
     setSelectedHotspot(null);
+    
+    // Destroy current viewer and rebuild with updated hotspots
+    if (viewerRef.current) {
+      try {
+        viewerRef.current.destroy();
+        viewerRef.current = null;
+      } catch (e) {
+        console.warn('[HotspotEditor] Error destroying viewer:', e);
+      }
+    }
+    
+    // Force viewer rebuild by incrementing key
+    setViewerKey(prev => prev + 1);
+    setViewerReady(false);
   };
 
   // Save hotspots

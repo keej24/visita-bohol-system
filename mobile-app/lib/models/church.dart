@@ -266,19 +266,10 @@ class Church {
             ? Map<String, String>.from(j['contactInfo'])
             : null,
         images: (() {
-          debugPrint('📸 [${j['name']}] Raw images field: ${j['images']}');
-          debugPrint('📸 [${j['name']}] Raw photos field: ${j['photos']}');
-
-          // Try 'images' first, then 'photos' (admin dashboard uses 'photos')
-          final imagesData = j['images'] ?? j['photos'];
-          debugPrint('📸 [${j['name']}] Using data: $imagesData');
-
-          final imgs = _parseImages(imagesData);
-          debugPrint('📸 [${j['name']}] Parsed ${imgs.length} images');
-          if (imgs.isNotEmpty) {
-            debugPrint('📸 [${j['name']}] First image: ${imgs.first}');
-          }
-          return imgs;
+          // Try 'photos' first (has visibility info), then fall back to 'images' (legacy)
+          // The admin dashboard saves photos with visibility to 'photos' field
+          final imagesData = j['photos'] ?? j['images'];
+          return _parseImages(imagesData);
         })(),
         documents: (() {
           debugPrint(
@@ -525,6 +516,7 @@ class Church {
   }
 
   // Helper method to parse images field which might be nested arrays
+  // Only includes PUBLIC photos - internal photos are filtered out for mobile app
   static List<String> _parseImages(dynamic imagesData) {
     if (imagesData == null) return [];
 
@@ -532,14 +524,19 @@ class Church {
       final List<String> result = [];
       for (var item in imagesData) {
         if (item is String) {
-          // Direct string URL
+          // Direct string URL - legacy format, assume public
           result.add(item);
         } else if (item is Map) {
-          // Object with 'url' property (from admin dashboard)
-          final url = item['url'];
-          if (url != null && url is String) {
-            result.add(url);
+          // Object with 'url' and 'visibility' properties (from admin dashboard)
+          final visibility = item['visibility']?.toString() ?? 'public';
+          // Only include photos with 'public' visibility (or no visibility set = default public)
+          if (visibility == 'public') {
+            final url = item['url'];
+            if (url != null && url is String) {
+              result.add(url);
+            }
           }
+          // Skip photos with visibility == 'internal'
         } else if (item is List) {
           // Handle nested arrays like [["image.jpg"]]
           for (var nestedItem in item) {
@@ -576,8 +573,14 @@ class Church {
           if (visibility == 'public') {
             final url = item['url'];
             if (url != null && url is String) {
+              // Use name if it's a real filename, otherwise extract from URL
+              // Generic names like "Document 1", "Document 2" should be replaced
+              final storedName = item['name']?.toString() ?? '';
+              final isGenericName = storedName.isEmpty ||
+                  RegExp(r'^Document\s*\d*$', caseSensitive: false)
+                      .hasMatch(storedName);
               final name =
-                  item['name']?.toString() ?? _extractFilenameFromUrl(url);
+                  isGenericName ? _extractFilenameFromUrl(url) : storedName;
               result.add(ChurchDocument(url: url, name: name));
             }
           }
@@ -594,15 +597,20 @@ class Church {
   // Strips timestamp and document type prefixes added during upload
   static String _extractFilenameFromUrl(String url) {
     try {
-      final uri = Uri.parse(url);
-      String filename =
-          uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'Document';
-      // Remove query parameters and decode
-      filename = Uri.decodeComponent(filename.split('?').first);
-      // Clean up Firebase Storage encoded paths
-      if (filename.contains('%2F')) {
-        filename = filename.split('%2F').last;
-      }
+      // Firebase Storage URLs have paths like:
+      // .../o/churches%2FchurchId%2Fdocuments%2Fdocument-timestamp-filename.pdf?alt=media...
+      // We need to decode the path and extract just the filename
+
+      // First, get the path part (before query string)
+      String path = url.split('?').first;
+
+      // Decode URL encoding (%2F -> /)
+      path = Uri.decodeComponent(path);
+
+      // Get the last segment (the actual filename)
+      final segments = path.split('/');
+      String filename = segments.isNotEmpty ? segments.last : 'Document';
+
       // Strip timestamp and document type prefixes
       // Pattern: {type}-{timestamp}-{originalname} or {type}_{timestamp}_{index}_{originalname}
       // Examples: "document-1704067200000-myfile.pdf" -> "myfile.pdf"
@@ -611,6 +619,7 @@ class Church {
           r'^(?:document|heritage-doc|historical_document)[_-]\d+[_-](?:\d+[_-])?',
           caseSensitive: false);
       filename = filename.replaceFirst(prefixPattern, '');
+
       return filename.isNotEmpty ? filename : 'Document';
     } catch (e) {
       return 'Document';

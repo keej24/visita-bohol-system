@@ -10,6 +10,17 @@ export interface ChurchDocument {
   visibility: 'public' | 'internal';
 }
 
+// Photo with visibility control
+export interface ChurchPhoto {
+  id?: string;
+  url: string;
+  name?: string;
+  visibility: 'public' | 'internal';
+  uploadDate?: string;
+  status?: 'pending' | 'approved';
+  type?: 'photo';
+}
+
 export interface Coordinates {
   latitude: number;
   longitude: number;
@@ -52,7 +63,8 @@ export interface Church {
   contactInfo?: ContactInfo;
 
   // Media
-  images: string[];
+  images: string[]; // Legacy: simple URL array (deprecated, use photos instead)
+  photos?: (string | ChurchPhoto)[]; // Photos with visibility support
   documents: (string | ChurchDocument)[]; // Supports both legacy string URLs and new format with visibility
   virtualTour?: import('@/types/virtualTour').VirtualTour; // 360° virtual tour with scenes and hotspots
 
@@ -108,7 +120,8 @@ export interface ChurchFormData {
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;
   contactInfo?: ContactInfo;
-  images: string[];
+  images: string[]; // Legacy: simple URL array for backward compatibility
+  photos?: (string | ChurchPhoto)[]; // Photos with visibility support
   documents: (string | ChurchDocument)[]; // Supports both legacy string URLs and new format with visibility
   virtualTour360?: string[];
   culturalSignificance?: string;
