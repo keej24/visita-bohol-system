@@ -78,6 +78,7 @@ import Unauthorized from "./pages/Unauthorized";  // "You don't have permission"
 import NotFound from "./pages/NotFound";  // 404 page (page doesn't exist)
 import Register from "./pages/Register";  // Registration page (for public users - not used much)
 import { MuseumResearcherSetup } from "./pages/MuseumResearcherSetup";  // Museum researcher account setup
+import EmailVerified from "./pages/EmailVerified";  // Mobile app email verification success page
 
 // ===========================
 // STEP 4: LOADING SPINNER
@@ -154,6 +155,7 @@ const App = () => (
             <Route path="/museum-setup" element={<MuseumResearcherSetup />} />
             <Route path="/register" element={<Register />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route path="/email-verified" element={<EmailVerified />} />
             
             {/* ===========================
                 ROOT PATH (/)

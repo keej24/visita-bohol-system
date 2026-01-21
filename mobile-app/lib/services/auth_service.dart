@@ -57,6 +57,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 /// Simple AuthService with Firebase Authentication
 ///
@@ -227,13 +228,23 @@ class AuthService extends ChangeNotifier {
               '⚠️ Failed to create user document in Firestore: $firestoreError');
         }
 
-        // Send email verification
+        // Send email verification using Cloud Function for branded email
         try {
-          await result.user!.sendEmailVerification();
-          debugPrint('📧 Verification email sent to $email');
-        } catch (e) {
-          debugPrint('⚠️ Failed to send verification email: $e');
-          // Don't fail signup if verification email fails
+          final functions = FirebaseFunctions.instance;
+          final callable = functions.httpsCallable('sendEmailVerification');
+          await callable.call({'email': email, 'source': 'mobile'});
+          debugPrint('📧 Custom branded verification email sent to $email');
+        } catch (cloudFunctionError) {
+          // Fallback to Firebase default if Cloud Function fails
+          debugPrint(
+              '⚠️ Cloud Function failed, using Firebase default: $cloudFunctionError');
+          try {
+            await result.user!.sendEmailVerification();
+            debugPrint('📧 Firebase default verification email sent to $email');
+          } catch (e) {
+            debugPrint('⚠️ Failed to send verification email: $e');
+            // Don't fail signup if verification email fails
+          }
         }
       }
 
@@ -289,8 +300,23 @@ class AuthService extends ChangeNotifier {
 
       debugPrint(
           '📧 Attempting to send verification email to ${user.email}...');
-      await user.sendEmailVerification();
-      debugPrint('✅ Verification email sent successfully to ${user.email}');
+
+      // Use Cloud Function for custom branded email
+      // Falls back to Firebase default if Cloud Function fails
+      try {
+        final functions = FirebaseFunctions.instance;
+        final callable = functions.httpsCallable('sendEmailVerification');
+        await callable.call({'email': user.email, 'source': 'mobile'});
+        debugPrint('✅ Custom branded verification email sent to ${user.email}');
+      } catch (cloudFunctionError) {
+        // Fallback to Firebase default email if Cloud Function fails
+        debugPrint(
+            '⚠️ Cloud Function failed, using Firebase default: $cloudFunctionError');
+        await user.sendEmailVerification();
+        debugPrint(
+            '✅ Firebase default verification email sent to ${user.email}');
+      }
+
       return true;
     } on FirebaseAuthException catch (e) {
       debugPrint(
@@ -473,7 +499,20 @@ class AuthService extends ChangeNotifier {
     try {
       debugPrint('📧 Sending password reset email to: $email');
 
-      await _auth.sendPasswordResetEmail(email: email);
+      // Use Cloud Function for custom branded email
+      // Falls back to Firebase default if Cloud Function fails
+      try {
+        final functions = FirebaseFunctions.instance;
+        final callable = functions.httpsCallable('sendPasswordResetEmail');
+        await callable.call({'email': email});
+        debugPrint('✅ Custom branded password reset email sent');
+      } catch (cloudFunctionError) {
+        // Fallback to Firebase default email if Cloud Function fails
+        debugPrint(
+            '⚠️ Cloud Function failed, using Firebase default: $cloudFunctionError');
+        await _auth.sendPasswordResetEmail(email: email);
+        debugPrint('✅ Firebase default password reset email sent');
+      }
 
       debugPrint('✅ Password reset email sent successfully');
     } catch (e) {

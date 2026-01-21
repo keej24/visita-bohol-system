@@ -38,6 +38,18 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
   }
 
   void _submit() async {
+    // Validate comment length (minimum 10 characters)
+    final comment = _commentCtl.text.trim();
+    if (comment.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please write at least 10 characters for your review'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     // Get current user from AuthService before any async operations
     final authService = Provider.of<AuthService>(context, listen: false);
     final currentUser = authService.currentUser;
@@ -198,19 +210,37 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFFF5F5F5),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE0E0E0)),
+                      border: Border.all(
+                        color: _commentCtl.text.length < 10 && _commentCtl.text.isNotEmpty
+                            ? Colors.orange
+                            : const Color(0xFFE0E0E0),
+                      ),
                     ),
                     child: TextField(
                       controller: _commentCtl,
                       maxLines: 6,
                       maxLength: 500,
+                      buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                        final isUnderMin = currentLength > 0 && currentLength < 10;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8, bottom: 4),
+                          child: Text(
+                            isUnderMin 
+                                ? '${10 - currentLength} more characters needed (min 10)'
+                                : '$currentLength / $maxLength',
+                            style: TextStyle(
+                              color: isUnderMin ? Colors.orange : const Color(0xFF6B6B6B),
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
                       decoration: const InputDecoration(
                         hintText:
-                            'Share your thoughts about the church, its architecture, atmosphere, or spiritual significance...\n(10-500 characters)',
+                            'Share your thoughts about the church, its architecture, atmosphere, or spiritual significance...',
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.all(16),
                         hintStyle: TextStyle(color: Color(0xFF9E9E9E)),
-                        counterStyle: TextStyle(color: Color(0xFF6B6B6B)),
                       ),
                       onChanged: (_) => setState(() {}),
                     ),

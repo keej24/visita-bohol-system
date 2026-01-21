@@ -671,6 +671,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirmPasswordController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool showPasswordFields = false;
+    bool obscureCurrentPassword = true;
+    bool obscureNewPassword = true;
+    bool obscureConfirmPassword = true;
 
     showDialog(
       context: context,
@@ -753,11 +756,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: currentPasswordController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Current Password',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscureCurrentPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () => setState(
+                              () => obscureCurrentPassword = !obscureCurrentPassword),
+                        ),
                       ),
-                      obscureText: true,
+                      obscureText: obscureCurrentPassword,
                       validator: (value) {
                         // Only require when changing password
                         if (!showPasswordFields) return null;
@@ -770,13 +782,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: newPasswordController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'New Password',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                         helperText:
                             'At least 8 chars with uppercase, lowercase, and number',
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscureNewPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () => setState(
+                              () => obscureNewPassword = !obscureNewPassword),
+                        ),
                       ),
-                      obscureText: true,
+                      obscureText: obscureNewPassword,
                       validator: (value) {
                         if (!showPasswordFields) return null;
                         final v = value ?? '';
@@ -794,11 +815,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: confirmPasswordController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Confirm New Password',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscureConfirmPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () => setState(
+                              () => obscureConfirmPassword = !obscureConfirmPassword),
+                        ),
                       ),
-                      obscureText: true,
+                      obscureText: obscureConfirmPassword,
                       validator: (value) {
                         if (!showPasswordFields) return null;
                         if (value == null || value.isEmpty) {

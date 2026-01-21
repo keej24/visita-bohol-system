@@ -1,2 +1,9 @@
-# Firebase Functions environment params (migrated from functions.config())
-RESEND_API_KEY: "re_CgzFWFYR_48yf1P26Wnusppw2DAzyZCtu"
+# Firebase Functions environment params
+# 
+# Gmail SMTP credentials are stored as Firebase Secrets (not here) for security.
+# To set them, run:
+#   firebase functions:secrets:set GMAIL_EMAIL
+#   firebase functions:secrets:set GMAIL_APP_PASSWORD
+#
+# The old Resend API key is kept below for reference (not used anymore)
+# RESEND_API_KEY: "re_CgzFWFYR_48yf1P26Wnusppw2DAzyZCtu"
