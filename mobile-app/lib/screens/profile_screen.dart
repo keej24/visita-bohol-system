@@ -765,8 +765,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? Icons.visibility_off
                                 : Icons.visibility,
                           ),
-                          onPressed: () => setState(
-                              () => obscureCurrentPassword = !obscureCurrentPassword),
+                          onPressed: () => setState(() =>
+                              obscureCurrentPassword = !obscureCurrentPassword),
                         ),
                       ),
                       obscureText: obscureCurrentPassword,
@@ -824,8 +824,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? Icons.visibility_off
                                 : Icons.visibility,
                           ),
-                          onPressed: () => setState(
-                              () => obscureConfirmPassword = !obscureConfirmPassword),
+                          onPressed: () => setState(() =>
+                              obscureConfirmPassword = !obscureConfirmPassword),
                         ),
                       ),
                       obscureText: obscureConfirmPassword,

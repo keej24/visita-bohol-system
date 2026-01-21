@@ -211,7 +211,8 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
                       color: const Color(0xFFF5F5F5),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: _commentCtl.text.length < 10 && _commentCtl.text.isNotEmpty
+                        color: _commentCtl.text.length < 10 &&
+                                _commentCtl.text.isNotEmpty
                             ? Colors.orange
                             : const Color(0xFFE0E0E0),
                       ),
@@ -220,16 +221,22 @@ class _FeedbackSubmitScreenState extends State<FeedbackSubmitScreen> {
                       controller: _commentCtl,
                       maxLines: 6,
                       maxLength: 500,
-                      buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
-                        final isUnderMin = currentLength > 0 && currentLength < 10;
+                      buildCounter: (context,
+                          {required currentLength,
+                          required isFocused,
+                          maxLength}) {
+                        final isUnderMin =
+                            currentLength > 0 && currentLength < 10;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8, bottom: 4),
                           child: Text(
-                            isUnderMin 
+                            isUnderMin
                                 ? '${10 - currentLength} more characters needed (min 10)'
                                 : '$currentLength / $maxLength',
                             style: TextStyle(
-                              color: isUnderMin ? Colors.orange : const Color(0xFF6B6B6B),
+                              color: isUnderMin
+                                  ? Colors.orange
+                                  : const Color(0xFF6B6B6B),
                               fontSize: 12,
                             ),
                           ),
