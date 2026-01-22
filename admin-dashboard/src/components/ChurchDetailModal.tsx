@@ -140,7 +140,10 @@ export function ChurchDetailModal({
         heritageClassification: churchData.classification === 'NCT' ? 'National Cultural Treasures' :
                                churchData.classification === 'ICP' ? 'Important Cultural Properties' : 'None',
         religiousClassification: getReligiousClassificationDisplay(churchData.religiousClassification) as 'None' | 'Diocesan Shrine' | 'Jubilee Church' | 'Papal Basilica Affinity' | 'Holy Door',
-        religiousClassifications: getReligiousClassificationsDisplay(churchData.historicalDetails?.religiousClassifications),
+        // Check both historicalDetails.religiousClassifications and root-level religiousClassifications
+        religiousClassifications: getReligiousClassificationsDisplay(
+          churchData.historicalDetails?.religiousClassifications || churchData.religiousClassifications
+        ),
         supportingDocuments: [],
         architecturalFeatures: churchData.architecturalFeatures || '',
         heritageInformation: churchData.heritageInformation || ''

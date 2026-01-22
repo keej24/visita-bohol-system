@@ -44,6 +44,11 @@ export function SecurityReviewChecklist({
     noValuations: false,
     contentAccurate: false,
     parishApproved: false,
+    // Added from museum researcher checklist:
+    religiousContentRespectful: false,
+    noUnpublishedDevotional: false,
+    supportingDocsReviewed: false,
+    parishConsentConfirmed: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -166,6 +171,60 @@ export function SecurityReviewChecklist({
             />
             <Label htmlFor="parish-approved" className="text-sm font-normal cursor-pointer leading-relaxed">
               Parish has confirmed <strong>consent for public display</strong> of all submitted content
+            </Label>
+          </div>
+
+          {/* Cultural & Religious Sensitivity */}
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="religious-respectful"
+              checked={checks.religiousContentRespectful}
+              onCheckedChange={(checked) => 
+                setChecks(prev => ({ ...prev, religiousContentRespectful: checked === true }))
+              }
+            />
+            <Label htmlFor="religious-respectful" className="text-sm font-normal cursor-pointer leading-relaxed">
+              Content is <strong>respectful</strong> to the religious community and does not misrepresent sacred traditions
+            </Label>
+          </div>
+
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="no-unpublished-devotional"
+              checked={checks.noUnpublishedDevotional}
+              onCheckedChange={(checked) => 
+                setChecks(prev => ({ ...prev, noUnpublishedDevotional: checked === true }))
+              }
+            />
+            <Label htmlFor="no-unpublished-devotional" className="text-sm font-normal cursor-pointer leading-relaxed">
+              No <strong>unpublished devotional materials</strong> or sacred imagery not intended for public display
+            </Label>
+          </div>
+
+          {/* Documentation & Consent */}
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="docs-reviewed"
+              checked={checks.supportingDocsReviewed}
+              onCheckedChange={(checked) => 
+                setChecks(prev => ({ ...prev, supportingDocsReviewed: checked === true }))
+              }
+            />
+            <Label htmlFor="docs-reviewed" className="text-sm font-normal cursor-pointer leading-relaxed">
+              I have <strong>reviewed supporting documents</strong> (heritage declarations, certificates) if provided
+            </Label>
+          </div>
+
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="parish-consent"
+              checked={checks.parishConsentConfirmed}
+              onCheckedChange={(checked) => 
+                setChecks(prev => ({ ...prev, parishConsentConfirmed: checked === true }))
+              }
+            />
+            <Label htmlFor="parish-consent" className="text-sm font-normal cursor-pointer leading-relaxed">
+              Parish has <strong>confirmed consent</strong> for all content to be publicly displayed
             </Label>
           </div>
         </div>

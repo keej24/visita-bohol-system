@@ -38,8 +38,8 @@ export function validate360Image(file: File): Promise<ValidationResult> {
       const aspectRatio = width / height;
 
       // Equirectangular images should have a 2:1 aspect ratio
-      // Allow some tolerance (1.9 to 2.1) to account for minor variations
-      const isValidRatio = aspectRatio >= 1.9 && aspectRatio <= 2.1;
+      // Allow wider tolerance (1.8 to 2.2) to accommodate various camera/stitching variations
+      const isValidRatio = aspectRatio >= 1.8 && aspectRatio <= 2.2;
 
       // Clean up object URL
       URL.revokeObjectURL(objectUrl);
@@ -58,7 +58,7 @@ export function validate360Image(file: File): Promise<ValidationResult> {
       } else {
         resolve({
           isValid: false,
-          message: `Invalid aspect ratio. Expected 2:1 (width:height), got ${Math.round(aspectRatio * 100) / 100}:1`,
+          message: `Invalid aspect ratio. Expected ~2:1 (width:height), got ${Math.round(aspectRatio * 100) / 100}:1. 360° images should be panoramic.`,
           details: {
             width,
             height,

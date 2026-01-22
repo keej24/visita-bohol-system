@@ -49,20 +49,13 @@ export function HeritageValidationChecklist({
     historicalAccuracy: false,
     heritageClassificationCorrect: false,
     architecturalInfoVerified: false,
-    // Cultural sensitivity checks
-    religiousContentRespectful: false,
-    noUnpublishedDevotional: false,
-    // Documentation checks
-    supportingDocsReviewed: false,
-    parishConsentConfirmed: false,
+    // (Removed cultural sensitivity and documentation/consent checks)
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const allChecked = Object.values(checks).every(Boolean);
   const securityChecksComplete = checks.noArtifactDetails && checks.noSecurityInfo && checks.noValuations;
   const heritageChecksComplete = checks.historicalAccuracy && checks.heritageClassificationCorrect && checks.architecturalInfoVerified;
-  const sensitivityChecksComplete = checks.religiousContentRespectful && checks.noUnpublishedDevotional;
-  const documentationChecksComplete = checks.supportingDocsReviewed && checks.parishConsentConfirmed;
 
   const handleValidate = async () => {
     if (!church || !allChecked) return;
@@ -236,83 +229,7 @@ export function HeritageValidationChecklist({
           </div>
         </div>
 
-        <Separator />
 
-        {/* Cultural Sensitivity Section */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Award className={`w-4 h-4 ${sensitivityChecksComplete ? 'text-emerald-600' : 'text-gray-400'}`} />
-            <h4 className="font-medium text-sm">Cultural & Religious Sensitivity</h4>
-            {sensitivityChecksComplete && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-          </div>
-          
-          <div className="space-y-3 pl-6">
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="religious-respectful"
-                checked={checks.religiousContentRespectful}
-                onCheckedChange={(checked) => 
-                  setChecks(prev => ({ ...prev, religiousContentRespectful: checked === true }))
-                }
-              />
-              <Label htmlFor="religious-respectful" className="text-sm font-normal cursor-pointer leading-relaxed">
-                Content is <strong>respectful</strong> to the religious community and does not misrepresent sacred traditions
-              </Label>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="no-unpublished-devotional"
-                checked={checks.noUnpublishedDevotional}
-                onCheckedChange={(checked) => 
-                  setChecks(prev => ({ ...prev, noUnpublishedDevotional: checked === true }))
-                }
-              />
-              <Label htmlFor="no-unpublished-devotional" className="text-sm font-normal cursor-pointer leading-relaxed">
-                No <strong>unpublished devotional materials</strong> or sacred imagery not intended for public display
-              </Label>
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Documentation & Consent Section */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className={`w-4 h-4 ${documentationChecksComplete ? 'text-emerald-600' : 'text-gray-400'}`} />
-            <h4 className="font-medium text-sm">Documentation & Consent</h4>
-            {documentationChecksComplete && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-          </div>
-          
-          <div className="space-y-3 pl-6">
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="docs-reviewed"
-                checked={checks.supportingDocsReviewed}
-                onCheckedChange={(checked) => 
-                  setChecks(prev => ({ ...prev, supportingDocsReviewed: checked === true }))
-                }
-              />
-              <Label htmlFor="docs-reviewed" className="text-sm font-normal cursor-pointer leading-relaxed">
-                I have <strong>reviewed supporting documents</strong> (heritage declarations, certificates) if provided
-              </Label>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="parish-consent"
-                checked={checks.parishConsentConfirmed}
-                onCheckedChange={(checked) => 
-                  setChecks(prev => ({ ...prev, parishConsentConfirmed: checked === true }))
-                }
-              />
-              <Label htmlFor="parish-consent" className="text-sm font-normal cursor-pointer leading-relaxed">
-                Parish has <strong>confirmed consent</strong> for all content to be publicly displayed
-              </Label>
-            </div>
-          </div>
-        </div>
 
         <DialogFooter className="flex gap-2 sm:gap-0 mt-4">
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>

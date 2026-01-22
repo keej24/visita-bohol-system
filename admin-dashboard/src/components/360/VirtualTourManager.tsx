@@ -6,6 +6,7 @@ import { VirtualTourService } from '@/services/virtualTourService';
 import type { VirtualTour, TourScene, Uploaded360Image } from '@/types/virtualTour';
 import { HotspotEditor } from './HotspotEditor';
 import { validate360Image } from '@/utils/validate360Image';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +89,7 @@ async function compressImage(file: File, maxSizeMB: number = 2): Promise<Blob> {
 }
 
 export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerProps) {
+  const { userProfile } = useAuth();
   const [tour, setTour] = useState<VirtualTour | null>(null);
   const [uploadingImages, setUploadingImages] = useState<Uploaded360Image[]>([]);
   const [pendingFiles, setPendingFiles] = useState<Uploaded360Image[]>([]); // Files staged for preview before upload
@@ -629,8 +631,18 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
           try {
             // Use atomic transaction-based addScene to prevent race conditions during parallel uploads
             // Pass the original index so the service can handle ordering
+            // Also pass user profile info for document creation if needed
             console.log('[VirtualTourManager] Saving scene to Firestore:', newScene.title);
-            await VirtualTourService.addScene(churchId, newScene, originalIndex, isFirstInBatch);
+            await VirtualTourService.addScene(
+              churchId, 
+              newScene, 
+              originalIndex, 
+              isFirstInBatch,
+              userProfile ? {
+                diocese: userProfile.diocese,
+                parishId: userProfile.parishId || userProfile.parish
+              } : undefined
+            );
             console.log('[VirtualTourManager] ✓ Scene saved to Firestore successfully');
             
             // Track this scene in the batch for final reordering
@@ -728,7 +740,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         )
       );
     }
-  }, [churchId, loadTour, processQueue]);
+  }, [churchId, loadTour, processQueue, userProfile]);
 
   // Update scene title
   const handleUpdateTitle = useCallback((sceneId: string, newTitle: string) => {

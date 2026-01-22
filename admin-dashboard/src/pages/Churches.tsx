@@ -88,7 +88,7 @@ import type { ChurchStatus, ChurchClassification, Church, ArchitecturalStyle, Re
 import { ChurchDetailModal } from "@/components/ChurchDetailModal";
 import { ChurchInfo } from "@/components/parish/types";
 import { ChurchService } from "@/services/churchService";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const Churches = () => {
@@ -424,6 +424,8 @@ const Churches = () => {
       architecturalFeatures: church.architecturalFeatures,
       heritageInformation: church.heritageInformation,
       religiousClassification: church.religiousClassification,
+      // Preserve historicalDetails for religiousClassifications array
+      historicalDetails: (church as unknown as { historicalDetails?: { religiousClassifications?: string[] } }).historicalDetails,
     };
     
     return result;

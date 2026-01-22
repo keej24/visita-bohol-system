@@ -293,7 +293,7 @@ export function ChanceryReviewList({ diocese, onViewChurch, onEditChurch }: Prop
                         <span className="font-medium">Heritage Review Required</span>
                       </div>
                       <div className="text-orange-600 mt-1">
-                        This church is classified as heritage and must be forwarded for museum validation.
+                        This church is classified as heritage. After reviewing, please forward to museum researcher for validation.
                       </div>
                     </div>
                   )}

@@ -158,7 +158,9 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
     tags: (data.tags || []) as string[],
     category: data.category as string,
     parishId: data.parishId as string,
-  };
+    // Preserve historicalDetails for religiousClassifications array
+    historicalDetails: data.historicalDetails as { religiousClassifications?: string[] } | undefined,
+  } as Church;
 };
 
 // Helper function to remove undefined values from an object

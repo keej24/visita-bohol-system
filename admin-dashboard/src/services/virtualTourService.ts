@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, Timestamp, runTransaction } from 'firebase/firestore';
 import type { VirtualTour, TourScene, TourHotspot } from '@/types/virtualTour';
 
 /**
@@ -30,12 +30,16 @@ const removeUndefinedValues = (obj: any): any => {
 export class VirtualTourService {
   /**
    * Get virtual tour for a church
+   * Returns null if the church doesn't exist or has no virtual tour
    */
   static async getVirtualTour(churchId: string): Promise<VirtualTour | null> {
     try {
       const churchDoc = await getDoc(doc(db, 'churches', churchId));
       if (!churchDoc.exists()) {
-        throw new Error('Church not found');
+        // Church doesn't exist yet - return null instead of throwing
+        // This allows the VirtualTourManager to render even for new churches
+        console.log('[VirtualTourService] Church document not found, returning null');
+        return null;
       }
 
       const data = churchDoc.data();
@@ -133,12 +137,14 @@ export class VirtualTourService {
    * @param scene - The scene to add
    * @param originalIndex - Optional: The intended position in the scene list (0 = first/start scene)
    * @param isFirstInBatch - Optional: Whether this is the first scene in a batch upload (should be start scene)
+   * @param userInfo - Optional: User info for creating new church documents (required by Firestore rules)
    */
   static async addScene(
     churchId: string,
     scene: TourScene,
     originalIndex?: number,
-    isFirstInBatch?: boolean
+    isFirstInBatch?: boolean,
+    userInfo?: { diocese?: string; parishId?: string }
   ): Promise<void> {
     try {
       const churchRef = doc(db, 'churches', churchId);
@@ -146,17 +152,46 @@ export class VirtualTourService {
       await runTransaction(db, async (transaction) => {
         const churchDoc = await transaction.get(churchRef);
 
-        if (!churchDoc.exists()) {
-          throw new Error('Church not found');
-        }
-
-        const data = churchDoc.data();
-        const currentTour = data.virtualTour as VirtualTour | undefined;
-
         // Clean the scene to remove undefined values
         const cleanedScene = removeUndefinedValues(scene);
 
         let updatedScenes: TourScene[];
+        
+        if (!churchDoc.exists()) {
+          // Church document doesn't exist yet - create it with the first scene
+          // This handles the case where a user tries to upload 360° images before saving the church profile
+          console.log('[VirtualTourService] Church document not found, creating new document with virtual tour');
+          
+          updatedScenes = [{
+            ...cleanedScene,
+            isStartScene: isFirstInBatch ?? (originalIndex === 0),
+          }];
+          
+          // Create new church document with the virtual tour
+          // Include diocese and parishId for Firestore security rules compliance
+          const newChurchData: Record<string, unknown> = {
+            virtualTour: removeUndefinedValues({ scenes: updatedScenes }),
+            status: 'draft',
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          };
+          
+          // Add user info if available (required for parish secretary permissions)
+          if (userInfo?.diocese) {
+            newChurchData.diocese = userInfo.diocese;
+          }
+          if (userInfo?.parishId) {
+            newChurchData.parishId = userInfo.parishId;
+          }
+          
+          transaction.set(churchRef, newChurchData);
+          
+          console.log('[VirtualTourService] ✓ New church document created with scene:', scene.title);
+          return;
+        }
+
+        const data = churchDoc.data();
+        const currentTour = data.virtualTour as VirtualTour | undefined;
         
         if (!currentTour || currentTour.scenes.length === 0) {
           // First scene - create new tour, mark as start scene if first in batch

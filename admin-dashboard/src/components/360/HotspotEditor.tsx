@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Save, Trash2, Navigation, Plus, Info, Link2 } from 'lucide-react';
 import { VirtualTourService } from '@/services/virtualTourService';
 import type { TourScene, TourHotspot } from '@/types/virtualTour';
@@ -20,10 +20,54 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const currentHotspotIds = useRef<string[]>([]); // Track which hotspots are currently in the viewer
+  const clickHandlerRef = useRef<((e: MouseEvent) => void) | null>(null); // Ref for click handler
 
   // Store hotspots in a ref for the viewer init to always have latest value
   const hotspotsRef = useRef<TourHotspot[]>(hotspots);
   hotspotsRef.current = hotspots;
+
+  // Handle click on viewer to add hotspot (Ctrl+Click or Cmd+Click)
+  // Using useCallback to ensure stable function reference
+  const handleViewerClick = useCallback((e: MouseEvent) => {
+    if (!viewerRef.current) return;
+
+    // Only add hotspot if Ctrl key (Windows/Linux) or Cmd key (Mac) is held
+    if (!e.ctrlKey && !e.metaKey) return;
+
+    // Check if clicked on a hotspot (don't add new one)
+    if ((e.target as HTMLElement).closest('.pnlm-hotspot')) return;
+
+    // Convert mouse coordinates to pitch/yaw using Pannellum's method
+    const coords = viewerRef.current.mouseEventToCoords(e);
+
+    if (!coords || coords.length < 2) {
+      console.warn('[HotspotEditor] Failed to get coordinates from click');
+      return;
+    }
+
+    const pitch = coords[0];
+    const yaw = coords[1];
+
+    console.log(`[HotspotEditor] Adding hotspot at click position: pitch=${pitch.toFixed(2)}, yaw=${yaw.toFixed(2)}`);
+
+    // Add new navigation hotspot by default
+    const newHotspot: TourHotspot = {
+      id: `hotspot-${Date.now()}`,
+      type: 'navigation',
+      pitch,
+      yaw,
+      targetSceneId: allScenes.find((s) => s.id !== scene.id)?.id || '',
+      label: 'Go to...',
+    };
+
+    setHotspots((prev) => [...prev, newHotspot]);
+    setSelectedHotspot(newHotspot.id);
+  }, [allScenes, scene.id]);
+
+  // Keep clickHandlerRef updated with latest handler
+  useEffect(() => {
+    clickHandlerRef.current = handleViewerClick;
+  }, [handleViewerClick]);
 
   // Initialize Pannellum viewer
   useEffect(() => {
@@ -96,8 +140,14 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
       
       setViewerReady(true);
 
-      // Add click handler to add hotspots
-      viewerDiv.addEventListener('click', handleViewerClick);
+      // Add click handler using a wrapper that calls the ref
+      // This ensures we always use the latest version of handleViewerClick
+      const clickWrapper = (e: MouseEvent) => {
+        if (clickHandlerRef.current) {
+          clickHandlerRef.current(e);
+        }
+      };
+      viewerDiv.addEventListener('click', clickWrapper);
     };
 
     loadPannellum();
@@ -169,51 +219,6 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
     currentHotspotIds.current = hotspots.map(h => h.id);
     console.log('[HotspotEditor] Sync complete. Active hotspots:', currentHotspotIds.current);
   }, [hotspots, viewerReady, isEditingText, saving]);
-
-  // Handle click on viewer to add hotspot (Ctrl+Click or Cmd+Click)
-  const handleViewerClick = (e: MouseEvent) => {
-    if (!viewerRef.current) return;
-
-    // Only add hotspot if Ctrl key (Windows/Linux) or Cmd key (Mac) is held
-    if (!e.ctrlKey && !e.metaKey) return;
-
-    // Check if clicked on a hotspot (don't add new one)
-    if ((e.target as HTMLElement).closest('.pnlm-hotspot')) return;
-
-    // Get the viewer container to calculate relative coordinates
-    const container = document.getElementById('pannellum-viewer');
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Convert mouse coordinates to pitch/yaw using Pannellum's method
-    const coords = viewerRef.current.mouseEventToCoords(e);
-
-    if (!coords || coords.length < 2) {
-      console.warn('[HotspotEditor] Failed to get coordinates from click');
-      return;
-    }
-
-    const pitch = coords[0];
-    const yaw = coords[1];
-
-    console.log(`[HotspotEditor] Adding hotspot at click position: pitch=${pitch.toFixed(2)}, yaw=${yaw.toFixed(2)}`);
-
-    // Add new navigation hotspot by default
-    const newHotspot: TourHotspot = {
-      id: `hotspot-${Date.now()}`,
-      type: 'navigation',
-      pitch,
-      yaw,
-      targetSceneId: allScenes.find((s) => s.id !== scene.id)?.id || '',
-      label: 'Go to...',
-    };
-
-    setHotspots((prev) => [...prev, newHotspot]);
-    setSelectedHotspot(newHotspot.id);
-  };
 
   // Update hotspot
   const handleUpdateHotspot = (id: string, updates: Partial<TourHotspot>) => {
