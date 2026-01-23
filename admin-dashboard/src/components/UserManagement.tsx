@@ -44,7 +44,7 @@ interface UserAccount {
   parishId?: string;
   municipality?: string;
   address?: string;
-  status: 'active' | 'inactive' | 'pending';
+  status: 'active' | 'inactive' | 'pending' | 'deleted';
   createdAt: Date;
   lastLogin?: Date;
   createdBy: string;
@@ -98,6 +98,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       setLoading(true);
 
       // Load parish secretary users from the diocese only
+      // Exclude users with 'deleted' status (users removed from Firebase Auth)
       const usersRef = collection(db, 'users');
       const usersQuery = query(
         usersRef,
@@ -111,8 +112,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
 
       usersSnapshot.forEach((doc) => {
         const data = doc.data();
-        // Only include parish secretary accounts
-        if (data.role === 'parish_secretary') {
+        // Only include parish secretary accounts that are NOT deleted
+        // This filters out users that were removed from Firebase Authentication
+        if (data.role === 'parish_secretary' && data.status !== 'deleted') {
           userData.push({
             id: doc.id,
             uid: data.uid || doc.id,

@@ -178,6 +178,8 @@ export const getPublicUsers = async (
     const validatedFilters = validatePublicUserFilter(filters);
 
     // Build query constraints
+    // Note: We filter out 'deleted' users client-side because Firestore 
+    // doesn't support != queries combined with other where clauses efficiently
     const constraints: QueryConstraint[] = [
       where('accountType', '==', 'public'),
     ];
@@ -205,9 +207,15 @@ export const getPublicUsers = async (
     const usersQuery = query(collection(db, USERS_COLLECTION), ...constraints);
     const snapshot = await getDocs(usersQuery);
 
+    // Filter out deleted users (users removed from Firebase Auth)
+    const nonDeletedDocs = snapshot.docs.filter(doc => {
+      const data = doc.data();
+      return data.status !== 'deleted';
+    });
+
     // Check if there are more results
-    const hasMore = snapshot.docs.length > validatedFilters.limit;
-    const docs = hasMore ? snapshot.docs.slice(0, -1) : snapshot.docs;
+    const hasMore = nonDeletedDocs.length > validatedFilters.limit;
+    const docs = hasMore ? nonDeletedDocs.slice(0, -1) : nonDeletedDocs;
     const lastDoc = docs.length > 0 ? docs[docs.length - 1] : null;
 
     // Convert documents to public users with stats

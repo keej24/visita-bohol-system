@@ -79,6 +79,7 @@ import NotFound from "./pages/NotFound";  // 404 page (page doesn't exist)
 import Register from "./pages/Register";  // Registration page (for public users - not used much)
 import { MuseumResearcherSetup } from "./pages/MuseumResearcherSetup";  // Museum researcher account setup
 import EmailVerified from "./pages/EmailVerified";  // Mobile app email verification success page
+import AuthAction from "./pages/AuthAction";  // Custom Firebase auth action handler (email verification, etc.)
 
 // ===========================
 // STEP 4: LOADING SPINNER
@@ -156,6 +157,7 @@ const App = () => (
             <Route path="/register" element={<Register />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="/email-verified" element={<EmailVerified />} />
+            <Route path="/auth/action" element={<AuthAction />} />
             
             {/* ===========================
                 ROOT PATH (/)

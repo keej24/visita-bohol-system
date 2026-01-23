@@ -158,13 +158,16 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
           displayName: data.displayName || data.name,
           email: data.email,
           role: data.role,
-          accountType: data.accountType
+          accountType: data.accountType,
+          status: data.status
         });
 
         // Only include users that are NOT admin users (no role field or accountType is public)
+        // Also exclude users with 'deleted' status (users removed from Firebase Auth)
         const isAdminUser = data.role && ['chancery_office', 'parish_secretary', 'museum_researcher'].includes(data.role);
+        const isDeletedUser = data.status === 'deleted';
 
-        if (!isAdminUser) {
+        if (!isAdminUser && !isDeletedUser) {
           console.log('✅ Including user:', doc.id);
           fetchedUsers.push({
             id: doc.id,
@@ -182,6 +185,8 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
             createdAt: data.createdAt || null,
             lastLoginAt: data.lastLoginAt || undefined,
           });
+        } else if (isDeletedUser) {
+          console.log('⏭️ Skipping deleted user:', doc.id);
         } else {
           console.log('⏭️ Skipping admin user:', doc.id);
         }

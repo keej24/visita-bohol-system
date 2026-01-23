@@ -190,6 +190,8 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     description: formData.description,
     classification: formData.classification,
     religiousClassification: formData.religiousClassification,
+    // Persist religiousClassifications array in historicalDetails
+    historicalDetails: formData.historicalDetails,
     assignedPriest: formData.assignedPriest,
     feastDay: formData.feastDay,
     massSchedules: formData.massSchedules,

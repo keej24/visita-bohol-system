@@ -213,6 +213,18 @@ const Churches = () => {
         data.historicalDetails.religiousClassification === 'Papal Basilica Affinity' ? 'papal_basilica_affinity' :
         'none'
       ) as ReligiousClassification,
+      // Save religiousClassifications array in historicalDetails for persistence
+      historicalDetails: {
+        religiousClassifications: (data.historicalDetails.religiousClassifications || []).map((c: string) => {
+          switch (c) {
+            case 'Diocesan Shrine': return 'diocesan_shrine';
+            case 'Jubilee Church': return 'jubilee_church';
+            case 'Papal Basilica Affinity': return 'papal_basilica_affinity';
+            case 'Holy Door': return 'holy_door';
+            default: return c.toLowerCase().replace(/\s+/g, '_');
+          }
+        })
+      },
       assignedPriest: data.currentParishPriest || '',
       massSchedules: (data.massSchedules || []).map(schedule => ({
         day: schedule.day || '',

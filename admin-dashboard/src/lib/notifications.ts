@@ -238,55 +238,87 @@ export class NotificationService {
   /**
    * Get notifications for a specific user
    */
-  async getUserNotifications(
-    userProfile: UserProfile | null,
-    limitCount: number = 20,
-    unreadOnly: boolean = false
-  ): Promise<Notification[]> {
-    try {
-      // Guard clause: return empty if no profile
-      if (!userProfile || !userProfile.uid) {
-        console.warn('Cannot fetch notifications: user profile is null or missing UID');
-        return [];
-      }
-
-      let q = query(
-        collection(db, 'notifications'),
-        orderBy('createdAt', 'desc'),
-        limit(limitCount)
-      );
-
-      if (unreadOnly) {
-        q = query(
-          q,
-          where('readBy', 'not-in', [userProfile.uid])
-        );
-      }
-
-      const snapshot = await getDocs(q);
-      const notifications: Notification[] = [];
-
-      snapshot.docs.forEach(doc => {
-        const data = { id: doc.id, ...doc.data() } as Notification;
-
-        // Check if notification is relevant to user
-        if (this.isNotificationRelevantToUser(data, userProfile)) {
-          notifications.push(data);
+    async getUserNotifications(
+      userProfile: UserProfile | null,
+      limitCount: number = 20,
+      unreadOnly: boolean = false
+    ): Promise<Notification[]> {
+      try {
+        if (!userProfile || !userProfile.uid) {
+          console.warn('Cannot fetch notifications: user profile is null or missing UID');
+          return [];
         }
-      });
 
-      return notifications;
-    } catch (error: unknown) {
-      // Silently handle permission errors during account creation or when user doesn't exist
-      const firebaseError = error as { code?: string };
-      if (firebaseError?.code === 'permission-denied') {
-        // This is expected for new users or when no notifications exist yet
+        // Query notifications where user is direct recipient
+        const userIdQuery = query(
+          collection(db, 'notifications'),
+          where('recipients.userIds', 'array-contains', userProfile.uid),
+          orderBy('createdAt', 'desc'),
+          limit(limitCount)
+        );
+
+        // Query notifications where user matches role and diocese
+        let roleQuery;
+        if (userProfile.diocese) {
+          roleQuery = query(
+            collection(db, 'notifications'),
+            where('recipients.roles', 'array-contains', userProfile.role),
+            where('recipients.dioceses', 'array-contains', userProfile.diocese),
+            orderBy('createdAt', 'desc'),
+            limit(limitCount)
+          );
+        } else {
+          roleQuery = query(
+            collection(db, 'notifications'),
+            where('recipients.roles', 'array-contains', userProfile.role),
+            orderBy('createdAt', 'desc'),
+            limit(limitCount)
+          );
+        }
+
+        // Run both queries in parallel
+        const [userIdSnap, roleSnap] = await Promise.all([
+          getDocs(userIdQuery),
+          getDocs(roleQuery)
+        ]);
+
+        // Merge and deduplicate notifications
+        const notificationsMap = new Map<string, Notification>();
+        userIdSnap.docs.forEach(doc => {
+          const docData = doc.data();
+          if (typeof docData === 'object' && docData !== null) {
+            const data = { id: doc.id, ...docData } as Notification;
+            if (!unreadOnly || !(data.readBy?.includes(userProfile.uid))) {
+              notificationsMap.set(doc.id, data);
+            }
+          }
+        });
+        roleSnap.docs.forEach(doc => {
+          const docData = doc.data();
+          if (typeof docData === 'object' && docData !== null) {
+            const data = { id: doc.id, ...docData } as Notification;
+            if (!unreadOnly || !(data.readBy?.includes(userProfile.uid))) {
+              notificationsMap.set(doc.id, data);
+            }
+          }
+        });
+
+        // Sort by createdAt descending
+        const notifications = Array.from(notificationsMap.values()).sort((a, b) => {
+          if (!a.createdAt || !b.createdAt) return 0;
+          return b.createdAt.toMillis() - a.createdAt.toMillis();
+        });
+
+        return notifications.slice(0, limitCount);
+      } catch (error: unknown) {
+        const firebaseError = error as { code?: string };
+        if (firebaseError?.code === 'permission-denied') {
+          return [];
+        }
+        console.error('Error fetching user notifications:', error);
         return [];
       }
-      console.error('Error fetching user notifications:', error);
-      return [];
     }
-  }
 
   /**
    * Mark notification as read

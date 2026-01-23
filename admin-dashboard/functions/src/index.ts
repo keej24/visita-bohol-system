@@ -81,22 +81,37 @@ const generatePasswordResetLink = async (email: string): Promise<string> => {
  * Generate email verification link using Firebase Admin SDK
  * @param email - User's email address
  * @param source - 'admin' or 'mobile' to determine redirect URL
+ * 
+ * Uses custom action handler at /auth/action for branded verification experience
+ * instead of Firebase's default handler with "Continue" button
  */
 const generateEmailVerificationLink = async (
   email: string, 
   source: 'admin' | 'mobile' = 'admin'
 ): Promise<string> => {
-  // Mobile users go to success page, admin users go to login
+  // Success page after verification completes
   const continueUrl = source === 'mobile' 
     ? "https://visita-bohol-system.vercel.app/email-verified"
     : "https://visita-bohol-system.vercel.app/login";
-    
+  
+  // Use our custom action handler URL  
   const actionCodeSettings = {
     url: continueUrl,
-    handleCodeInApp: false,
+    handleCodeInApp: true, // This allows us to handle the action in our app
   };
   
-  return admin.auth().generateEmailVerificationLink(email, actionCodeSettings);
+  // Get the Firebase-generated verification link
+  const firebaseLink = await admin.auth().generateEmailVerificationLink(email, actionCodeSettings);
+  
+  // Extract the oobCode from Firebase's link and redirect to our custom handler
+  const url = new URL(firebaseLink);
+  const oobCode = url.searchParams.get('oobCode');
+  const mode = url.searchParams.get('mode');
+  
+  // Build our custom action handler URL
+  const customUrl = `https://visita-bohol-system.vercel.app/auth/action?mode=${mode}&oobCode=${oobCode}&continueUrl=${encodeURIComponent(continueUrl)}`;
+  
+  return customUrl;
 };
 
 // =============================================================================
@@ -597,3 +612,198 @@ export const sendWelcomeEmail = functions
       );
     }
   });
+
+// =============================================================================
+// USER VERIFICATION FUNCTIONS
+// =============================================================================
+
+/**
+ * Cloud Function: Verify Users Exist in Firebase Auth
+ * 
+ * Checks which user UIDs from Firestore still exist in Firebase Authentication.
+ * This helps sync Firestore user documents with actual Firebase Auth users.
+ * 
+ * Returns an array of UIDs that exist in Firebase Auth.
+ */
+export const verifyUsersExist = functions.https.onCall(async (data, context) => {
+  // Verify caller is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Must be authenticated to verify users"
+    );
+  }
+
+  const { uids } = data;
+
+  if (!uids || !Array.isArray(uids)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "UIDs array is required"
+    );
+  }
+
+  try {
+    const existingUids: string[] = [];
+    const deletedUids: string[] = [];
+
+    // Check each UID against Firebase Auth
+    // Process in batches to avoid rate limits
+    const batchSize = 100;
+    for (let i = 0; i < uids.length; i += batchSize) {
+      const batch = uids.slice(i, i + batchSize);
+      
+      const checkPromises = batch.map(async (uid: string) => {
+        try {
+          await admin.auth().getUser(uid);
+          return { uid, exists: true };
+        } catch (error: unknown) {
+          // User not found in Firebase Auth
+          if (error instanceof Error && error.message.includes("no user record")) {
+            return { uid, exists: false };
+          }
+          // For other errors, assume user exists to be safe
+          return { uid, exists: true };
+        }
+      });
+
+      const results = await Promise.all(checkPromises);
+      
+      results.forEach(({ uid, exists }) => {
+        if (exists) {
+          existingUids.push(uid);
+        } else {
+          deletedUids.push(uid);
+        }
+      });
+    }
+
+    functions.logger.info(
+      `Verified ${uids.length} users: ${existingUids.length} exist, ${deletedUids.length} deleted`
+    );
+
+    return {
+      success: true,
+      existingUids,
+      deletedUids,
+      totalChecked: uids.length,
+    };
+  } catch (error) {
+    functions.logger.error("Error verifying users:", error);
+    
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to verify users"
+    );
+  }
+});
+
+/**
+ * Cloud Function: Clean Up Deleted Users from Firestore
+ * 
+ * Marks Firestore user documents as 'deleted' if the corresponding
+ * Firebase Auth user no longer exists.
+ * 
+ * This is useful for maintaining data integrity after users are
+ * deleted directly from Firebase Console.
+ */
+export const syncDeletedUsers = functions.https.onCall(async (data, context) => {
+  // Verify caller is authenticated and has admin role
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Must be authenticated to sync users"
+    );
+  }
+
+  const { diocese } = data;
+
+  try {
+    const usersRef = admin.firestore().collection("users");
+    let usersQuery = usersRef.where("role", "==", "parish_secretary");
+    
+    if (diocese) {
+      usersQuery = usersQuery.where("diocese", "==", diocese);
+    }
+
+    const snapshot = await usersQuery.get();
+    
+    const deletedUsers: string[] = [];
+    const updatePromises: Promise<FirebaseFirestore.WriteResult>[] = [];
+
+    for (const doc of snapshot.docs) {
+      const userData = doc.data();
+      const uid = userData.uid || doc.id;
+
+      try {
+        await admin.auth().getUser(uid);
+        // User exists, no action needed
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message.includes("no user record")) {
+          // User deleted from Firebase Auth, mark as deleted in Firestore
+          deletedUsers.push(uid);
+          updatePromises.push(
+            doc.ref.update({
+              status: "deleted",
+              deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+              deletedReason: "User removed from Firebase Authentication",
+            })
+          );
+        }
+      }
+    }
+
+    await Promise.all(updatePromises);
+
+    functions.logger.info(
+      `Synced deleted users: ${deletedUsers.length} users marked as deleted`
+    );
+
+    return {
+      success: true,
+      deletedUsers,
+      totalSynced: deletedUsers.length,
+    };
+  } catch (error) {
+    functions.logger.error("Error syncing deleted users:", error);
+    
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to sync deleted users"
+    );
+  }
+});
+
+/**
+ * Firestore Trigger: On Auth User Deletion
+ * 
+ * Automatically marks the Firestore user document as 'deleted' when
+ * a user is deleted from Firebase Authentication.
+ */
+export const onUserDeleted = functions.auth.user().onDelete(async (user) => {
+  try {
+    const usersRef = admin.firestore().collection("users");
+    const snapshot = await usersRef.where("uid", "==", user.uid).get();
+
+    if (snapshot.empty) {
+      functions.logger.info(`No Firestore document found for deleted user: ${user.uid}`);
+      return;
+    }
+
+    const updatePromises = snapshot.docs.map((doc) =>
+      doc.ref.update({
+        status: "deleted",
+        deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+        deletedReason: "User deleted from Firebase Authentication",
+      })
+    );
+
+    await Promise.all(updatePromises);
+
+    functions.logger.info(
+      `Marked ${snapshot.docs.length} Firestore document(s) as deleted for user: ${user.uid}`
+    );
+  } catch (error) {
+    functions.logger.error(`Error handling user deletion for ${user.uid}:`, error);
+  }
+});

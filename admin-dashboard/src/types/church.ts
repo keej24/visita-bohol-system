@@ -115,6 +115,9 @@ export interface ChurchFormData {
   description: string;
   classification: ChurchClassification;
   religiousClassification?: ReligiousClassification;
+  historicalDetails?: {
+    religiousClassifications?: string[];
+  };
   assignedPriest?: string;
   feastDay?: string; // Feast day of the parish patron saint
   massSchedules: MassSchedule[];
