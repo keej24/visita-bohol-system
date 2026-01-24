@@ -217,8 +217,8 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
 
         {/* Right side - Profile */}
         <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0">
-          {/* Notification Bell */}
-          <NotificationDropdown />
+          {/* Notification Bell - Hidden for Parish Secretary */}
+          {!isParish && <NotificationDropdown />}
 
           {/* Profile Menu */}
           <DropdownMenu>

@@ -107,10 +107,8 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
       containerRef.current.innerHTML = '';
       containerRef.current.appendChild(viewerDiv);
 
-      // Use ref to get current hotspots (not stale closure value)
-      const currentHotspots = hotspotsRef.current;
-      
-      // Initialize viewer
+      // Initialize viewer WITHOUT hotspots - let the sync effect handle all hotspot additions
+      // This prevents duplication issues when the viewer config hotspots and addHotSpot() are mixed
       const viewer = pannellum.viewer(`pannellum-viewer-${viewerKey}`, {
         type: 'equirectangular',
         panorama: scene.imageUrl,
@@ -119,24 +117,13 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
         showFullscreenCtrl: false,
         showZoomCtrl: true,
         mouseZoom: true,
-        hotSpots: currentHotspots.map((h) => ({
-          ...h,
-          cssClass: h.type === 'info' ? 'info-hotspot' : 'navigation-hotspot',
-          createTooltipFunc: function(hotSpotDiv: HTMLElement) {
-            const span = document.createElement('span');
-            span.innerHTML = h.label;
-            hotSpotDiv.appendChild(span);
-          },
-          clickHandlerFunc: function() {
-            setSelectedHotspot(h.id);
-          },
-        })),
+        hotSpots: [], // Start empty - sync effect will add all hotspots
       });
 
       viewerRef.current = viewer;
       
-      // Initialize tracking with hotspots added during viewer init
-      currentHotspotIds.current = currentHotspots.map(h => h.id);
+      // Reset tracking - sync effect will populate this
+      currentHotspotIds.current = [];
       
       setViewerReady(true);
 
@@ -164,38 +151,29 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
   useEffect(() => {
     if (!viewerRef.current || !viewerReady || isEditingText || saving) return;
 
-    console.log('[HotspotEditor] Syncing hotspots with viewer. Current:', currentHotspotIds.current, 'New:', hotspots.map(h => h.id));
+    const newHotspotIds = hotspots.map(h => h.id);
+    console.log('[HotspotEditor] Syncing hotspots with viewer. Current:', currentHotspotIds.current, 'New:', newHotspotIds);
 
-    // Step 1: Remove hotspots that no longer exist
-    const currentIds = new Set(hotspots.map(h => h.id));
-    const idsToRemove = currentHotspotIds.current.filter(id => !currentIds.has(id));
-
-    idsToRemove.forEach((id) => {
+    // Step 1: Remove ALL currently tracked hotspots from viewer
+    // This ensures clean state before re-adding
+    currentHotspotIds.current.forEach((id) => {
       try {
         viewerRef.current.removeHotSpot(id);
         console.log('[HotspotEditor] Removed hotspot:', id);
       } catch (error) {
-        console.warn('[HotspotEditor] Failed to remove hotspot:', id, error);
+        // Hotspot may not exist in viewer, that's okay
+        console.warn('[HotspotEditor] Failed to remove hotspot (may not exist):', id);
       }
     });
 
-    // Step 2: Update or add hotspots
+    // Step 2: Add all hotspots fresh
+    // Using a fresh add for each ensures no stale closures or duplicates
     hotspots.forEach((h) => {
-      const exists = currentHotspotIds.current.includes(h.id);
-
-      if (exists) {
-        // Update existing hotspot by removing and re-adding
-        try {
-          viewerRef.current.removeHotSpot(h.id);
-        } catch (error) {
-          console.warn('[HotspotEditor] Hotspot already removed:', h.id);
-        }
-      }
-
-      // Add the hotspot
       try {
+        // Create a local copy of the hotspot id to avoid closure issues
+        const hotspotId = h.id;
         viewerRef.current.addHotSpot({
-          id: h.id,
+          id: hotspotId,
           pitch: h.pitch,
           yaw: h.yaw,
           type: 'info', // Pannellum type (always 'info' for custom hotspots)
@@ -206,17 +184,17 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
             hotSpotDiv.appendChild(span);
           },
           clickHandlerFunc: function() {
-            setSelectedHotspot(h.id);
+            setSelectedHotspot(hotspotId);
           },
         });
-        console.log('[HotspotEditor] Added/Updated hotspot:', h.id, `at pitch=${h.pitch}, yaw=${h.yaw}`);
+        console.log('[HotspotEditor] Added hotspot:', hotspotId, `at pitch=${h.pitch}, yaw=${h.yaw}`);
       } catch (error) {
         console.error('[HotspotEditor] Failed to add hotspot:', h.id, error);
       }
     });
 
-    // Step 3: Update tracking
-    currentHotspotIds.current = hotspots.map(h => h.id);
+    // Step 3: Update tracking with the new set of IDs
+    currentHotspotIds.current = [...newHotspotIds];
     console.log('[HotspotEditor] Sync complete. Active hotspots:', currentHotspotIds.current);
   }, [hotspots, viewerReady, isEditingText, saving]);
 
@@ -549,14 +527,14 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
         <style>{`
           /* Navigation hotspot - Green circle with link icon */
           .navigation-hotspot {
-            width: 44px;
-            height: 44px;
+            width: 28px;
+            height: 28px;
             background: rgba(34, 197, 94, 0.95);
-            border: 3px solid white;
+            border: 2px solid white;
             border-radius: 50%;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -564,7 +542,7 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
 
           .navigation-hotspot::before {
             content: '🔗';
-            font-size: 20px;
+            font-size: 12px;
           }
 
           .navigation-hotspot:hover {
@@ -575,14 +553,14 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
 
           /* Info hotspot - Blue circle with info icon */
           .info-hotspot {
-            width: 44px;
-            height: 44px;
+            width: 28px;
+            height: 28px;
             background: rgba(59, 130, 246, 0.95);
-            border: 3px solid white;
+            border: 2px solid white;
             border-radius: 50%;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -591,7 +569,7 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
           .info-hotspot::before {
             content: 'ℹ';
             color: white;
-            font-size: 26px;
+            font-size: 14px;
             font-weight: bold;
           }
 

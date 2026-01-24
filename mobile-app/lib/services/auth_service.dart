@@ -504,7 +504,7 @@ class AuthService extends ChangeNotifier {
       try {
         final functions = FirebaseFunctions.instance;
         final callable = functions.httpsCallable('sendPasswordResetEmail');
-        await callable.call({'email': email});
+        await callable.call({'email': email, 'source': 'mobile'});
         debugPrint('✅ Custom branded password reset email sent');
       } catch (cloudFunctionError) {
         // Fallback to Firebase default email if Cloud Function fails

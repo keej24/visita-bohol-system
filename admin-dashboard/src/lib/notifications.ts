@@ -4,12 +4,13 @@ import type { ChurchStatus } from '@/lib/churches';
 import type { UserProfile, Diocese } from '@/contexts/AuthContext';
 
 export type NotificationType =
-  | 'status_change'
-  | 'heritage_review_assigned'
-  | 'revision_requested'
-  | 'church_approved'
-  | 'workflow_error'
-  | 'system_notification';
+  | 'church_submitted'           // Parish submitted church for review → Chancery
+  | 'heritage_review_assigned'   // Chancery forwarded to museum → Museum Researcher
+  | 'heritage_validated'         // Museum validated heritage church → Chancery
+  | 'revision_requested'         // Chancery/Museum requested revisions → Parish
+  | 'church_approved'            // Church is now published → Parish
+  | 'workflow_error'             // System error → Chancery
+  | 'system_notification';       // General system notification
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -55,58 +56,77 @@ export interface NotificationTemplate {
 }
 
 /**
- * Notification Templates for Different Status Changes
+ * Notification Templates for Church Approval Workflow
+ * 
+ * WORKFLOW:
+ * 1. Parish submits church → Chancery receives "church_submitted"
+ * 2. Chancery reviews:
+ *    - If heritage church → Museum receives "heritage_review_assigned"
+ *    - If non-heritage → Church approved, Parish receives "church_approved"
+ *    - If needs revision → Parish receives "revision_requested"
+ * 3. Museum validates heritage → Chancery receives "heritage_validated", Parish receives "church_approved"
  */
 const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
-  // Status Change Notifications
+  // Parish submitted church for review → Chancery Office
   {
-    type: 'status_change',
-    titleTemplate: 'Church Status Updated: {churchName}',
-    messageTemplate: 'Church "{churchName}" status changed from {fromStatus} to {toStatus} by {actionBy}',
-    priority: 'medium',
+    type: 'church_submitted',
+    titleTemplate: 'New Church Submission: {churchName}',
+    messageTemplate: 'Parish has submitted "{churchName}" for review. Please review the church profile and approve or request revisions.',
+    priority: 'high',
     recipientRules: {
-      roles: ['chancery_office', 'museum_researcher']
+      roles: ['chancery_office']
     }
   },
 
-  // Heritage Review Assignment
+  // Chancery forwarded to Museum for heritage validation → Museum Researcher
   {
     type: 'heritage_review_assigned',
     titleTemplate: 'Heritage Review Required: {churchName}',
-    messageTemplate: 'Church "{churchName}" has been assigned for heritage validation. Please review the cultural and historical significance.',
+    messageTemplate: '"{churchName}" has been forwarded for heritage validation. Please verify the cultural and historical significance before approval.',
     priority: 'high',
     recipientRules: {
       roles: ['museum_researcher']
     }
   },
 
-  // Revision Requests
+  // Museum validated heritage church → Chancery Office
+  {
+    type: 'heritage_validated',
+    titleTemplate: 'Heritage Validated: {churchName}',
+    messageTemplate: 'Museum Researcher has validated "{churchName}" as a heritage site. The church has been approved and published.',
+    priority: 'medium',
+    recipientRules: {
+      roles: ['chancery_office']
+    }
+  },
+
+  // Revision Requested → Parish Secretary
   {
     type: 'revision_requested',
     titleTemplate: 'Revision Requested: {churchName}',
-    messageTemplate: 'Your church profile "{churchName}" requires revisions. Please check the feedback and resubmit.',
+    messageTemplate: 'Your church profile "{churchName}" requires revisions. Please check the feedback and resubmit for approval.',
     priority: 'high',
     recipientRules: {
       roles: ['parish_secretary']
     }
   },
 
-  // Church Approval
+  // Church Approved/Published → Parish Secretary
   {
     type: 'church_approved',
-    titleTemplate: 'Church Approved: {churchName}',
-    messageTemplate: 'Congratulations! Church "{churchName}" has been approved and is now live for public viewing.',
+    titleTemplate: 'Church Published: {churchName}',
+    messageTemplate: 'Congratulations! "{churchName}" has been approved and is now live for public viewing in the VISITA app.',
     priority: 'medium',
     recipientRules: {
       roles: ['parish_secretary']
     }
   },
 
-  // Workflow Errors
+  // Workflow Errors → Chancery Office
   {
     type: 'workflow_error',
     titleTemplate: 'Workflow Issue: {churchName}',
-    messageTemplate: 'An issue occurred while processing church "{churchName}". Manual intervention may be required.',
+    messageTemplate: 'An issue occurred while processing "{churchName}". Manual intervention may be required.',
     priority: 'urgent',
     recipientRules: {
       roles: ['chancery_office']
@@ -128,7 +148,16 @@ export class NotificationService {
   }
 
   /**
-   * Create and send a notification for status change
+   * Create and send notifications based on church workflow status changes
+   * 
+   * ChurchStatus values: 'pending' | 'approved' | 'under_review' | 'heritage_review'
+   * 
+   * Workflow notifications:
+   * - Parish submits (pending → under_review) → Chancery gets "church_submitted"
+   * - Chancery forwards to museum (under_review → heritage_review) → Museum gets "heritage_review_assigned"
+   * - Museum validates (heritage_review → approved) → Chancery gets "heritage_validated", Parish gets "church_approved"
+   * - Chancery approves non-heritage (under_review → approved) → Parish gets "church_approved"
+   * - Revision requested (→ pending) → Parish gets "revision_requested"
    */
   async notifyStatusChange(
     churchId: string,
@@ -140,43 +169,36 @@ export class NotificationService {
     note?: string
   ): Promise<void> {
     try {
-      // Determine notification type based on status change
-      let notificationType: NotificationType = 'status_change';
+      const notifications: Array<{type: NotificationType; roles: string[]}> = [];
 
-      if (toStatus === 'heritage_review') {
-        notificationType = 'heritage_review_assigned';
-      } else if (toStatus === 'approved') {
-        notificationType = 'church_approved';
+      // Determine which notifications to send based on workflow transition
+      if (fromStatus === 'pending' && toStatus === 'under_review') {
+        // Parish submitted for review → Notify Chancery
+        notifications.push({ type: 'church_submitted', roles: ['chancery_office'] });
+      } else if (toStatus === 'heritage_review') {
+        // Chancery forwarded to museum → Notify Museum Researcher
+        notifications.push({ type: 'heritage_review_assigned', roles: ['museum_researcher'] });
+      } else if (fromStatus === 'heritage_review' && toStatus === 'approved') {
+        // Museum validated heritage church → Notify Chancery and Parish
+        notifications.push({ type: 'heritage_validated', roles: ['chancery_office'] });
+        notifications.push({ type: 'church_approved', roles: ['parish_secretary'] });
+      } else if (fromStatus === 'under_review' && toStatus === 'approved') {
+        // Chancery approved non-heritage church → Notify Parish
+        notifications.push({ type: 'church_approved', roles: ['parish_secretary'] });
+      } else if (toStatus === 'pending') {
+        // Revision requested (sent back to pending) → Notify Parish
+        notifications.push({ type: 'revision_requested', roles: ['parish_secretary'] });
       }
 
-      const template = this.templates.get(notificationType);
-      if (!template) {
-        console.warn(`No template found for notification type: ${notificationType}`);
-        return;
-      }
+      // Create each notification
+      for (const notif of notifications) {
+        const template = this.templates.get(notif.type);
+        if (!template) {
+          console.warn(`No template found for notification type: ${notif.type}`);
+          continue;
+        }
 
-      // Build notification data
-      const notificationData = {
-        churchId,
-        churchName,
-        fromStatus,
-        toStatus,
-        actionBy: {
-          uid: actionBy.uid,
-          name: actionBy.name,
-          role: actionBy.role
-        },
-        note,
-        diocese
-      };
-
-      const notification: Omit<Notification, 'id'> = {
-        type: notificationType,
-        priority: template.priority,
-        title: this.processTemplate(template.titleTemplate, notificationData),
-        message: this.processTemplate(template.messageTemplate, notificationData),
-        recipients: this.determineRecipients(template, notificationData),
-        relatedData: {
+        const notificationData = {
           churchId,
           churchName,
           fromStatus,
@@ -185,18 +207,43 @@ export class NotificationService {
             uid: actionBy.uid,
             name: actionBy.name,
             role: actionBy.role
-          }
-        },
-        createdAt: serverTimestamp() as Timestamp,
-        actionUrl: this.getActionUrl(notificationType, churchId),
-        metadata: {
-          diocese,
-          note
-        }
-      };
+          },
+          note,
+          diocese
+        };
 
-      // Save to Firestore
-      await addDoc(collection(db, 'notifications'), notification);
+        const notification: Omit<Notification, 'id'> = {
+          type: notif.type,
+          priority: template.priority,
+          title: this.processTemplate(template.titleTemplate, notificationData),
+          message: this.processTemplate(template.messageTemplate, notificationData),
+          recipients: {
+            roles: notif.roles,
+            dioceses: [diocese]
+          },
+          relatedData: {
+            churchId,
+            churchName,
+            fromStatus,
+            toStatus,
+            actionBy: {
+              uid: actionBy.uid,
+              name: actionBy.name,
+              role: actionBy.role
+            }
+          },
+          createdAt: serverTimestamp() as Timestamp,
+          actionUrl: this.getActionUrl(notif.type, churchId),
+          metadata: {
+            diocese,
+            note
+          }
+        };
+
+        // Save to Firestore
+        await addDoc(collection(db, 'notifications'), notification);
+        console.log(`[Notifications] Created ${notif.type} notification for ${notif.roles.join(', ')}`);
+      }
 
     } catch (error) {
       console.error('Error creating status change notification:', error);
@@ -257,24 +304,15 @@ export class NotificationService {
           limit(limitCount)
         );
 
-        // Query notifications where user matches role and diocese
-        let roleQuery;
-        if (userProfile.diocese) {
-          roleQuery = query(
-            collection(db, 'notifications'),
-            where('recipients.roles', 'array-contains', userProfile.role),
-            where('recipients.dioceses', 'array-contains', userProfile.diocese),
-            orderBy('createdAt', 'desc'),
-            limit(limitCount)
-          );
-        } else {
-          roleQuery = query(
-            collection(db, 'notifications'),
-            where('recipients.roles', 'array-contains', userProfile.role),
-            orderBy('createdAt', 'desc'),
-            limit(limitCount)
-          );
-        }
+        // Query notifications where user matches role
+        // Note: We filter by diocese client-side because Firestore doesn't support
+        // multiple array-contains in a single query
+        const roleQuery = query(
+          collection(db, 'notifications'),
+          where('recipients.roles', 'array-contains', userProfile.role),
+          orderBy('createdAt', 'desc'),
+          limit(limitCount * 2) // Fetch more to account for diocese filtering
+        );
 
         // Run both queries in parallel
         const [userIdSnap, roleSnap] = await Promise.all([
@@ -297,7 +335,13 @@ export class NotificationService {
           const docData = doc.data();
           if (typeof docData === 'object' && docData !== null) {
             const data = { id: doc.id, ...docData } as Notification;
-            if (!unreadOnly || !(data.readBy?.includes(userProfile.uid))) {
+            
+            // Filter by diocese client-side (since Firestore doesn't support multiple array-contains)
+            const dioceses = data.recipients?.dioceses;
+            const isDioceseMatch = !dioceses || dioceses.length === 0 || 
+                                   (userProfile.diocese && dioceses.includes(userProfile.diocese));
+            
+            if (isDioceseMatch && (!unreadOnly || !(data.readBy?.includes(userProfile.uid)))) {
               notificationsMap.set(doc.id, data);
             }
           }
@@ -400,13 +444,14 @@ export class NotificationService {
   }
 
   private getActionUrl(type: NotificationType, churchId?: string): string {
-    const baseUrls = {
-      heritage_review_assigned: '/heritage',
-      revision_requested: '/parish',
-      church_approved: '/churches',
-      status_change: '/churches',
-      workflow_error: '/churches',
-      system_notification: '/'
+    const baseUrls: Record<NotificationType, string> = {
+      church_submitted: '/chancery',        // Chancery review page
+      heritage_review_assigned: '/heritage', // Museum researcher page
+      heritage_validated: '/chancery',       // Chancery sees validated churches
+      revision_requested: '/parish',         // Parish dashboard
+      church_approved: '/churches',          // Church list
+      workflow_error: '/chancery',           // Chancery handles errors
+      system_notification: '/'               // Home
     };
 
     const baseUrl = baseUrls[type] || '/';

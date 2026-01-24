@@ -119,9 +119,17 @@ const generateEmailVerificationLink = async (
 // =============================================================================
 
 const emailTemplates = {
-  passwordReset: (resetLink: string) => ({
-    subject: "Reset Your VISITA Admin Password",
-    html: `
+  passwordReset: (resetLink: string, source: 'admin' | 'mobile' = 'admin') => {
+    const isAdmin = source === 'admin';
+    const appName = isAdmin ? 'VISITA Admin' : 'VISITA Bohol';
+    const subtitle = 'Bohol Churches Information System';
+    const description = isAdmin 
+      ? 'We received a request to reset the password for your VISITA admin account. Click the button below to create a new password.'
+      : 'We received a request to reset the password for your VISITA account. Click the button below to create a new password.';
+    
+    return {
+      subject: isAdmin ? 'Reset Your VISITA Admin Password' : 'Reset Your VISITA Password',
+      html: `
       <!DOCTYPE html>
       <html>
       <head>
@@ -137,14 +145,12 @@ const emailTemplates = {
                 <!-- Header -->
                 <tr>
                   <td style="padding: 40px 40px 20px; text-align: center;">
-                    <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #6366f1, #4f46e5); border-radius: 50%; line-height: 80px;">
-                      <span style="font-size: 32px;">⛪</span>
-                    </div>
+                    <img src="https://visita-bohol-system.vercel.app/visita-logo.png" alt="VISITA Logo" width="100" height="100" style="display: block; margin: 0 auto 20px; border-radius: 12px;">
                     <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b;">
-                      VISITA Admin
+                      ${appName}
                     </h1>
                     <p style="margin: 8px 0 0; font-size: 14px; color: #64748b;">
-                      Bohol Churches Information System
+                      ${subtitle}
                     </p>
                   </td>
                 </tr>
@@ -156,7 +162,7 @@ const emailTemplates = {
                       Reset Your Password
                     </h2>
                     <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #475569;">
-                      We received a request to reset the password for your VISITA admin account. Click the button below to create a new password.
+                      ${description}
                     </p>
                     
                     <!-- CTA Button -->
@@ -194,10 +200,10 @@ const emailTemplates = {
       </body>
       </html>
     `,
-    text: `
-VISITA Admin - Password Reset
+      text: `
+${appName} - Password Reset
 
-We received a request to reset the password for your VISITA admin account.
+${description}
 
 Click this link to reset your password:
 ${resetLink}
@@ -209,8 +215,9 @@ If you didn't request this, you can safely ignore this email.
 ---
 Diocese of Tagbilaran & Diocese of Talibon
 Bohol, Philippines
-    `.trim(),
-  }),
+      `.trim(),
+    };
+  },
 
   emailVerification: (verifyLink: string, source: 'admin' | 'mobile' = 'admin') => {
     const isAdmin = source === 'admin';
@@ -238,9 +245,7 @@ Bohol, Philippines
                 <!-- Header -->
                 <tr>
                   <td style="padding: 40px 40px 20px; text-align: center;">
-                    <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: 50%; line-height: 80px;">
-                      <span style="font-size: 32px;">✉️</span>
-                    </div>
+                    <img src="https://visita-bohol-system.vercel.app/visita-logo.png" alt="VISITA Logo" width="100" height="100" style="display: block; margin: 0 auto 20px; border-radius: 12px;">
                     <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b;">
                       ${appName}
                     </h1>
@@ -331,9 +336,7 @@ Bohol, Philippines
                 <!-- Header -->
                 <tr>
                   <td style="padding: 40px 40px 20px; text-align: center;">
-                    <div style="width: 80px; height: 80px; margin: 0 auto 20px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; line-height: 80px;">
-                      <span style="font-size: 32px;">🎉</span>
-                    </div>
+                    <img src="https://visita-bohol-system.vercel.app/visita-logo.png" alt="VISITA Logo" width="100" height="100" style="display: block; margin: 0 auto 20px; border-radius: 12px;">
                     <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b;">
                       Welcome to VISITA!
                     </h1>
@@ -427,7 +430,15 @@ Diocese of Tagbilaran & Diocese of Talibon
 export const sendPasswordResetEmail = functions
   .runWith({ secrets: ["GMAIL_EMAIL", "GMAIL_APP_PASSWORD"] })
   .https.onCall(async (data) => {
-    const { email } = data;
+    const { email, source } = data;
+
+    // Log received parameters for debugging
+    functions.logger.info(`Password reset requested - email: ${email}, source: ${source || 'undefined'}`);
+
+    // Determine source: 'admin' or 'mobile' (default to 'admin' for backward compatibility)
+    const emailSource: 'admin' | 'mobile' = source === 'mobile' ? 'mobile' : 'admin';
+    
+    functions.logger.info(`Using email template for: ${emailSource}`);
 
     // Validate email
     if (!email || typeof email !== "string") {
@@ -459,7 +470,7 @@ export const sendPasswordResetEmail = functions
 
       // Send email via Gmail SMTP
       const transporter = createGmailTransporter();
-      const template = emailTemplates.passwordReset(resetLink);
+      const template = emailTemplates.passwordReset(resetLink, emailSource);
       
       await transporter.sendMail({
         from: `"${EMAIL_CONFIG.fromName}" <${process.env.GMAIL_EMAIL}>`,

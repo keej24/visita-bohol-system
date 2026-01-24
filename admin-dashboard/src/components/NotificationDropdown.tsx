@@ -60,18 +60,20 @@ export function NotificationDropdown() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
+      case 'church_submitted':
+        return '📥';  // Parish submitted church for review
       case 'church_approved':
-        return '✅';
+        return '✅';  // Church published
       case 'revision_requested':
-        return '📝';
+        return '📝';  // Revision needed
       case 'heritage_review_assigned':
-        return '🏛️';
-      case 'status_change':
-        return '🔄';
+        return '🏛️';  // Sent to museum researcher
+      case 'heritage_validated':
+        return '🎖️';  // Museum validated heritage
       case 'workflow_error':
-        return '⚠️';
+        return '⚠️';  // Error
       default:
-        return '📢';
+        return '📢';  // System notification
     }
   };
 

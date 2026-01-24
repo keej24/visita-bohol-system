@@ -117,7 +117,14 @@ const ParishDashboard = () => {
   const [existingChurch, setExistingChurch] = useState<Church | null>(null);
   
   // Load dismissed state from localStorage - use uid for consistent key
-  const [dismissedApprovedBanner, setDismissedApprovedBanner] = useState(false);
+  // Initialize from localStorage immediately if uid is available
+  const [dismissedApprovedBanner, setDismissedApprovedBanner] = useState(() => {
+    if (typeof window !== 'undefined' && userProfile?.uid) {
+      const key = `dismissed_approval_banner_${userProfile.uid}`;
+      return localStorage.getItem(key) === 'true';
+    }
+    return false;
+  });
   
   // Sync dismissed state from localStorage once userProfile.uid is available
   // This handles the case where userProfile loads asynchronously
@@ -125,7 +132,9 @@ const ParishDashboard = () => {
     if (userProfile?.uid) {
       const key = `dismissed_approval_banner_${userProfile.uid}`;
       const dismissed = localStorage.getItem(key) === 'true';
-      setDismissedApprovedBanner(dismissed);
+      if (dismissed) {
+        setDismissedApprovedBanner(true);
+      }
     }
   }, [userProfile?.uid]);
 
