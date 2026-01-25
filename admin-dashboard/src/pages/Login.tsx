@@ -59,8 +59,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Church, Loader2, Eye, EyeOff, Mail, Building2, Landmark, ArrowLeft, AlertCircle } from 'lucide-react';
-import { signOut, sendPasswordResetEmail } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { auth, db, functions } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/components/ui/use-toast';
 import { resolveUsernameToEmail, isValidAdminUsername, getUsernameDisplayName, getKnownAccountProfile } from '@/lib/auth-utils';
@@ -185,8 +186,9 @@ const Login = () => {
 
     setResetLoading(true);
     try {
-      // Use Firebase Auth's native password reset
-      await sendPasswordResetEmail(auth, resetEmail);
+      // Use Cloud Function for branded password reset email (same as mobile app)
+      const sendPasswordResetEmailFn = httpsCallable(functions, 'sendPasswordResetEmail');
+      await sendPasswordResetEmailFn({ email: resetEmail, source: 'admin' });
       
       toast({
         title: "Success",

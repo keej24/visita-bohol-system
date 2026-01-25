@@ -181,11 +181,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         const SizedBox(height: 8),
                         Text(
                           '1. Check your email inbox AND spam/junk folder\n'
-                          '2. Look for email from "noreply@visitaproject-5cd9f.firebaseapp.com"\n'
-                          '3. Mark as "Not Spam" if found in spam folder\n'
-                          '4. Click the reset link ONCE\n'
-                          '5. Complete the password reset in your browser',
+                          '2. Look for email from "VISITA Bohol Churches Information System"\n'
+                          '3. Click the "Reset Password" button in the email\n'
+                          '4. Complete the password reset in your browser',
                           style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.green.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.green.shade700,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'You will receive an email with a secure reset link.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green.shade800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Container(
@@ -200,14 +229,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.info_outline,
+                                Icons.schedule,
                                 color: Colors.blue.shade700,
                                 size: 18,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Email may take 2-5 minutes to arrive. Check spam folder if not in inbox.',
+                                  'Email typically arrives within 1-2 minutes. Check spam folder if not in inbox.',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.blue.shade800,
@@ -217,76 +246,31 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: 0.2),
+                            color: Colors.amber.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Colors.amber.withValues(alpha: 0.5),
+                              color: Colors.amber.withValues(alpha: 0.4),
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.warning_amber_rounded,
-                                    color: Colors.amber.shade800,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Important: How to use the reset link',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.amber.shade900,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              Icon(
+                                Icons.timer,
+                                color: Colors.amber.shade800,
+                                size: 18,
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '• Open gmail.com in a web browser (not Gmail app)\n'
-                                '• Or use incognito/private browsing mode\n'
-                                '• Click the link ONLY ONCE\n'
-                                '• Complete reset immediately',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.amber.shade900,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.lightbulb_outline,
-                                      size: 14,
-                                      color: Colors.blue.shade700,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        'Gmail works fine! Just use the web version instead of the mobile app',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.blue.shade900,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'The reset link expires in 1 hour. Complete the reset promptly.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.amber.shade900,
+                                  ),
                                 ),
                               ),
                             ],
