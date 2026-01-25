@@ -463,6 +463,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
     }
   };
 
+  const getStatusDisplayText = (status: string) => {
+    switch (status) {
+      case 'active': return 'Active';
+      case 'inactive': return 'Deactivated';
+      case 'pending': return 'Pending';
+      default: return status;
+    }
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'chancery_office': return 'bg-blue-100 text-blue-800';
@@ -545,7 +554,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
-                <span className="font-semibold text-red-900">Inactive</span>
+                <span className="font-semibold text-red-900">Deactivated</span>
               </div>
               <p className="text-2xl font-bold text-red-900 mt-1">{stats.inactive}</p>
             </div>
@@ -571,7 +580,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="inactive">Deactivated</SelectItem>
               </SelectContent>
             </Select>
             <Button 
@@ -603,7 +612,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
                           <h3 className="font-semibold">{user.name}</h3>
                           <Badge className={`${getStatusColor(user.status)} text-xs`}>
                             {getStatusIcon(user.status)}
-                            <span className="ml-1">{user.status}</span>
+                            <span className="ml-1">{getStatusDisplayText(user.status)}</span>
                           </Badge>
                         </div>
 
