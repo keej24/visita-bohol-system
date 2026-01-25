@@ -982,7 +982,9 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
                 Ready to Upload ({pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''})
               </h4>
               <p className="text-xs text-blue-700 mt-1">
-                Drag to reorder • First image will be the start scene
+                Drag to reorder{(tour?.scenes.length || 0) === 0 
+                  ? ' • First image will be the start scene' 
+                  : ' • New scenes will be added to the existing tour'}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1061,8 +1063,8 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
                   </p>
                 </div>
                 
-                {/* Start Scene Badge */}
-                {index === 0 && (
+                {/* Start Scene Badge - only show when no existing scenes */}
+                {index === 0 && (tour?.scenes.length || 0) === 0 && (
                   <div className="absolute top-1 left-7 px-1.5 py-0.5 bg-green-500 text-white text-[10px] font-medium rounded">
                     Start
                   </div>
