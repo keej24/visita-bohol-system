@@ -9,6 +9,7 @@ export type NotificationType =
   | 'heritage_validated'         // Museum validated heritage church → Chancery
   | 'revision_requested'         // Chancery/Museum requested revisions → Parish
   | 'church_approved'            // Church is now published → Parish
+  | 'church_unpublished'         // Church was unpublished by Chancery → Parish
   | 'workflow_error'             // System error → Chancery
   | 'system_notification';       // General system notification
 
@@ -117,6 +118,17 @@ const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
     titleTemplate: 'Church Published: {churchName}',
     messageTemplate: 'Congratulations! "{churchName}" has been approved and is now live for public viewing in the VISITA app.',
     priority: 'medium',
+    recipientRules: {
+      roles: ['parish_secretary']
+    }
+  },
+
+  // Church Unpublished → Parish Secretary
+  {
+    type: 'church_unpublished',
+    titleTemplate: 'Church Unpublished: {churchName}',
+    messageTemplate: '"{churchName}" has been unpublished by the Chancery Office. Reason: {reason}. You can republish it later by submitting for review again.',
+    priority: 'high',
     recipientRules: {
       roles: ['parish_secretary']
     }
@@ -450,6 +462,7 @@ export class NotificationService {
       heritage_validated: '/chancery',       // Chancery sees validated churches
       revision_requested: '/parish',         // Parish dashboard
       church_approved: '/churches',          // Church list
+      church_unpublished: '/parish',         // Parish dashboard for unpublished
       workflow_error: '/chancery',           // Chancery handles errors
       system_notification: '/'               // Home
     };
@@ -505,4 +518,63 @@ export async function notifyChurchStatusChange(
     actionBy.diocese,
     note
   );
+}
+
+/**
+ * Utility function to notify parish secretary when their church is unpublished
+ */
+export async function notifyChurchUnpublished(
+  churchId: string,
+  churchName: string,
+  reason: string,
+  actionBy: UserProfile
+): Promise<void> {
+  try {
+    const template = notificationService['templates'].get('church_unpublished');
+    if (!template) {
+      console.warn('No template found for church_unpublished notification');
+      return;
+    }
+
+    // Replace placeholders in title and message
+    const title = template.titleTemplate.replace('{churchName}', churchName);
+    const message = template.messageTemplate
+      .replace('{churchName}', churchName)
+      .replace('{reason}', reason);
+
+    const notification: Omit<Notification, 'id'> = {
+      type: 'church_unpublished',
+      priority: template.priority,
+      title,
+      message,
+      recipients: {
+        roles: ['parish_secretary'],
+        dioceses: [actionBy.diocese]
+      },
+      relatedData: {
+        churchId,
+        churchName,
+        fromStatus: 'approved',
+        toStatus: 'approved', // We use 'approved' here since 'draft' is not in ChurchStatus type for notifications
+        actionBy: {
+          uid: actionBy.uid,
+          name: actionBy.name || actionBy.email,
+          role: actionBy.role
+        }
+      },
+      createdAt: Timestamp.now(),
+      isRead: false,
+      readBy: [],
+      actionUrl: `/parish/dashboard`,
+      metadata: {
+        unpublishReason: reason
+      }
+    };
+
+    await addDoc(collection(db, 'notifications'), notification);
+    console.log(`Church unpublished notification sent for: ${churchName}`);
+  } catch (error) {
+    console.error('Error sending unpublish notification:', error);
+    // Don't throw - notification failure shouldn't break the unpublish operation
+  }
 }

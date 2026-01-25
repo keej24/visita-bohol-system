@@ -724,6 +724,26 @@ export class ChurchService {
 
   // Unpublish church (soft delete - changes status to draft, hiding from mobile app)
   // The church data is preserved and can be republished by submitting for review again
+  static async unpublishChurch(
+    id: string,
+    reason: string,
+    unpublishedBy: string
+  ): Promise<void> {
+    try {
+      await updateDoc(doc(db, CHURCHES_COLLECTION, id), {
+        status: 'draft',
+        unpublishReason: reason,
+        unpublishedAt: Timestamp.now(),
+        unpublishedBy: unpublishedBy,
+        updatedAt: Timestamp.now(),
+      });
+    } catch (error) {
+      console.error('Error unpublishing church:', error);
+      throw new Error('Failed to unpublish church');
+    }
+  }
+
+  // Legacy method for backward compatibility (deprecated - use unpublishChurch instead)
   static async deleteChurch(id: string): Promise<void> {
     try {
       await updateDoc(doc(db, CHURCHES_COLLECTION, id), {

@@ -89,6 +89,11 @@ export interface Church {
   submittedAt?: Date;
   approvedAt?: Date;
 
+  // Unpublish audit trail
+  unpublishReason?: string;
+  unpublishedAt?: Date;
+  unpublishedBy?: string;
+
   // Analytics
   monthlyVisitors?: number;
   visitCount?: number;
