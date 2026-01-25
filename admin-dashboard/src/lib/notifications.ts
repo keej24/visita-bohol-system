@@ -522,6 +522,7 @@ export async function notifyChurchStatusChange(
 
 /**
  * Utility function to notify parish secretary when their church is unpublished
+ * Also sends a confirmation notification to the Chancery Office
  */
 export async function notifyChurchUnpublished(
   churchId: string,
@@ -536,13 +537,14 @@ export async function notifyChurchUnpublished(
       return;
     }
 
-    // Replace placeholders in title and message
+    // Replace placeholders in title and message for parish notification
     const title = template.titleTemplate.replace('{churchName}', churchName);
     const message = template.messageTemplate
       .replace('{churchName}', churchName)
       .replace('{reason}', reason);
 
-    const notification: Omit<Notification, 'id'> = {
+    // 1. Create notification for Parish Secretary
+    const parishNotification: Omit<Notification, 'id'> = {
       type: 'church_unpublished',
       priority: template.priority,
       title,
@@ -571,8 +573,42 @@ export async function notifyChurchUnpublished(
       }
     };
 
-    await addDoc(collection(db, 'notifications'), notification);
-    console.log(`Church unpublished notification sent for: ${churchName}`);
+    await addDoc(collection(db, 'notifications'), parishNotification);
+    console.log(`[Notifications] Church unpublished notification sent to parish for: ${churchName}`);
+
+    // 2. Create confirmation notification for Chancery Office
+    const chanceryNotification: Omit<Notification, 'id'> = {
+      type: 'system_notification',
+      priority: 'medium',
+      title: `Church Unpublished: ${churchName}`,
+      message: `You have unpublished "${churchName}". Reason: ${reason}. The parish secretary has been notified.`,
+      recipients: {
+        roles: ['chancery_office'],
+        dioceses: [actionBy.diocese]
+      },
+      relatedData: {
+        churchId,
+        churchName,
+        fromStatus: 'approved',
+        toStatus: 'approved',
+        actionBy: {
+          uid: actionBy.uid,
+          name: actionBy.name || actionBy.email,
+          role: actionBy.role
+        }
+      },
+      createdAt: Timestamp.now(),
+      isRead: false,
+      readBy: [],
+      actionUrl: `/churches?church=${churchId}`,
+      metadata: {
+        unpublishReason: reason,
+        actionType: 'church_unpublished_confirmation'
+      }
+    };
+
+    await addDoc(collection(db, 'notifications'), chanceryNotification);
+    console.log(`[Notifications] Church unpublished confirmation sent to chancery for: ${churchName}`);
   } catch (error) {
     console.error('Error sending unpublish notification:', error);
     // Don't throw - notification failure shouldn't break the unpublish operation

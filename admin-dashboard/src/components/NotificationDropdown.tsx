@@ -64,6 +64,8 @@ export function NotificationDropdown() {
         return '📥';  // Parish submitted church for review
       case 'church_approved':
         return '✅';  // Church published
+      case 'church_unpublished':
+        return '🔴';  // Church unpublished
       case 'revision_requested':
         return '📝';  // Revision needed
       case 'heritage_review_assigned':
