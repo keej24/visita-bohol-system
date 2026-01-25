@@ -217,14 +217,14 @@ export const useParishDashboard = (): UseParishDashboardReturn => {
       await ParishDataService.submitForReview(parishId, notes);
       
       // Send notification to Chancery Office that a new church submission is pending review
-      // This triggers when status changes from draft/pending to under_review (pending in our system)
+      // This triggers when status changes from draft to pending
       if (userProfile && churchInfo) {
         try {
           await notifyChurchStatusChange(
             parishId,
             churchInfo.name || churchInfo.churchName || 'Church',
             previousStatus as 'draft' | 'pending' | 'approved' | 'under_review' | 'heritage_review',
-            'under_review', // This triggers church_submitted notification to Chancery
+            'pending', // This triggers church_submitted notification to Chancery
             userProfile,
             notes
           );

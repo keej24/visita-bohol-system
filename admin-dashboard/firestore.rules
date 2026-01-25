@@ -325,9 +325,10 @@ service cloud.firestore {
       // complex security rules with getUserData() during collection queries
       allow read: if isAuthenticated();
 
-      // System can create notifications (chancery office, museum researcher)
-      allow create: if isAuthenticated() && 
-                       (isChanceryOffice() || isMuseumResearcher());
+      // All authenticated users can create notifications
+      // This allows parish secretaries to notify chancery when submitting churches
+      // and chancery/museum to notify parishes about status changes
+      allow create: if isAuthenticated();
 
       // Authenticated users can update notifications to mark them as read
       allow update: if isAuthenticated() && 

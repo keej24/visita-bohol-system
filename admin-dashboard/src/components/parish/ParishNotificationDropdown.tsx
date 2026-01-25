@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Bell, CheckCheck, ExternalLink, Loader2, RefreshCw, AlertTriangle, Clock, FileText, EyeOff } from "lucide-react";
+import { Bell, CheckCheck, ChevronDown, ChevronUp, ExternalLink, Loader2, RefreshCw, AlertTriangle, Clock, FileText, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/optimized/queries";
 import { Button } from "@/components/ui/button";
@@ -93,6 +93,7 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
   // Use props if provided, otherwise use fetched data
   const churchStatus = propChurchStatus || churchData?.status;
   const churchName = propChurchName || churchData?.fullName || churchData?.name;
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Fetch notifications and unread count
   const { data: notifications = [], isLoading, refetch } = useUserNotifications(userProfile);
@@ -250,14 +251,20 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
   // Check if church is unpublished (not approved and had been previously)
   const isUnpublished = churchStatus && !['approved', 'draft', 'pending', 'heritage_review', 'under_review'].includes(churchStatus);
 
-  // Combine local status notification with server notifications
+  // Sort parish notifications by createdAt descending (latest first)
+  const sortedParishNotifications = [...parishNotifications].sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0;
+    const bTime = b.createdAt?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+
+  // Combine local status notification with server notifications (local first, then sorted server notifications)
   const allNotifications = [
-    ...(localStatusNotification ? [localStatusNotification] : []),
-    ...parishNotifications.map(n => ({ ...n, isLocal: false }))
+    ...sortedParishNotifications.map(n => ({ ...n, isLocal: false }))
   ];
 
-  // Total count includes local notification if applicable
-  const totalUnread = unreadParishCount + (localStatusNotification ? 1 : 0);
+  // Total count
+  const totalUnread = unreadParishCount;
 
   return (
     <DropdownMenu>
@@ -267,7 +274,7 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
           {totalUnread > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-2 -right-2 w-5 h-5 p-0 flex items-center justify-center text-xs"
+              className="absolute -top-2 -right-2 w-4 h-4 p-0 flex items-center justify-center text-[10px]"
             >
               {totalUnread > 9 ? '9+' : totalUnread}
             </Badge>
@@ -275,180 +282,107 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-96">
-        <DropdownMenuLabel className="flex items-center justify-between py-2">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">Notifications</span>
-            {totalUnread > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {totalUnread} unread
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleRefresh();
-                    }}
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Refresh notifications</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {unreadParishCount > 0 && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleMarkAllAsRead();
-                      }}
-                      disabled={markAllAsReadMutation.isPending}
-                    >
-                      {markAllAsReadMutation.isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <CheckCheck className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Mark all as read</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel className="flex items-center justify-between py-1.5">
+          <span className="text-sm font-medium">Notifications</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleRefresh();
+            }}
+          >
+            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {/* Church Status Alert - Always show if not approved */}
-        {churchStatus && churchStatus !== 'approved' && (
-          <>
-            <div className="px-3 py-2 bg-amber-50 border-b">
-              <div className="flex items-center gap-2 text-amber-800">
-                {churchStatus === 'draft' && <FileText className="w-4 h-4" />}
-                {churchStatus === 'pending' && <Clock className="w-4 h-4" />}
-                {churchStatus === 'heritage_review' && <AlertTriangle className="w-4 h-4" />}
-                <span className="text-sm font-medium">
-                  {churchStatus === 'draft' && 'Profile needs to be submitted'}
-                  {churchStatus === 'pending' && 'Profile under review'}
-                  {churchStatus === 'heritage_review' && 'Heritage review in progress'}
-                  {churchStatus === 'under_review' && 'Profile under review'}
-                </span>
-              </div>
-              <p className="text-xs text-amber-700 mt-1">
-                {churchStatus === 'draft' && 'Complete and submit your church profile for review.'}
-                {churchStatus === 'pending' && 'The Chancery Office is reviewing your submission.'}
-                {churchStatus === 'heritage_review' && 'Museum Researcher is validating heritage status.'}
-                {churchStatus === 'under_review' && 'Your profile is being reviewed.'}
-              </p>
-            </div>
-          </>
-        )}
-
-        <ScrollArea className="h-[350px]">
+        <ScrollArea className="h-[300px]">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
           ) : allNotifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Bell className="w-12 h-12 text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground">No notifications yet</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                You'll be notified about status updates
-              </p>
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <Bell className="w-8 h-8 text-muted-foreground/40 mb-1" />
+              <p className="text-xs text-muted-foreground">No notifications</p>
             </div>
           ) : (
-            <div className="space-y-1 p-1">
+            <div className="p-1">
               {allNotifications.map((notification, index) => {
                 const notif = notification as DisplayNotification;
+                const isExpanded = expandedId === notif.id;
                 return (
-                  <DropdownMenuItem
+                  <div
                     key={notif.id || index}
-                    className={`flex flex-col items-start gap-2 p-3 cursor-pointer rounded-lg ${
-                      getNotificationStyle(notif.type)
-                    } ${isUnread(notif) ? '' : 'opacity-70'}`}
-                    onClick={() => !notif.isLocal && handleNotificationClick(notif as Notification)}
+                    className={`p-2 mb-1 rounded cursor-pointer border-l-2 ${
+                      notif.type === 'church_approved' ? 'border-l-green-500 bg-green-50/50' :
+                      notif.type === 'church_unpublished' ? 'border-l-red-500 bg-red-50/50' :
+                      notif.type === 'revision_requested' ? 'border-l-orange-500 bg-orange-50/50' :
+                      'border-l-blue-500 bg-blue-50/50'
+                    } ${isUnread(notif) ? '' : 'opacity-60'}`}
+                    onClick={() => {
+                      if (userProfile) {
+                        const fullNotif = notif as Notification;
+                        if (!fullNotif.readBy?.includes(userProfile.uid)) {
+                          markAsReadMutation.mutate({
+                            notificationId: fullNotif.id!,
+                            userId: userProfile.uid,
+                          });
+                        }
+                      }
+                    }}
                   >
-                    <div className="flex items-start gap-3 w-full">
-                      <div className="text-xl flex-shrink-0">
-                        {notif.isLocal ? notif.icon : getNotificationIcon(notif.type)}
-                      </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm">{getNotificationIcon(notif.type)}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium leading-tight">
-                            {notif.title}
-                          </p>
-                          {isUnread(notif) && (
-                            <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1" />
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        <p className="text-xs font-medium leading-tight truncate">{notif.title}</p>
+                        <p className={`text-[11px] text-muted-foreground mt-0.5 ${isExpanded ? '' : 'line-clamp-1'}`}>
                           {notif.message}
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${getPriorityColor(notif.priority)}`}
+                        
+                        {isExpanded && (
+                          <div className="mt-2 p-1.5 bg-white/70 rounded text-[10px] space-y-0.5 border">
+                            {(notif as Notification).relatedData?.churchName && (
+                              <p><b>Church:</b> {(notif as Notification).relatedData?.churchName}</p>
+                            )}
+                            {(notif as Notification).metadata?.unpublishReason && (
+                              <p><b>Reason:</b> {String((notif as Notification).metadata?.unpublishReason)}</p>
+                            )}
+                            {(notif as Notification).metadata?.note && (
+                              <p><b>Note:</b> {String((notif as Notification).metadata?.note)}</p>
+                            )}
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatTimestamp(notif.createdAt)}
+                          </span>
+                          <button
+                            className="text-[10px] text-blue-600 hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedId(isExpanded ? null : notif.id!);
+                            }}
                           >
-                            {notif.priority}
-                          </Badge>
-                          {notif.createdAt && (
-                            <span className="text-xs text-muted-foreground">
-                              {formatTimestamp(notif.createdAt)}
-                            </span>
-                          )}
-                          {notif.isLocal && (
-                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">
-                              Current Status
-                            </Badge>
-                          )}
+                            {isExpanded ? 'Less' : 'More'}
+                          </button>
                         </div>
                       </div>
+                      {isUnread(notif) && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1" />
+                      )}
                     </div>
-                    {notif.actionUrl && !notif.isLocal && (
-                      <div className="flex items-center gap-1 text-xs text-blue-600 ml-10">
-                        <ExternalLink className="w-3 h-3" />
-                        <span>View details</span>
-                      </div>
-                    )}
-                  </DropdownMenuItem>
+                  </div>
                 );
               })}
             </div>
           )}
         </ScrollArea>
-
-        {/* Unpublish Alert */}
-        {parishNotifications.some(n => n.type === 'church_unpublished') && (
-          <>
-            <DropdownMenuSeparator />
-            <div className="p-3 bg-red-50">
-              <div className="flex items-center gap-2 text-red-800">
-                <AlertTriangle className="w-4 h-4" />
-                <span className="text-sm font-medium">Important Notice</span>
-              </div>
-              <p className="text-xs text-red-700 mt-1">
-                Your church has been unpublished. Check your notifications for details and resubmit for review when ready.
-              </p>
-            </div>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

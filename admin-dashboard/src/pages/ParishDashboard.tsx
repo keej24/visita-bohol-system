@@ -913,8 +913,8 @@ const ParishDashboard = () => {
           await notifyChurchStatusChange(
             newChurchId,
             data.churchName || data.name || 'Church',
-            'pending',
-            'under_review', // This triggers church_submitted notification to Chancery
+            'draft',
+            'pending', // This triggers church_submitted notification to Chancery
             userProfile
           );
           console.log('[Parish] Notification sent to Chancery for new church submission');
@@ -951,8 +951,8 @@ const ParishDashboard = () => {
             await notifyChurchStatusChange(
               existingChurch.id,
               data.churchName || data.name || 'Church',
-              'pending',
-              'under_review', // This triggers church_submitted notification to Chancery
+              'draft',
+              'pending', // This triggers church_submitted notification to Chancery
               userProfile
             );
             console.log('[Parish] Notification sent to Chancery for church submission');

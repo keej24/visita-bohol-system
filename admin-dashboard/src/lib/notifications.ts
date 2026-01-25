@@ -165,7 +165,7 @@ export class NotificationService {
    * ChurchStatus values: 'pending' | 'approved' | 'under_review' | 'heritage_review'
    * 
    * Workflow notifications:
-   * - Parish submits (pending → under_review) → Chancery gets "church_submitted"
+   * - Parish submits (draft/pending → pending/under_review) → Chancery gets "church_submitted"
    * - Chancery forwards to museum (under_review → heritage_review) → Museum gets "heritage_review_assigned"
    * - Museum validates (heritage_review → approved) → Chancery gets "heritage_validated", Parish gets "church_approved"
    * - Chancery approves non-heritage (under_review → approved) → Parish gets "church_approved"
@@ -181,11 +181,20 @@ export class NotificationService {
     note?: string
   ): Promise<void> {
     try {
+      console.log(`[Notifications] Status change: ${fromStatus} → ${toStatus} for church "${churchName}" (${churchId})`);
       const notifications: Array<{type: NotificationType; roles: string[]}> = [];
 
       // Determine which notifications to send based on workflow transition
-      if (fromStatus === 'pending' && toStatus === 'under_review') {
-        // Parish submitted for review → Notify Chancery
+      // Parish submitted for review → Notify Chancery
+      // Trigger on: draft→pending, draft→under_review, pending→under_review, or when explicitly set to under_review
+      const isSubmissionForReview = 
+        (fromStatus === 'pending' && toStatus === 'under_review') ||
+        (fromStatus === 'draft' && (toStatus === 'pending' || toStatus === 'under_review')) ||
+        (toStatus === 'under_review' && fromStatus !== 'heritage_review' && fromStatus !== 'approved');
+      
+      console.log(`[Notifications] isSubmissionForReview: ${isSubmissionForReview}`);
+      
+      if (isSubmissionForReview) {
         notifications.push({ type: 'church_submitted', roles: ['chancery_office'] });
       } else if (toStatus === 'heritage_review') {
         // Chancery forwarded to museum → Notify Museum Researcher
@@ -194,11 +203,12 @@ export class NotificationService {
         // Museum validated heritage church → Notify Chancery and Parish
         notifications.push({ type: 'heritage_validated', roles: ['chancery_office'] });
         notifications.push({ type: 'church_approved', roles: ['parish_secretary'] });
-      } else if (fromStatus === 'under_review' && toStatus === 'approved') {
-        // Chancery approved non-heritage church → Notify Parish
+      } else if (toStatus === 'approved' && (fromStatus === 'under_review' || fromStatus === 'pending')) {
+        // Chancery approved church (from pending or under_review) → Notify Parish
         notifications.push({ type: 'church_approved', roles: ['parish_secretary'] });
-      } else if (toStatus === 'pending') {
-        // Revision requested (sent back to pending) → Notify Parish
+      } else if (toStatus === 'pending' && fromStatus !== 'draft') {
+        // Revision requested (sent back to pending from approved/under_review) → Notify Parish
+        // Note: We exclude draft→pending since that's a submission, not a revision request
         notifications.push({ type: 'revision_requested', roles: ['parish_secretary'] });
       }
 
@@ -331,6 +341,8 @@ export class NotificationService {
           getDocs(userIdQuery),
           getDocs(roleQuery)
         ]);
+
+        console.log(`[Notifications] Query results - UserID: ${userIdSnap.size}, Role (${userProfile.role}): ${roleSnap.size}`);
 
         // Merge and deduplicate notifications
         const notificationsMap = new Map<string, Notification>();
