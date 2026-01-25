@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { NotificationDropdown } from "@/components/NotificationDropdown";
+import { ParishNotificationDropdown } from "@/components/parish/ParishNotificationDropdown";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { ChurchService } from "@/services/churchService";
@@ -217,8 +218,8 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
 
         {/* Right side - Profile */}
         <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0">
-          {/* Notification Bell - Hidden for Parish Secretary */}
-          {!isParish && <NotificationDropdown />}
+          {/* Notification Bell - Different component for Parish vs Others */}
+          {isParish ? <ParishNotificationDropdown /> : <NotificationDropdown />}
 
           {/* Profile Menu */}
           <DropdownMenu>

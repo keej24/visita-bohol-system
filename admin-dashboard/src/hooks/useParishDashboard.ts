@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { ParishDataService } from '@/services/parishDataService';
+import { notifyChurchStatusChange } from '@/lib/notifications';
 import type { ChurchInfo, FileUpload, AnnouncementItem } from '@/components/parish/types';
 
 interface UseParishDashboardReturn {
@@ -206,12 +207,33 @@ export const useParishDashboard = (): UseParishDashboardReturn => {
 
   // Submit for review
   const submitForReview = useCallback(async (notes?: string) => {
-    if (!parishId) return;
+    if (!parishId || !userProfile) return;
     
     try {
       setError(null);
       
+      const previousStatus = churchInfo?.status || 'draft';
+      
       await ParishDataService.submitForReview(parishId, notes);
+      
+      // Send notification to Chancery Office that a new church submission is pending review
+      // This triggers when status changes from draft/pending to under_review (pending in our system)
+      if (userProfile && churchInfo) {
+        try {
+          await notifyChurchStatusChange(
+            parishId,
+            churchInfo.name || churchInfo.churchName || 'Church',
+            previousStatus as 'draft' | 'pending' | 'approved' | 'under_review' | 'heritage_review',
+            'under_review', // This triggers church_submitted notification to Chancery
+            userProfile,
+            notes
+          );
+          console.log('[Parish] Notification sent to Chancery for church submission');
+        } catch (notifError) {
+          // Don't fail the submission if notification fails
+          console.error('[Parish] Failed to send notification:', notifError);
+        }
+      }
       
       // Update local church info
       if (churchInfo) {
@@ -236,7 +258,7 @@ export const useParishDashboard = (): UseParishDashboardReturn => {
       });
       throw err;
     }
-  }, [parishId, churchInfo, toast]);
+  }, [parishId, churchInfo, userProfile, toast]);
 
   // Refresh all data
   const refreshData = useCallback(async () => {

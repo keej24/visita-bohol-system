@@ -95,6 +95,7 @@ import { ParishAccount } from '@/components/parish/ParishAccount';
 import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
 import { ParishFeedback } from '@/components/parish/ParishFeedback';
 import { ChurchService } from '@/services/churchService';
+import { notifyChurchStatusChange } from '@/lib/notifications';
 import type { ArchitecturalStyle, ChurchClassification, Church, ChurchDocument } from '@/types/church';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -907,6 +908,20 @@ const ParishDashboard = () => {
         setChurchInfo({ ...data, status: 'pending', id: newChurchId });
         setCurrentView('overview');
 
+        // Send notification to Chancery Office about new church submission
+        try {
+          await notifyChurchStatusChange(
+            newChurchId,
+            data.churchName || data.name || 'Church',
+            'pending',
+            'under_review', // This triggers church_submitted notification to Chancery
+            userProfile
+          );
+          console.log('[Parish] Notification sent to Chancery for new church submission');
+        } catch (notifError) {
+          console.error('[Parish] Failed to send notification:', notifError);
+        }
+
         toast({
           title: "Success",
           description: "Church profile submitted for review!"
@@ -930,6 +945,20 @@ const ParishDashboard = () => {
             submittedAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });
+          
+          // Send notification to Chancery Office about church submission
+          try {
+            await notifyChurchStatusChange(
+              existingChurch.id,
+              data.churchName || data.name || 'Church',
+              'pending',
+              'under_review', // This triggers church_submitted notification to Chancery
+              userProfile
+            );
+            console.log('[Parish] Notification sent to Chancery for church submission');
+          } catch (notifError) {
+            console.error('[Parish] Failed to send notification:', notifError);
+          }
         } else {
           await ChurchService.updateChurch(
             existingChurch.id,
