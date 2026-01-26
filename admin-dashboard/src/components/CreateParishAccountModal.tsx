@@ -524,7 +524,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
               <Input type={show ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" minLength={8} autoComplete="new-password" className="h-9" />
             </div>
             
-            {/* Preview/Confirmation Banner - Shows all details before submission */}
+            {/* Preview/Confirmation Banner - Shows details before submission */}
             {parishName && municipality && email && password && confirm && !duplicateWarning && !emailWarning && (
               <Alert className="bg-amber-50 border-amber-500 border-2 py-3">
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -545,9 +545,8 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
                       <span className="text-xs font-medium text-gray-600 uppercase">Email:</span>
                       <span className="text-sm font-mono text-gray-900 text-right break-all">{email}</span>
                     </div>
-                    <div className="flex justify-between items-start">
-                      <span className="text-xs font-medium text-gray-600 uppercase">Password:</span>
-                      <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded text-gray-900">{password}</code>
+                    <div className="pt-2 text-xs text-gray-600">
+                      <strong>Note:</strong> Login credentials will be sent to this email address.
                     </div>
                   </div>
                 </AlertDescription>
