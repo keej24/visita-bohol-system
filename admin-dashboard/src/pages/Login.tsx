@@ -268,6 +268,14 @@ const Login = () => {
 
       const userProfile = userDoc.data();
       const actualRole = userProfile.role as UserRole;
+      
+      // Check if the account is deactivated/inactive
+      if (userProfile.status === 'inactive' || userProfile.isActive === false) {
+        await signOut(auth);
+        setError(`Your account has been deactivated. Please contact the Chancery Office for assistance.\n\nDiocese of Tagbilaran: dioceseoftagbilaran1941@gmail.com\nDiocese of Talibon: talibonchancery@gmail.com`);
+        setLoading(false);
+        return;
+      }
 
       // Validate that the selected role matches the user's actual role
       if (actualRole !== selectedRole) {
@@ -307,22 +315,27 @@ const Login = () => {
       navigate('/');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to login';
+      const errorCode = (error as { code?: string }).code;
 
       // Translate Firebase errors to user-friendly messages
       if (errorMessage.includes('deactivated') || errorMessage.includes('inactive')) {
-        setError('Your account has been deactivated. Please contact the administrator.');
-      } else if (errorMessage.includes('auth/invalid-credential') ||
+        setError('Your account has been deactivated. Please contact the Chancery Office for assistance.');
+      } else if (errorCode === 'auth/invalid-credential' ||
+          errorCode === 'auth/wrong-password' ||
+          errorCode === 'auth/user-not-found' ||
+          errorCode === 'auth/invalid-login-credentials' ||
+          errorMessage.includes('auth/invalid-credential') ||
           errorMessage.includes('auth/wrong-password') ||
           errorMessage.includes('auth/user-not-found') ||
           errorMessage.includes('auth/invalid-login-credentials')) {
         setError('Invalid username or password.');
-      } else if (errorMessage.includes('auth/invalid-email')) {
+      } else if (errorCode === 'auth/invalid-email' || errorMessage.includes('auth/invalid-email')) {
         setError('Please enter a valid email address.');
-      } else if (errorMessage.includes('auth/too-many-requests')) {
+      } else if (errorCode === 'auth/too-many-requests' || errorMessage.includes('auth/too-many-requests')) {
         setError('Too many failed attempts. Please try again later.');
-      } else if (errorMessage.includes('auth/user-disabled')) {
-        setError('This account has been disabled. Contact the Chancery Office.');
-      } else if (errorMessage.includes('auth/network-request-failed')) {
+      } else if (errorCode === 'auth/user-disabled' || errorMessage.includes('auth/user-disabled')) {
+        setError('This account has been disabled. Please contact the Chancery Office for assistance.');
+      } else if (errorCode === 'auth/network-request-failed' || errorMessage.includes('auth/network-request-failed')) {
         setError('Network error. Please check your connection and try again.');
       } else {
         setError('Failed to login. Please try again.');

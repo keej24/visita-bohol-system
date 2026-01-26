@@ -321,26 +321,55 @@ export class ChurchService {
       }
 
       // IMPORTANT: Handle classification changes and status transitions
-      // If church classification changes from heritage (ICP/NCT) to non-heritage
-      // and status is 'under_review', move it back to 'pending' for chancery review
+      // When heritage classification changes, we need to route the church properly
       const wasHeritage = currentChurch.classification === 'ICP' || currentChurch.classification === 'NCT';
       const isNowHeritage = data.classification === 'ICP' || data.classification === 'NCT';
+      const classificationChanged = currentChurch.classification !== data.classification;
       
-      if (wasHeritage && !isNowHeritage && currentChurch.status === 'under_review') {
-        // Changed from heritage to non-heritage while in museum review
-        // Return to chancery for approval
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (data as any).status = 'pending';
-        console.log(`[ChurchService] Church ${id} classification changed from heritage to non-heritage. Status changed from 'under_review' to 'pending'`);
-      } else if (!wasHeritage && isNowHeritage && currentChurch.status === 'approved') {
-        // Changed from non-heritage to heritage while already approved
-        // Return to chancery pending queue so they can manually forward to museum
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (data as any).status = 'pending';
-        console.log(`[ChurchService] Church ${id} classification changed from non-heritage to heritage. Status changed from 'approved' to 'pending' for Chancery review before forwarding to Museum.`);
+      console.log(`[ChurchService] Classification change check for church ${id}:`, {
+        currentClassification: currentChurch.classification,
+        newClassification: data.classification,
+        currentStatus: currentChurch.status,
+        wasHeritage,
+        isNowHeritage,
+        classificationChanged
+      });
+      
+      // Determine if status needs to change based on classification change
+      let newStatus: string | null = null;
+      
+      if (classificationChanged && isNowHeritage) {
+        // Changed TO heritage (ICP/NCT) - needs to go through Chancery review queue
+        // so they can manually forward to Museum Researcher
+        if (currentChurch.status !== 'heritage_review' && currentChurch.status !== 'under_review') {
+          newStatus = 'pending';
+          console.log(`[ChurchService] Church ${id} classification changed TO heritage (${data.classification}). Status will be set to 'pending' for Chancery review.`);
+        }
+      } else if (classificationChanged && wasHeritage && !isNowHeritage) {
+        // Changed FROM heritage to non-heritage
+        if (currentChurch.status === 'under_review' || currentChurch.status === 'heritage_review') {
+          // Was in museum review - return to chancery
+          newStatus = 'pending';
+          console.log(`[ChurchService] Church ${id} classification changed FROM heritage to non-heritage. Status will be set to 'pending' for Chancery approval.`);
+        }
       }
+      
+      // Build the final update object, including status if it needs to change
+      const updateData: Record<string, unknown> = { ...data };
+      if (newStatus) {
+        updateData.status = newStatus;
+        console.log(`[ChurchService] Adding status '${newStatus}' to update data for church ${id}`);
+      }
+      
+      // Log the final data being sent to Firestore
+      console.log(`[ChurchService] Final update data for church ${id}:`, {
+        hasStatus: 'status' in updateData,
+        status: updateData.status,
+        classification: updateData.classification,
+        allKeys: Object.keys(updateData)
+      });
 
-      await updateDoc(churchRef, data);
+      await updateDoc(churchRef, updateData);
     } catch (error) {
       console.error('Error updating church:', error);
       throw new Error('Failed to update church');

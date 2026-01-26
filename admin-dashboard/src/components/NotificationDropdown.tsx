@@ -29,7 +29,11 @@ export function NotificationDropdown() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Fetch notifications and unread count
-  const { data: notifications = [], isLoading, refetch } = useUserNotifications(userProfile);
+  const { data: notifications = [], isLoading, refetch, error } = useUserNotifications(userProfile);
+
+  // Debug logging
+  console.log('[NotificationDropdown] userProfile:', userProfile?.role, userProfile?.diocese);
+  console.log('[NotificationDropdown] notifications:', notifications.length, 'isLoading:', isLoading, 'error:', error);
 
   // Sort notifications by createdAt descending (latest first)
   const sortedNotifications = [...notifications].sort((a, b) => {

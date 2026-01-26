@@ -187,13 +187,20 @@ export class NotificationService {
 
       // Determine which notifications to send based on workflow transition
       // Parish submitted for review → Notify Chancery
-      // Trigger on: draft→pending, draft→under_review, pending→under_review, or when explicitly set to under_review
+      // Trigger on:
+      // - draft→pending (first submission)
+      // - draft→under_review (direct to under_review)
+      // - pending→under_review (moved to active review)
+      // - any status→pending when action is by parish_secretary (re-submission after revision)
+      const isParishSubmission = actionBy.role === 'parish_secretary';
       const isSubmissionForReview = 
         (fromStatus === 'pending' && toStatus === 'under_review') ||
         (fromStatus === 'draft' && (toStatus === 'pending' || toStatus === 'under_review')) ||
-        (toStatus === 'under_review' && fromStatus !== 'heritage_review' && fromStatus !== 'approved');
+        (toStatus === 'under_review' && fromStatus !== 'heritage_review' && fromStatus !== 'approved') ||
+        // Parish re-submitting after revision (handles pending→pending re-submission)
+        (isParishSubmission && toStatus === 'pending' && fromStatus !== 'draft');
       
-      console.log(`[Notifications] isSubmissionForReview: ${isSubmissionForReview}`);
+      console.log(`[Notifications] isSubmissionForReview: ${isSubmissionForReview}, isParishSubmission: ${isParishSubmission}`);
       
       if (isSubmissionForReview) {
         notifications.push({ type: 'church_submitted', roles: ['chancery_office'] });
@@ -207,9 +214,10 @@ export class NotificationService {
       } else if (toStatus === 'approved' && (fromStatus === 'under_review' || fromStatus === 'pending')) {
         // Chancery approved church (from pending or under_review) → Notify Parish
         notifications.push({ type: 'church_approved', roles: ['parish_secretary'] });
-      } else if (toStatus === 'pending' && fromStatus !== 'draft') {
-        // Revision requested (sent back to pending from approved/under_review) → Notify Parish
+      } else if (toStatus === 'pending' && fromStatus !== 'draft' && !isParishSubmission) {
+        // Revision requested (sent back to pending from approved/under_review) by Chancery/Museum → Notify Parish
         // Note: We exclude draft→pending since that's a submission, not a revision request
+        // Also exclude parish_secretary actions since that would be a re-submission (handled above)
         notifications.push({ type: 'revision_requested', roles: ['parish_secretary'] });
       }
 
@@ -350,11 +358,13 @@ export class NotificationService {
         ]);
 
         console.log(`[Notifications] Query results - UserID: ${userIdSnap.size}, Role (${userProfile.role}): ${roleSnap.size}`);
+        console.log(`[Notifications] User diocese: ${userProfile.diocese}`);
 
         // Merge and deduplicate notifications
         const notificationsMap = new Map<string, Notification>();
         userIdSnap.docs.forEach(doc => {
           const docData = doc.data();
+          console.log(`[Notifications] UserID doc:`, doc.id, docData);
           if (typeof docData === 'object' && docData !== null) {
             const data = { id: doc.id, ...docData } as Notification;
             if (!unreadOnly || !(data.readBy?.includes(userProfile.uid))) {
@@ -364,6 +374,7 @@ export class NotificationService {
         });
         roleSnap.docs.forEach(doc => {
           const docData = doc.data();
+          console.log(`[Notifications] Role doc:`, doc.id, 'dioceses:', docData.recipients?.dioceses);
           if (typeof docData === 'object' && docData !== null) {
             const data = { id: doc.id, ...docData } as Notification;
             
@@ -371,6 +382,8 @@ export class NotificationService {
             const dioceses = data.recipients?.dioceses;
             const isDioceseMatch = !dioceses || dioceses.length === 0 || 
                                    (userProfile.diocese && dioceses.includes(userProfile.diocese));
+            
+            console.log(`[Notifications] Diocese match check: dioceses=${JSON.stringify(dioceses)}, userDiocese=${userProfile.diocese}, match=${isDioceseMatch}`);
             
             // For parish secretaries, filter notifications to only show their parish's notifications
             const userParishId = userProfile.parishId || userProfile.parish;
