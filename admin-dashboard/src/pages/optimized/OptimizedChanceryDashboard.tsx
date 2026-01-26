@@ -246,7 +246,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
                   <h3 className="font-semibold text-blue-900 mb-1 sm:mb-2 text-sm sm:text-base">Tips</h3>
                   <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
                     <li>• Review submissions promptly</li>
-                    <li>• Heritage churches need special attention</li>
+                    <li>• Heritage churches must be forwarded to the Museum Researcher</li>
                     <li className="hidden sm:list-item">• Use reports to track diocese progress</li>
                   </ul>
                 </div>

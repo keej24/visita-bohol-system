@@ -334,10 +334,10 @@ export class ChurchService {
         console.log(`[ChurchService] Church ${id} classification changed from heritage to non-heritage. Status changed from 'under_review' to 'pending'`);
       } else if (!wasHeritage && isNowHeritage && currentChurch.status === 'approved') {
         // Changed from non-heritage to heritage while already approved
-        // Send to museum for heritage validation
+        // Return to chancery pending queue so they can manually forward to museum
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (data as any).status = 'under_review';
-        console.log(`[ChurchService] Church ${id} classification changed from non-heritage to heritage. Status changed from 'approved' to 'under_review'`);
+        (data as any).status = 'pending';
+        console.log(`[ChurchService] Church ${id} classification changed from non-heritage to heritage. Status changed from 'approved' to 'pending' for Chancery review before forwarding to Museum.`);
       }
 
       await updateDoc(churchRef, data);
