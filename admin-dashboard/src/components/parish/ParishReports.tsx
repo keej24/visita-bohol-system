@@ -215,7 +215,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
             { period: 'Evening (6PM-10PM)', count: 0 },
           ]
         },
-        generatedDate: format(new Date(), 'yyyy-MM-dd HH:mm:ss')
+        generatedDate: format(new Date(), 'yyyy-MM-dd hh:mm:ss a')
       };
     }
 
@@ -276,7 +276,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
           { period: 'Evening (6PM-10PM)', count: visitorStats.timeBreakdown.evening || 0 },
         ]
       },
-      generatedDate: format(new Date(), 'yyyy-MM-dd HH:mm:ss')
+      generatedDate: format(new Date(), 'yyyy-MM-dd hh:mm:ss a')
     };
   };
 

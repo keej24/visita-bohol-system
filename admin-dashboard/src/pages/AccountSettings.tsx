@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { isPreconfiguredAccount } from '@/lib/auth-utils';
 import { User, Shield, Save, Camera, Lock, Eye, EyeOff, Crown, Mail, Phone, MapPin, Edit, Key, Loader2, Briefcase } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { db, auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -298,14 +298,10 @@ const AccountSettings = () => {
       };
 
       // For system accounts (chancery/museum), save institution name but not phone
-      // For parish secretaries, save phone number
+      // Parish secretaries edit phone in Church Profile Form, not here
       if (isSystemAccount) {
         updateData.institutionName = profileData.institutionName || null;
         updateData.name = profileData.institutionName || null;
-        // Only save phone for parish secretary
-        if (userProfile?.role === 'parish_secretary') {
-          updateData.phoneNumber = profileData.phone || null;
-        }
       } else {
         // For non-system accounts, allow name and phone updates
         updateData.name = `${profileData.firstName} ${profileData.lastName}`;
@@ -316,43 +312,9 @@ const AccountSettings = () => {
 
       await updateDoc(userDocRef, updateData);
       
-      console.log('✅ Phone number saved to user profile');
+      console.log('✅ Profile saved');
       
-      // Sync phone number to church profile for parish secretaries
-      if (userProfile?.role === 'parish_secretary' && profileData.phone) {
-        try {
-          const parishId = userProfile.parishId || userProfile.parish;
-          if (parishId) {
-            // Try to find church by parishId first (document ID)
-            const churchDocRef = doc(db, 'churches', parishId);
-            await updateDoc(churchDocRef, {
-              'contactInfo.phone': profileData.phone
-            });
-            console.log('✅ Phone number synced to church profile');
-          }
-        } catch (churchError) {
-          // Church might not exist yet or parishId doesn't match - try query by parishId field
-          try {
-            const churchesQuery = query(
-              collection(db, 'churches'),
-              where('parishId', '==', userProfile.parishId || userProfile.parish)
-            );
-            const snapshot = await getDocs(churchesQuery);
-            if (!snapshot.empty) {
-              const churchDoc = snapshot.docs[0];
-              await updateDoc(churchDoc.ref, {
-                'contactInfo.phone': profileData.phone
-              });
-              console.log('✅ Phone number synced to church profile (via query)');
-            }
-          } catch (queryError) {
-            console.warn('Could not sync phone to church profile:', queryError);
-            // Non-critical - don't fail the whole operation
-          }
-        }
-      }
-      
-      // Refresh user profile to get the updated phone number
+      // Refresh user profile
       await refreshUserProfile();
 
       toast({
@@ -800,26 +762,13 @@ const AccountSettings = () => {
                           <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                           <Input
                             id="phone"
-                            value={profileData.phone}
-                            onChange={(e) => {
-                              setProfileData(prev => ({ ...prev, phone: e.target.value }));
-                              if (errors.phone) {
-                                setErrors(prev => ({ ...prev, phone: validatePhone(e.target.value) }));
-                              }
-                            }}
-                            disabled={!isEditingProfile}
-                            className={`mt-1 pl-10 ${errors.phone && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                            value={profileData.phone || 'Not set'}
+                            disabled
+                            className="mt-1 pl-10 bg-gray-50"
                             placeholder="+63 xxx xxx xxxx"
-                            autoComplete="off"
-                            data-form-type="other"
                           />
                         </div>
-                        {errors.phone && isEditingProfile && (
-                          <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
-                        )}
-                        {!errors.phone && (
-                          <p className="text-xs text-gray-500 mt-1">Primary contact number for the parish</p>
-                        )}
+                        <p className="text-xs text-gray-500 mt-1">Edit contact number in your Church Profile</p>
                       </div>
                     )}
                   </>

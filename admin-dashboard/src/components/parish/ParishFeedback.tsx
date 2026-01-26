@@ -575,9 +575,9 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
 
               <div className="text-sm text-gray-600">
                 <p><strong>Submitted by:</strong> {selectedFeedback.userName}</p>
-                <p><strong>Date:</strong> {new Date(selectedFeedback.createdAt).toLocaleString()}</p>
+                <p><strong>Date:</strong> {new Date(selectedFeedback.createdAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                 {selectedFeedback.moderatedAt && (
-                  <p><strong>Moderated:</strong> {new Date(selectedFeedback.moderatedAt).toLocaleString()} by {selectedFeedback.moderatedBy}</p>
+                  <p><strong>Moderated:</strong> {new Date(selectedFeedback.moderatedAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })} by {selectedFeedback.moderatedBy}</p>
                 )}
               </div>
             </div>

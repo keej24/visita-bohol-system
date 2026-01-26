@@ -807,12 +807,12 @@ const FeedbackReports = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div>
                   <h4 className="font-medium text-muted-foreground mb-1">Submitted</h4>
-                  <p>{new Date(selectedFeedback.createdAt).toLocaleString()}</p>
+                  <p>{new Date(selectedFeedback.createdAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                 </div>
                 {selectedFeedback.moderatedAt && (
                   <div>
                     <h4 className="font-medium text-muted-foreground mb-1">Moderated</h4>
-                    <p>{new Date(selectedFeedback.moderatedAt).toLocaleString()}</p>
+                    <p>{new Date(selectedFeedback.moderatedAt).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                     <p className="text-muted-foreground">by {selectedFeedback.moderatedBy}</p>
                   </div>
                 )}

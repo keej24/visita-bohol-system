@@ -39,8 +39,36 @@ const announcementSchema = z.object({
     return true;
   },
   {
-    message: 'Invalid input format.',
+    message: 'End date must be on or after the start date',
     path: ['endDate'], // Show error on endDate field
+  }
+).refine(
+  (data) => {
+    // If both times are provided, validate end time is after start time
+    if (data.eventTime && data.endTime) {
+      const [startHours, startMinutes] = data.eventTime.split(':').map(Number);
+      const [endHours, endMinutes] = data.endTime.split(':').map(Number);
+      const startTotalMinutes = startHours * 60 + startMinutes;
+      const endTotalMinutes = endHours * 60 + endMinutes;
+      return endTotalMinutes > startTotalMinutes;
+    }
+    return true;
+  },
+  {
+    message: 'End time must be after start time',
+    path: ['endTime'], // Show error on endTime field
+  }
+).refine(
+  (data) => {
+    // If end time is provided, start time must also be provided
+    if (data.endTime && !data.eventTime) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'Start time is required when end time is provided',
+    path: ['eventTime'],
   }
 );
 

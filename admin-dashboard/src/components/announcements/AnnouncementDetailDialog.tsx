@@ -26,6 +26,16 @@ export const AnnouncementDetailDialog: React.FC<AnnouncementDetailDialogProps> =
   onUnarchive,
   onDelete,
 }) => {
+  // Helper function to convert 24-hour time to 12-hour format
+  const formatTime12Hour = (time24: string): string => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const hour = parseInt(hours, 10);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${hour12}:${minutes} ${period}`;
+  };
+
   const statusBadge = useMemo(() => {
     if (!announcement) return null;
     if (announcement.isArchived) {
@@ -89,7 +99,7 @@ export const AnnouncementDetailDialog: React.FC<AnnouncementDetailDialogProps> =
             {announcement.eventTime && (
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
-                <span>{announcement.eventTime}</span>
+                <span>{formatTime12Hour(announcement.eventTime)}</span>
               </div>
             )}
             {announcement.endDate && (
@@ -101,7 +111,7 @@ export const AnnouncementDetailDialog: React.FC<AnnouncementDetailDialogProps> =
             {announcement.endTime && (
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
-                <span>Ends at {announcement.endTime}</span>
+                <span>Ends at {formatTime12Hour(announcement.endTime)}</span>
               </div>
             )}
             {announcement.venue && (

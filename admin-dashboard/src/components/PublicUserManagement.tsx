@@ -583,7 +583,7 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
                     <p className="text-sm">
                       <strong>Deactivated At:</strong>{' '}
                       {selectedUser.blockedAt?.toDate?.()
-                        ? new Date(selectedUser.blockedAt.toDate()).toLocaleString()
+                        ? new Date(selectedUser.blockedAt.toDate()).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
                         : 'Unknown'}
                     </p>
                   </AlertDescription>

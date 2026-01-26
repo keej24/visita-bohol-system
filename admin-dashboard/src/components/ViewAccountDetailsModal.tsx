@@ -91,7 +91,7 @@ Email: ${user.email}
 Municipality: ${user.parishInfo?.municipality || user.municipality || 'N/A'}
 Diocese: ${user.diocese}
 Status: ${user.status}
-Created: ${user.createdAt.toLocaleString()}
+Created: ${user.createdAt.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
 Login URL: ${window.location.origin}/login
 
 Note: To set or reset the password, use the "Send Password Reset Email" button.
@@ -185,7 +185,7 @@ The parish secretary will receive an email with instructions to create their own
                 <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                 <div className="flex-1">
                   <div className="text-xs text-muted-foreground mb-0.5">Created</div>
-                  <div>{user.createdAt.toLocaleString()}</div>
+                  <div>{user.createdAt.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</div>
                   {user.createdBy && (
                     <div className="text-xs text-muted-foreground mt-1">
                       by {typeof user.createdBy === 'string' ? user.createdBy : (user.createdBy.name || user.createdBy.email)}

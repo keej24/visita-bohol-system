@@ -42,7 +42,7 @@ export const ConnectionStatus: React.FC = () => {
       </div>
       {lastOnline && (
         <span className="text-muted-foreground">
-          Last: {lastOnline.toLocaleTimeString()}
+          Last: {lastOnline.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
         </span>
       )}
     </div>
@@ -136,7 +136,7 @@ export const RealtimeStats: React.FC<RealtimeStatsProps> = ({
           <ConnectionStatus />
           {lastUpdated && (
             <span className="text-sm text-muted-foreground">
-              Updated: {lastUpdated.toLocaleTimeString()}
+              Updated: {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </span>
           )}
         </div>
@@ -315,7 +315,7 @@ export const RealtimePendingReviews: React.FC<RealtimeStatsProps> = ({
             </Badge>
             {lastUpdated && (
               <span className="text-xs text-muted-foreground">
-                {lastUpdated.toLocaleTimeString()}
+                {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
               </span>
             )}
           </div>
@@ -448,7 +448,7 @@ export const RealtimeActivityFeed: React.FC<RealtimeStatsProps> = ({
                     </span>
                     <span className="text-xs text-muted-foreground">•</span>
                     <span className="text-xs text-muted-foreground">
-                      {activity.timestamp.toLocaleTimeString()}
+                      {activity.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </span>
                   </div>
                 </div>

@@ -56,6 +56,16 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
     isArchived: false,
   });
 
+  // Helper function to convert 24-hour time to 12-hour format
+  const formatTime12Hour = (time24: string): string => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const hour = parseInt(hours, 10);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${hour12}:${minutes} ${period}`;
+  };
+
   // Filter and search announcements
   const filteredAnnouncements = useMemo(() => {
     return announcements.filter((announcement) => {
@@ -341,7 +351,7 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
                   {announcement.eventTime && (
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span>{announcement.eventTime}</span>
+                      <span>{formatTime12Hour(announcement.eventTime)}</span>
                     </div>
                   )}
                   {announcement.venue && (
