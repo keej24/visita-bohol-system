@@ -235,7 +235,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
     setValidationErrors([]);
     setDuplicateWarnings([]);
 
-    const MAX_SCENES = 15;
+    const MAX_SCENES = 8;
     const currentSceneCount = tour?.scenes.length || 0;
     const pendingCount = pendingFiles.length;
     const uploadingCount = uploadingImages.length;
@@ -854,16 +854,16 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Virtual Tour Manager</h3>
           <p className="text-sm text-gray-600">
-            Upload 360° panoramic images and add navigation hotspots (Max: 15 scenes)
+            Upload 360° panoramic images and add navigation hotspots (Max: 8 scenes)
           </p>
         </div>
         <div className="text-sm">
-          <span className={`font-semibold ${(tour?.scenes.length || 0) >= 15 ? 'text-red-600' : 'text-gray-900'}`}>
-            {tour?.scenes.length || 0} / 15 scenes
+          <span className={`font-semibold ${(tour?.scenes.length || 0) >= 8 ? 'text-red-600' : 'text-gray-900'}`}>
+            {tour?.scenes.length || 0} / 8 scenes
           </span>
-          {(tour?.scenes.length || 0) < 15 && (
+          {(tour?.scenes.length || 0) < 8 && (
             <span className="text-gray-500 ml-2">
-              ({15 - (tour?.scenes.length || 0)} remaining)
+              ({8 - (tour?.scenes.length || 0)} remaining)
             </span>
           )}
         </div>
@@ -890,7 +890,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
               Drag & drop or click to select equirectangular images (2:1 aspect ratio)
             </span>
             <span className="text-xs text-blue-600 mt-1 font-medium">
-              ✓ Multiple files supported • Max 15 scenes total • Images will be compressed
+              ✓ Multiple files supported • Max 8 scenes total • Images will be compressed
             </span>
             <input
               type="file"
@@ -905,7 +905,7 @@ export function VirtualTourManager({ churchId, churchName }: VirtualTourManagerP
         <div className="border-2 border-dashed border-red-300 rounded-lg p-6 bg-red-50">
           <div className="flex flex-col items-center">
             <Upload className="w-12 h-12 text-red-400 mb-2" />
-            <span className="text-sm font-medium text-red-700">Maximum scenes reached (15/15)</span>
+            <span className="text-sm font-medium text-red-700">Maximum scenes reached (8/8)</span>
             <span className="text-xs text-red-600 mt-1">
               Please delete some scenes before uploading more
             </span>

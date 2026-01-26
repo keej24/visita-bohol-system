@@ -70,7 +70,6 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
     endDate: format(new Date(), 'yyyy-MM-dd')
   });
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
-  const [summaryExportFormat, setSummaryExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [isGenerating, setIsGenerating] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
@@ -304,7 +303,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
     // Show confirmation dialog
     setPendingExport({
       reportType,
-      format: reportType === 'engagement' ? exportFormat : summaryExportFormat
+      format: reportType === 'engagement' ? exportFormat : 'pdf'
     });
     setShowExportDialog(true);
   };
@@ -604,17 +603,8 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
             <CardContent className="space-y-6">
               {/* Report Actions */}
               <div className="flex items-center gap-3">
-                <Select value={summaryExportFormat} onValueChange={(value: 'pdf' | 'excel') => setSummaryExportFormat(value)}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pdf">PDF</SelectItem>
-                    <SelectItem value="excel">Excel</SelectItem>
-                  </SelectContent>
-                </Select>
                 <Button 
-                  onClick={() => handleDownloadReport('summary', summaryExportFormat)}
+                  onClick={() => handleDownloadReport('summary', 'pdf')}
                   disabled={isGenerating}
                   className="bg-emerald-600 hover:bg-emerald-700"
                 >
@@ -623,7 +613,7 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
                   ) : (
                     <Download className="w-4 h-4 mr-2" />
                   )}
-                  {isGenerating ? 'Exporting...' : `Download ${summaryExportFormat.toUpperCase()}`}
+                  {isGenerating ? 'Exporting...' : 'Download PDF'}
                 </Button>
               </div>
 
