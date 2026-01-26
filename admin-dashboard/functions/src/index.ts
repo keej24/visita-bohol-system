@@ -319,6 +319,176 @@ Bohol, Philippines
     };
   },
 
+  /**
+   * Welcome email with temporary credentials
+   * Used when chancery creates a parish account with a generated password
+   * Parish secretary can use these credentials OR click reset password
+   */
+  welcomeWithCredentials: (
+    email: string,
+    tempPassword: string,
+    parishName: string,
+    diocese: string,
+    resetLink: string
+  ) => ({
+    subject: `Your VISITA Admin Account - ${parishName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+        <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="background-color: #f4f4f5;">
+          <tr>
+            <td align="center" style="padding: 40px 20px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="max-width: 520px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                <!-- Header -->
+                <tr>
+                  <td style="padding: 40px 40px 20px; text-align: center;">
+                    <img src="https://visita-bohol-system.vercel.app/visita-logo.png" alt="VISITA Logo" width="100" height="100" style="display: block; margin: 0 auto 20px; border-radius: 12px;">
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b;">
+                      Welcome to VISITA Admin!
+                    </h1>
+                    <p style="margin: 8px 0 0; font-size: 14px; color: #64748b;">
+                      Bohol Churches Information System
+                    </p>
+                  </td>
+                </tr>
+                
+                <!-- Parish Info -->
+                <tr>
+                  <td style="padding: 0 40px 20px;">
+                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; text-align: center;">
+                      <p style="margin: 0; font-size: 18px; font-weight: 600; color: #166534;">
+                        ${parishName}
+                      </p>
+                      <p style="margin: 4px 0 0; font-size: 14px; color: #15803d;">
+                        Diocese of ${diocese || "Bohol"}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+                
+                <!-- Credentials Box -->
+                <tr>
+                  <td style="padding: 0 40px 24px;">
+                    <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #475569;">
+                      Your parish secretary account has been created. Here are your login credentials:
+                    </p>
+                    
+                    <div style="background-color: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 20px;">
+                      <table role="presentation" cellspacing="0" cellpadding="0" width="100%">
+                        <tr>
+                          <td style="padding: 0 0 12px;">
+                            <p style="margin: 0; font-size: 12px; font-weight: 600; color: #a16207; text-transform: uppercase; letter-spacing: 0.5px;">
+                              Email Address
+                            </p>
+                            <p style="margin: 4px 0 0; font-size: 16px; font-weight: 600; color: #713f12; font-family: monospace;">
+                              ${email}
+                            </p>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="border-top: 1px dashed #fde047; padding: 12px 0 0;">
+                            <p style="margin: 0; font-size: 12px; font-weight: 600; color: #a16207; text-transform: uppercase; letter-spacing: 0.5px;">
+                              Temporary Password
+                            </p>
+                            <p style="margin: 4px 0 0; font-size: 16px; font-weight: 600; color: #713f12; font-family: monospace; letter-spacing: 1px;">
+                              ${tempPassword}
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Login Button -->
+                <tr>
+                  <td style="padding: 0 40px 16px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" width="100%">
+                      <tr>
+                        <td align="center">
+                          <a href="https://visita-bohol-system.vercel.app/login" 
+                             style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 8px; width: 100%; max-width: 280px; text-align: center; box-sizing: border-box;">
+                            Login to Your Dashboard
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                
+                <!-- Reset Password Option -->
+                <tr>
+                  <td style="padding: 0 40px 24px;">
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: center;">
+                      <p style="margin: 0 0 8px; font-size: 13px; color: #64748b;">
+                        Want to set your own password instead?
+                      </p>
+                      <a href="${resetLink}" 
+                         style="font-size: 13px; color: #6366f1; text-decoration: underline; font-weight: 500;">
+                        Click here to reset password
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                
+                <!-- Security Notice -->
+                <tr>
+                  <td style="padding: 0 40px 24px;">
+                    <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #94a3b8; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 12px;">
+                      <strong style="color: #dc2626;">Security Tip:</strong> We recommend changing your password after your first login. Go to Account Settings to update your password.
+                    </p>
+                  </td>
+                </tr>
+                
+                <!-- Footer -->
+                <tr>
+                  <td style="padding: 20px 40px 40px;">
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 0 0 20px;">
+                    <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center;">
+                      VISITA: Bohol Churches Information System<br>
+                      Diocese of Tagbilaran & Diocese of Talibon
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `,
+    text: `
+Welcome to VISITA Admin!
+
+Your parish secretary account has been created for:
+${parishName}
+Diocese of ${diocese || "Bohol"}
+
+=== YOUR LOGIN CREDENTIALS ===
+
+Email: ${email}
+Temporary Password: ${tempPassword}
+
+Login URL: https://visita-bohol-system.vercel.app/login
+
+=== WANT TO SET YOUR OWN PASSWORD? ===
+
+Click this link to reset your password:
+${resetLink}
+
+Security Tip: We recommend changing your password after your first login.
+
+---
+VISITA: Bohol Churches Information System
+Diocese of Tagbilaran & Diocese of Talibon
+    `.trim(),
+  }),
+
   welcome: (setupLink: string, parishName: string, diocese: string) => ({
     subject: `Welcome to VISITA Admin - ${parishName}`,
     html: `
@@ -620,6 +790,100 @@ export const sendWelcomeEmail = functions
       throw new functions.https.HttpsError(
         "internal",
         "Failed to send welcome email"
+      );
+    }
+  });
+
+/**
+ * Cloud Function: Send Welcome Email with Temporary Credentials
+ * 
+ * Sends parish secretary their login credentials directly via email.
+ * The email includes:
+ * - Their email address (username)
+ * - Temporary password generated by chancery
+ * - Option to reset password if they prefer their own
+ * 
+ * This ensures the email is valid (must receive it to log in)
+ * and eliminates the need to copy/paste credentials manually.
+ */
+export const sendWelcomeEmailWithCredentials = functions
+  .runWith({ secrets: ["GMAIL_EMAIL", "GMAIL_APP_PASSWORD"] })
+  .https.onCall(async (data, context) => {
+    // Verify caller is authenticated (must be chancery)
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Must be authenticated to send welcome emails"
+      );
+    }
+
+    const { email, tempPassword, parishName, diocese } = data;
+
+    // Validate required fields
+    if (!email || !tempPassword || !parishName) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Email, temporary password, and parish name are required"
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Invalid email address format"
+      );
+    }
+
+    try {
+      // Generate password reset link (in case user wants to set their own password)
+      const resetLink = await generatePasswordResetLink(email);
+
+      // Send email via Gmail SMTP
+      const transporter = createGmailTransporter();
+      const template = emailTemplates.welcomeWithCredentials(
+        email,
+        tempPassword,
+        parishName,
+        diocese || "Bohol",
+        resetLink
+      );
+      
+      await transporter.sendMail({
+        from: `"${EMAIL_CONFIG.fromName}" <${process.env.GMAIL_EMAIL}>`,
+        to: email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      functions.logger.info(`Welcome email with credentials sent to ${email} for ${parishName}`);
+      
+      return { 
+        success: true, 
+        message: "Welcome email with credentials sent successfully",
+        emailSent: true
+      };
+
+    } catch (error) {
+      functions.logger.error("Error sending welcome email with credentials:", error);
+      
+      // Check if it's an email delivery error
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      if (errorMessage.includes("Invalid recipient") || 
+          errorMessage.includes("Recipient not found") ||
+          errorMessage.includes("mailbox not found")) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "The email address appears to be invalid or does not exist. Please verify the email address."
+        );
+      }
+      
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to send welcome email. Please try again."
       );
     }
   });

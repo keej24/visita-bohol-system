@@ -9,9 +9,9 @@ import { useAuth } from '@/hooks/useAuth';
 import type { Diocese } from '@/hooks/useAuth';
 import { createAuthUserWithoutAffectingSession, generateTempPassword } from '@/lib/accounts';
 import { generateParishId, formatParishFullName, getMunicipalitiesByDiocese } from '@/lib/parish-utils';
-import { db, auth } from '@/lib/firebase';
+import { db, functions } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
 import { Copy, Eye, EyeOff, Wand2, CheckCircle2, AlertTriangle, Loader2, Mail, Send } from 'lucide-react';
 
 interface Props {
@@ -32,6 +32,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -317,18 +318,21 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
       
       setCredentials({ email: emailLower, password: finalPassword });
       
-      // Automatically send password reset email to the parish user
+      // Send welcome email with credentials via Cloud Function
       try {
         setSendingEmail(true);
-        await sendPasswordResetEmail(auth, emailLower, {
-          url: `${window.location.origin}/login`,
-          handleCodeInApp: false
+        const sendWelcomeEmailWithCredentials = httpsCallable(functions, 'sendWelcomeEmailWithCredentials');
+        await sendWelcomeEmailWithCredentials({
+          email: emailLower,
+          tempPassword: finalPassword,
+          parishName: parishFullName,
+          diocese: diocese
         });
         setEmailSent(true);
-        console.log('✅ Password reset email sent to:', emailLower);
+        console.log('✅ Welcome email with credentials sent to:', emailLower);
       } catch (emailErr) {
-        console.error('❌ Failed to send password reset email:', emailErr);
-        setEmailError('Account created but failed to send email. You can resend from User Management.');
+        console.error('❌ Failed to send welcome email:', emailErr);
+        setEmailError('Account created but failed to send email. The parish secretary can use the credentials shown below.');
       } finally {
         setSendingEmail(false);
       }
@@ -355,29 +359,35 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
 
   const copy = async () => {
     if (!credentials) return;
-    const text = `VISITA Parish Secretary Credentials\nEmail: ${credentials.email}\nTemp Password: ${credentials.password}\nLogin URL: ${window.location.origin}/login`;
+    const text = `VISITA Parish Secretary Credentials\n\nEmail: ${credentials.email}\nTemp Password: ${credentials.password}\nLogin URL: ${window.location.origin}/login\n\nThe parish secretary can log in with these credentials, or use the "Reset Password" option in the email to set their own password.`;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      // Don't reset copied state - keep it true so user can close the dialog
+      setTimeout(() => setCopied(false), 3000); // Reset after 3 seconds
     } catch (e) {
-      setError('Failed to copy');
+      setError('Failed to copy to clipboard');
       setTimeout(() => setError(null), 2000);
     }
   };
 
-  // Resend welcome email with password reset link
+  // Resend welcome email with credentials
   const resendEmail = async () => {
-    if (!credentials?.email) return;
+    if (!credentials?.email || !credentials?.password) return;
     setSendingEmail(true);
     setEmailError(null);
     try {
-      await sendPasswordResetEmail(auth, credentials.email);
+      const sendWelcomeEmailWithCredentials = httpsCallable(functions, 'sendWelcomeEmailWithCredentials');
+      await sendWelcomeEmailWithCredentials({
+        email: credentials.email,
+        tempPassword: credentials.password,
+        parishName: formatParishFullName(parishName, municipality),
+        diocese: diocese
+      });
       setEmailSent(true);
-      console.log('✅ Password reset email resent to:', credentials.email);
+      console.log('✅ Welcome email resent to:', credentials.email);
     } catch (err) {
       console.error('❌ Failed to resend email:', err);
-      setEmailError('Failed to send email. Please try again or use User Management.');
+      setEmailError('Failed to send email. Please try again or share the credentials manually.');
     } finally {
       setSendingEmail(false);
     }
@@ -393,6 +403,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
     setError(null);
     setShow(false);
     setCopied(false);
+    setShowCredentials(false);
     setEmailSent(false);
     setSendingEmail(false);
     setEmailError(null);
@@ -404,11 +415,8 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
   };
 
   const handleOpenChange = (v: boolean) => {
-    // If trying to close and credentials exist but not copied, prevent closing
-    if (!v && credentials && !copied) {
-      setError('Please copy the credentials before closing. You cannot view them again.');
-      return;
-    }
+    // Allow closing if email was sent successfully (credentials delivered to user)
+    // Or if user explicitly wants to close without copying (they can resend later)
     setOpen(v);
     if (!v) reset();
   };
@@ -595,7 +603,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
               <Alert className="bg-blue-50 border-blue-200 py-3">
                 <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
                 <AlertDescription className="text-blue-900 text-sm">
-                  <strong>Sending welcome email...</strong> Please wait.
+                  <strong>Sending login credentials to parish...</strong> Please wait.
                 </AlertDescription>
               </Alert>
             )}
@@ -604,8 +612,13 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
               <Alert className="bg-emerald-50 border-emerald-200 py-3">
                 <Mail className="h-4 w-4 text-emerald-600" />
                 <AlertDescription className="text-emerald-900 text-sm">
-                  <strong>✓ Email sent!</strong> A password setup link has been sent to <span className="font-mono">{credentials.email}</span>.
-                  The parish secretary can click the link to set their own password.
+                  <strong>✓ Credentials sent!</strong> An email with login credentials has been sent to <span className="font-mono font-semibold">{credentials.email}</span>.
+                  <br /><br />
+                  The parish secretary can:
+                  <ul className="list-disc list-inside mt-1 text-xs">
+                    <li>Use the temporary password to log in immediately</li>
+                    <li>Or click the "Reset Password" link in the email to set their own password</li>
+                  </ul>
                 </AlertDescription>
               </Alert>
             )}
@@ -622,49 +635,43 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
               </Alert>
             )}
             
-            <Alert className="bg-amber-50 border-amber-200 py-3">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-900 text-sm">
-                <strong>Important:</strong> Copy these credentials as backup. 
-                The temporary password below can be used if the email is not received.
-              </AlertDescription>
-            </Alert>            <div className="p-3 rounded border bg-secondary/40 text-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Email:</span>
-                <code className="px-2 py-1 bg-background rounded">{credentials.email}</code>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Temp Password:</span>
-                <code className="px-2 py-1 bg-background rounded font-semibold">{credentials.password}</code>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Login URL:</span>
-                <code className="px-2 py-1 bg-background rounded text-xs">{`${window.location.origin}/login`}</code>
-              </div>
+            {/* Backup Credentials - Only show if email failed or user wants to copy */}
+            <div className="border rounded-lg overflow-hidden">
+              <button 
+                type="button"
+                onClick={() => setShowCredentials(s => !s)} 
+                className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-sm text-left"
+              >
+                <span className="font-medium text-gray-700">
+                  {emailError ? '📋 Backup: Copy credentials manually' : '📋 View credentials (optional backup)'}
+                </span>
+                <span className="text-xs text-gray-500">{showCredentials ? '▲ Hide' : '▼ Show'}</span>
+              </button>
+              
+              {showCredentials && (
+                <div className="p-3 border-t bg-white space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Email:</span>
+                    <code className="px-2 py-1 bg-gray-100 rounded">{credentials.email}</code>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Temp Password:</span>
+                    <code className="px-2 py-1 bg-gray-100 rounded font-semibold">{credentials.password}</code>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Login URL:</span>
+                    <code className="px-2 py-1 bg-gray-100 rounded text-xs">{`${window.location.origin}/login`}</code>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={copy} className="w-full mt-2">
+                    {copied ? (
+                      <><CheckCircle2 className="w-3 h-3 mr-1 text-green-600" /> Copied!</>
+                    ) : (
+                      <><Copy className="w-3 h-3 mr-1" /> Copy All to Clipboard</>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="secondary" onClick={copy} className="flex-1" aria-live="polite">
-                {copied ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 mr-1 text-success" /> Copied to Clipboard
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 mr-1" /> Copy All Details
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            {copied && (
-              <Alert className="bg-blue-50 border-blue-200 py-2">
-                <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-900 text-xs">
-                  Credentials copied! You can now paste them in an email or document to share with the parish secretary.
-                </AlertDescription>
-              </Alert>
-            )}
             
             {error && (
               <Alert variant="destructive" className="py-2">
@@ -677,17 +684,11 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
             
             <DialogFooter>
               <Button 
-                onClick={() => {
-                  if (!copied) {
-                    setError('Please copy the credentials before closing. You cannot view them again.');
-                    return;
-                  }
-                  setOpen(false);
-                }} 
-                disabled={!copied}
+                onClick={() => setOpen(false)} 
                 className="w-full btn-heritage"
+                disabled={sendingEmail}
               >
-                {copied ? 'Done' : 'Copy Credentials First'}
+                {emailSent ? 'Done' : sendingEmail ? 'Please Wait...' : 'Close'}
               </Button>
             </DialogFooter>
           </div>
