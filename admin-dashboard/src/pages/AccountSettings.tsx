@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { isPreconfiguredAccount } from '@/lib/auth-utils';
 import { User, Shield, Save, Camera, Lock, Eye, EyeOff, Crown, Mail, Phone, MapPin, Edit, Key, Loader2, Briefcase } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { db, auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -317,6 +317,40 @@ const AccountSettings = () => {
       await updateDoc(userDocRef, updateData);
       
       console.log('✅ Phone number saved to user profile');
+      
+      // Sync phone number to church profile for parish secretaries
+      if (userProfile?.role === 'parish_secretary' && profileData.phone) {
+        try {
+          const parishId = userProfile.parishId || userProfile.parish;
+          if (parishId) {
+            // Try to find church by parishId first (document ID)
+            const churchDocRef = doc(db, 'churches', parishId);
+            await updateDoc(churchDocRef, {
+              'contactInfo.phone': profileData.phone
+            });
+            console.log('✅ Phone number synced to church profile');
+          }
+        } catch (churchError) {
+          // Church might not exist yet or parishId doesn't match - try query by parishId field
+          try {
+            const churchesQuery = query(
+              collection(db, 'churches'),
+              where('parishId', '==', userProfile.parishId || userProfile.parish)
+            );
+            const snapshot = await getDocs(churchesQuery);
+            if (!snapshot.empty) {
+              const churchDoc = snapshot.docs[0];
+              await updateDoc(churchDoc.ref, {
+                'contactInfo.phone': profileData.phone
+              });
+              console.log('✅ Phone number synced to church profile (via query)');
+            }
+          } catch (queryError) {
+            console.warn('Could not sync phone to church profile:', queryError);
+            // Non-critical - don't fail the whole operation
+          }
+        }
+      }
       
       // Refresh user profile to get the updated phone number
       await refreshUserProfile();
