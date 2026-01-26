@@ -532,7 +532,6 @@ const Churches = () => {
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending Review</SelectItem>
                   <SelectItem value="heritage_review">Heritage Review</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
                 </SelectContent>
               </Select>
 

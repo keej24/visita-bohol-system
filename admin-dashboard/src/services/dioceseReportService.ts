@@ -50,7 +50,7 @@ export class DioceseReportService {
     doc.setFontSize(14);
     doc.setFont('helvetica', 'normal');
     if (isSingleChurch && singleChurch) {
-      doc.text('PARISH SUMMARY REPORT', 105, 28, { align: 'center' });
+      doc.text('CHURCH SUMMARY REPORT', 105, 28, { align: 'center' });
       doc.setFontSize(12);
       doc.text(singleChurch.name, 105, 38, { align: 'center' });
     } else {
@@ -400,99 +400,6 @@ export class DioceseReportService {
           margin: { left: 20, right: 20 },
         });
       }
-
-      // Architectural & Heritage Information Section - only for multiple churches
-      if (analytics.topChurches.length > 1) {
-        doc.addPage();
-        yPos = 20;
-
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Architectural & Heritage Information', 20, yPos);
-        yPos += 10;
-
-        // Filter churches that have historical/heritage data
-        const churchesWithHistory = analytics.topChurches.filter(
-          church => (toArray(church.founders).length > 0) ||
-                    (toArray(church.majorEvents).length > 0) ||
-                    church.architecturalStyle ||
-                    church.architecturalFeatures ||
-                    church.heritageInformation
-        );
-
-        if (churchesWithHistory.length > 0) {
-          churchesWithHistory.forEach((church, index) => {
-            // Check if we need a new page
-            if (yPos > 240) {
-              doc.addPage();
-              yPos = 20;
-            }
-
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`${index + 1}. ${church.name}`, 20, yPos);
-            yPos += 6;
-
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-
-            // Architectural Style
-            if (church.architecturalStyle) {
-              doc.text(`Architectural Style: ${church.architecturalStyle}`, 25, yPos);
-              yPos += 5;
-            }
-
-            // Architectural Features
-            if (church.architecturalFeatures) {
-              doc.text('Architectural Features:', 25, yPos);
-              yPos += 4;
-              const truncatedFeatures = church.architecturalFeatures.length > 150 
-                ? church.architecturalFeatures.substring(0, 147) + '...' 
-                : church.architecturalFeatures;
-              const lines = doc.splitTextToSize(truncatedFeatures, 155);
-              doc.text(lines, 28, yPos);
-              yPos += lines.length * 4 + 2;
-            }
-
-            // Founders
-            const founders = toArray(church.founders);
-            if (founders.length > 0) {
-              doc.text(`Founders: ${founders.join(', ')}`, 25, yPos);
-              yPos += 5;
-            }
-
-            // Major Events
-            const majorEvents = toArray(church.majorEvents);
-            if (majorEvents.length > 0) {
-              doc.text('Major Events:', 25, yPos);
-              yPos += 4;
-              majorEvents.slice(0, 3).forEach(event => {
-                const truncatedEvent = event.length > 80 ? event.substring(0, 77) + '...' : event;
-                doc.text(`  • ${truncatedEvent}`, 28, yPos);
-                yPos += 4;
-              });
-            }
-
-            // Heritage Information (replaces Preservation History)
-            if (church.heritageInformation) {
-              doc.text('Heritage Information:', 25, yPos);
-              yPos += 4;
-              const truncatedInfo = church.heritageInformation.length > 150 
-                ? church.heritageInformation.substring(0, 147) + '...' 
-                : church.heritageInformation;
-              const lines = doc.splitTextToSize(truncatedInfo, 155);
-              doc.text(lines, 28, yPos);
-              yPos += lines.length * 4 + 2;
-            }
-
-            yPos += 6; // Space between churches
-          });
-        } else {
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'italic');
-          doc.text('No historical details available for the selected churches.', 20, yPos);
-        }
-      }
     }
 
     // Footer on all pages
@@ -783,69 +690,155 @@ export class DioceseReportService {
 
   /**
    * Export Diocese-wide Engagement Analytics as Excel
+   * Aligned with PDF export to include all sections:
+   * - Summary Statistics
+   * - Peak Visiting Periods
+   * - Rating Distribution
+   * - Monthly Visitor Trends
+   * - Top Churches by Engagement
+   * - Top Rated Churches
+   * - Engagement by Municipality
    */
   static exportDioceseEngagementExcel(
     dioceseName: string,
     analytics: DioceseAnalytics,
-    dateRange: { start: Date; end: Date }
+    dateRange: { start: Date; end: Date },
+    engagementMetrics?: {
+      peakVisitingPeriods: Array<{ period: string; visitors: number; peak: boolean }>;
+      ratingDistribution: Array<{ rating: number; count: number; percentage: number }>;
+      topRatedChurches: Array<{ name: string; rating: number; feedbackCount: number }>;
+    }
   ): void {
     const workbook = XLSX.utils.book_new();
+    const daysDiff = Math.max(1, Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)));
 
     // Sheet 1: Summary Statistics
-    const summaryData = [
-      ['Engagement & Feedback Analytics Report'],
+    const summaryData: ExcelRow[] = [
+      ['ENGAGEMENT & FEEDBACK ANALYTICS REPORT'],
+      [],
       ['Diocese:', dioceseName],
-      ['Period:', `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`],
+      ['Report Period:', `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`],
       ['Generated:', new Date().toLocaleDateString()],
       [],
-      ['Summary Statistics'],
+      ['SUMMARY STATISTICS'],
       ['Metric', 'Value'],
-      ['Total Visitors', analytics.totalVisitors],
-      ['Average Daily Visitors', Math.round(analytics.totalVisitors / 30)],
-      ['Total Feedback', analytics.totalFeedback],
-      ['Average Rating', `${analytics.avgRating} / 5.0`],
       ['Total Churches', analytics.totalChurches],
-      ['Active Parishes', analytics.recentActivity.activeParishes]
+      ['Total Visitors', analytics.totalVisitors],
+      ['Average Daily Visitors', Math.round(analytics.totalVisitors / daysDiff)],
+      ['Total Feedback', analytics.totalFeedback],
+      ['Average Rating', `${analytics.avgRating.toFixed(1)} / 5.0`],
+      ['Active Parishes', analytics.recentActivity?.activeParishes || 0]
     ];
 
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-    summarySheet['!cols'] = [{ wch: 25 }, { wch: 20 }];
+    summarySheet['!cols'] = [{ wch: 25 }, { wch: 35 }];
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
-    // Sheet 2: Top Churches by Engagement
-    const topChurchesData = analytics.topChurches.slice(0, 20).map((church, index) => ({
-      'Rank': index + 1,
-      'Church Name': church.name,
-      'Municipality': church.municipality,
-      'Classification': church.classification,
-      'Total Visitors': church.visitorCount,
-      'Feedback Count': church.feedbackCount,
-      'Average Rating': church.avgRating
-    }));
+    // Sheet 2: Peak Visiting Periods (if available)
+    if (engagementMetrics?.peakVisitingPeriods && engagementMetrics.peakVisitingPeriods.length > 0) {
+      const totalPeriodVisitors = engagementMetrics.peakVisitingPeriods.reduce((sum, p) => sum + p.visitors, 0) || 1;
+      
+      const peakPeriodsData: ExcelRow[] = [
+        ['VISITOR ACTIVITY BY TIME OF DAY'],
+        [],
+        ['Time Period', 'Visitors', 'Percentage', 'Peak Status'],
+        ...engagementMetrics.peakVisitingPeriods.map(period => [
+          period.period,
+          period.visitors,
+          `${Math.round((period.visitors / totalPeriodVisitors) * 100)}%`,
+          period.peak ? 'PEAK' : ''
+        ])
+      ];
 
-    const topChurchesSheet = XLSX.utils.json_to_sheet(topChurchesData);
+      const peakSheet = XLSX.utils.aoa_to_sheet(peakPeriodsData);
+      peakSheet['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(workbook, peakSheet, 'Peak Hours');
+    }
+
+    // Sheet 3: Rating Distribution (if available)
+    if (engagementMetrics?.ratingDistribution && engagementMetrics.ratingDistribution.length > 0) {
+      const ratingData: ExcelRow[] = [
+        ['RATING DISTRIBUTION'],
+        [],
+        ['Rating', 'Count', 'Percentage'],
+        ...engagementMetrics.ratingDistribution
+          .sort((a, b) => b.rating - a.rating)
+          .map(r => [
+            `${r.rating} Star${r.rating !== 1 ? 's' : ''}`,
+            r.count,
+            `${r.percentage}%`
+          ])
+      ];
+
+      const ratingSheet = XLSX.utils.aoa_to_sheet(ratingData);
+      ratingSheet['!cols'] = [{ wch: 15 }, { wch: 12 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(workbook, ratingSheet, 'Rating Distribution');
+    }
+
+    // Sheet 4: Monthly Visitor Trends
+    if (analytics.visitorsByMonth.length > 0) {
+      const trendsData: ExcelRow[] = [
+        ['MONTHLY VISITOR TRENDS'],
+        [],
+        ['Month', 'Visitors'],
+        ...analytics.visitorsByMonth.map(trend => [
+          trend.month,
+          trend.visitors
+        ])
+      ];
+
+      const trendsSheet = XLSX.utils.aoa_to_sheet(trendsData);
+      trendsSheet['!cols'] = [{ wch: 20 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(workbook, trendsSheet, 'Monthly Trends');
+    }
+
+    // Sheet 5: Top Churches by Engagement
+    const topChurchesData: ExcelRow[] = [
+      ['TOP CHURCHES BY VISITOR ENGAGEMENT'],
+      [],
+      ['Rank', 'Church Name', 'Municipality', 'Classification', 'Visitors', 'Rating', 'Feedback'],
+      ...analytics.topChurches.slice(0, 20).map((church, index) => [
+        index + 1,
+        church.name,
+        church.municipality,
+        church.classification,
+        church.visitorCount,
+        church.avgRating.toFixed(1),
+        church.feedbackCount
+      ])
+    ];
+
+    const topChurchesSheet = XLSX.utils.aoa_to_sheet(topChurchesData);
     topChurchesSheet['!cols'] = [
       { wch: 8 },  // Rank
       { wch: 40 }, // Church Name
       { wch: 20 }, // Municipality
       { wch: 16 }, // Classification
-      { wch: 14 }, // Visitors
-      { wch: 14 }, // Feedback
-      { wch: 14 }  // Rating
+      { wch: 12 }, // Visitors
+      { wch: 10 }, // Rating
+      { wch: 12 }  // Feedback
     ];
     XLSX.utils.book_append_sheet(workbook, topChurchesSheet, 'Top Churches');
 
-    // Sheet 3: Monthly Visitor Trends
-    const trendsData = analytics.visitorsByMonth.map(trend => ({
-      'Month': trend.month,
-      'Visitors': trend.visitors
-    }));
+    // Sheet 6: Top Rated Churches (if available)
+    if (engagementMetrics?.topRatedChurches && engagementMetrics.topRatedChurches.length > 0) {
+      const topRatedData: ExcelRow[] = [
+        ['TOP RATED CHURCHES'],
+        [],
+        ['Church Name', 'Rating', 'Feedback Count'],
+        ...engagementMetrics.topRatedChurches.map(church => [
+          church.name,
+          `${church.rating.toFixed(1)} / 5.0`,
+          church.feedbackCount
+        ])
+      ];
 
-    const trendsSheet = XLSX.utils.json_to_sheet(trendsData);
-    trendsSheet['!cols'] = [{ wch: 20 }, { wch: 15 }];
-    XLSX.utils.book_append_sheet(workbook, trendsSheet, 'Visitor Trends');
+      const topRatedSheet = XLSX.utils.aoa_to_sheet(topRatedData);
+      topRatedSheet['!cols'] = [{ wch: 45 }, { wch: 15 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(workbook, topRatedSheet, 'Top Rated');
+    }
 
-    // Sheet 4: Engagement by Municipality
+    // Sheet 7: Engagement by Municipality
     const municipalityEngagement = Object.entries(analytics.churchesByMunicipality)
       .map(([municipality, count]) => {
         const municipalityChurches = analytics.topChurches.filter(c => c.municipality === municipality);
@@ -855,23 +848,30 @@ export class DioceseReportService {
           ? municipalityChurches.reduce((sum, c) => sum + c.avgRating, 0) / municipalityChurches.length
           : 0;
 
-        return {
-          'Municipality': municipality,
-          'Churches': count,
-          'Total Visitors': totalVisitors,
-          'Total Feedback': totalFeedback,
-          'Average Rating': Math.round(avgRating * 10) / 10
-        };
+        return [
+          municipality,
+          count,
+          totalVisitors,
+          totalFeedback,
+          Math.round(avgRating * 10) / 10
+        ];
       })
-      .sort((a, b) => b['Total Visitors'] - a['Total Visitors']);
+      .sort((a, b) => (b[2] as number) - (a[2] as number));
 
-    const municipalitySheet = XLSX.utils.json_to_sheet(municipalityEngagement);
+    const municipalityData: ExcelRow[] = [
+      ['ENGAGEMENT BY MUNICIPALITY'],
+      [],
+      ['Municipality', 'Churches', 'Total Visitors', 'Total Feedback', 'Avg Rating'],
+      ...municipalityEngagement
+    ];
+
+    const municipalitySheet = XLSX.utils.aoa_to_sheet(municipalityData);
     municipalitySheet['!cols'] = [
       { wch: 25 }, // Municipality
       { wch: 12 }, // Churches
       { wch: 15 }, // Visitors
       { wch: 15 }, // Feedback
-      { wch: 14 }  // Rating
+      { wch: 12 }  // Rating
     ];
     XLSX.utils.book_append_sheet(workbook, municipalitySheet, 'By Municipality');
 

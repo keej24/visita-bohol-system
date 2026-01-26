@@ -2,6 +2,11 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 
+// Type for jsPDF with autoTable extension
+interface jsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: { finalY: number };
+}
+
 interface ChurchInfo {
   churchName: string;
   parishName: string;
@@ -221,7 +226,7 @@ export class PDFExportService {
       margin: { left: 20, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
     // ============================
     // 3. CLASSIFICATIONS & STATUS SECTION
@@ -245,7 +250,7 @@ export class PDFExportService {
       margin: { left: 20, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
     // ============================
     // 4. HISTORICAL INFORMATION SECTION
@@ -268,7 +273,7 @@ export class PDFExportService {
       margin: { left: 25, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 10;
 
     // 4.2 Historical Background
     yPos = this.checkPageBreak(doc, yPos, 40);
@@ -466,7 +471,7 @@ export class PDFExportService {
       margin: { left: 25, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
     // ============================
     // FOOTER (On Every Page)
@@ -580,7 +585,7 @@ export class PDFExportService {
       margin: { left: 20, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
     // Try to capture charts
     try {
@@ -769,7 +774,7 @@ export class PDFExportService {
       margin: { left: 20, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
     // Peak Visiting Periods (Real data from Firestore)
     doc.setFontSize(14);
@@ -802,7 +807,7 @@ export class PDFExportService {
       margin: { left: 20, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
     // Rating Distribution (Real data from Firestore)
     doc.setFontSize(14);
@@ -833,7 +838,7 @@ export class PDFExportService {
       margin: { left: 20, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
     // Monthly Visitor Trends
     if (analytics.visitorsByMonth.length > 0) {
@@ -863,7 +868,7 @@ export class PDFExportService {
         margin: { left: 20, right: 20 },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
+      yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
     }
 
     // Top Churches by Engagement
@@ -875,7 +880,7 @@ export class PDFExportService {
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(17, 40, 110);
-    doc.text('Top 10 Churches by Visitor Engagement', 20, yPos);
+    doc.text('Top Churches by Visitor Engagement', 20, yPos);
     doc.setTextColor(0, 0, 0);
     yPos += 7;
 
@@ -904,7 +909,7 @@ export class PDFExportService {
       margin: { left: 20, right: 20 },
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+    yPos = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
 
     // Top Rated Churches
     if (engagementMetrics.topRatedChurches.length > 0) {

@@ -254,10 +254,12 @@ export const AnnouncementList: React.FC<AnnouncementListProps> = ({
               <p className="text-muted-foreground mb-4">
                 {searchQuery || filters.category 
                   ? 'No announcements match your current filters.'
-                  : 'Get started by creating your first announcement.'
+                  : isArchivedView
+                    ? 'No archived announcements yet.'
+                    : 'Get started by creating your first announcement.'
                 }
               </p>
-              {!searchQuery && !filters.category && onCreate && (
+              {!searchQuery && !filters.category && onCreate && !isArchivedView && (
                 <Button onClick={onCreate} className="btn-heritage">
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Announcement

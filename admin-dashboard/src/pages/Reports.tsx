@@ -121,7 +121,7 @@ const Reports = () => {
   const [reportType, setReportType] = useState<string>('church_summary');
   const [selectedMunicipality, setSelectedMunicipality] = useState<string>('all');
   const [selectedClassification, setSelectedClassification] = useState<string>('all');
-  const [selectedParish, setSelectedParish] = useState<string>('all');
+  const [selectedParish, setSelectedParish] = useState<string>('');
   const [exportFormat, setExportFormat] = useState<string>('pdf');
   const [activeTab, setActiveTab] = useState<string>('church_summary');
   
@@ -258,6 +258,16 @@ const Reports = () => {
     return filtered.map(c => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [churchSummaryData, selectedMunicipality]);
 
+  // Auto-select first parish when available parishes change
+  useEffect(() => {
+    if (availableParishes.length > 0 && !selectedParish) {
+      setSelectedParish(availableParishes[0].id);
+    } else if (availableParishes.length > 0 && !availableParishes.find(p => p.id === selectedParish)) {
+      // If current selection is not in the list, select the first one
+      setSelectedParish(availableParishes[0].id);
+    }
+  }, [availableParishes, selectedParish]);
+
   // Get filtered churches data
   const availableChurches = useMemo(() => {
     if (!churchSummaryData) return [];
@@ -273,8 +283,8 @@ const Reports = () => {
       filtered = filtered.filter(c => normalizeMunicipality(c.municipality) === selectedMunicipality);
     }
 
-    // Apply parish filter
-    if (selectedParish !== 'all') {
+    // Apply parish filter - now required (no 'all' option)
+    if (selectedParish) {
       filtered = filtered.filter(c => c.id === selectedParish);
     }
 
@@ -424,18 +434,18 @@ const Reports = () => {
             : 0
         };
 
-        // Diocese-wide Church Summary Report
+        // Parish Summary Report (specific church)
         if (format === 'pdf') {
           DioceseReportService.exportDioceseChurchSummary(dioceseName, filteredAnalytics);
           toast({
             title: "Report successfully exported",
-            description: `Church Summary PDF has been downloaded (${filteredChurches.length} churches)`
+            description: `Church Summary Report PDF has been downloaded`
           });
         } else {
           DioceseReportService.exportDioceseChurchSummaryExcel(dioceseName, filteredAnalytics);
           toast({
             title: "Report successfully exported",
-            description: `Church Summary Excel has been downloaded (${filteredChurches.length} churches)`
+            description: `Church Summary Report Excel has been downloaded`
           });
         }
       } else if (reportType === 'engagement_analytics') {
@@ -481,11 +491,16 @@ const Reports = () => {
             description: `Engagement Analytics PDF has been downloaded (${formatDate(startDate, 'MMM dd')} - ${formatDate(endDate, 'MMM dd, yyyy')})`
           });
         } else {
-          // Use diocese-specific engagement export for Excel
+          // Use diocese-specific engagement export for Excel with engagement metrics
           DioceseReportService.exportDioceseEngagementExcel(
             dioceseName,
             dioceseAnalytics!,
-            dateRangeObj
+            dateRangeObj,
+            {
+              peakVisitingPeriods: engagementMetrics!.peakVisitingPeriods,
+              ratingDistribution: engagementMetrics!.ratingDistribution,
+              topRatedChurches: engagementMetrics!.topRatedChurches
+            }
           );
           toast({
             title: "Report successfully exported",
@@ -637,7 +652,7 @@ const Reports = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* Church Summary Report Tab */}
+          {/* Parish Summary Report Tab */}
           <TabsContent value="church_summary" className="space-y-4 sm:space-y-6">
             {/* Filters */}
             <Card>
@@ -654,7 +669,7 @@ const Reports = () => {
                       <Label>Municipality</Label>
                       <Select value={selectedMunicipality} onValueChange={(value) => {
                         setSelectedMunicipality(value);
-                        setSelectedParish('all'); // Reset parish when municipality changes
+                        setSelectedParish(''); // Reset parish when municipality changes - will auto-select first
                       }}>
                         <SelectTrigger>
                           <SelectValue />
@@ -676,10 +691,9 @@ const Reports = () => {
                       <Label>Parish</Label>
                       <Select value={selectedParish} onValueChange={setSelectedParish}>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="Select a parish" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Parishes</SelectItem>
                           {availableParishes.map((parish) => (
                             <SelectItem key={parish.id} value={parish.id}>
                               {parish.name}
@@ -706,45 +720,24 @@ const Reports = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Export Format</Label>
-                    <Select value={exportFormat} onValueChange={setExportFormat}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pdf">PDF Document</SelectItem>
-                        <SelectItem value="excel">Excel Spreadsheet</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
                     <Label>&nbsp;</Label>
                     <Button 
-                      onClick={() => handleExportClick(exportFormat, 'church_summary')}
+                      onClick={() => handleExportClick('pdf', 'church_summary')}
                       className="w-full h-10"
-                      disabled={availableChurches.filter(church =>
-                        (selectedMunicipality === 'all' || normalizeMunicipality(church.municipality) === selectedMunicipality) &&
-                        (selectedClassification === 'all' ||
-                         (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
-                         church.classification === selectedClassification)
-                      ).length === 0}
+                      disabled={!selectedParish || availableChurches.length === 0}
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      Export Report
+                      Export PDF
                     </Button>
                   </div>
                 </div>
 
                 {/* Export Error Message */}
-                {availableChurches.filter(church =>
-                  (selectedMunicipality === 'all' || normalizeMunicipality(church.municipality) === selectedMunicipality) &&
-                  (selectedClassification === 'all' ||
-                   (selectedClassification === 'non_heritage' && !['ICP', 'NCT'].includes(church.classification)) ||
-                   church.classification === selectedClassification)
-                ).length === 0 && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <span className="text-red-600 text-sm font-medium">⚠️ No data to export with current filters</span>
+                {(!selectedParish || availableChurches.length === 0) && (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                    <span className="text-amber-700 text-sm font-medium">
+                      {!selectedParish ? '⚠️ Please select a parish to generate the report' : '⚠️ No data available for the selected parish'}
+                    </span>
                   </div>
                 )}
               </CardContent>
@@ -757,11 +750,11 @@ const Reports = () => {
                   <Church className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Records Found</h3>
                   <p className="text-muted-foreground mb-4">
-                    {selectedMunicipality !== 'all' || selectedParish !== 'all' || selectedClassification !== 'all' ? (
+                    {selectedMunicipality !== 'all' || selectedParish || selectedClassification !== 'all' ? (
                       <>
                         No churches match your selected filters. Try adjusting your filter criteria:
                         {selectedMunicipality !== 'all' && <><br />• Municipality: {selectedMunicipality}</>}
-                        {selectedParish !== 'all' && <><br />• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</>}
+                        {selectedParish && <><br />• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</>}
                         {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non_heritage' ? 'Non-Heritage' : selectedClassification}</>}
                       </>
                     ) : (
@@ -776,7 +769,7 @@ const Reports = () => {
                       variant="outline" 
                       onClick={() => {
                         setSelectedMunicipality('all');
-                        setSelectedParish('all');
+                        setSelectedParish('');
                         setSelectedClassification('all');
                       }}
                     >
@@ -811,7 +804,7 @@ const Reports = () => {
                           <p className="text-muted-foreground mb-4">
                             No churches match your selected filters:
                             {selectedMunicipality !== 'all' && <><br />• Municipality: {selectedMunicipality}</>}
-                            {selectedParish !== 'all' && <><br />• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</>}
+                            {selectedParish && <><br />• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</>}
                             {selectedClassification !== 'all' && <><br />• Classification: {selectedClassification === 'non_heritage' ? 'Non-Heritage' : selectedClassification}</>}
                           </p>
                           <div className="flex gap-3 justify-center">
@@ -819,7 +812,7 @@ const Reports = () => {
                               variant="outline" 
                               onClick={() => {
                                 setSelectedMunicipality('all');
-                                setSelectedParish('all');
+                                setSelectedParish('');
                                 setSelectedClassification('all');
                               }}
                             >
@@ -1291,46 +1284,6 @@ const Reports = () => {
               diocese={currentDiocese as 'tagbilaran' | 'talibon'}
               churches={churchSummaryData || []}
             />
-
-            {/* Church Comparison (Chancery Only) */}
-            {!isParishSecretary && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" />
-                    Comparative Parish Engagement
-                  </CardTitle>
-                  <CardDescription>
-                    Comparison of visitor engagement across all parishes in the diocese
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {availableChurches
-                      .sort((a, b) => b.visitorCount - a.visitorCount)
-                      .map((church) => (
-                      <div key={church.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                        <div>
-                          <h4 className="font-medium">{church.name}</h4>
-                          <p className="text-sm text-muted-foreground">{church.municipality}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold">{church.visitorCount.toLocaleString()}</span>
-                            <Eye className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">{church.avgRating}</span>
-                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm text-muted-foreground">({church.feedbackCount})</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
               </>
             )}
           </TabsContent>
@@ -1389,13 +1342,13 @@ const Reports = () => {
                           {selectedMunicipality !== 'all' && (
                             <li>• Municipality: {selectedMunicipality}</li>
                           )}
-                          {selectedParish !== 'all' && (
+                          {selectedParish && (
                             <li>• Parish: {availableParishes.find(p => p.id === selectedParish)?.name || selectedParish}</li>
                           )}
                           {selectedClassification !== 'all' && (
                             <li>• Classification: {selectedClassification === 'non_heritage' ? 'Non-Heritage' : selectedClassification}</li>
                           )}
-                          {selectedMunicipality === 'all' && selectedParish === 'all' && selectedClassification === 'all' && (
+                          {selectedMunicipality === 'all' && !selectedParish && selectedClassification === 'all' && (
                             <li>• All churches in {currentDiocese} diocese</li>
                           )}
                         </ul>
