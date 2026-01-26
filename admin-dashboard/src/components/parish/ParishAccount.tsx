@@ -232,6 +232,26 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
         
         console.log('✅ Phone number saved to user profile');
         
+        // Sync phone number to church document's contactInfo
+        const parishIdentifier = userProfile.parishId || userProfile.parish;
+        if (parishIdentifier && profileData.phone) {
+          try {
+            const churches = await ChurchService.getChurches({ diocese: userProfile.diocese });
+            const parishChurch = churches.find(c => c.id === parishIdentifier);
+            
+            if (parishChurch) {
+              const churchDocRef = doc(db, 'churches', parishChurch.id);
+              await updateDoc(churchDocRef, {
+                'contactInfo.phone': profileData.phone
+              });
+              console.log('✅ Phone number synced to church document');
+            }
+          } catch (syncError) {
+            console.error('Error syncing phone to church:', syncError);
+            // Don't fail the whole operation if church sync fails
+          }
+        }
+        
         // Refresh user profile to get the updated phone number
         await refreshUserProfile();
       }
@@ -401,10 +421,21 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
       {/* Edit Profile Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Church className="w-5 h-5" />
-            Parish Account
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Church className="w-5 h-5" />
+              Parish Account
+            </CardTitle>
+            {!isEditingProfile && (
+              <Button
+                variant="outline"
+                onClick={() => setIsEditingProfile(true)}
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Profile Picture & Basic Info */}
@@ -467,12 +498,23 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
                   <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
                     id="phone"
-                    value={profileData.phone || 'Not set'}
-                    disabled
-                    className="mt-1 pl-10 bg-gray-50"
+                    value={profileData.phone || '+63 '}
+                    onChange={(e) => {
+                      // Ensure +63 prefix is maintained
+                      const value = e.target.value;
+                      const newValue = !value.startsWith('+63') 
+                        ? '+63 ' + value.replace(/^\+63\s*/, '')
+                        : value;
+                      setProfileData(prev => ({ ...prev, phone: newValue }));
+                    }}
+                    disabled={!isEditingProfile}
+                    className={`mt-1 pl-10 ${!isEditingProfile ? 'bg-gray-50' : ''}`}
+                    placeholder="9XX XXX XXXX"
+                    autoComplete="off"
+                    data-form-type="other"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Edit contact number in your Church Profile</p>
+                <p className="text-xs text-gray-500 mt-1">This will sync with your Church Profile</p>
               </div>
               <div className="md:col-span-2">
                 <Label htmlFor="diocese">Diocese</Label>
@@ -486,6 +528,23 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Save/Cancel Buttons (only visible in edit mode) */}
+          {isEditingProfile && (
+            <div className="flex gap-3 pt-4 border-t">
+              <Button onClick={handleProfileSave} className="flex-1" disabled={isLoadingProfile}>
+                <Save className="w-4 h-4 mr-2" />
+                {isLoadingProfile ? 'Saving...' : 'Save Profile'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleCancelProfileEdit}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
 
         </CardContent>
       </Card>

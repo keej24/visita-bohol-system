@@ -100,6 +100,7 @@ import type { ArchitecturalStyle, ChurchClassification, Church, ChurchDocument }
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 
 // View type for managing which content is displayed
 type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback';
@@ -116,6 +117,9 @@ const ParishDashboard = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingChurch, setExistingChurch] = useState<Church | null>(null);
+  
+  // Track if initial church load has completed to prevent view reset on profile refresh
+  const initialLoadCompleteRef = useRef(false);
   
   // Load dismissed state from localStorage - use uid for consistent key
   // Initialize from localStorage immediately if uid is available
@@ -175,7 +179,7 @@ const ParishDashboard = () => {
     feastDay: '',
     massSchedules: [],
     contactInfo: {
-      phone: '',
+      phone: userProfile?.phoneNumber || '+63 ', // Pre-fill with user's phone if available
       email: '',
       website: '',
       facebookPage: ''
@@ -413,6 +417,11 @@ const ParishDashboard = () => {
   // Load existing church data from Firebase
   useEffect(() => {
     if (userProfile && (userProfile.parishId || userProfile.parish)) {
+      // Skip if initial load is already complete (e.g., after profile refresh)
+      if (initialLoadCompleteRef.current) {
+        return;
+      }
+      
       setIsLoading(true);
 
       // Use new parishId if available, fallback to legacy parish field
@@ -434,8 +443,11 @@ const ParishDashboard = () => {
             setChurchId(church.id);
             setChurchInfo(convertChurchToInfo(church));
 
-            // Always show overview on load - user can click Edit Profile to edit
-            setCurrentView('overview');
+            // Only set view to overview on initial load
+            if (!initialLoadCompleteRef.current) {
+              setCurrentView('overview');
+              initialLoadCompleteRef.current = true;
+            }
           } else {
             // No existing church - initialize with default data but don't show form yet
             console.log('⚠️ [PARISH DASHBOARD] No church found for:', {
@@ -457,7 +469,11 @@ const ParishDashboard = () => {
               },
               diocese: userProfile.diocese
             }));
-            setCurrentView('overview'); // Changed to overview - user must click "Add Profile" button
+            // Only set view to overview on initial load
+            if (!initialLoadCompleteRef.current) {
+              setCurrentView('overview');
+              initialLoadCompleteRef.current = true;
+            }
           }
         })
         .catch((error) => {
@@ -481,7 +497,11 @@ const ParishDashboard = () => {
             },
             diocese: userProfile.diocese
           }));
-          setCurrentView('overview'); // Changed to overview - user must click "Add Profile" button
+          // Only set view to overview on initial load
+          if (!initialLoadCompleteRef.current) {
+            setCurrentView('overview');
+            initialLoadCompleteRef.current = true;
+          }
         })
         .finally(() => {
           setIsLoading(false);

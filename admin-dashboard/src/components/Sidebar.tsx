@@ -302,7 +302,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sidebar-foreground font-medium text-sm truncate">
-                {userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : toTitleCase(userProfile?.name || userProfile?.email)}
+                {userProfile?.institutionName || userProfile?.name || toTitleCase(userProfile?.email)}
               </p>
               <p className="text-sidebar-foreground/70 text-xs truncate">
                 {userProfile?.role === 'museum_researcher' 

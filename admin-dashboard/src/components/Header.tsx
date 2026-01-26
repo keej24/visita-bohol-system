@@ -230,9 +230,7 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
                 </div>
                 <div className="text-left hidden md:block">
                   <p className="text-sm font-medium">
-                    {userProfile?.role === 'museum_researcher' 
-                      ? 'National Museum of the Philippines - Bohol' 
-                      : (userProfile?.name || 'Administrator')}
+                    {userProfile?.institutionName || userProfile?.name || 'Administrator'}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {toTitleCase(userProfile?.role)} 

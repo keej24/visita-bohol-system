@@ -15,6 +15,7 @@ import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 
 import { db, auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
+import { ChurchService } from '@/services/churchService';
 
 const AccountSettings = () => {
   const { userProfile, user, refreshUserProfile } = useAuth();
@@ -298,10 +299,35 @@ const AccountSettings = () => {
       };
 
       // For system accounts (chancery/museum), save institution name but not phone
-      // Parish secretaries edit phone in Church Profile Form, not here
+      // For parish secretaries, save phone and sync to church document
       if (isSystemAccount) {
         updateData.institutionName = profileData.institutionName || null;
         updateData.name = profileData.institutionName || null;
+        
+        // For parish secretaries, also save phone number and sync to church
+        if (userProfile.role === 'parish_secretary') {
+          updateData.phoneNumber = profileData.phone || null;
+          
+          // Sync phone number to church document's contactInfo
+          const parishIdentifier = userProfile.parishId || userProfile.parish;
+          if (parishIdentifier && profileData.phone) {
+            try {
+              const churches = await ChurchService.getChurches({ diocese: userProfile.diocese });
+              const parishChurch = churches.find(c => c.id === parishIdentifier);
+              
+              if (parishChurch) {
+                const churchDocRef = doc(db, 'churches', parishChurch.id);
+                await updateDoc(churchDocRef, {
+                  'contactInfo.phone': profileData.phone
+                });
+                console.log('✅ Phone number synced to church document');
+              }
+            } catch (syncError) {
+              console.error('Error syncing phone to church:', syncError);
+              // Don't fail the whole operation if church sync fails
+            }
+          }
+        }
       } else {
         // For non-system accounts, allow name and phone updates
         updateData.name = `${profileData.firstName} ${profileData.lastName}`;
@@ -762,13 +788,29 @@ const AccountSettings = () => {
                           <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                           <Input
                             id="phone"
-                            value={profileData.phone || 'Not set'}
-                            disabled
-                            className="mt-1 pl-10 bg-gray-50"
-                            placeholder="+63 xxx xxx xxxx"
+                            value={profileData.phone || '+63 '}
+                            onChange={(e) => {
+                              // Ensure +63 prefix is maintained
+                              const value = e.target.value;
+                              const newValue = !value.startsWith('+63') 
+                                ? '+63 ' + value.replace(/^\+63\s*/, '')
+                                : value;
+                              setProfileData(prev => ({ ...prev, phone: newValue }));
+                              if (errors.phone) {
+                                setErrors(prev => ({ ...prev, phone: validatePhone(newValue) }));
+                              }
+                            }}
+                            disabled={!isEditingProfile}
+                            className={`mt-1 pl-10 ${!isEditingProfile ? 'bg-gray-50' : ''} ${errors.phone && isEditingProfile ? 'border-red-500 focus:ring-red-500' : ''}`}
+                            placeholder="9XX XXX XXXX"
+                            autoComplete="off"
+                            data-form-type="other"
                           />
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Edit contact number in your Church Profile</p>
+                        {errors.phone && isEditingProfile && (
+                          <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">This will sync with your Church Profile</p>
                       </div>
                     )}
                   </>
