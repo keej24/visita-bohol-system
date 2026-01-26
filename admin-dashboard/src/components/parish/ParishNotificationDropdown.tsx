@@ -103,15 +103,39 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
 
   // Filter notifications relevant to parish users
   const parishNotifications = notifications.filter(notification => {
-    const relevantTypes = [
+    // Parish-specific notification types
+    const parishSpecificTypes = [
       'church_approved',
       'church_unpublished',
       'revision_requested',
       'heritage_review_assigned',
-      'heritage_validated',
-      'system_notification'
+      'heritage_validated'
     ];
-    return relevantTypes.includes(notification.type);
+    
+    // General notification types that all parish secretaries can see
+    const generalTypes = ['system_notification'];
+    
+    const userParishId = userProfile?.parishId || userProfile?.parish;
+    
+    // For parish-specific notifications, check if it belongs to this parish
+    if (parishSpecificTypes.includes(notification.type)) {
+      // Get parish ID from either recipients.parishId or relatedData.churchId
+      const notificationParishId = notification.recipients?.parishId || notification.relatedData?.churchId;
+      
+      // Must match user's parish to be shown
+      if (notificationParishId !== userParishId) {
+        return false;
+      }
+      return true;
+    }
+    
+    // General notifications are shown to all
+    if (generalTypes.includes(notification.type)) {
+      return true;
+    }
+    
+    // Unknown types - don't show
+    return false;
   });
 
   // Count unread parish-relevant notifications

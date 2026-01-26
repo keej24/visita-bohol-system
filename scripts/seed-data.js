@@ -14,7 +14,7 @@ const sampleData = {
   users: [
     {
       uid: 'chancery_tagbilaran_001',
-      email: 'dioceseoftagbilaran@gmail.com',
+      email: 'dioceseoftagbilaran1941@gmail.com',
       name: 'Tagbilaran Chancery Office',
       role: 'chancery_office',
       diocese: 'tagbilaran',
@@ -448,7 +448,7 @@ async function main() {
     console.log(`• ${sampleData.feedback.length} feedback entries added`);
     console.log('');
     console.log('🔐 Test login credentials:');
-    console.log('• Tagbilaran Chancery: dioceseoftagbilaran@gmail.com');
+    console.log('• Tagbilaran Chancery: dioceseoftagbilaran1941@gmail.com');
     console.log('• Talibon Chancery: chancery.talibon@visita.ph');
     console.log('• Museum Researcher: researcher@museum.gov.ph');
     console.log('• Parish Secretary: secretary@baclayon.church');

@@ -10,7 +10,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 const preConfiguredAccounts = [
   // Chancery Office - Diocese of Tagbilaran
   {
-    email: 'dioceseoftagbilaran@gmail.com',
+    email: 'dioceseoftagbilaran1941@gmail.com',
     password: import.meta.env.VITE_DEFAULT_PASSWORD_TAGBILARAN || 'ChanceryTagbilaran2025!',
     profile: {
       role: 'chancery_office',
@@ -125,7 +125,7 @@ export const testLogin = async (email: string, password: string) => {
   console.log('Account creation results:', results);
   
   // Test login for one account
-  await testLogin('dioceseoftagbilaran@gmail.com', 'ChanceryTagbilaran2025!');
+  await testLogin('dioceseoftagbilaran1941@gmail.com', 'ChanceryTagbilaran2025!');
 })();
 */
 

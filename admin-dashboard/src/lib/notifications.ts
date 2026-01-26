@@ -25,6 +25,7 @@ export interface Notification {
     userIds?: string[];
     roles?: string[];
     dioceses?: Diocese[];
+    parishId?: string;  // For parish-specific notifications
   };
   relatedData?: {
     churchId?: string;
@@ -234,6 +235,10 @@ export class NotificationService {
           diocese
         };
 
+        // For parish secretary notifications, include the churchId as parishId
+        // so the notification only appears for the specific parish
+        const isParishNotification = notif.roles.includes('parish_secretary');
+        
         const notification: Omit<Notification, 'id'> = {
           type: notif.type,
           priority: template.priority,
@@ -241,7 +246,9 @@ export class NotificationService {
           message: this.processTemplate(template.messageTemplate, notificationData),
           recipients: {
             roles: notif.roles,
-            dioceses: [diocese]
+            dioceses: [diocese],
+            // Only parish secretaries should see notifications for their specific parish
+            ...(isParishNotification && { parishId: churchId })
           },
           relatedData: {
             churchId,
@@ -365,7 +372,36 @@ export class NotificationService {
             const isDioceseMatch = !dioceses || dioceses.length === 0 || 
                                    (userProfile.diocese && dioceses.includes(userProfile.diocese));
             
-            if (isDioceseMatch && (!unreadOnly || !(data.readBy?.includes(userProfile.uid)))) {
+            // For parish secretaries, filter notifications to only show their parish's notifications
+            const userParishId = userProfile.parishId || userProfile.parish;
+            const isParishSecretary = userProfile.role === 'parish_secretary';
+            
+            // Parish-specific notification types that should only show to the specific parish
+            const parishSpecificTypes: NotificationType[] = [
+              'church_approved',
+              'church_unpublished', 
+              'revision_requested',
+              'heritage_review_assigned',
+              'heritage_validated'
+            ];
+            
+            // Determine if this notification should be filtered by parish
+            const isParishSpecificNotification = parishSpecificTypes.includes(data.type);
+            
+            // Get the parish/church ID from either recipients.parishId or relatedData.churchId
+            const notificationParishId = data.recipients?.parishId || data.relatedData?.churchId;
+            
+            // Parish filtering logic for parish secretaries:
+            // - For parish-specific notification types, MUST match user's parish (via recipients.parishId or relatedData.churchId)
+            // - For general notifications (system_notification, etc.), show to all
+            // - Non-parish_secretary roles see all notifications for their role/diocese
+            let isParishMatch = true;
+            if (isParishSecretary && isParishSpecificNotification) {
+              // Parish secretary viewing a parish-specific notification - must match their parish
+              isParishMatch = notificationParishId === userParishId;
+            }
+            
+            if (isDioceseMatch && isParishMatch && (!unreadOnly || !(data.readBy?.includes(userProfile.uid)))) {
               notificationsMap.set(doc.id, data);
             }
           }
@@ -563,7 +599,8 @@ export async function notifyChurchUnpublished(
       message,
       recipients: {
         roles: ['parish_secretary'],
-        dioceses: [actionBy.diocese]
+        dioceses: [actionBy.diocese],
+        parishId: churchId  // Only show to the specific parish secretary
       },
       relatedData: {
         churchId,

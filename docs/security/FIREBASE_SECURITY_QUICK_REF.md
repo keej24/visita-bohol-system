@@ -93,7 +93,7 @@ keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass andr
 Create these accounts in Firebase Authentication:
 
 1. **Tagbilaran Chancery**
-   - Email: `dioceseoftagbilaran@gmail.com`
+   - Email: `dioceseoftagbilaran1941@gmail.com`
    - Role: `chancery_office`
    - Diocese: `tagbilaran`
 

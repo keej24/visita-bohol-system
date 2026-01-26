@@ -27,8 +27,8 @@ const auth = admin.auth();
 const db = admin.firestore();
 
 async function updateChanceryEmail() {
-  const oldEmail = 'dioceseoftagbilaran1941@gmail.com'; // Current email from your screenshot
-  const newEmail = 'dioceseoftagbilaran@gmail.com';
+  const oldEmail = 'dioceseoftagbilaran@gmail.com'; // Previous email
+  const newEmail = 'dioceseoftagbilaran1941@gmail.com'; // Official institutional email
   const customUID = 'chancery_tagbilaran_001'; // Custom UID for consistency
 
   try {

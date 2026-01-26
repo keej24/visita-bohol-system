@@ -10,7 +10,7 @@ interface KnownAccountProfile {
 // This allows admin users to log in with a simple username instead of email
 const usernameToEmailMap: Record<string, string> = {
   // Chancery Office accounts
-  'tagbilaran_chancery': 'dioceseoftagbilaran@gmail.com',
+  'tagbilaran_chancery': 'dioceseoftagbilaran1941@gmail.com',
   'talibon_chancery': 'talibonchancery@gmail.com',
   // Museum Researcher account
   'museum_researcher': 'bohol@nationalmuseum.gov.ph',
@@ -61,7 +61,7 @@ export function getUsernameDisplayName(username: string): string | null {
 
 export function getKnownAccountProfile(email: string): KnownAccountProfile | null {
   const knownAccounts: Record<string, KnownAccountProfile> = {
-    'dioceseoftagbilaran@gmail.com': {
+    'dioceseoftagbilaran1941@gmail.com': {
       name: 'Tagbilaran Chancery Office',
       role: 'chancery_office',
       diocese: 'tagbilaran',
@@ -84,7 +84,7 @@ export function getKnownAccountProfile(email: string): KnownAccountProfile | nul
 // Helper function to check if an account is preconfigured (system account)
 export function isPreconfiguredAccount(email: string): boolean {
   const preconfiguredEmails = [
-    'dioceseoftagbilaran@gmail.com',
+    'dioceseoftagbilaran1941@gmail.com',
     'talibonchancery@gmail.com',
     'bohol@nationalmuseum.gov.ph'
   ];
