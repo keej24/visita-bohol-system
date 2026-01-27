@@ -1,54 +1,11 @@
-/**
- * =============================================================================
- * CHURCH APPROVAL WORKFLOW STATE MACHINE
- * =============================================================================
- * 
- * FILE PURPOSE:
- * This file controls how churches move through the approval process.
- * Think of it like a traffic light system - churches can only move from
- * one status to another in specific, controlled ways.
- * 
- * THE APPROVAL WORKFLOW (Simple Version):
- * 
- *   PENDING ──────────────────────────────► APPROVED
- *      │        (Chancery approves          (Published!)
- *      │         non-heritage church)
- *      │
- *      └──► HERITAGE_REVIEW ──────────────► APPROVED
- *           (Chancery sends to              (Museum approves)
- *            Museum Researcher)
- * 
- * WHY WE NEED THIS:
- * - Ensures only authorized people can approve churches
- * - Heritage churches (ICP/NCT) get expert review from museum staff
- * - Creates an audit trail of who approved what and when
- * - Prevents accidental or unauthorized status changes
- * 
- * REAL-WORLD ANALOGY:
- * Like a document that needs signatures - a parish submits it,
- * the Chancery reviews it, and if it's a heritage site, the
- * museum expert also signs off before it goes public.
- * 
- * =============================================================================
- */
+
 
 import type { ChurchStatus } from '@/lib/churches';
 import type { UserProfile } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
 
-/**
- * WorkflowTransition Type
- * 
- * Defines a single allowed status change in the system.
- * Each transition specifies:
- * - from: The starting status (where we are now)
- * - to: The target status (where we want to go)
- * - requiredRoles: Who is allowed to make this change
- * - description: Human-readable explanation
- * - conditions: Optional extra rules that must be met
- * - onTransition: Optional code to run when transition happens
- */
+
 export type WorkflowTransition = {
   from: ChurchStatus;           // Current status of the church
   to: ChurchStatus;             // Status we're changing to
@@ -58,16 +15,7 @@ export type WorkflowTransition = {
   onTransition?: (context: WorkflowContext) => Promise<void>;  // Code to run after transition
 };
 
-/**
- * WorkflowContext Interface
- * 
- * Contains all the information needed to process a status change.
- * This is passed to every transition to provide context about:
- * - Which church is being changed
- * - What the current and target statuses are
- * - Who is making the change
- * - Any notes or additional data
- */
+
 export interface WorkflowContext {
   churchId: string;              // The church being changed
   currentStatus: ChurchStatus;   // Current status (e.g., 'pending')
@@ -77,19 +25,7 @@ export interface WorkflowContext {
   metadata?: Record<string, any>; // Additional data (e.g., heritage documents)
 }
 
-/**
- * StatusChangeAuditLog Interface
- * 
- * Records every status change for accountability and history.
- * This is important for:
- * - Tracking who approved what
- * - Debugging workflow issues
- * - Compliance and record-keeping
- * - Understanding the church's approval history
- * 
- * Each log entry captures the before/after status, who made
- * the change, when it happened, and any notes provided.
- */
+
 export interface StatusChangeAuditLog {
   id?: string;                   // Firestore document ID (auto-generated)
   churchId: string;              // Which church was changed
@@ -108,29 +44,10 @@ export interface StatusChangeAuditLog {
   diocese?: string;              // Which diocese this belongs to
 }
 
-/**
- * =============================================================================
- * WORKFLOW TRANSITIONS DEFINITION
- * =============================================================================
- * 
- * This is the "rule book" for all allowed status changes.
- * 
- * THE 5 VALID TRANSITIONS:
- * 
- * 1. PENDING → PENDING (Parish re-submits their church for review)
- * 2. PENDING → APPROVED (Chancery approves a non-heritage church)
- * 3. PENDING → HERITAGE_REVIEW (Chancery sends heritage church to museum)
- * 4. HERITAGE_REVIEW → APPROVED (Museum researcher validates and approves)
- * 5. APPROVED → HERITAGE_REVIEW (Rare: re-evaluate an approved church)
- * 
- * Any transition NOT in this list is BLOCKED by the system.
- * This prevents unauthorized or accidental status changes.
- */
+
 const WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
   
-  // ─────────────────────────────────────────────────────────────────────────
-  // TRANSITION 1: Parish Secretary Re-submits
-  // ─────────────────────────────────────────────────────────────────────────
+  
   // When: Parish needs to update their submission after making changes
   // Who: Parish Secretary only
   // Result: Church stays in PENDING (refreshes the submission)
@@ -146,13 +63,11 @@ const WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
     }
   },
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // TRANSITION 2: Chancery Directly Approves (Non-Heritage)
-  // ─────────────────────────────────────────────────────────────────────────
+  
   // When: Church is NOT a heritage site (no ICP/NCT classification)
   // Who: Chancery Office only
   // Result: Church is APPROVED and visible to public immediately
-  // Note: This is the fast track for regular churches
+ 
   {
     from: 'pending',
     to: 'approved',
@@ -165,9 +80,7 @@ const WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
     }
   },
   
-  // ─────────────────────────────────────────────────────────────────────────
-  // TRANSITION 3: Chancery Forwards to Museum (Heritage)
-  // ─────────────────────────────────────────────────────────────────────────
+  
   // When: Church IS a heritage site (ICP or NCT classification)
   // Who: Chancery Office only
   // Result: Church enters HERITAGE_REVIEW for museum validation
@@ -183,13 +96,11 @@ const WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
     }
   },
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // TRANSITION 4: Museum Researcher Approves Heritage Church
-  // ─────────────────────────────────────────────────────────────────────────
+  
   // When: Museum has validated the heritage information
   // Who: Museum Researcher only
   // Result: Church is APPROVED and visible to public
-  // Important: This is the ONLY way heritage churches can be published
+  
   {
     from: 'heritage_review',
     to: 'approved',
@@ -201,9 +112,7 @@ const WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
     }
   },
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // TRANSITION 5: Re-evaluate Published Church (Emergency/Administrative)
-  // ─────────────────────────────────────────────────────────────────────────
+
   // When: An already-published church needs heritage re-evaluation
   // Who: Chancery Office only
   // Result: Church goes back to HERITAGE_REVIEW (temporarily unpublished)
@@ -222,62 +131,18 @@ const WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
   }
 ];
 
-/**
- * =============================================================================
- * CHURCH WORKFLOW STATE MACHINE CLASS
- * =============================================================================
- * 
- * This class is the "brain" that controls all status changes.
- * It enforces the rules defined in WORKFLOW_TRANSITIONS above.
- * 
- * HOW IT WORKS:
- * 1. When someone tries to change a church's status...
- * 2. The state machine checks: Is this transition allowed?
- * 3. If allowed: Execute the change and log it
- * 4. If not allowed: Reject with an error message
- * 
- * MAIN RESPONSIBILITIES:
- * - Validate transitions before they happen
- * - Execute transitions safely
- * - Log all changes for audit trail
- * - Provide status information for UI display
- * 
- * DESIGN PATTERN: State Machine
- * - Each status is a "state"
- * - Each transition is an "edge" between states
- * - The machine only allows defined edges
- */
+
 export class ChurchWorkflowStateMachine {
-  /**
-   * Map of all transitions, organized by starting status.
-   * This makes it fast to look up "what can I do from status X?"
-   * 
-   * Structure:
-   * {
-   *   'pending' => [transition1, transition2, transition3],
-   *   'heritage_review' => [transition4],
-   *   'approved' => [transition5]
-   * }
-   */
+ 
   private transitions: Map<string, WorkflowTransition[]>;
 
-  /**
-   * Constructor - Initialize the state machine
-   * Called once when the app loads (singleton pattern)
-   */
+  
   constructor() {
     this.transitions = new Map();
     this.buildTransitionMap();
   }
 
-  /**
-   * Build the transition lookup map from the WORKFLOW_TRANSITIONS array.
-   * 
-   * This organizes transitions by their "from" status so we can
-   * quickly answer: "Given status X, what transitions are possible?"
-   * 
-   * Called once during initialization.
-   */
+  
   private buildTransitionMap() {
     WORKFLOW_TRANSITIONS.forEach(transition => {
       const key = transition.from;  // Group by starting status
@@ -289,18 +154,12 @@ export class ChurchWorkflowStateMachine {
   }
 
   /**
-   * Get all valid transitions from a status for a specific user role.
-   * 
-   * Used by the UI to show available actions.
-   * For example: "As a Chancery user, what can I do with a PENDING church?"
-   * 
+   
    * @param fromStatus - Current church status
    * @param userRole - Role of the user trying to act
    * @returns Array of allowed transitions
    * 
-   * Example:
-   *   getValidTransitions('pending', 'chancery_office')
-   *   → Returns transitions to 'approved' and 'heritage_review'
+   
    */
   getValidTransitions(fromStatus: ChurchStatus, userRole: string): WorkflowTransition[] {
     const transitions = this.transitions.get(fromStatus) || [];
@@ -311,19 +170,10 @@ export class ChurchWorkflowStateMachine {
   }
 
   /**
-   * Check if a specific transition is valid WITHOUT executing it.
-   * 
-   * This is the validation step - we check:
-   * 1. Does a transition exist from current → target?
-   * 2. Is the user's role allowed to make this transition?
-   * 3. Are any additional conditions met?
+   
    * 
    * @param context - All info about the attempted transition
    * @returns Object with valid=true/false and error reason if invalid
-   * 
-   * Example:
-   *   isTransitionValid({ currentStatus: 'pending', targetStatus: 'approved', userProfile: {role: 'parish_secretary'} })
-   *   → { valid: false, reason: "Role 'parish_secretary' is not authorized..." }
    */
   isTransitionValid(context: WorkflowContext): { valid: boolean; reason?: string } {
     const { currentStatus, targetStatus, userProfile } = context;
@@ -359,17 +209,7 @@ export class ChurchWorkflowStateMachine {
   }
 
   /**
-   * Execute a status transition with full validation and logging.
-   * 
-   * This is the main entry point for changing a church's status.
-   * It performs these steps:
-   * 1. Validate the transition is allowed
-   * 2. Run any pre-transition hooks
-   * 3. Log the change to the audit trail
-   * 4. Return success or error
-   * 
-   * NOTE: This method does NOT update the church document itself.
-   * The calling code should update Firestore after this returns success.
+   
    * 
    * @param context - All info about the transition
    * @returns Object with success=true/false and error message if failed
@@ -414,12 +254,7 @@ export class ChurchWorkflowStateMachine {
   }
 
   /**
-   * Get human-readable status information for UI display.
-   * 
-   * Each status has:
-   * - label: What to show users (e.g., "Pending Review")
-   * - color: For badges/indicators
-   * - description: Tooltip/help text
+   
    * 
    * @param status - The church status to get info for
    * @returns Object with label, color, and description
@@ -452,11 +287,7 @@ export class ChurchWorkflowStateMachine {
   }
 
   /**
-   * Get list of possible actions for a church in its current status.
-   * 
-   * Used by the UI to show buttons like "Approve", "Send to Museum", etc.
-   * Only shows actions the current user is allowed to perform.
-   * 
+   
    * @param churchId - The church ID (for context)
    * @param currentStatus - Current status of the church
    * @param userRole - Role of the viewing user
@@ -480,13 +311,7 @@ export class ChurchWorkflowStateMachine {
   }
 
   /**
-   * Find a specific transition in our rules.
-   * 
-   * Searches for a transition that matches:
-   * - Starting from 'from' status
-   * - Going to 'to' status
-   * - Allowed for 'role'
-   * 
+   
    * @returns The matching transition, or null if not found
    */
   private findTransition(from: ChurchStatus, to: ChurchStatus, role: string): WorkflowTransition | null {
@@ -494,12 +319,7 @@ export class ChurchWorkflowStateMachine {
     return transitions.find(t => t.to === to && t.requiredRoles.includes(role)) || null;
   }
 
-  /**
-   * Get a user-friendly label for a transition action button.
-   * 
-   * Converts status codes to readable button text.
-   * Example: 'heritage_review' → 'Send to Museum Researcher'
-   */
+  
   private getActionLabel(transition: WorkflowTransition): string {
     const actionLabels: Record<ChurchStatus, string> = {
       pending: 'Submit for Review',
@@ -510,21 +330,8 @@ export class ChurchWorkflowStateMachine {
     return actionLabels[transition.to] || transition.to;
   }
 
-  /**
-   * Log a status change to Firestore for audit trail.
-   * 
-   * Creates a permanent record of every status change including:
-   * - What changed (from → to)
-   * - Who made the change
-   * - When it happened
-   * - Any notes provided
-   * 
-   * This is stored in the 'church_status_audit' collection.
-   * 
-   * IMPORTANT: We don't fail the transition if logging fails.
-   * The status change is more important than the audit log.
-   */
-  private async logStatusChange(context: WorkflowContext): Promise<void> {
+  //audit logs
+    private async logStatusChange(context: WorkflowContext): Promise<void> {
     try {
       // Build the audit log entry
       const auditLog: Omit<StatusChangeAuditLog, 'id'> = {
@@ -558,28 +365,14 @@ export class ChurchWorkflowStateMachine {
   }
 }
 
-// =============================================================================
-// SINGLETON INSTANCE
-// =============================================================================
-// We create ONE instance of the state machine that the whole app shares.
-// This is called the "Singleton Pattern" - ensures consistent behavior everywhere.
+
+
 export const workflowStateMachine = new ChurchWorkflowStateMachine();
 
-// =============================================================================
-// UTILITY FUNCTIONS FOR UI DISPLAY
-// =============================================================================
-// These helper functions make it easy to display status information
-// consistently across the admin dashboard.
+
 
 /**
- * Get CSS classes for status badge styling.
- * 
- * Returns Tailwind CSS classes for:
- * - Background color
- * - Text color
- * - Border color
- * 
- * Used by status badges throughout the dashboard.
+
  * 
  * @param status - The church status
  * @returns CSS class string (e.g., 'bg-yellow-100 text-yellow-800 border-yellow-300')
@@ -596,11 +389,7 @@ export function getStatusBadgeColor(status: ChurchStatus): string {
 }
 
 /**
- * Get icon name for a status.
- * 
- * Returns the name of a Lucide icon to display with the status.
- * Icons are from the lucide-react library.
- * 
+ 
  * @param status - The church status
  * @returns Icon name string (e.g., 'Clock', 'Building2', 'CheckCircle2')
  */
