@@ -217,8 +217,6 @@ class EnhancedChurchService extends ChangeNotifier {
         return 2;
       case HeritageClassification.nonHeritage:
         return 1;
-      case HeritageClassification.none:
-        return 1;
     }
   }
 

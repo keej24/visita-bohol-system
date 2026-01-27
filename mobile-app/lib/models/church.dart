@@ -136,7 +136,7 @@ class Church {
     this.founders,
     this.keyFigures,
     this.architecturalStyle = ArchitecturalStyle.other,
-    this.heritageClassification = HeritageClassification.none,
+    this.heritageClassification = HeritageClassification.nonHeritage,
     this.religiousClassification = ReligiousClassification.none,
     this.religiousClassifications = const [],
     this.history,
@@ -235,7 +235,7 @@ class Church {
               '🏛️ [${j['name']}] No classification found, isHeritage: ${j['isHeritage']}');
           return j['isHeritage'] == true
               ? HeritageClassification.icp
-              : HeritageClassification.none;
+              : HeritageClassification.nonHeritage;
         })(),
         religiousClassification:
             ReligiousClassificationX.fromLabel(j['religiousClassification']),

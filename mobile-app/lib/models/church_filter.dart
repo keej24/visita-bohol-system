@@ -206,6 +206,16 @@ List<Church> applyChurchFilter(List<Church> source, ChurchFilterCriteria c) {
     // Match if church has ANY of the selected classifications
     if (c.religiousClassifications.isNotEmpty) {
       final churchClassifications = church.allReligiousClassifications;
+
+      // Special handling for "none" - match if church has no classifications
+      if (c.religiousClassifications.contains(ReligiousClassification.none)) {
+        if (churchClassifications.isEmpty) {
+          // Church has no classification, and we're filtering for "none" - match!
+          return true;
+        }
+      }
+
+      // For other classifications, check if church has any matching classification
       final hasMatch = c.religiousClassifications
           .any((filterClass) => churchClassifications.contains(filterClass));
       if (!hasMatch) {

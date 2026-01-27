@@ -177,7 +177,8 @@ class FirestoreChurchRepository extends ChurchRepository {
           });
 
           // Log parsed result for heritage churches
-          if (church.heritageClassification != HeritageClassification.none) {
+          if (church.heritageClassification !=
+              HeritageClassification.nonHeritage) {
             debugPrint('✅ [PARSED] ${church.name}:');
             debugPrint(
                 '   - classification (enum): ${church.heritageClassification}');

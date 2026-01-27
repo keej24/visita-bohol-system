@@ -178,7 +178,7 @@ class HistoryTab extends StatelessWidget {
                 // Architectural Style
                 _buildInfoRow('Style', church.architecturalStyle.label),
                 if (church.heritageClassification !=
-                    HeritageClassification.none) ...[
+                    HeritageClassification.nonHeritage) ...[
                   _buildInfoRow('Heritage Classification',
                       church.heritageClassification.label),
                   const SizedBox(height: 8),
