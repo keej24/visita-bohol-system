@@ -569,7 +569,7 @@ class AuthService extends ChangeNotifier {
           throw Exception('Current password is incorrect');
         case 'weak-password':
           throw Exception(
-              'New password is too weak. Please use at least 6 characters.');
+              'New password is too weak. Please use at least 8 characters with uppercase, lowercase, and number.');
         case 'requires-recent-login':
           throw Exception(
               'Session expired. Please log out and log back in, then try again.');

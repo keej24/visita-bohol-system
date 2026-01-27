@@ -5,7 +5,7 @@ enum Diocese { tagbilaran, talibon }
 
 enum AnnouncementScope { diocese, parish }
 
-enum HeritageClassification { none, icp, nct, nonHeritage }
+enum HeritageClassification { icp, nct, nonHeritage }
 
 enum ArchitecturalStyle {
   baroque,
@@ -63,8 +63,6 @@ extension AnnouncementScopeX on AnnouncementScope {
 extension HeritageClassificationX on HeritageClassification {
   String get label {
     switch (this) {
-      case HeritageClassification.none:
-        return 'None';
       case HeritageClassification.icp:
         return 'Important Cultural Property (ICP)';
       case HeritageClassification.nct:
@@ -76,8 +74,6 @@ extension HeritageClassificationX on HeritageClassification {
 
   String get shortLabel {
     switch (this) {
-      case HeritageClassification.none:
-        return 'Regular';
       case HeritageClassification.icp:
         return 'ICP';
       case HeritageClassification.nct:
@@ -105,9 +101,10 @@ extension HeritageClassificationX on HeritageClassification {
       case 'pilgrimage site':
       case 'historical_shrine':
       case 'historical shrine':
-        return HeritageClassification.none; // Map to none for legacy data
+        return HeritageClassification
+            .nonHeritage; // Map to nonHeritage for legacy data
       default:
-        return HeritageClassification.none;
+        return HeritageClassification.nonHeritage;
     }
   }
 }

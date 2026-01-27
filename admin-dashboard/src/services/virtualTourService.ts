@@ -214,19 +214,12 @@ export class VirtualTourService {
             insertAt = existingScenes.length;
           }
           
-          existingScenes.splice(insertAt, 0, cleanedScene);
+          // Add the new scene with isStartScene=false (preserve existing start scene)
+          existingScenes.splice(insertAt, 0, { ...cleanedScene, isStartScene: false });
           updatedScenes = existingScenes;
-          
-          // If this is the first in batch, mark it as start scene
-          if (isFirstInBatch) {
-            updatedScenes = updatedScenes.map((s, idx) => ({
-              ...s,
-              isStartScene: s.id === cleanedScene.id,
-            }));
-          }
         } else {
-          // No index specified, just append
-          updatedScenes = [...currentTour.scenes, cleanedScene];
+          // No index specified, just append with isStartScene=false
+          updatedScenes = [...currentTour.scenes, { ...cleanedScene, isStartScene: false }];
         }
 
         // Update with transaction (ensures atomicity)

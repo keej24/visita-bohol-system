@@ -1,18 +1,3 @@
-/**
- * =============================================================================
- * PARISH NOTIFICATION DROPDOWN - Parish Secretary Notification Bell
- * =============================================================================
- *
- * PURPOSE:
- * Displays notifications relevant to parish secretaries, focusing on:
- * - Church status changes (approved, pending review, revision requested)
- * - Church unpublish notifications
- * - Heritage review assignments
- *
- * This is a specialized version of the main NotificationDropdown that
- * shows notifications specifically targeted at parish_secretary role.
- */
-
 import { useState, useEffect } from "react";
 import { Bell, CheckCheck, ChevronDown, ChevronUp, ExternalLink, Loader2, RefreshCw, AlertTriangle, Clock, FileText, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";

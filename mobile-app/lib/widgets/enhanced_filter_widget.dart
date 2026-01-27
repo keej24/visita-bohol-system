@@ -226,11 +226,10 @@ class _EnhancedFilterWidgetState extends State<EnhancedFilterWidget> {
             },
           ),
           ...HeritageClassification.values
+              .where((classification) =>
+                  classification != HeritageClassification.none)
               .map((classification) => _FilterOption(
                     title: classification.label,
-                    subtitle: classification == HeritageClassification.none
-                        ? 'Regular churches'
-                        : null,
                     isSelected: _currentCriteria.heritageClassification ==
                         classification,
                     onTap: () {

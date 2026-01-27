@@ -774,7 +774,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         // Only require when changing password
                         if (!showPasswordFields) return null;
                         if (value == null || value.isEmpty) {
-                          return 'Please enter your current password';
+                          return 'Current password is required';
+                        }
+                        if (value.length < 6) {
+                          return 'Password seems too short';
                         }
                         return null;
                       },
@@ -850,79 +853,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                // Run validators first
-                if (!(formKey.currentState?.validate() ?? false)) {
-                  return;
-                }
-
-                final service = context.read<ProfileService>();
-                final authService = context.read<AuthService>();
-                final navigator = Navigator.of(context);
-
-                // If nothing changed and not changing password, avoid unnecessary update
-                final newName = nameController.text.trim();
-                final nameChanged = newName != (profile.displayName);
-
-                // Update display name
-                if (nameChanged) {
-                  await service.updateProfile(displayName: newName);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Profile updated successfully'),
-                        backgroundColor: Colors.green,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                }
-
-                // Update password if requested
-                if (showPasswordFields &&
-                    newPasswordController.text.isNotEmpty) {
-                  try {
-                    debugPrint('🔐 Attempting to update password...');
-                    await authService.updatePassword(
-                      currentPasswordController.text,
-                      newPasswordController.text,
-                    );
-                    debugPrint('✅ Password update successful');
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Password updated successfully'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+            Builder(
+              builder: (context) {
+                return ElevatedButton(
+                  onPressed: () async {
+                    // Run validators first
+                    if (!(formKey.currentState?.validate() ?? false)) {
+                      return;
                     }
-                  } catch (e) {
-                    debugPrint('❌ Password update failed: $e');
-                    // Extract the user-friendly error message
-                    // The authService now throws exceptions with clean messages
-                    String errorMessage = e.toString();
-                    // Remove "Exception: " prefix if present
-                    errorMessage = errorMessage.replaceAll('Exception: ', '');
 
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(errorMessage),
-                          backgroundColor: Colors.red,
-                          duration: const Duration(seconds: 4),
-                        ),
-                      );
+                    // Capture context-dependent values before any async operations
+                    if (!context.mounted) return;
+                    final service = context.read<ProfileService>();
+                    final authService = context.read<AuthService>();
+                    final navigator = Navigator.of(context);
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                    // If nothing changed and not changing password, avoid unnecessary update
+                    final newName = nameController.text.trim();
+                    final nameChanged = newName != (profile.displayName);
+                    bool hasError = false;
+
+                    // Update display name
+                    if (nameChanged) {
+                      try {
+                        await service.updateProfile(displayName: newName);
+                        if (context.mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Profile updated successfully'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('❌ Profile update failed: $e');
+                        hasError = true;
+                        if (context.mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Failed to update profile: ${e.toString().replaceAll('Exception: ', '')}'),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                        // Don't continue to password update if profile update failed
+                        return;
+                      }
                     }
-                    // Don't close the dialog on error - let user retry
-                    return;
-                  }
-                }
 
-                if (!mounted) return;
-                navigator.pop();
+                    // Update password if requested
+                    if (showPasswordFields &&
+                        newPasswordController.text.isNotEmpty) {
+                      try {
+                        debugPrint('🔐 Attempting to update password...');
+                        await authService.updatePassword(
+                          currentPasswordController.text,
+                          newPasswordController.text,
+                        );
+                        debugPrint('✅ Password update successful');
+                        if (context.mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Password updated successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint('❌ Password update failed: $e');
+                        hasError = true;
+                        // Extract the user-friendly error message
+                        String errorMessage = e.toString();
+                        // Remove "Exception: " prefix if present
+                        errorMessage =
+                            errorMessage.replaceAll('Exception: ', '');
+
+                        // Clear current password field on error to prompt re-entry
+                        currentPasswordController.clear();
+
+                        if (context.mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text(errorMessage),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                        // Don't close the dialog on error - let user retry
+                        return;
+                      }
+                    }
+
+                    // Close dialog only if no errors occurred
+                    if (!hasError && context.mounted) {
+                      navigator.pop();
+                    }
+                  },
+                  child: const Text('Save'),
+                );
               },
-              child: const Text('Save'),
             ),
           ],
         ),
