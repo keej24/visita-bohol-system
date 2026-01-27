@@ -674,289 +674,336 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool obscureCurrentPassword = true;
     bool obscureNewPassword = true;
     bool obscureConfirmPassword = true;
+    String? currentPasswordError; // Inline error for current password field
+    bool isLoading = false; // Loading state for save button
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('Edit Profile'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    textInputAction: TextInputAction.next,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLength: 50,
-                    validator: (value) {
-                      final v = value?.trim() ?? '';
-                      if (v.isEmpty) return 'Please enter a username';
-                      if (v.length < 2) {
-                        return 'Username must be at least 2 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: emailController,
-                    enabled: false, // Email is read-only for security
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      suffixIcon: Tooltip(
-                        message: 'Email cannot be changed for security reasons',
-                        child: Icon(
-                          Icons.lock_outline,
-                          color: Colors.grey.shade600,
-                          size: 20,
-                        ),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      textInputAction: TextInputAction.next,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        border: OutlineInputBorder(),
                       ),
+                      maxLength: 50,
+                      validator: (value) {
+                        final v = value?.trim() ?? '';
+                        if (v.isEmpty) return 'Please enter a username';
+                        if (v.length < 2) {
+                          return 'Username must be at least 2 characters';
+                        }
+                        return null;
+                      },
                     ),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 16),
-                  InkWell(
-                    onTap: () => setState(
-                        () => showPasswordFields = !showPasswordFields),
-                    child: Row(
-                      children: [
-                        Icon(
-                          showPasswordFields
-                              ? Icons.lock_open
-                              : Icons.lock_outline,
-                          size: 20,
-                          color: const Color(0xFF2563EB),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          showPasswordFields
-                              ? 'Hide Password Change'
-                              : 'Change Password',
-                          style: const TextStyle(
-                            color: Color(0xFF2563EB),
-                            fontWeight: FontWeight.w500,
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: emailController,
+                      enabled: false, // Email is read-only for security
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        suffixIcon: Tooltip(
+                          message:
+                              'Email cannot be changed for security reasons',
+                          child: Icon(
+                            Icons.lock_outline,
+                            color: Colors.grey.shade600,
+                            size: 20,
                           ),
                         ),
-                      ],
+                      ),
+                      keyboardType: TextInputType.emailAddress,
                     ),
-                  ),
-                  if (showPasswordFields) ...[
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: currentPasswordController,
-                      decoration: InputDecoration(
-                        labelText: 'Current Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            obscureCurrentPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () => setState(() =>
-                              obscureCurrentPassword = !obscureCurrentPassword),
-                        ),
-                      ),
-                      obscureText: obscureCurrentPassword,
-                      validator: (value) {
-                        // Only require when changing password
-                        if (!showPasswordFields) return null;
-                        if (value == null || value.isEmpty) {
-                          return 'Current password is required';
-                        }
-                        if (value.length < 6) {
-                          return 'Password seems too short';
-                        }
-                        return null;
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          showPasswordFields = !showPasswordFields;
+                          // Clear password fields when hiding to prevent stale data
+                          if (!showPasswordFields) {
+                            currentPasswordController.clear();
+                            newPasswordController.clear();
+                            confirmPasswordController.clear();
+                          }
+                        });
                       },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: newPasswordController,
-                      decoration: InputDecoration(
-                        labelText: 'New Password',
-                        border: const OutlineInputBorder(),
-                        helperText:
-                            'At least 8 chars with uppercase, lowercase, and number',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            obscureNewPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
+                      child: Row(
+                        children: [
+                          Icon(
+                            showPasswordFields
+                                ? Icons.lock_open
+                                : Icons.lock_outline,
+                            size: 20,
+                            color: const Color(0xFF2563EB),
                           ),
-                          onPressed: () => setState(
-                              () => obscureNewPassword = !obscureNewPassword),
-                        ),
-                      ),
-                      obscureText: obscureNewPassword,
-                      validator: (value) {
-                        if (!showPasswordFields) return null;
-                        final v = value ?? '';
-                        if (v.isEmpty) return 'Please enter a new password';
-                        if (v.length < 8) {
-                          return 'Password must be at least 8 characters';
-                        }
-                        if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)')
-                            .hasMatch(v)) {
-                          return 'Must include uppercase, lowercase, and number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: confirmPasswordController,
-                      decoration: InputDecoration(
-                        labelText: 'Confirm New Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            obscureConfirmPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
+                          const SizedBox(width: 8),
+                          Text(
+                            showPasswordFields
+                                ? 'Hide Password Change'
+                                : 'Change Password',
+                            style: const TextStyle(
+                              color: Color(0xFF2563EB),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                          onPressed: () => setState(() =>
-                              obscureConfirmPassword = !obscureConfirmPassword),
-                        ),
+                        ],
                       ),
-                      obscureText: obscureConfirmPassword,
-                      validator: (value) {
-                        if (!showPasswordFields) return null;
-                        if (value == null || value.isEmpty) {
-                          return 'Please confirm your new password';
-                        }
-                        if (value != newPasswordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
                     ),
+                    if (showPasswordFields) ...[
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: currentPasswordController,
+                        decoration: InputDecoration(
+                          labelText: 'Current Password',
+                          border: const OutlineInputBorder(),
+                          errorText: currentPasswordError,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureCurrentPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setState(() =>
+                                obscureCurrentPassword =
+                                    !obscureCurrentPassword),
+                          ),
+                        ),
+                        obscureText: obscureCurrentPassword,
+                        onChanged: (value) {
+                          // Clear inline error when user starts typing
+                          if (currentPasswordError != null) {
+                            setState(() => currentPasswordError = null);
+                          }
+                        },
+                        validator: (value) {
+                          // Only validate if user is trying to change password
+                          if (newPasswordController.text.isNotEmpty ||
+                              confirmPasswordController.text.isNotEmpty) {
+                            if (value == null || value.isEmpty) {
+                              return 'Current password is required';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: newPasswordController,
+                        decoration: InputDecoration(
+                          labelText: 'New Password',
+                          border: const OutlineInputBorder(),
+                          helperText:
+                              'At least 8 chars with uppercase, lowercase, and number',
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureNewPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setState(
+                                () => obscureNewPassword = !obscureNewPassword),
+                          ),
+                        ),
+                        obscureText: obscureNewPassword,
+                        validator: (value) {
+                          final v = value ?? '';
+                          // Only validate if user started typing a new password
+                          if (v.isEmpty) {
+                            // If confirm password has content, new password is required
+                            if (confirmPasswordController.text.isNotEmpty) {
+                              return 'Please enter a new password';
+                            }
+                            return null; // Allow empty if not changing password
+                          }
+                          if (v.length < 8) {
+                            return 'Password must be at least 8 characters';
+                          }
+                          if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)')
+                              .hasMatch(v)) {
+                            return 'Must include uppercase, lowercase, and number';
+                          }
+                          // Check that new password is different from current
+                          if (v == currentPasswordController.text) {
+                            return 'New password must be different from current';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: confirmPasswordController,
+                        decoration: InputDecoration(
+                          labelText: 'Confirm New Password',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirmPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setState(() =>
+                                obscureConfirmPassword =
+                                    !obscureConfirmPassword),
+                          ),
+                        ),
+                        obscureText: obscureConfirmPassword,
+                        validator: (value) {
+                          // Only validate if new password has content
+                          if (newPasswordController.text.isEmpty) {
+                            return null; // No validation needed if not changing password
+                          }
+                          if (value == null || value.isEmpty) {
+                            return 'Please confirm your new password';
+                          }
+                          if (value != newPasswordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: isLoading ? null : () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
             ),
-            Builder(
-              builder: (context) {
-                return ElevatedButton(
-                  onPressed: () async {
-                    // Run validators first
-                    if (!(formKey.currentState?.validate() ?? false)) {
-                      return;
-                    }
-
-                    // Capture context-dependent values before any async operations
-                    if (!context.mounted) return;
-                    final service = context.read<ProfileService>();
-                    final authService = context.read<AuthService>();
-                    final navigator = Navigator.of(context);
-                    final scaffoldMessenger = ScaffoldMessenger.of(context);
-
-                    // If nothing changed and not changing password, avoid unnecessary update
-                    final newName = nameController.text.trim();
-                    final nameChanged = newName != (profile.displayName);
-                    bool hasError = false;
-
-                    // Update display name
-                    if (nameChanged) {
-                      try {
-                        await service.updateProfile(displayName: newName);
-                        if (context.mounted) {
-                          scaffoldMessenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Profile updated successfully'),
-                              backgroundColor: Colors.green,
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        debugPrint('❌ Profile update failed: $e');
-                        hasError = true;
-                        if (context.mounted) {
-                          scaffoldMessenger.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                  'Failed to update profile: ${e.toString().replaceAll('Exception: ', '')}'),
-                              backgroundColor: Colors.red,
-                              duration: const Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                        // Don't continue to password update if profile update failed
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      // Run validators first
+                      if (!(formKey.currentState?.validate() ?? false)) {
                         return;
                       }
-                    }
 
-                    // Update password if requested
-                    if (showPasswordFields &&
-                        newPasswordController.text.isNotEmpty) {
-                      try {
-                        debugPrint('🔐 Attempting to update password...');
-                        await authService.updatePassword(
-                          currentPasswordController.text,
-                          newPasswordController.text,
-                        );
-                        debugPrint('✅ Password update successful');
-                        if (context.mounted) {
-                          scaffoldMessenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Password updated successfully'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
+                      // Capture context-dependent values before any async operations
+                      if (!context.mounted) return;
+                      final service = context.read<ProfileService>();
+                      final authService = context.read<AuthService>();
+                      final navigator = Navigator.of(context);
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                      // If nothing changed and not changing password, avoid unnecessary update
+                      final newName = nameController.text.trim();
+                      final nameChanged = newName != (profile.displayName);
+                      bool hasError = false;
+
+                      // Show loading state
+                      setState(() => isLoading = true);
+
+                      // Update display name
+                      if (nameChanged) {
+                        try {
+                          await service.updateProfile(displayName: newName);
+                          if (context.mounted) {
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Profile updated successfully'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          debugPrint('❌ Profile update failed: $e');
+                          hasError = true;
+                          setState(() => isLoading = false);
+                          if (context.mounted) {
+                            scaffoldMessenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Failed to update profile: ${e.toString().replaceAll('Exception: ', '')}'),
+                                backgroundColor: Colors.red,
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          }
+                          // Don't continue to password update if profile update failed
+                          return;
                         }
-                      } catch (e) {
-                        debugPrint('❌ Password update failed: $e');
-                        hasError = true;
-                        // Extract the user-friendly error message
-                        String errorMessage = e.toString();
-                        // Remove "Exception: " prefix if present
-                        errorMessage =
-                            errorMessage.replaceAll('Exception: ', '');
-
-                        // Clear current password field on error to prompt re-entry
-                        currentPasswordController.clear();
-
-                        if (context.mounted) {
-                          scaffoldMessenger.showSnackBar(
-                            SnackBar(
-                              content: Text(errorMessage),
-                              backgroundColor: Colors.red,
-                              duration: const Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                        // Don't close the dialog on error - let user retry
-                        return;
                       }
-                    }
 
-                    // Close dialog only if no errors occurred
-                    if (!hasError && context.mounted) {
-                      navigator.pop();
-                    }
-                  },
-                  child: const Text('Save'),
-                );
-              },
+                      // Update password if requested
+                      if (showPasswordFields &&
+                          newPasswordController.text.isNotEmpty) {
+                        try {
+                          debugPrint('🔐 Attempting to update password...');
+                          await authService.updatePassword(
+                            currentPasswordController.text,
+                            newPasswordController.text,
+                          );
+                          debugPrint('✅ Password update successful');
+
+                          // Clear password fields on success for security
+                          currentPasswordController.clear();
+                          newPasswordController.clear();
+                          confirmPasswordController.clear();
+
+                          if (context.mounted) {
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Password updated successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          debugPrint('❌ Password update failed: $e');
+                          hasError = true;
+                          // Extract the user-friendly error message
+                          String errorMessage = e.toString();
+                          // Remove "Exception: " prefix if present
+                          errorMessage =
+                              errorMessage.replaceAll('Exception: ', '');
+
+                          // Show error inline in the current password field
+                          // Don't clear the field - let user see what they typed
+                          setState(() {
+                            currentPasswordError = errorMessage;
+                            isLoading = false;
+                          });
+                          return;
+                        }
+                      }
+
+                      // Reset loading and close dialog only if no errors occurred
+                      setState(() => isLoading = false);
+                      if (!hasError && context.mounted) {
+                        navigator.pop();
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save'),
             ),
           ],
         ),
