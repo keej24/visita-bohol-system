@@ -37,12 +37,6 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
     // Check if clicked on a hotspot (don't add new one)
     if ((e.target as HTMLElement).closest('.pnlm-hotspot')) return;
 
-    // Check maximum hotspot limit
-    if (hotspotsRef.current.length >= 15) {
-      alert('Maximum of 15 hotspots reached. Please delete some hotspots before adding new ones.');
-      return;
-    }
-
     // Convert mouse coordinates to pitch/yaw using Pannellum's method
     const coords = viewerRef.current.mouseEventToCoords(e);
 
