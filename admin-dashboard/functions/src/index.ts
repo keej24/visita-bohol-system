@@ -52,10 +52,20 @@ const EMAIL_CONFIG = {
 
 /**
  * Generate password reset link using Firebase Admin SDK
+ * @param email - User's email address
+ * @param source - 'admin' or 'mobile' to determine redirect URL
  */
-const generatePasswordResetLink = async (email: string): Promise<string> => {
+const generatePasswordResetLink = async (
+  email: string,
+  source: 'admin' | 'mobile' = 'admin'
+): Promise<string> => {
+  // Redirect URL after password reset completes
+  const continueUrl = source === 'mobile'
+    ? "https://visita-bohol-system.vercel.app/password-reset-success"  // Mobile-friendly success page
+    : "https://visita-bohol-system.vercel.app/login";  // Admin dashboard login
+  
   const actionCodeSettings = {
-    url: "https://visita-bohol-system.vercel.app/login", // Redirect after reset
+    url: continueUrl,
     handleCodeInApp: false,
   };
   
@@ -620,8 +630,8 @@ export const sendPasswordResetEmail = functions
         return { success: true, message: "If an account exists, a reset email has been sent." };
       }
 
-      // Generate reset link
-      const resetLink = await generatePasswordResetLink(email);
+      // Generate reset link with source parameter
+      const resetLink = await generatePasswordResetLink(email, emailSource);
 
       // Send email via Gmail SMTP
       const transporter = createGmailTransporter();
