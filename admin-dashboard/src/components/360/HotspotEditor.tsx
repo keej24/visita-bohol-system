@@ -57,7 +57,7 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
       pitch,
       yaw,
       targetSceneId: allScenes.find((s) => s.id !== scene.id)?.id || '',
-      label: '',
+      label: 'Go to...',
     };
 
     setHotspots((prev) => [...prev, newHotspot]);
@@ -382,6 +382,23 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
                       <option value="navigation">Navigation (Link to another scene)</option>
                       <option value="info">Information (Show description)</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Label
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedHotspotData.label}
+                      onChange={(e) =>
+                        handleUpdateHotspot(selectedHotspotData.id, { label: e.target.value })
+                      }
+                      onFocus={() => setIsEditingText(true)}
+                      onBlur={() => setIsEditingText(false)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      placeholder={selectedHotspotData.type === 'info' ? 'e.g., About the Altar' : 'e.g., Go to Altar'}
+                    />
                   </div>
 
                   {selectedHotspotData.type === 'navigation' && (
