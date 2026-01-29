@@ -327,6 +327,7 @@ export function ChurchDetailModal({
                 isChanceryEdit={true}
                 isMuseumResearcher={isMuseumResearcher}
                 churchId={church.id}
+                currentStatus={church.status}
               />
             </div>
           </div>

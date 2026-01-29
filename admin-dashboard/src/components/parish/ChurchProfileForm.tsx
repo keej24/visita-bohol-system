@@ -1688,19 +1688,43 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       <Label htmlFor="heritageClassification" className="text-sm font-medium text-gray-700">
                         Heritage Classification
                       </Label>
-                      <Select
-                        value={formData.historicalDetails.heritageClassification}
-                        onValueChange={(value) => updateHistoricalField('heritageClassification', value)}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Select heritage classification" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="None">None</SelectItem>
-                          <SelectItem value="National Cultural Treasures">National Cultural Treasures</SelectItem>
-                          <SelectItem value="Important Cultural Properties">Important Cultural Properties</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {/* Heritage classification rules:
+                          - Museum Researcher can always edit (they are the authority)
+                          - If church is in heritage_review status, only museum can edit
+                          - If church is approved AND has heritage classification (ICP/NCT), only museum can edit
+                          - Parish and Chancery can edit if status is draft/pending and not yet validated */}
+                      {(() => {
+                        const isHeritageChurch = formData.historicalDetails.heritageClassification !== 'None';
+                        const isInHeritageReview = currentStatus === 'heritage_review';
+                        const isApprovedHeritage = currentStatus === 'approved' && isHeritageChurch;
+                        const shouldDisable = !isMuseumResearcher && (isInHeritageReview || isApprovedHeritage);
+                        
+                        return (
+                          <>
+                            <Select
+                              value={formData.historicalDetails.heritageClassification}
+                              onValueChange={(value) => updateHistoricalField('heritageClassification', value)}
+                              disabled={shouldDisable}
+                            >
+                              <SelectTrigger className={`h-11 ${shouldDisable ? 'bg-gray-100 cursor-not-allowed' : ''}`}>
+                                <SelectValue placeholder="Select heritage classification" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="None">None</SelectItem>
+                                <SelectItem value="National Cultural Treasures">National Cultural Treasures</SelectItem>
+                                <SelectItem value="Important Cultural Properties">Important Cultural Properties</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {shouldDisable && (
+                              <p className="text-xs text-amber-600 mt-1">
+                                {isApprovedHeritage 
+                                  ? '🔒 Heritage classification is locked after museum validation.'
+                                  : '🔒 This church is under heritage review. Only the Heritage Reviewer can modify this field.'}
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Religious Classification - Only for Chancery and Parish, not Museum Researcher */}
