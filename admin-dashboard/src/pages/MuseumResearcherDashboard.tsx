@@ -122,6 +122,23 @@ const MuseumResearcherDashboard = () => {
       const isChangingToNonHeritage = newClassification === 'non_heritage' && 
         (selectedChurch.classification === 'ICP' || selectedChurch.classification === 'NCT');
 
+      // Helper function to convert architectural style from display to database format
+      const mapArchitecturalStyle = (style: string): string => {
+        const trimmedStyle = (style || '').trim();
+        const styleMap: Record<string, string> = {
+          'Baroque': 'baroque',
+          'Neo-Gothic': 'gothic',
+          'Gothic': 'gothic',
+          'Byzantine': 'romanesque',
+          'Neo-Classical': 'neoclassical',
+          'Modern': 'modern',
+          'Mixed': 'mixed',
+          'Mixed Styles': 'mixed',
+          'Other': 'other'
+        };
+        return styleMap[trimmedStyle] || 'other';
+      };
+
       // Museum researchers can update heritage-related fields and historical tab fields
       // Save as draft - data is saved but modal stays open for further editing
       const heritageData = {
@@ -133,15 +150,14 @@ const MuseumResearcherDashboard = () => {
         // Historical tab fields
         historicalBackground: data.historicalDetails.historicalBackground || '',
         description: data.historicalDetails.historicalBackground || '',
-        architecturalStyle: data.historicalDetails.architecturalStyle || '',
+        architecturalStyle: mapArchitecturalStyle(data.historicalDetails.architecturalStyle || 'Other'),
         foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
         founders: data.historicalDetails.founders || '',
         classification: newClassification,
-        // Documents - preserve visibility metadata
+        // Documents
         documents: (data.documents || []).map(doc => ({
           url: doc.url || '',
-          name: doc.name || '',
-          visibility: doc.visibility || 'public'
+          name: doc.name || ''
         })).filter(doc => doc.url !== ''),
         lastReviewNote: isChangingToNonHeritage 
           ? 'Heritage classification changed to non-heritage. Returned to Chancery for approval.'
@@ -197,6 +213,23 @@ const MuseumResearcherDashboard = () => {
       const isChangingToNonHeritage = newClassification === 'non_heritage' && 
         (selectedChurch.classification === 'ICP' || selectedChurch.classification === 'NCT');
 
+      // Helper function to convert architectural style from display to database format
+      const mapArchitecturalStyle = (style: string): string => {
+        const trimmedStyle = (style || '').trim();
+        const styleMap: Record<string, string> = {
+          'Baroque': 'baroque',
+          'Neo-Gothic': 'gothic',
+          'Gothic': 'gothic',
+          'Byzantine': 'romanesque',
+          'Neo-Classical': 'neoclassical',
+          'Modern': 'modern',
+          'Mixed': 'mixed',
+          'Mixed Styles': 'mixed',
+          'Other': 'other'
+        };
+        return styleMap[trimmedStyle] || 'other';
+      };
+
       // Museum researchers can update heritage-related fields and historical tab fields
       const heritageData = {
         // Heritage fields
@@ -207,15 +240,14 @@ const MuseumResearcherDashboard = () => {
         // Historical tab fields
         historicalBackground: data.historicalDetails.historicalBackground || '',
         description: data.historicalDetails.historicalBackground || '',
-        architecturalStyle: data.historicalDetails.architecturalStyle || '',
+        architecturalStyle: mapArchitecturalStyle(data.historicalDetails.architecturalStyle || 'Other'),
         foundingYear: parseInt(data.historicalDetails.foundingYear) || undefined,
         founders: data.historicalDetails.founders || '',
         classification: newClassification,
-        // Documents - preserve visibility metadata
+        // Documents
         documents: (data.documents || []).map(doc => ({
           url: doc.url || '',
-          name: doc.name || '',
-          visibility: doc.visibility || 'public'
+          name: doc.name || ''
         })).filter(doc => doc.url !== ''),
         lastReviewNote: isChangingToNonHeritage 
           ? 'Heritage classification changed to non-heritage. Returned to Chancery for approval.'

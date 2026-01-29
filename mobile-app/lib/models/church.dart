@@ -569,7 +569,7 @@ class Church {
             final storedName = item['name']?.toString() ?? '';
             final isGenericName = storedName.isEmpty ||
                 RegExp(r'^Document\s*\d*$', caseSensitive: false)
-                      .hasMatch(storedName);
+                    .hasMatch(storedName);
             final name =
                 isGenericName ? _extractFilenameFromUrl(url) : storedName;
             result.add(ChurchDocument(url: url, name: name));
