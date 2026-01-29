@@ -170,14 +170,6 @@ class MassScheduleTab extends StatelessWidget {
                       value: church.contactInfo!['email']!,
                       onTap: () => _sendEmail(church.contactInfo!['email']!),
                     ),
-                  if (church.contactInfo!['website'] != null)
-                    _buildContactRow(
-                      icon: Icons.language,
-                      label: 'Website',
-                      value: church.contactInfo!['website']!,
-                      onTap: () =>
-                          _openWebsite(church.contactInfo!['website']!),
-                    ),
                   if (church.contactInfo!['address'] != null)
                     _buildContactRow(
                       icon: Icons.location_on,
@@ -578,13 +570,6 @@ class MassScheduleTab extends StatelessWidget {
     final Uri uri = Uri(scheme: 'mailto', path: email);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
-    }
-  }
-
-  Future<void> _openWebsite(String url) async {
-    final Uri uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 }

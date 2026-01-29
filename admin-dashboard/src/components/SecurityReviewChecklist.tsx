@@ -223,9 +223,7 @@ export function SecurityReviewChecklist({
                 setChecks(prev => ({ ...prev, parishConsentConfirmed: checked === true }))
               }
             />
-            <Label htmlFor="parish-consent" className="text-sm font-normal cursor-pointer leading-relaxed">
-              Parish has <strong>confirmed consent</strong> for all content to be publicly displayed
-            </Label>
+           
           </div>
         </div>
 
