@@ -1719,7 +1719,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                               <p className="text-xs text-amber-600 mt-1">
                                 {isApprovedHeritage 
                                   ? '🔒 Heritage classification is locked after museum validation.'
-                                  : '🔒 This church is under heritage review. Only the Heritage Reviewer can modify this field.'}
+                                  : '🔒 This church is under heritage review. Only the Museum Researcher can modify this field.'}
                               </p>
                             )}
                           </>

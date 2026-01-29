@@ -173,6 +173,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         })
       },
       assignedPriest: data.currentParishPriest || '',
+      feastDay: data.feastDay || '',
       massSchedules: (data.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
         time: schedule.endTime ? `${schedule.time} - ${schedule.endTime}` : schedule.time,
