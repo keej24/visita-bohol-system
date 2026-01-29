@@ -190,7 +190,7 @@ const MobileChurchDetails: React.FC<{ church: Church; visitorCount: number }> = 
       </div>
       <div>
         <p className="text-sm font-medium text-muted-foreground mb-1">Founded</p>
-        <p className="text-sm">{church.foundedYear || 'Unknown'}</p>
+        <p className="text-sm">{church.foundingYear || 'Unknown'}</p>
       </div>
       <div>
         <p className="text-sm font-medium text-muted-foreground mb-1">Classification</p>

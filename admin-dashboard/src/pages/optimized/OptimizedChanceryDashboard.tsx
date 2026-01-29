@@ -124,15 +124,19 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
   const convertChurchInfoToFormData = (data: ChurchInfo) => {
     // Helper function to map architectural style from display to database format
     const mapArchitecturalStyle = (style: string): ArchitecturalStyle => {
+      const trimmedStyle = (style || '').trim();
       const styleMap: Record<string, ArchitecturalStyle> = {
         'Baroque': 'baroque',
         'Neo-Gothic': 'gothic',
         'Gothic': 'gothic',
         'Byzantine': 'romanesque',
+        'Neo-Classical': 'neoclassical',
         'Modern': 'modern',
-        'Mixed': 'mixed'
+        'Mixed': 'mixed',
+        'Mixed Styles': 'mixed',
+        'Other': 'other'
       };
-      return styleMap[style] || 'other';
+      return styleMap[trimmedStyle] || 'other';
     };
 
     return {
@@ -155,6 +159,19 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         data.historicalDetails.religiousClassification === 'Papal Basilica Affinity' ? 'papal_basilica_affinity' :
         'none'
       ) as ReligiousClassification,
+      // Include historicalDetails with religiousClassifications array
+      historicalDetails: {
+        religiousClassifications: (data.historicalDetails.religiousClassifications || []).map(classification => {
+          // Convert display names to database format
+          switch (classification) {
+            case 'Diocesan Shrine': return 'diocesan_shrine';
+            case 'Jubilee Church': return 'jubilee_church';
+            case 'Papal Basilica Affinity': return 'papal_basilica_affinity';
+            case 'Holy Door': return 'holy_door';
+            default: return classification;
+          }
+        })
+      },
       assignedPriest: data.currentParishPriest || '',
       massSchedules: (data.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
@@ -174,6 +191,11 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         facebookPage: data.contactInfo?.facebookPage || ''
       },
       images: (data.photos || []).map(photo => photo.url || '').filter(url => url !== ''),
+      // Photos field - needed for proper display in Parish Dashboard
+      photos: (data.photos || []).map(photo => ({
+        url: photo.url || '',
+        name: photo.name || ''
+      })).filter(photo => photo.url !== ''),
       // Preserve document visibility metadata
       documents: (data.documents || []).map(doc => ({
         url: doc.url || '',

@@ -131,11 +131,11 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
       : data.coordinates,
     contactInfo: data.contactInfo,
     images: (data.images || []) as string[],
-    // Photos with visibility metadata - only include if present in Firestore (not empty)
+    // Photos - only include if present in Firestore (not empty)
     // This ensures we fall back to 'images' in convertChurchToInfo when photos doesn't exist
-    photos: data.photos as (string | { url: string; name?: string; visibility: 'public' | 'internal' })[] | undefined,
-    // Preserve document visibility metadata - can be string URLs (legacy) or objects with visibility
-    documents: (data.documents || []) as (string | { url: string; name?: string; visibility: 'public' | 'internal' })[],
+    photos: data.photos as (string | { url: string; name?: string })[] | undefined,
+    // Church documents - can be string URLs (legacy) or objects
+    documents: (data.documents || []) as (string | { url: string; name?: string })[],
     virtualTour: data.virtualTour, // 360° virtual tour managed by VirtualTourService
     heritageDeclaration: data.heritageDeclaration as string,
     culturalSignificance: data.culturalSignificance as string,
@@ -200,7 +200,7 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     longitude: formData.coordinates?.longitude,
     contactInfo: formData.contactInfo,
     images: formData.images,
-    // Photos with visibility metadata - this is the primary field for photos (mobile app reads this)
+    // Photos - this is the primary field for photos (mobile app reads this)
     photos: formData.photos,
     documents: formData.documents,
     // Note: virtualTour is managed separately by VirtualTourService
@@ -410,7 +410,11 @@ export class ChurchService {
       classification?: 'ICP' | 'NCT' | 'non_heritage';
       foundingYear?: number;
       founders?: string;
-      documents?: (string | { url: string; name?: string; visibility: 'public' | 'internal' })[];
+      documents?: (string | { url: string; name?: string })[];
+      religiousClassification?: ReligiousClassification;
+      historicalDetails?: {
+        religiousClassifications?: string[];
+      };
     },
     userId: string
   ): Promise<void> {
@@ -480,6 +484,12 @@ export class ChurchService {
       }
       if (heritageData.documents !== undefined) {
         updateData.documents = heritageData.documents;
+      }
+      if (heritageData.religiousClassification !== undefined) {
+        updateData.religiousClassification = heritageData.religiousClassification;
+      }
+      if (heritageData.historicalDetails !== undefined) {
+        updateData.historicalDetails = heritageData.historicalDetails;
       }
 
       console.log('[ChurchService] Updating church heritage fields:', id, updateData);

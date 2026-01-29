@@ -267,11 +267,15 @@ const ParishDashboard = () => {
     const convertArchitecturalStyle = (style?: string) => {
       switch (style?.toLowerCase()) {
         case 'baroque': return 'Baroque';
-        case 'gothic': return 'Neo-Gothic';
-        case 'romanesque': return 'Byzantine';
-        case 'neoclassical': return 'Neo-Classical';
+        case 'gothic': 
+        case 'neo-gothic': return 'Neo-Gothic';
+        case 'romanesque': 
+        case 'byzantine': return 'Byzantine';
+        case 'neoclassical': 
+        case 'neo-classical': return 'Neo-Classical';
         case 'modern': return 'Modern';
-        case 'mixed': return 'Mixed';
+        case 'mixed': 
+        case 'mixed styles': return 'Mixed Styles';
         case 'other':
         default: return 'Other';
       }
@@ -324,38 +328,36 @@ const ParishDashboard = () => {
         website: '',
         facebookPage: ''
       },
-      // Convert photos from Firestore format to form format, preserving visibility
-      // Try church.photos first (new format with visibility), then fall back to church.images (legacy)
+      // Convert photos from Firestore format to form format
+      // Try church.photos first (new format), then fall back to church.images (legacy)
       photos: (() => {
         // Check photos first, but only use it if it has items (not empty array)
         const churchPhotos = (church as any).photos;
         const photosData = (churchPhotos && churchPhotos.length > 0) ? churchPhotos : (church.images || []);
-        return photosData.map((photo: string | { url?: string; name?: string; visibility?: string }, index: number) => {
+        return photosData.map((photo: string | { url?: string; name?: string }, index: number) => {
           if (typeof photo === 'string') {
-            // Legacy string format - assume public
+            // Legacy string format
             return {
               id: `photo-${index}`,
               name: `Photo ${index + 1}`,
               type: 'photo' as const,
               url: photo,
               uploadDate: new Date().toISOString(),
-              status: 'approved' as const,
-              visibility: 'public' as const
+              status: 'approved' as const
             };
           }
-          // Object format with visibility
+          // Object format
           return {
             id: `photo-${index}`,
             name: photo.name || `Photo ${index + 1}`,
             type: 'photo' as const,
             url: photo.url || '',
             uploadDate: new Date().toISOString(),
-            status: 'approved' as const,
-            visibility: (photo.visibility || 'public') as 'public' | 'internal'
+            status: 'approved' as const
           };
         });
       })(),
-      // Convert documents from Firestore format to form format, preserving visibility
+      // Convert documents from Firestore format to form format
       documents: (church.documents || []).map((doc: string | ChurchDocument, index: number) => {
         if (typeof doc === 'string') {
           // Legacy string format - extract filename from URL
@@ -365,8 +367,7 @@ const ParishDashboard = () => {
             type: 'document' as const,
             url: doc,
             uploadDate: new Date().toISOString(),
-            status: 'approved' as const,
-            visibility: 'public' as const
+            status: 'approved' as const
           };
         }
         // ChurchDocument object format - use name if it looks like a real filename, otherwise extract from URL
@@ -378,8 +379,7 @@ const ParishDashboard = () => {
           type: 'document' as const,
           url: doc.url,
           uploadDate: new Date().toISOString(),
-          status: 'approved' as const,
-          visibility: (doc.visibility || 'public') as 'public' | 'internal'
+          status: 'approved' as const
         };
       }),
       virtual360Images: (church.virtualTour?.scenes || [])
@@ -659,15 +659,19 @@ const ParishDashboard = () => {
 
     // Helper function to map architectural style
     const mapArchitecturalStyle = (style: string) => {
+      const trimmedStyle = (style || '').trim();
       const styleMap: Record<string, string> = {
         'Baroque': 'baroque',
         'Neo-Gothic': 'gothic',
         'Gothic': 'gothic',
         'Byzantine': 'romanesque',
+        'Neo-Classical': 'neoclassical',
         'Modern': 'modern',
-        'Mixed': 'mixed'
+        'Mixed': 'mixed',
+        'Mixed Styles': 'mixed',
+        'Other': 'other'
       };
-      return styleMap[style] || 'other';
+      return styleMap[trimmedStyle] || 'other';
     };
 
     // Helper function to map religious classifications array to Firestore format
@@ -714,24 +718,23 @@ const ParishDashboard = () => {
       images: (data.photos || []).map(photo =>
         typeof photo === 'string' ? photo : (photo?.url || '')
       ).filter(Boolean),
-      // Photos with visibility metadata - this is the primary field for photos
+      // Photos preserved from form data  
       photos: (data.photos || []).map(photo => {
         if (typeof photo === 'string') {
-          // Legacy string format - assume public
-          return { url: photo, name: '', visibility: 'public' as const };
+          // Legacy string format
+          return { url: photo, name: '' };
         }
         return {
           url: photo?.url || '',
-          name: photo?.name || '',
-          visibility: photo?.visibility || 'public'
+          name: photo?.name || ''
         };
       }).filter(photo => photo.url !== ''),
-      // Preserve document visibility metadata for internal-only vs public documents
+      // Documents preserved from form data
       documents: (data.documents || []).map(doc => {
         if (typeof doc === 'string') {
           // Legacy string format - extract filename from URL
           const extractedName = extractFilenameFromUrl(doc);
-          return { url: doc, name: extractedName, visibility: 'public' as const };
+          return { url: doc, name: extractedName };
         }
         // Use stored name if it's a real filename, otherwise extract from URL
         // Generic names like "Document 1", "Document 2" should be replaced with extracted filename
@@ -739,8 +742,7 @@ const ParishDashboard = () => {
         const docName = isGenericName ? extractFilenameFromUrl(doc?.url || '') : doc.name;
         return {
           url: doc?.url || '',
-          name: docName,
-          visibility: doc?.visibility || 'public'
+          name: docName
         };
       }).filter(doc => doc.url !== ''),
       virtualTour360: (data.virtual360Images || []).map(img =>

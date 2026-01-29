@@ -80,6 +80,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   const [autoSaving, setAutoSaving] = useState(false);
   // Track effective churchId - can be updated after auto-save
   const [effectiveChurchId, setEffectiveChurchId] = useState<string | undefined>(churchId);
+  // Track initial photos and documents to detect deletions
+  const [initialPhotos] = useState<typeof formData.photos>(initialData?.photos || []);
+  const [initialDocuments] = useState<typeof formData.documents>(initialData?.documents || []);
   
   // Inline validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -882,6 +885,38 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       let uploadedDocuments = formData.documents;
       
       if (uploadChurchId) {
+        // Delete removed photos from storage
+        const currentPhotoUrls = new Set(formData.photos.map(p => p.url).filter(Boolean));
+        const deletedPhotos = initialPhotos.filter(p => p.url && !currentPhotoUrls.has(p.url));
+        
+        for (const photo of deletedPhotos) {
+          if (photo.url && photo.url.includes('firebasestorage.googleapis.com')) {
+            try {
+              console.log('🗑️ [handleSave] Deleting removed photo:', photo.url);
+              await deleteFile(photo.url);
+            } catch (error) {
+              console.error('Error deleting photo:', error);
+              // Continue even if deletion fails
+            }
+          }
+        }
+
+        // Delete removed documents from storage
+        const currentDocUrls = new Set(formData.documents.map(d => d.url).filter(Boolean));
+        const deletedDocs = initialDocuments.filter(d => d.url && !currentDocUrls.has(d.url));
+        
+        for (const doc of deletedDocs) {
+          if (doc.url && doc.url.includes('firebasestorage.googleapis.com')) {
+            try {
+              console.log('🗑️ [handleSave] Deleting removed document:', doc.url);
+              await deleteFile(doc.url);
+            } catch (error) {
+              console.error('Error deleting document:', error);
+              // Continue even if deletion fails
+            }
+          }
+        }
+        
         // Upload photos that have files (new uploads with blob URLs)
         const hasNewPhotos = formData.photos.some(p => p.file);
         const hasNewDocs = formData.documents.some(d => d.file);
@@ -1129,12 +1164,11 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         photosWithUrls: formData.photos.filter(p => p.url && !p.url.startsWith('blob:')).length
       });
 
-      // Upload regular photos to Firebase Storage with compression - preserve visibility metadata
+      // Upload regular photos to Firebase Storage with compression
       // NOTE: Virtual tour is now managed separately by VirtualTourManager component
       interface UploadedPhoto {
         url: string;
         name: string;
-        visibility: 'public' | 'internal';
       }
       const uploadedPhotos: UploadedPhoto[] = [];
       for (const photo of formData.photos) {
@@ -1145,8 +1179,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             const url = await uploadChurchImage(uploadChurchId, compressedFile);
             uploadedPhotos.push({
               url,
-              name: photo.name || 'photo',
-              visibility: photo.visibility || 'public'
+              name: photo.name || 'photo'
             });
           } catch (error) {
             console.error('Error uploading photo:', error);
@@ -1157,11 +1190,10 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             });
           }
         } else if (photo.url && !photo.url.startsWith('blob:')) {
-          // Existing URL from Firebase Storage - preserve visibility
+          // Existing URL from Firebase Storage
           uploadedPhotos.push({
             url: photo.url,
-            name: photo.name || 'photo',
-            visibility: photo.visibility || 'public'
+            name: photo.name || 'photo'
           });
         }
       }
@@ -1171,11 +1203,10 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         count: uploadedPhotos.length
       });
 
-      // Upload documents to Firebase Storage - preserve visibility metadata
+      // Upload documents to Firebase Storage
       interface UploadedDoc {
         url: string;
         name: string;
-        visibility: 'public' | 'internal';
       }
       const uploadedDocs: UploadedDoc[] = [];
       for (const doc of formData.documents) {
@@ -1185,8 +1216,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             const url = await uploadDocument(uploadChurchId, doc.file, doc.type || 'document');
             uploadedDocs.push({
               url,
-              name: doc.name || 'document',
-              visibility: doc.visibility || 'public'
+              name: doc.name || 'document'
             });
           } catch (error) {
             console.error('Error uploading document:', error);
@@ -1197,11 +1227,10 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
             });
           }
         } else if (doc.url && !doc.url.startsWith('blob:')) {
-          // Existing URL from Firebase Storage - preserve visibility
+          // Existing URL from Firebase Storage
           uploadedDocs.push({
             url: doc.url,
-            name: doc.name || 'document',
-            visibility: doc.visibility || 'public'
+            name: doc.name || 'document'
           });
         }
       }
@@ -1221,25 +1250,23 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         description: formData.historicalDetails.historicalBackground,
         status: isApprovedProfile ? 'approved' as const : 'pending' as const,
         // NOTE: virtualTour is managed separately by VirtualTourManager component
-        // Photos with visibility preserved from uploadedPhotos
+        // Photos preserved from uploadedPhotos
         photos: uploadedPhotos.map((photo, index) => ({
           id: `photo-${Date.now()}-${index}`,
           url: photo.url,
           name: photo.name,
           uploadDate: new Date().toISOString(),
           status: 'approved' as const,
-          type: 'photo' as const,
-          visibility: photo.visibility
+          type: 'photo' as const
         })),
-        // Documents with visibility preserved from uploadedDocs
+        // Documents preserved from uploadedDocs
         documents: uploadedDocs.map((doc, index) => ({
           id: `doc-${Date.now()}-${index}`,
           url: doc.url,
           name: doc.name,
           uploadDate: new Date().toISOString(),
           status: 'approved' as const,
-          type: 'document' as const,
-          visibility: doc.visibility
+          type: 'document' as const
         }))
       };
 
@@ -1641,12 +1668,12 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                           <SelectValue placeholder="Select architectural style" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Spanish Colonial">Spanish Colonial</SelectItem>
-                          <SelectItem value="Neo-Gothic">Neo-Gothic</SelectItem>
                           <SelectItem value="Baroque">Baroque</SelectItem>
+                          <SelectItem value="Neo-Gothic">Neo-Gothic</SelectItem>
                           <SelectItem value="Byzantine">Byzantine</SelectItem>
+                          <SelectItem value="Neo-Classical">Neo-Classical</SelectItem>
                           <SelectItem value="Modern">Modern</SelectItem>
-                          <SelectItem value="Mixed">Mixed Styles</SelectItem>
+                          <SelectItem value="Mixed Styles">Mixed Styles</SelectItem>
                           <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1676,6 +1703,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </Select>
                     </div>
 
+                    {/* Religious Classification - Only for Chancery and Parish, not Museum Researcher */}
+                    {!isMuseumResearcher && (
                     <div className="space-y-3">
                       <Label className="text-sm font-medium text-gray-700">
                         Religious Classification
@@ -1708,6 +1737,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         </div>
                       )}
                     </div>
+                    )}
                   </div>
                   </div>
 
@@ -2257,12 +2287,15 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                               <RotateCcw className="w-6 h-6 text-emerald-600" />
                               <div>
                                 <h2 className="text-xl font-semibold text-gray-900">360° Virtual Tour</h2>
-                                <p className="text-gray-600">Upload panoramic images and add navigation hotspots</p>
+                                <p className="text-gray-600">Create an immersive 360° virtual tour of your church (Optional)</p>
                               </div>
                             </div>
-                            <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-                              <p className="text-sm text-yellow-800">
-                                Please enter a parish name in the Basic Info tab first, then click here again to auto-save and enable virtual tour management.
+                            <div className="p-6 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                              <RotateCcw className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                              <h3 className="text-lg font-medium text-gray-900 mb-2">Save Your Church First</h3>
+                              <p className="text-sm text-gray-600">
+                                To upload 360° photos and create a virtual tour, please save this form first.
+                                Once saved, you'll be able to add and manage 360° content.
                               </p>
                             </div>
                           </div>
@@ -2271,7 +2304,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
 
                       <Separator />
 
-                      {/* Regular Photos Section - Only for Parish users */}
+                      {/* Regular Photos Section - For Parish and Chancery users (not Museum Researcher) */}
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
                           <Image className="w-6 h-6 text-emerald-600" />
@@ -2300,11 +2333,42 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     </>
                   )}
 
-                  {/* Info message for Chancery/Museum about media restrictions */}
-                  {(isChanceryEdit || isMuseumResearcher) && (
+                  {/* Regular Photos Section - Also available for Chancery users */}
+                  {isChanceryEdit && !isMuseumResearcher && (
+                    <>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Image className="w-6 h-6 text-emerald-600" />
+                          <div>
+                            <h2 className="text-xl font-semibold text-gray-900">Church Photos</h2>
+                            <p className="text-gray-600">Manage regular photos of this church (Optional)</p>
+                          </div>
+                        </div>
+                        <PhotoUploader
+                          photos={formData.photos}
+                          onPhotosChange={(photos) => setFormData(prev => ({
+                            ...prev,
+                            photos: photos.map(photo => ({
+                              ...photo,
+                              uploadDate: new Date().toISOString(),
+                              status: 'pending' as const,
+                              type: 'photo' as const
+                            }))
+                          }))}
+                          maxPhotos={10}
+                          disabled={false}
+                        />
+                      </div>
+
+                      <Separator />
+                    </>
+                  )}
+
+                  {/* Info message for Museum Researcher about media restrictions */}
+                  {isMuseumResearcher && (
                     <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg mb-4">
                       <p className="text-sm text-emerald-800">
-                        <strong>Note:</strong> 360° Virtual Tour and Church Photos can only be managed by the parish. 
+                        <strong>Note:</strong> 360° Virtual Tour and Church Photos can only be managed by the parish and chancery office. 
                         You can add or modify historical documents below.
                       </p>
                     </div>

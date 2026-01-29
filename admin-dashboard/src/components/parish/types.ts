@@ -56,8 +56,6 @@ export interface FileUpload {
   status: 'pending' | 'approved';
   fileSize?: number;
   description?: string;
-  /** Controls whether this file is visible to public users. 'internal' files are only visible to parish staff and reviewers */
-  visibility?: 'public' | 'internal';
 }
 
 export interface Virtual360Image {
@@ -75,8 +73,6 @@ export interface Virtual360Image {
   category: 'interior' | 'exterior' | 'altar' | 'entrance' | 'grounds';
   aspectRatio?: number;
   dimensions?: { width: number; height: number };
-  /** Controls whether this image is visible to public users. 'internal' images are only visible to parish staff and reviewers */
-  visibility?: 'public' | 'internal';
 }
 
 export interface ChurchInfo {

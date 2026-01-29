@@ -173,7 +173,7 @@ const MobileChurchDetails: React.FC<{ church: Church }> = ({ church }) => (
       </div>
       <div>
         <p className="font-medium text-muted-foreground mb-1">Founded</p>
-        <p>{church.foundedYear || 'Unknown'}</p>
+        <p>{church.foundingYear || 'Unknown'}</p>
       </div>
       <div>
         <p className="font-medium text-muted-foreground mb-1">Classification</p>

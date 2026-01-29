@@ -63,7 +63,7 @@ const Reports = () => {
   const [reportType, setReportType] = useState<string>('church_summary');
   const [selectedMunicipality, setSelectedMunicipality] = useState<string>('all');
   const [selectedClassification, setSelectedClassification] = useState<string>('all');
-  const [selectedParish, setSelectedParish] = useState<string>('');
+  const [selectedParish, setSelectedParish] = useState<string>('all');
   const [exportFormat, setExportFormat] = useState<string>('pdf');
   const [activeTab, setActiveTab] = useState<string>('church_summary');
   
@@ -200,16 +200,6 @@ const Reports = () => {
     return filtered.map(c => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [churchSummaryData, selectedMunicipality]);
 
-  // Auto-select first parish when available parishes change
-  useEffect(() => {
-    if (availableParishes.length > 0 && !selectedParish) {
-      setSelectedParish(availableParishes[0].id);
-    } else if (availableParishes.length > 0 && !availableParishes.find(p => p.id === selectedParish)) {
-      // If current selection is not in the list, select the first one
-      setSelectedParish(availableParishes[0].id);
-    }
-  }, [availableParishes, selectedParish]);
-
   // Get filtered churches data
   const availableChurches = useMemo(() => {
     if (!churchSummaryData) return [];
@@ -225,8 +215,8 @@ const Reports = () => {
       filtered = filtered.filter(c => normalizeMunicipality(c.municipality) === selectedMunicipality);
     }
 
-    // Apply parish filter - now required (no 'all' option)
-    if (selectedParish) {
+    // Apply parish filter - allow 'all' or empty for all parishes
+    if (selectedParish && selectedParish !== 'all') {
       filtered = filtered.filter(c => c.id === selectedParish);
     }
 
@@ -611,7 +601,7 @@ const Reports = () => {
                       <Label>Municipality</Label>
                       <Select value={selectedMunicipality} onValueChange={(value) => {
                         setSelectedMunicipality(value);
-                        setSelectedParish(''); // Reset parish when municipality changes - will auto-select first
+                        setSelectedParish('all'); // Reset parish to 'all' when municipality changes
                       }}>
                         <SelectTrigger>
                           <SelectValue />
@@ -636,6 +626,7 @@ const Reports = () => {
                           <SelectValue placeholder="Select a parish" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="all">All Parishes</SelectItem>
                           {availableParishes.map((parish) => (
                             <SelectItem key={parish.id} value={parish.id}>
                               {parish.name}
@@ -666,7 +657,7 @@ const Reports = () => {
                     <Button 
                       onClick={() => handleExportClick('pdf', 'church_summary')}
                       className="w-full h-10"
-                      disabled={!selectedParish || availableChurches.length === 0}
+                      disabled={!selectedParish || selectedParish === 'all' || availableChurches.length === 0}
                     >
                       <Download className="w-4 h-4 mr-2" />
                       Export PDF
@@ -675,10 +666,10 @@ const Reports = () => {
                 </div>
 
                 {/* Export Error Message */}
-                {(!selectedParish || availableChurches.length === 0) && (
+                {(!selectedParish || selectedParish === 'all' || availableChurches.length === 0) && (
                   <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
                     <span className="text-amber-700 text-sm font-medium">
-                      {!selectedParish ? '⚠️ Please select a parish to generate the report' : '⚠️ No data available for the selected parish'}
+                      {!selectedParish || selectedParish === 'all' ? '⚠️ Please select a specific parish to export the report' : '⚠️ No data available for the selected parish'}
                     </span>
                   </div>
                 )}
@@ -711,7 +702,7 @@ const Reports = () => {
                       variant="outline" 
                       onClick={() => {
                         setSelectedMunicipality('all');
-                        setSelectedParish('');
+                        setSelectedParish('all');
                         setSelectedClassification('all');
                       }}
                     >
@@ -754,7 +745,7 @@ const Reports = () => {
                               variant="outline" 
                               onClick={() => {
                                 setSelectedMunicipality('all');
-                                setSelectedParish('');
+                                setSelectedParish('all');
                                 setSelectedClassification('all');
                               }}
                             >

@@ -57,7 +57,6 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
       pitch,
       yaw,
       targetSceneId: allScenes.find((s) => s.id !== scene.id)?.id || '',
-      label: 'Go to...',
     };
 
     setHotspots((prev) => [...prev, newHotspot]);
@@ -178,11 +177,6 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
           yaw: h.yaw,
           type: 'info', // Pannellum type (always 'info' for custom hotspots)
           cssClass: h.type === 'info' ? 'info-hotspot' : 'navigation-hotspot',
-          createTooltipFunc: function(hotSpotDiv: HTMLElement) {
-            const span = document.createElement('span');
-            span.innerHTML = h.label;
-            hotSpotDiv.appendChild(span);
-          },
           clickHandlerFunc: function() {
             setSelectedHotspot(hotspotId);
           },
@@ -277,7 +271,7 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
               </div>
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <strong>Instructions:</strong> Hold <kbd className="px-1.5 py-0.5 bg-white border border-blue-300 rounded text-xs font-mono">Ctrl</kbd> (or <kbd className="px-1.5 py-0.5 bg-white border border-blue-300 rounded text-xs font-mono">Cmd</kbd> on Mac) and click anywhere to add a hotspot.
+                  <strong>Instructions:</strong> Hold <kbd className="px-1.5 py-0.5 bg-white border border-blue-300 rounded text-xs font-mono">Ctrl</kbd>  and click anywhere to add a hotspot.
                   Click existing hotspots to edit them. Drag freely to look around without Ctrl.
                 </p>
               </div>
@@ -320,7 +314,7 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
                               <Link2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
                             )}
                             <div className="text-sm font-medium text-gray-900 truncate">
-                              {hotspot.label}
+                              {hotspot.type === 'info' ? 'Info Point' : 'Navigation Point'}
                             </div>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
@@ -343,8 +337,8 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
                             handleDeleteHotspot(hotspot.id);
                           }}
                           className="p-1 hover:bg-red-100 rounded text-red-600"
-                          aria-label={`Delete hotspot ${hotspot.label}`}
-                          title={`Delete hotspot ${hotspot.label}`}
+                          aria-label={`Delete hotspot`}
+                          title={`Delete hotspot`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -382,23 +376,6 @@ export function HotspotEditor({ scene, allScenes, churchId, onClose }: HotspotEd
                       <option value="navigation">Navigation (Link to another scene)</option>
                       <option value="info">Information (Show description)</option>
                     </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Label
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedHotspotData.label}
-                      onChange={(e) =>
-                        handleUpdateHotspot(selectedHotspotData.id, { label: e.target.value })
-                      }
-                      onFocus={() => setIsEditingText(true)}
-                      onBlur={() => setIsEditingText(false)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      placeholder={selectedHotspotData.type === 'info' ? 'e.g., About the Altar' : 'e.g., Go to Altar'}
-                    />
                   </div>
 
                   {selectedHotspotData.type === 'navigation' && (

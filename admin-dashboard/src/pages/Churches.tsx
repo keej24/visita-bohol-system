@@ -188,15 +188,19 @@ const Churches = () => {
   // Helper function to convert ChurchInfo to ChurchFormData for saving
   const convertChurchInfoToFormData = (data: ChurchInfo) => {
     const mapArchitecturalStyle = (style: string): ArchitecturalStyle => {
+      const trimmedStyle = (style || '').trim();
       const styleMap: Record<string, ArchitecturalStyle> = {
         'Baroque': 'baroque',
         'Neo-Gothic': 'gothic',
         'Gothic': 'gothic',
         'Byzantine': 'romanesque',
+        'Neo-Classical': 'neoclassical',
         'Modern': 'modern',
-        'Mixed': 'mixed'
+        'Mixed': 'mixed',
+        'Mixed Styles': 'mixed',
+        'Other': 'other'
       };
-      return styleMap[style] || 'other';
+      return styleMap[trimmedStyle] || 'other';
     };
 
     return {
@@ -250,11 +254,10 @@ const Churches = () => {
         facebookPage: data.contactInfo?.facebookPage || ''
       },
       images: (data.photos || []).map(photo => photo.url || '').filter(url => url !== ''),
-      // Preserve document visibility metadata for internal-only vs public documents
+      // Church documents
       documents: (data.documents || []).map(doc => ({
         url: doc.url || '',
-        name: doc.name || '',
-        visibility: doc.visibility || 'public'
+        name: doc.name || ''
       })).filter(doc => doc.url !== ''),
       culturalSignificance: data.historicalDetails.majorHistoricalEvents || '',
       architecturalFeatures: data.historicalDetails.architecturalFeatures || '',

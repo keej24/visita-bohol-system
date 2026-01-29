@@ -72,11 +72,15 @@ export function ChurchDetailModal({
   const getArchitecturalStyleDisplay = (style?: string): string => {
     switch (style?.toLowerCase()) {
       case 'baroque': return 'Baroque';
-      case 'gothic': return 'Neo-Gothic';
-      case 'romanesque': return 'Byzantine';
-      case 'neoclassical': return 'Neo-Classical';
+      case 'gothic': 
+      case 'neo-gothic': return 'Neo-Gothic';
+      case 'romanesque': 
+      case 'byzantine': return 'Byzantine';
+      case 'neoclassical': 
+      case 'neo-classical': return 'Neo-Classical';
       case 'modern': return 'Modern';
-      case 'mixed': return 'Mixed';
+      case 'mixed': 
+      case 'mixed styles': return 'Mixed Styles';
       case 'other':
       default: return 'Other';
     }
@@ -176,8 +180,8 @@ export function ChurchDetailModal({
         uploadDate: new Date().toISOString(),
         status: 'approved' as const
       })),
-      // Convert documents array to FileUpload format, preserving visibility
-      documents: (churchData.documents || []).map((doc: string | { url?: string; name?: string; visibility?: 'public' | 'internal' }, index: number) => {
+      // Convert documents array to FileUpload format
+      documents: (churchData.documents || []).map((doc: string | { url?: string; name?: string }, index: number) => {
         const url = typeof doc === 'string' ? doc : doc.url || '';
         // Extract original filename from URL if name not provided
         // Strips timestamp and document type prefixes added during upload
@@ -203,15 +207,13 @@ export function ChurchDetailModal({
         const name = typeof doc === 'string' 
           ? extractFilename(doc) 
           : (doc.name || extractFilename(doc.url || ''));
-        const visibility = typeof doc === 'string' ? 'public' : (doc.visibility || 'public');
         return {
           id: `doc-${index}`,
           name: name,
           type: 'document' as const,
           url: url,
           uploadDate: new Date().toISOString(),
-          status: 'approved' as const,
-          visibility: visibility as 'public' | 'internal'
+          status: 'approved' as const
         };
       }),
       virtual360Images: churchData.virtualTour360 || [],
@@ -300,6 +302,15 @@ export function ChurchDetailModal({
                 <AlertDescription className="text-blue-800">
                   <strong>Heritage Reviewer Access:</strong> You can edit the <strong>Historical</strong> tab and add <strong>Documents</strong> in the Media tab. 
                   Basic Info and Pastoral sections are managed by the Parish Secretary.
+                </AlertDescription>
+              </Alert>
+            )}
+            {!isMuseumResearcher && (
+              <Alert className="mx-6 mt-4 border-emerald-200 bg-emerald-50">
+                <Info className="h-4 w-4 text-emerald-600" />
+                <AlertDescription className="text-emerald-800">
+                  <strong>Chancery Access:</strong> You can edit all church information including <strong>Church Photos</strong> and <strong>Documents</strong> in the Media tab. 
+                  360° Virtual Tours can only be managed by the Parish Secretary.
                 </AlertDescription>
               </Alert>
             )}
@@ -888,7 +899,12 @@ export function ChurchDetailModal({
                       <div className="text-center py-8 text-gray-500">
                         <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                         <p className="text-sm">No photos available</p>
-                        <p className="text-xs text-gray-400 mt-1">Photos can only be added by the parish</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {isMuseumResearcher 
+                            ? 'Photos can only be added by the parish and chancery office'
+                            : 'No photos have been added yet'
+                          }
+                        </p>
                       </div>
                     )}
                   </CardContent>

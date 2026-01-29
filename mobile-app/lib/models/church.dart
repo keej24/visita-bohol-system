@@ -266,8 +266,7 @@ class Church {
             ? Map<String, String>.from(j['contactInfo'])
             : null,
         images: (() {
-          // Try 'photos' first (has visibility info), then fall back to 'images' (legacy)
-          // The admin dashboard saves photos with visibility to 'photos' field
+          // Try 'photos' first (newer format), then fall back to 'images' (legacy)
           final imagesData = j['photos'] ?? j['images'];
           return _parseImages(imagesData);
         })(),
@@ -516,7 +515,7 @@ class Church {
   }
 
   // Helper method to parse images field which might be nested arrays
-  // Only includes PUBLIC photos - internal photos are filtered out for mobile app
+  // All photos are now treated as public
   static List<String> _parseImages(dynamic imagesData) {
     if (imagesData == null) return [];
 
@@ -524,19 +523,14 @@ class Church {
       final List<String> result = [];
       for (var item in imagesData) {
         if (item is String) {
-          // Direct string URL - legacy format, assume public
+          // Direct string URL - legacy format
           result.add(item);
         } else if (item is Map) {
-          // Object with 'url' and 'visibility' properties (from admin dashboard)
-          final visibility = item['visibility']?.toString() ?? 'public';
-          // Only include photos with 'public' visibility (or no visibility set = default public)
-          if (visibility == 'public') {
-            final url = item['url'];
-            if (url != null && url is String) {
-              result.add(url);
-            }
+          // Object with 'url' property (from admin dashboard)
+          final url = item['url'];
+          if (url != null && url is String) {
+            result.add(url);
           }
-          // Skip photos with visibility == 'internal'
         } else if (item is List) {
           // Handle nested arrays like [["image.jpg"]]
           for (var nestedItem in item) {
@@ -553,7 +547,7 @@ class Church {
   }
 
   // Helper method to parse documents field which might be objects or strings
-  // Only includes PUBLIC documents - internal documents are filtered out for mobile app
+  // All documents are now treated as public
   // Returns ChurchDocument objects with both URL and name preserved
   static List<ChurchDocument> _parseDocuments(dynamic documentsData) {
     if (documentsData == null) return [];
@@ -562,29 +556,24 @@ class Church {
       final List<ChurchDocument> result = [];
       for (var item in documentsData) {
         if (item is String) {
-          // Direct string URL - legacy format, assume public
+          // Direct string URL - legacy format
           // Extract filename from URL for display
           final name = _extractFilenameFromUrl(item);
           result.add(ChurchDocument(url: item, name: name));
         } else if (item is Map) {
-          // Object with 'url', 'name', and 'visibility' properties (from admin dashboard)
-          final visibility = item['visibility']?.toString() ?? 'public';
-          // Only include documents with 'public' visibility (or no visibility set = default public)
-          if (visibility == 'public') {
-            final url = item['url'];
-            if (url != null && url is String) {
-              // Use name if it's a real filename, otherwise extract from URL
-              // Generic names like "Document 1", "Document 2" should be replaced
-              final storedName = item['name']?.toString() ?? '';
-              final isGenericName = storedName.isEmpty ||
-                  RegExp(r'^Document\s*\d*$', caseSensitive: false)
+          // Object with 'url' and 'name' properties (from admin dashboard)
+          final url = item['url'];
+          if (url != null && url is String) {
+            // Use name if it's a real filename, otherwise extract from URL
+            // Generic names like "Document 1", "Document 2" should be replaced
+            final storedName = item['name']?.toString() ?? '';
+            final isGenericName = storedName.isEmpty ||
+                RegExp(r'^Document\s*\d*$', caseSensitive: false)
                       .hasMatch(storedName);
-              final name =
-                  isGenericName ? _extractFilenameFromUrl(url) : storedName;
-              result.add(ChurchDocument(url: url, name: name));
-            }
+            final name =
+                isGenericName ? _extractFilenameFromUrl(url) : storedName;
+            result.add(ChurchDocument(url: url, name: name));
           }
-          // Skip documents with visibility == 'internal'
         }
       }
       return result;

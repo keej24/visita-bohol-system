@@ -3,19 +3,17 @@ export type ChurchClassification = 'ICP' | 'NCT' | 'non_heritage' | 'parish_chur
 export type ArchitecturalStyle = 'baroque' | 'gothic' | 'romanesque' | 'neoclassical' | 'modern' | 'mixed' | 'other';
 export type ReligiousClassification = 'diocesan_shrine' | 'jubilee_church' | 'papal_basilica_affinity' | 'none';
 
-// Document with visibility control
+// Church document interface
 export interface ChurchDocument {
   url: string;
   name?: string;
-  visibility: 'public' | 'internal';
 }
 
-// Photo with visibility control
+// Church photo interface
 export interface ChurchPhoto {
   id?: string;
   url: string;
   name?: string;
-  visibility: 'public' | 'internal';
   uploadDate?: string;
   status?: 'pending' | 'approved';
   type?: 'photo';
@@ -64,8 +62,8 @@ export interface Church {
 
   // Media
   images: string[]; // Legacy: simple URL array (deprecated, use photos instead)
-  photos?: (string | ChurchPhoto)[]; // Photos with visibility support
-  documents: (string | ChurchDocument)[]; // Supports both legacy string URLs and new format with visibility
+  photos?: (string | ChurchPhoto)[]; // Church photos
+  documents: (string | ChurchDocument)[]; // Church documents, supports both legacy string URLs and object format
   virtualTour?: import('@/types/virtualTour').VirtualTour; // 360° virtual tour with scenes and hotspots
 
   // Heritage specific
@@ -129,8 +127,8 @@ export interface ChurchFormData {
   coordinates?: Coordinates;
   contactInfo?: ContactInfo;
   images: string[]; // Legacy: simple URL array for backward compatibility
-  photos?: (string | ChurchPhoto)[]; // Photos with visibility support
-  documents: (string | ChurchDocument)[]; // Supports both legacy string URLs and new format with visibility
+  photos?: (string | ChurchPhoto)[]; // Church photos
+  documents: (string | ChurchDocument)[]; // Church documents, supports both legacy string URLs and object format
   virtualTour360?: string[];
   culturalSignificance?: string;
   preservationHistory?: string;

@@ -1,10 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Upload, X, Camera, Loader2, ShieldAlert, Lock, Globe } from 'lucide-react';
+import { Upload, X, Camera, Loader2, ShieldAlert, AlertTriangle } from 'lucide-react';
 
 interface Photo {
   id: string;
@@ -15,7 +14,7 @@ interface Photo {
   type?: 'photo' | 'document' | '360' | 'heritage-doc';
   status?: 'pending' | 'approved';
   uploadDate?: string;
-  visibility?: 'public' | 'internal';
+
 }
 
 interface PhotoUploaderProps {
@@ -32,6 +31,7 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
   disabled = false
 }) => {
   const [dragOver, setDragOver] = useState(false);
+  const [photoToRemove, setPhotoToRemove] = useState<Photo | null>(null);
 
   const processFiles = useCallback(async (files: FileList) => {
     const validFiles: Photo[] = [];
@@ -92,8 +92,22 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
   }, []);
 
   const removePhoto = useCallback((id: string) => {
-    onPhotosChange(photos.filter(photo => photo.id !== id));
-  }, [photos, onPhotosChange]);
+    const photo = photos.find(p => p.id === id);
+    if (photo) {
+      setPhotoToRemove(photo);
+    }
+  }, [photos]);
+
+  const confirmRemove = useCallback(() => {
+    if (photoToRemove) {
+      onPhotosChange(photos.filter(photo => photo.id !== photoToRemove.id));
+      setPhotoToRemove(null);
+    }
+  }, [photoToRemove, photos, onPhotosChange]);
+
+  const cancelRemove = useCallback(() => {
+    setPhotoToRemove(null);
+  }, []);
 
   const canAddMore = photos.length < maxPhotos;
 
@@ -152,48 +166,15 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {photos.map((photo, index) => (
               <div key={photo.id || `photo-${index}`} className="relative group">
-                <div className={`aspect-square rounded-lg overflow-hidden bg-gray-100 border-2 ${photo.visibility === 'internal' ? 'border-amber-400' : 'border-gray-200'}`}>
+                <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
                   <img
                     src={photo.url}
                     alt={photo.name}
                     className="w-full h-full object-cover"
                   />
-                  {/* Internal badge overlay */}
-                  {photo.visibility === 'internal' && (
-                    <div className="absolute top-2 left-2">
-                      <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-300 shadow-sm">
-                        <Lock className="w-3 h-3 mr-1" /> Internal
-                      </Badge>
-                    </div>
-                  )}
                 </div>
                 {/* Action buttons */}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {/* Visibility Toggle */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          const updatedPhotos = photos.map(p => 
-                            p.id === photo.id 
-                              ? { ...p, visibility: p.visibility === 'internal' ? 'public' as const : 'internal' as const }
-                              : p
-                          );
-                          onPhotosChange(updatedPhotos);
-                        }}
-                        className={`h-8 w-8 p-0 ${photo.visibility === 'internal' ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' : 'bg-white/90 hover:bg-white text-gray-600'}`}
-                      >
-                        {photo.visibility === 'internal' ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {photo.visibility === 'internal' 
-                        ? "Internal Only - Click to make public" 
-                        : "Public - Click to mark as internal"}
-                    </TooltipContent>
-                  </Tooltip>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -213,6 +194,44 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             ))}
           </div>
           </TooltipProvider>
+        </div>
+      )}
+
+      {/* Confirmation Dialog */}
+      {photoToRemove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Remove Photo?
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Are you sure you want to remove <span className="font-medium">"{photoToRemove.name}"</span>? This action cannot be undone.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={cancelRemove}
+                    className="px-4"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={confirmRemove}
+                    className="px-4 bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

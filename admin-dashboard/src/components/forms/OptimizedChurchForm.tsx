@@ -146,7 +146,7 @@ export const OptimizedChurchForm: React.FC<OptimizedChurchFormProps> = ({
 
   const architecturalStyles = [
     'Baroque', 'Gothic', 'Romanesque', 'Neo-classical', 'Modern', 
-    'Contemporary', 'Spanish Colonial', 'Filipino Indigenous', 'Mixed'
+    'Contemporary', 'Filipino Indigenous', 'Mixed'
   ];
 
   return (

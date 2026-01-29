@@ -50,8 +50,8 @@ export interface Church {
   };
   // Media fields
   images?: string[]; // Legacy - simple URL array
-  photos?: (string | { url: string; name?: string; visibility?: 'public' | 'internal' })[]; // Photos with visibility
-  documents?: (string | { url: string; name?: string; visibility?: 'public' | 'internal' })[];
+  photos?: (string | { url: string; name?: string })[]; // Church photos
+  documents?: (string | { url: string; name?: string })[];
   virtualTour360?: string[];
   // Heritage-related fields (museum researcher)
   culturalSignificance?: string;

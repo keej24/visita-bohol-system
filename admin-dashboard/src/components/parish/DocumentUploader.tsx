@@ -1,9 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, X, FileText, File, Loader2, ExternalLink, Eye, ShieldAlert, Lock, Globe } from 'lucide-react';
+import { Upload, X, FileText, File, Loader2, ExternalLink, Eye, ShieldAlert, AlertTriangle } from 'lucide-react';
 
 interface Document {
   id: string;
@@ -14,7 +13,7 @@ interface Document {
   type?: 'photo' | 'document' | '360' | 'heritage-doc';
   status?: 'pending' | 'approved';
   uploadDate?: string;
-  visibility?: 'public' | 'internal';
+
 }
 
 interface DocumentUploaderProps {
@@ -31,6 +30,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
   disabled = false
 }) => {
   const [dragOver, setDragOver] = useState(false);
+  const [documentToRemove, setDocumentToRemove] = useState<Document | null>(null);
 
   const processFiles = useCallback(async (files: FileList) => {
     const validFiles: Document[] = [];
@@ -62,14 +62,13 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
         docType = 'heritage-doc';
       }
       
-      const doc: Document = {
+      const doc: DocumentFile = {
         id,
         file,
         url: URL.createObjectURL(file),
         name: file.name,
         size: file.size,
-        type: docType,
-        visibility: 'public' // Default to public visibility
+        type: docType
       };
 
       validFiles.push(doc);
@@ -106,8 +105,22 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
   }, []);
 
   const removeDocument = useCallback((id: string) => {
-    onDocumentsChange(documents.filter(doc => doc.id !== id));
-  }, [documents, onDocumentsChange]);
+    const doc = documents.find(d => d.id === id);
+    if (doc) {
+      setDocumentToRemove(doc);
+    }
+  }, [documents]);
+
+  const confirmRemove = useCallback(() => {
+    if (documentToRemove) {
+      onDocumentsChange(documents.filter(doc => doc.id !== documentToRemove.id));
+      setDocumentToRemove(null);
+    }
+  }, [documentToRemove, documents, onDocumentsChange]);
+
+  const cancelRemove = useCallback(() => {
+    setDocumentToRemove(null);
+  }, []);
 
   const getFileIcon = (type?: string) => {
     if (type?.includes('pdf')) return '📄';
@@ -180,9 +193,7 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
           <h4 className="font-medium text-gray-900 mb-2">
             Uploaded Documents ({documents.length}/{maxDocuments})
           </h4>
-          <p className="text-sm text-gray-600 mb-3">
-            <strong>Visibility:</strong> Click <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-medium"><Globe className="w-3 h-3 mr-1" />Public</span> or <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-xs font-medium"><Lock className="w-3 h-3 mr-1" />Internal Only</span> to toggle. Internal documents are only visible to administrators.
-          </p>
+
           <div className="space-y-2">
             {documents.map((doc) => (
               <Card key={doc.id} className="hover:bg-gray-50 transition-colors">
@@ -201,11 +212,6 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                           <p className="font-medium text-gray-900 truncate group-hover:text-emerald-600 transition-colors">
                             {doc.name}
                           </p>
-                          {doc.visibility === 'internal' && (
-                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
-                              <Lock className="w-3 h-3 mr-1" /> Internal
-                            </Badge>
-                          )}
                         </div>
                         {doc.size && (
                           <p className="text-sm text-gray-500">
@@ -221,34 +227,6 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Visibility Toggle - Explicit button with text */}
-                      <Button
-                        variant={doc.visibility === 'internal' ? "outline" : "secondary"}
-                        size="sm"
-                        onClick={() => {
-                          const updatedDocs = documents.map(d => 
-                            d.id === doc.id 
-                              ? { ...d, visibility: d.visibility === 'internal' ? 'public' as const : 'internal' as const }
-                              : d
-                          );
-                          onDocumentsChange(updatedDocs);
-                        }}
-                        className={doc.visibility === 'internal' 
-                          ? "text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100" 
-                          : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}
-                      >
-                        {doc.visibility === 'internal' ? (
-                          <>
-                            <Lock className="w-3 h-3 mr-1" />
-                            Internal Only
-                          </>
-                        ) : (
-                          <>
-                            <Globe className="w-3 h-3 mr-1" />
-                            Public
-                          </>
-                        )}
-                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -272,6 +250,44 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog */}
+      {documentToRemove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Remove Document?
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Are you sure you want to remove <span className="font-medium">"{documentToRemove.name}"</span>? This action cannot be undone.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={cancelRemove}
+                    className="px-4"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={confirmRemove}
+                    className="px-4 bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -152,6 +152,7 @@ extension ArchitecturalStyleX on ArchitecturalStyle {
       case 'contemporary':
         return ArchitecturalStyle.modern;
       case 'mixed':
+      case 'mixed styles':
         return ArchitecturalStyle.mixed;
       case 'modern contemporary':
       case 'moderncontemporary':
