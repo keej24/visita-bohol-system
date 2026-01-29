@@ -215,16 +215,6 @@ export function SecurityReviewChecklist({
             </Label>
           </div>
 
-          <div className="flex items-start space-x-3">
-            <Checkbox
-              id="parish-consent"
-              checked={checks.parishConsentConfirmed}
-              onCheckedChange={(checked) => 
-                setChecks(prev => ({ ...prev, parishConsentConfirmed: checked === true }))
-              }
-            />
-           
-          </div>
         </div>
 
         {isHeritage && (
