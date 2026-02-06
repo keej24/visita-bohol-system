@@ -37,6 +37,7 @@ import {
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { AuditService } from './auditService';
+import { notifyAccountPendingApproval, notifyAccountApproved } from '@/lib/notifications';
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
 
 // ============================================================================
@@ -197,6 +198,21 @@ export async function registerParishStaff(
       );
     } catch (auditError) {
       console.warn('[ParishStaffService] Audit logging failed (non-critical):', auditError);
+    }
+
+    // Send notification to Chancery Office about the pending registration
+    try {
+      await notifyAccountPendingApproval({
+        name: data.name,
+        email: data.email,
+        position: data.position,
+        parishName: data.parishName,
+        parishId: data.parishId,
+        diocese: data.diocese,
+        uid: user.uid,
+      });
+    } catch (notificationError) {
+      console.warn('[ParishStaffService] Notification failed (non-critical):', notificationError);
     }
 
     // Sign out AFTER all writes are complete
@@ -420,6 +436,26 @@ export async function approveParishStaff(
         },
       }
     );
+
+    // Send notification to the approved user
+    try {
+      await notifyAccountApproved(
+        {
+          uid: pendingStaffId,
+          name: pendingData.name,
+          email: pendingData.email,
+          parishName: pendingData.parishInfo?.name || pendingData.parish || '',
+          diocese: pendingData.diocese,
+        },
+        {
+          uid: approvingUser.uid,
+          name: approvingUser.name || approvingUser.email,
+          role: approvingUser.role,
+        }
+      );
+    } catch (notificationError) {
+      console.warn('[ParishStaffService] Approval notification failed (non-critical):', notificationError);
+    }
 
     const positionLabel = position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary';
     return {

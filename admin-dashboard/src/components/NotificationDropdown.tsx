@@ -87,6 +87,12 @@ export function NotificationDropdown() {
         return '🎖️';  // Museum validated heritage
       case 'workflow_error':
         return '⚠️';  // Error
+      case 'account_pending_approval':
+        return '👤';  // New account registration
+      case 'account_approved':
+        return '🎉';  // Account activated
+      case 'feedback_received':
+        return '💬';  // New visitor feedback
       default:
         return '📢';  // System notification
     }

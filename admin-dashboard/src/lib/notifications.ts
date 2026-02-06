@@ -11,6 +11,9 @@ export type NotificationType =
   | 'church_approved'            // Church is now published → Parish
   | 'church_unpublished'         // Church was unpublished by Chancery → Parish
   | 'workflow_error'             // System error → Chancery
+  | 'account_pending_approval'   // New parish staff registered → Chancery
+  | 'account_approved'           // Account activated → Parish Secretary
+  | 'feedback_received'          // New visitor feedback → Parish Secretary
   | 'system_notification';       // General system notification
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -143,6 +146,39 @@ const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
     priority: 'urgent',
     recipientRules: {
       roles: ['chancery_office']
+    }
+  },
+
+  // New Parish Staff Pending Approval → Chancery Office
+  {
+    type: 'account_pending_approval',
+    titleTemplate: 'New Account Registration: {userName}',
+    messageTemplate: '{userName} has registered as {position} for {parishName}. Please review and approve the account.',
+    priority: 'high',
+    recipientRules: {
+      roles: ['chancery_office']
+    }
+  },
+
+  // Account Approved → Parish Secretary
+  {
+    type: 'account_approved',
+    titleTemplate: 'Account Activated',
+    messageTemplate: 'Your account has been approved! You can now access the Parish Dashboard and manage your church profile.',
+    priority: 'high',
+    recipientRules: {
+      roles: ['parish_secretary']
+    }
+  },
+
+  // New Visitor Feedback → Parish Secretary
+  {
+    type: 'feedback_received',
+    titleTemplate: 'New Visitor Feedback: {churchName}',
+    messageTemplate: 'A visitor has left a {rating}-star review for {churchName}. Check the feedback section to view details.',
+    priority: 'medium',
+    recipientRules: {
+      roles: ['parish_secretary']
     }
   }
 ];
@@ -525,6 +561,9 @@ export class NotificationService {
       church_approved: '/churches',          // Church list
       church_unpublished: '/parish',         // Parish dashboard for unpublished
       workflow_error: '/chancery',           // Chancery handles errors
+      account_pending_approval: '/user-management', // User management for pending accounts
+      account_approved: '/parish',           // Parish dashboard for approved users
+      feedback_received: '/parish',          // Parish feedback tab
       system_notification: '/'               // Home
     };
 
@@ -674,5 +713,159 @@ export async function notifyChurchUnpublished(
   } catch (error) {
     console.error('Error sending unpublish notification:', error);
     // Don't throw - notification failure shouldn't break the unpublish operation
+  }
+}
+
+/**
+ * Utility function to notify chancery when a new parish staff registers
+ */
+export async function notifyAccountPendingApproval(
+  staffData: {
+    name: string;
+    email: string;
+    position: string;
+    parishName: string;
+    parishId: string;
+    diocese: Diocese;
+    uid: string;
+  }
+): Promise<void> {
+  try {
+    const positionLabel = staffData.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary';
+    
+    const notification: Omit<Notification, 'id'> = {
+      type: 'account_pending_approval',
+      priority: 'high',
+      title: `New Account Registration: ${staffData.name}`,
+      message: `${staffData.name} has registered as ${positionLabel} for ${staffData.parishName}. Please review and approve the account.`,
+      recipients: {
+        roles: ['chancery_office'],
+        dioceses: [staffData.diocese]
+      },
+      relatedData: {
+        actionBy: {
+          uid: staffData.uid,
+          name: staffData.name,
+          role: 'parish_secretary'
+        }
+      },
+      createdAt: Timestamp.now(),
+      isRead: false,
+      readBy: [],
+      actionUrl: '/user-management?status=pending',
+      metadata: {
+        staffEmail: staffData.email,
+        staffPosition: staffData.position,
+        parishId: staffData.parishId,
+        parishName: staffData.parishName
+      }
+    };
+
+    await addDoc(collection(db, 'notifications'), notification);
+    console.log(`[Notifications] Account pending approval notification sent for: ${staffData.name}`);
+  } catch (error) {
+    console.error('Error sending account pending notification:', error);
+    // Don't throw - notification failure shouldn't break the registration
+  }
+}
+
+/**
+ * Utility function to notify a user when their account is approved
+ */
+export async function notifyAccountApproved(
+  approvedUser: {
+    uid: string;
+    name: string;
+    email: string;
+    parishName: string;
+    diocese: Diocese;
+  },
+  approvedBy: {
+    uid: string;
+    name: string;
+    role: string;
+  }
+): Promise<void> {
+  try {
+    const notification: Omit<Notification, 'id'> = {
+      type: 'account_approved',
+      priority: 'high',
+      title: 'Account Activated',
+      message: `Your account has been approved! You can now access the Parish Dashboard and manage your church profile for ${approvedUser.parishName}.`,
+      recipients: {
+        userIds: [approvedUser.uid],
+        roles: ['parish_secretary'],
+        dioceses: [approvedUser.diocese]
+      },
+      relatedData: {
+        actionBy: {
+          uid: approvedBy.uid,
+          name: approvedBy.name,
+          role: approvedBy.role
+        }
+      },
+      createdAt: Timestamp.now(),
+      isRead: false,
+      readBy: [],
+      actionUrl: '/parish',
+      metadata: {
+        approvedByName: approvedBy.name,
+        parishName: approvedUser.parishName
+      }
+    };
+
+    await addDoc(collection(db, 'notifications'), notification);
+    console.log(`[Notifications] Account approved notification sent to: ${approvedUser.email}`);
+  } catch (error) {
+    console.error('Error sending account approved notification:', error);
+    // Don't throw - notification failure shouldn't break the approval
+  }
+}
+
+/**
+ * Utility function to notify parish secretary when visitor feedback is received
+ */
+export async function notifyFeedbackReceived(
+  feedbackData: {
+    churchId: string;
+    churchName: string;
+    parishId: string;
+    diocese: Diocese;
+    rating: number;
+    reviewerName?: string;
+  }
+): Promise<void> {
+  try {
+    const ratingText = feedbackData.rating === 1 ? '1 star' : `${feedbackData.rating} stars`;
+    
+    const notification: Omit<Notification, 'id'> = {
+      type: 'feedback_received',
+      priority: 'medium',
+      title: `New Visitor Feedback: ${feedbackData.churchName}`,
+      message: `A visitor has left a ${ratingText} review for ${feedbackData.churchName}. Check the feedback section to view details.`,
+      recipients: {
+        roles: ['parish_secretary'],
+        dioceses: [feedbackData.diocese],
+        parishId: feedbackData.parishId
+      },
+      relatedData: {
+        churchId: feedbackData.churchId,
+        churchName: feedbackData.churchName
+      },
+      createdAt: Timestamp.now(),
+      isRead: false,
+      readBy: [],
+      actionUrl: '/parish?tab=feedback',
+      metadata: {
+        rating: feedbackData.rating,
+        reviewerName: feedbackData.reviewerName || 'Anonymous Visitor'
+      }
+    };
+
+    await addDoc(collection(db, 'notifications'), notification);
+    console.log(`[Notifications] Feedback received notification sent for church: ${feedbackData.churchName}`);
+  } catch (error) {
+    console.error('Error sending feedback notification:', error);
+    // Don't throw - notification failure shouldn't break the feedback submission
   }
 }

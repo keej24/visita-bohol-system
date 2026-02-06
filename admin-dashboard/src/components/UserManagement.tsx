@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { generateParishId, formatParishFullName, getMunicipalitiesByDiocese } from '@/lib/parish-utils';
 import { CreateParishAccountModal } from '@/components/CreateParishAccountModal';
 import { AuditService } from '@/services/auditService';
+import { notifyAccountApproved } from '@/lib/notifications';
 import {
   Users,
   Plus,
@@ -367,6 +368,28 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
           },
         }
       );
+
+      // Send notification to the activated user (when activating from pending or inactive)
+      if (newStatus === 'active' && userToToggle.role === 'parish_secretary') {
+        try {
+          await notifyAccountApproved(
+            {
+              uid: userToToggle.uid,
+              name: userToToggle.name,
+              email: userToToggle.email,
+              parishName: userToToggle.parish || '',
+              diocese: userToToggle.diocese,
+            },
+            {
+              uid: userProfile.uid,
+              name: userProfile.name || userProfile.email,
+              role: userProfile.role,
+            }
+          );
+        } catch (notificationError) {
+          console.warn('[UserManagement] Approval notification failed (non-critical):', notificationError);
+        }
+      }
 
       toast({
         title: "Success",

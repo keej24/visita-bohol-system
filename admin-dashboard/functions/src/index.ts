@@ -1347,3 +1347,77 @@ export const onUserDeleted = functions.auth.user().onDelete(async (user) => {
     functions.logger.error(`Error handling user deletion for ${user.uid}:`, error);
   }
 });
+
+/**
+ * Firestore Trigger: On Feedback Created
+ * 
+ * Sends a notification to the parish secretary when new visitor feedback
+ * is submitted for their church.
+ */
+export const onFeedbackCreated = functions.firestore
+  .document("feedback/{feedbackId}")
+  .onCreate(async (snapshot, context) => {
+    try {
+      const feedbackData = snapshot.data();
+      const feedbackId = context.params.feedbackId;
+      
+      functions.logger.info(`New feedback created: ${feedbackId}`);
+      
+      if (!feedbackData.church_id) {
+        functions.logger.warn("Feedback missing church_id, skipping notification");
+        return;
+      }
+
+      // Get the church to find its diocese and parish info
+      const churchDoc = await admin.firestore()
+        .collection("churches")
+        .doc(feedbackData.church_id)
+        .get();
+
+      if (!churchDoc.exists) {
+        functions.logger.warn(`Church not found: ${feedbackData.church_id}`);
+        return;
+      }
+
+      const churchData = churchDoc.data();
+      if (!churchData) {
+        functions.logger.warn("Church data is empty");
+        return;
+      }
+
+      // Create the notification for parish secretary
+      const notification = {
+        type: "feedback_received",
+        priority: "medium",
+        title: `New Visitor Feedback: ${churchData.name || "Your Church"}`,
+        message: `A visitor has left a ${feedbackData.rating || 0}-star review for ${churchData.name || "your church"}. Check the feedback section to view details.`,
+        recipients: {
+          roles: ["parish_secretary"],
+          dioceses: [churchData.diocese],
+          parishId: feedbackData.church_id,
+        },
+        relatedData: {
+          churchId: feedbackData.church_id,
+          churchName: churchData.name || "Unknown Church",
+        },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        isRead: false,
+        readBy: [],
+        actionUrl: "/parish?tab=feedback",
+        metadata: {
+          feedbackId: feedbackId,
+          rating: feedbackData.rating || 0,
+          reviewerName: feedbackData.userName || feedbackData.pub_user_name || "Anonymous Visitor",
+        },
+      };
+
+      await admin.firestore().collection("notifications").add(notification);
+      
+      functions.logger.info(
+        `Feedback notification sent for church: ${churchData.name} (${feedbackData.church_id})`
+      );
+    } catch (error) {
+      functions.logger.error("Error creating feedback notification:", error);
+      // Don't throw - notification failure shouldn't affect feedback creation
+    }
+  });

@@ -204,6 +204,10 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
         return '🏛️';  // Sent to museum researcher
       case 'heritage_validated':
         return '🎖️';  // Museum validated heritage
+      case 'account_approved':
+        return '🎉';  // Account activated
+      case 'feedback_received':
+        return '💬';  // New visitor feedback
       default:
         return '📢';  // System notification
     }
@@ -220,6 +224,10 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
       case 'heritage_review_assigned':
       case 'heritage_validated':
         return 'border-l-4 border-l-purple-500 bg-purple-50/50';
+      case 'account_approved':
+        return 'border-l-4 border-l-emerald-500 bg-emerald-50/50';
+      case 'feedback_received':
+        return 'border-l-4 border-l-cyan-500 bg-cyan-50/50';
       default:
         return 'border-l-4 border-l-blue-500 bg-blue-50/50';
     }
