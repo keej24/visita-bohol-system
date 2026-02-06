@@ -76,7 +76,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       // If verified, checkEmailVerified already called notifyListeners internally
       // so AuthWrapper will rebuild automatically
       if (isVerified) {
-        debugPrint('✅ Email is verified! AuthService notified listeners, navigating...');
+        debugPrint(
+            '✅ Email is verified! AuthService notified listeners, navigating...');
       }
     }
   }

@@ -56,6 +56,7 @@ export interface FileUpload {
   status: 'pending' | 'approved';
   fileSize?: number;
   description?: string;
+  visibility?: 'public' | 'internal';
 }
 
 export type ChurchImportStatus = 'queued' | 'processing' | 'ready' | 'failed';

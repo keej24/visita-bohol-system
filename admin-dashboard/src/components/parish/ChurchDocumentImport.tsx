@@ -297,6 +297,7 @@ export const ChurchDocumentImport: React.FC<ChurchDocumentImportProps> = ({
           className="hidden"
           onChange={handleFileSelect}
           disabled={disabled || isUploading || !user?.uid}
+          aria-label="Select church document file to import"
         />
 
         {isUploading && (
