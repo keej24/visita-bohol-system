@@ -84,14 +84,13 @@ import {
 import { useState, useMemo, useEffect } from "react";
 import heroImage from "@/assets/baclayon-church-hero.jpg";
 import { useAuth } from "@/contexts/AuthContext";
-import { useChurches, useChurchReview, useUnpublishChurch } from "@/hooks/useChurches";
+import { useChurches, useChurchReview } from "@/hooks/useChurches";
 import { useToast } from "@/components/ui/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChurchStatus, ChurchClassification, Church, ArchitecturalStyle, ReligiousClassification } from "@/types/church";
 import { ChurchDetailModal } from "@/components/ChurchDetailModal";
 import { ChurchInfo } from "@/components/parish/types";
 import { ChurchService } from "@/services/churchService";
-import { notifyChurchUnpublished } from "@/lib/notifications";
 import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -104,11 +103,6 @@ const Churches = () => {
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Unpublish confirmation dialog state
-  const [unpublishDialogOpen, setUnpublishDialogOpen] = useState(false);
-  const [churchToUnpublish, setChurchToUnpublish] = useState<{ id: string; name: string } | null>(null);
-  const [unpublishReason, setUnpublishReason] = useState("");
-  const [notifyParish, setNotifyParish] = useState(true);
   const [totalMonthlyVisitors, setTotalMonthlyVisitors] = useState(0);
 
   const { userProfile } = useAuth();
@@ -117,7 +111,6 @@ const Churches = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const reviewMutation = useChurchReview();
-  const unpublishMutation = useUnpublishChurch();
 
   // Build filters
   const filters = useMemo(() => {
@@ -346,46 +339,6 @@ const Churches = () => {
       notes,
       reviewerId: userProfile.uid,
     });
-  };
-
-  // Opens the unpublish confirmation dialog
-  const handleUnpublishClick = (churchId: string, churchName: string) => {
-    setChurchToUnpublish({ id: churchId, name: churchName });
-    setUnpublishReason(""); // Reset reason field
-    setNotifyParish(true); // Default to notify
-    setUnpublishDialogOpen(true);
-  };
-
-  // Executes the unpublish action after user confirms
-  const handleConfirmUnpublish = async () => {
-    if (!churchToUnpublish || !userProfile) return;
-    
-    const reason = unpublishReason.trim() || "No reason provided";
-    
-    try {
-      // Unpublish the church with reason and audit trail
-      await unpublishMutation.mutateAsync({
-        churchId: churchToUnpublish.id,
-        reason,
-        unpublishedBy: userProfile.uid,
-      });
-
-      // Optionally send notification to parish secretary
-      if (notifyParish) {
-        await notifyChurchUnpublished(
-          churchToUnpublish.id,
-          churchToUnpublish.name,
-          reason,
-          userProfile
-        );
-      }
-    } catch (error) {
-      console.error('Error unpublishing church:', error);
-    }
-
-    setUnpublishDialogOpen(false);
-    setChurchToUnpublish(null);
-    setUnpublishReason("");
   };
 
   const getStatusBadge = (status: ChurchStatus) => {
@@ -667,18 +620,6 @@ const Churches = () => {
                         </>
                       )}
 
-                      {(canManageChurch || church.createdBy === userProfile?.uid) && church.status === 'approved' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                          onClick={() => handleUnpublishClick(church.id, church.name)}
-                          disabled={unpublishMutation.isPending}
-                          title="Unpublish Church"
-                        >
-                          <EyeOff className="w-4 h-4" />
-                        </Button>
-                      )}
                     </div>
                   </div>
 
@@ -752,72 +693,6 @@ const Churches = () => {
         isMuseumResearcher={userProfile?.role === 'museum_researcher'}
       />
 
-      {/* Unpublish Confirmation Dialog */}
-      <AlertDialog open={unpublishDialogOpen} onOpenChange={setUnpublishDialogOpen}>
-        <AlertDialogContent className="bg-white border shadow-lg max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <EyeOff className="w-5 h-5 text-orange-500" />
-              Unpublish Church?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-left">
-              {churchToUnpublish && (
-                <>
-                  You are about to unpublish <strong className="text-foreground">{churchToUnpublish.name}</strong>.
-                  <br /><br />
-                  This church will be hidden from the mobile app and public users will no longer be able to see it.
-                  You can republish it later by submitting it for review again.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          {/* Reason for unpublishing */}
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="unpublish-reason" className="text-sm font-medium">
-                Reason for Unpublishing <span className="text-muted-foreground">(for audit trail)</span>
-              </Label>
-              <Textarea
-                id="unpublish-reason"
-                placeholder="e.g., Temporary closure for renovation, Structural damage assessment, Parish merger, etc."
-                value={unpublishReason}
-                onChange={(e) => setUnpublishReason(e.target.value)}
-                className="min-h-[80px] resize-none"
-              />
-            </div>
-            
-            {/* Notify parish checkbox */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="notify-parish"
-                checked={notifyParish}
-                onCheckedChange={(checked) => setNotifyParish(checked === true)}
-              />
-              <Label 
-                htmlFor="notify-parish" 
-                className="text-sm font-normal cursor-pointer"
-              >
-                Notify Parish Secretary about this action
-              </Label>
-            </div>
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setUnpublishReason("");
-              setNotifyParish(true);
-            }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmUnpublish}
-              disabled={unpublishMutation.isPending}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              {unpublishMutation.isPending ? "Unpublishing..." : "Unpublish"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Layout>
   );
 };

@@ -633,7 +633,6 @@ class _CustomChurchMarker extends StatelessWidget {
       icon = Icons.church;
     }
 
-    final pinSize = isSelected ? 44.0 : 32.0;
     final iconSize = isSelected ? 18.0 : 14.0;
     final circleSize = isSelected ? 32.0 : 24.0;
 

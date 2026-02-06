@@ -8,14 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { isPreconfiguredAccount } from '@/lib/auth-utils';
-import { User, Shield, Save, Camera, Lock, Eye, EyeOff, Crown, Mail, Phone, MapPin, Edit, Key, Loader2, Briefcase } from 'lucide-react';
+import { User, Shield, Save, Camera, Lock, Eye, EyeOff, Crown, Mail, Phone, Edit, Key, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { db, auth, storage } from '@/lib/firebase';
+import { db, auth, storage, functions } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 import { ChurchService } from '@/services/churchService';
+import { httpsCallable } from 'firebase/functions';
+import { AuditService } from '@/services/auditService';
 
 const AccountSettings = () => {
   const { userProfile, user, refreshUserProfile } = useAuth();
@@ -29,6 +31,7 @@ const AccountSettings = () => {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isCleaningImports, setIsCleaningImports] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profileData, setProfileData] = useState({
@@ -36,10 +39,8 @@ const AccountSettings = () => {
     lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
     email: userProfile?.email || '',
     phone: userProfile?.phoneNumber || '',
-    address: userProfile?.address || '',
     office: userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : 'Chancery Office',
     diocese: userProfile?.diocese || 'tagbilaran',
-    position: userProfile?.position || '',
     department: userProfile?.department || '',
     profileImageUrl: userProfile?.profileImageUrl || '',
     institutionName: userProfile?.institutionName || (userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : userProfile?.name || '')
@@ -58,8 +59,6 @@ const AccountSettings = () => {
         ...prev,
         email: userProfile.email || prev.email,
         phone: userProfile.phoneNumber || prev.phone,
-        address: userProfile.address || prev.address,
-        position: userProfile.position || prev.position,
         department: userProfile.department || prev.department,
         profileImageUrl: userProfile.profileImageUrl || prev.profileImageUrl,
         institutionName: userProfile.institutionName || userProfile.name || prev.institutionName
@@ -293,8 +292,6 @@ const AccountSettings = () => {
       // Update Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
       const updateData: Record<string, string | null> = {
-        address: profileData.address || null,
-        position: profileData.position || null,
         department: profileData.department || null
       };
 
@@ -357,6 +354,43 @@ const AccountSettings = () => {
       });
     } finally {
       setIsLoadingProfile(false);
+    }
+  };
+
+  const handleCleanupImports = async () => {
+    if (!userProfile) return;
+    setIsCleaningImports(true);
+    try {
+      const cleanupFn = httpsCallable(functions, 'cleanupChurchImportsManual');
+      const result = await cleanupFn({ retentionDays: 30 });
+      const data = result.data as { deleted?: number; retentionDays?: number };
+      toast({
+        title: 'Cleanup complete',
+        description: `Removed ${data.deleted ?? 0} import session(s) older than ${data.retentionDays ?? 30} days.`
+      });
+
+      void AuditService.logAction(
+        userProfile,
+        'system.maintenance',
+        'system',
+        'church_import_cleanup',
+        {
+          resourceName: 'Church Import Cleanup',
+          metadata: {
+            deleted: data.deleted ?? 0,
+            retentionDays: data.retentionDays ?? 30
+          }
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cleanup failed. Please try again.';
+      toast({
+        title: 'Cleanup failed',
+        description: message,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsCleaningImports(false);
     }
   };
 
@@ -603,10 +637,8 @@ const AccountSettings = () => {
       lastName: userProfile?.name?.split(' ').slice(1).join(' ') || '',
       email: userProfile?.email || '',
       phone: userProfile?.phoneNumber || '',
-      address: userProfile?.address || '',
       office: userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : 'Chancery Office',
       diocese: userProfile?.diocese || 'tagbilaran',
-      position: userProfile?.position || '',
       department: userProfile?.department || '',
       profileImageUrl: userProfile?.profileImageUrl || '',
       institutionName: userProfile?.institutionName || (userProfile?.role === 'museum_researcher' ? 'National Museum of the Philippines - Bohol' : userProfile?.name || '')
@@ -896,35 +928,6 @@ const AccountSettings = () => {
                         <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
                       )}
                     </div>
-                    <div className="col-span-2">
-                      <Label htmlFor="address">Address</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                        <Input
-                          id="address"
-                          value={profileData.address}
-                          onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-                          disabled={!isEditingProfile}
-                          className="mt-1 pl-10"
-                          placeholder="Complete address"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="position">Position / Title</Label>
-                      <div className="relative">
-                        <Briefcase className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                        <Input
-                          id="position"
-                          value={profileData.position}
-                          onChange={(e) => setProfileData(prev => ({ ...prev, position: e.target.value }))}
-                          disabled={!isEditingProfile}
-                          className="mt-1 pl-10"
-                          placeholder={userProfile?.role === 'museum_researcher' ? 'Heritage Specialist' : userProfile?.role === 'parish_secretary' ? 'Parish Secretary' : 'Administrator'}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">Your job title or position</p>
-                    </div>
                     {userProfile?.role === 'museum_researcher' && (
                       <div>
                         <Label htmlFor="department">Department</Label>
@@ -962,6 +965,46 @@ const AccountSettings = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* System Maintenance (Chancery only) */}
+        {userProfile?.role === 'chancery_office' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                System Maintenance
+              </CardTitle>
+              <CardDescription>
+                Administrative tools for system upkeep and cleanup tasks
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-gray-600">
+                  Remove old church import sessions and their uploaded files (older than 30 days).
+                </p>
+                <Button
+                  onClick={handleCleanupImports}
+                  disabled={isCleaningImports}
+                  variant="outline"
+                  className="w-fit"
+                >
+                  {isCleaningImports ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Running cleanup...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Run Import Cleanup
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Change Password Card - Separate Section */}
         <Card>

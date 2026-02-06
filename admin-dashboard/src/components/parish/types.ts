@@ -58,6 +58,32 @@ export interface FileUpload {
   description?: string;
 }
 
+export type ChurchImportStatus = 'queued' | 'processing' | 'ready' | 'failed';
+
+export interface ChurchImportSession {
+  id: string;
+  churchId?: string;
+  diocese?: string;
+  createdBy: string;
+  status: ChurchImportStatus;
+  sourceFile: {
+    url: string;
+    name: string;
+    contentType: string;
+    size: number;
+    storagePath?: string;
+  };
+  parsedData?: Partial<ChurchInfo>;
+  confidence?: Record<string, number>;
+  sourceSnippets?: Record<string, string>;
+  errorMessage?: string;
+  appliedAt?: Date;
+  appliedBy?: string;
+  appliedFields?: string[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface Virtual360Image {
   id: string;
   file?: File;

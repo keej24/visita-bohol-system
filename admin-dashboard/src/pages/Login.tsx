@@ -24,7 +24,7 @@
  * ERROR HANDLING:
  * Firebase throws cryptic errors like "auth/invalid-credential"
  * This component translates them to user-friendly messages:
- * - "auth/invalid-credential" → "Invalid username or password"
+ * - "auth/invalid-credential" → "Invalid email or password"
  * - "auth/too-many-requests" → "Too many failed attempts"
  * - "auth/user-disabled" → "Account has been disabled"
  *
@@ -98,8 +98,8 @@ const roleConfig = {
     badgeClass: 'bg-amber-100 text-amber-700 border-amber-200',
   },
   parish_secretary: {
-    title: 'Parish Secretary',
-    description: 'Individual church profile management',
+    title: 'Parish',
+    description: 'Parish priest or secretary management',
     icon: Church,
     color: 'emerald',
     bgGradient: 'from-emerald-500 to-teal-600',
@@ -277,6 +277,14 @@ const Login = () => {
         return;
       }
 
+      // Check if the account is pending approval
+      if (userProfile.status === 'pending') {
+        await signOut(auth);
+        setError('Your account is pending approval. Please wait for the administrator to approve your registration.');
+        setLoading(false);
+        return;
+      }
+
       // Validate that the selected role matches the user's actual role
       if (actualRole !== selectedRole) {
         // Sign out the user immediately
@@ -328,7 +336,7 @@ const Login = () => {
           errorMessage.includes('auth/wrong-password') ||
           errorMessage.includes('auth/user-not-found') ||
           errorMessage.includes('auth/invalid-login-credentials')) {
-        setError('Invalid username or password.');
+        setError('Invalid email or password.');
       } else if (errorCode === 'auth/invalid-email' || errorMessage.includes('auth/invalid-email')) {
         setError('Please enter a valid email address.');
       } else if (errorCode === 'auth/too-many-requests' || errorMessage.includes('auth/too-many-requests')) {
@@ -501,14 +509,14 @@ const Login = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="username" className="text-slate-700">
-                    {selectedRole === 'parish_secretary' ? 'Email Address' : 'Username'}
+                    Email Address
                   </Label>
                   <Input
                     id="username"
-                    type="text"
+                    type="email"
                     value={usernameOrEmail}
                     onChange={(e) => handleUsernameChange(e.target.value)}
-                    placeholder={selectedRole === 'parish_secretary' ? 'Enter your email' : 'Enter your username'}
+                    placeholder="Enter your email address"
                     disabled={loading}
                     name="login_username"
                     autoComplete="off"
@@ -580,6 +588,36 @@ const Login = () => {
               
               <div className="mt-6 pt-4 border-t text-center text-sm text-slate-500">
                 <p>Need help? Contact the Chancery Office</p>
+                {selectedRole === 'chancery_office' && (
+                  <p className="mt-2">
+                    <a 
+                      href="/chancellor-register" 
+                      className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
+                    >
+                      New Chancellor? Register here →
+                    </a>
+                  </p>
+                )}
+                {selectedRole === 'museum_researcher' && (
+                  <p className="mt-2">
+                    <a 
+                      href="/museum-register" 
+                      className="text-amber-600 hover:text-amber-800 hover:underline font-medium"
+                    >
+                      New Museum Researcher? Register here →
+                    </a>
+                  </p>
+                )}
+                {selectedRole === 'parish_secretary' && (
+                  <p className="mt-2">
+                    <a 
+                      href="/parish-register" 
+                      className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
+                    >
+                      New Parish Staff? Register here →
+                    </a>
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>

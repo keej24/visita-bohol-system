@@ -3,6 +3,7 @@ import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, setDoc, Times
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
 import { workflowStateMachine, type WorkflowContext } from '@/lib/workflow-state-machine';
 import { shouldRequireHeritageReview } from '@/lib/heritage-detection';
+import { AuditService, createFieldChange } from '@/services/auditService';
 
 export type ChurchStatus = 'draft' | 'pending' | 'approved' | 'under_review' | 'heritage_review';
 
@@ -261,6 +262,32 @@ export async function updateChurchStatus(
     console.log('Attempting to update church document:', churchId, updateData);
     await updateDoc(ref, updateData);
     console.log('Church document updated successfully');
+
+    // Log audit action based on role and transition
+    const auditAction = 
+      userProfile.role === 'museum_researcher' && status === 'approved' 
+        ? 'heritage.approve' as const
+      : userProfile.role === 'chancery_office' && status === 'heritage_review'
+        ? 'church.forward_heritage' as const
+      : userProfile.role === 'chancery_office' && status === 'approved'
+        ? 'church.approve' as const
+      : 'church.update' as const;
+
+    await AuditService.logAction(
+      userProfile,
+      auditAction,
+      'church',
+      churchId,
+      {
+        resourceName: churchData.name || 'Unknown Church',
+        changes: [createFieldChange('status', currentStatus, status)],
+        metadata: {
+          diocese: churchData.diocese,
+          classification: churchData.classification,
+          note,
+        },
+      }
+    );
 
     return { success: true };
 

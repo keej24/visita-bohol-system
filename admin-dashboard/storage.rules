@@ -80,6 +80,26 @@ service firebase.storage {
       // Allow deletion
       allow delete: if isParishSecretary() || isChanceryOffice();
     }
+
+    // Church import files (document parsing)
+    match /churches/{churchId}/imports/{fileId} {
+      // Restrict reads to authenticated staff in the same diocese
+      allow read: if (isParishSecretary() || isChanceryOffice()) &&
+                      firestore.get(/databases/(default)/documents/churches/$(churchId)).data.diocese == getUserDiocese();
+
+      // Parish secretaries and chancery can upload import documents
+      allow write: if (isParishSecretary() || isChanceryOffice()) &&
+                      isValidDocumentType() &&
+                      request.resource.size < 20 * 1024 * 1024; // 20MB limit
+    }
+
+    // Church import files before churchId is created (drafts)
+    match /churches/draft_{userId}/imports/{fileId} {
+      allow read, write: if isAuthenticated() &&
+                            request.auth.uid == userId &&
+                            isValidDocumentType() &&
+                            request.resource.size < 20 * 1024 * 1024; // 20MB limit
+    }
     
     // Legacy document path - kept for backward compatibility
     match /documents/{churchId}/{documentId} {

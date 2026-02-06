@@ -53,6 +53,7 @@ import { User, UserCredential, onAuthStateChanged, signInWithEmailAndPassword, s
 import { doc, getDoc, setDoc, DocumentSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getKnownAccountProfile } from '@/lib/auth-utils';
+import { AuditService } from '@/services/auditService';
 
 /**
  * Type Definitions for User Roles and Profile
@@ -222,6 +223,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setLoading(false);
             throw new Error('Your account has been deactivated. Please contact the administrator.');
           }
+
+          // Check if account is pending approval - handle gracefully without error
+          if (data.status === 'pending') {
+            console.log('[AuthContext] Account is pending approval:', user.email);
+            // Sign out the user silently
+            await signOut(auth);
+            setUserProfile(null);
+            setLoading(false);
+            // Return without throwing - let the registration page handle the redirect
+            return;
+          }
           
           setUserProfile({
             uid: user.uid,
@@ -245,6 +257,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             createdAt: data.createdAt?.toDate(),
             lastLoginAt: new Date(),
           });
+
+          // Log login event for audit trail (async, don't block)
+          const profileForAudit = {
+            uid: user.uid,
+            email: user.email!,
+            role: data.role,
+            name: data.name,
+            diocese: data.diocese,
+            status: data.status || 'active',
+            createdAt: data.createdAt?.toDate() || new Date(),
+            lastLoginAt: new Date(),
+          };
+          AuditService.logLogin(profileForAudit).catch((err) => {
+            console.error('[AuthContext] Failed to log login:', err);
+          });
+
           // Set loading to false only after successful profile fetch
           setLoading(false);
         } else {
@@ -329,10 +357,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     // Note: Email verification is handled automatically through the password reset flow
     // When users set their password via the reset link, emailVerified becomes true
+    // Login audit logging is handled after profile is loaded (in useEffect)
     return userCredential;
   };
 
   const logout = async () => {
+    // Log logout before signing out (while we still have user profile)
+    if (userProfile) {
+      try {
+        await AuditService.logLogout(userProfile);
+      } catch (error) {
+        // Don't block logout if audit logging fails
+        console.error('[AuthContext] Failed to log logout:', error);
+      }
+    }
     await signOut(auth);
   };
 

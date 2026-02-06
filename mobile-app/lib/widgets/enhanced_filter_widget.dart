@@ -227,7 +227,7 @@ class _EnhancedFilterWidgetState extends State<EnhancedFilterWidget> {
           ),
           ...HeritageClassification.values
               .where((classification) =>
-                  classification != HeritageClassification.none)
+                  classification != HeritageClassification.nonHeritage)
               .map((classification) => _FilterOption(
                     title: classification.label,
                     isSelected: _currentCriteria.heritageClassification ==
@@ -375,13 +375,11 @@ class _FilterBottomSheet extends StatelessWidget {
 
 class _FilterOption extends StatelessWidget {
   final String title;
-  final String? subtitle;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _FilterOption({
     required this.title,
-    this.subtitle,
     required this.isSelected,
     required this.onTap,
   });
@@ -396,7 +394,6 @@ class _FilterOption extends StatelessWidget {
           color: isSelected ? const Color(0xFF2563EB) : Colors.black,
         ),
       ),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
       trailing: isSelected
           ? const Icon(Icons.check_circle, color: Color(0xFF2563EB))
           : null,

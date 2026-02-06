@@ -19,7 +19,10 @@ import {
   AlertTriangle,
   Eye,
   Loader2,
-  EyeOff
+  EyeOff,
+  Clock,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,12 +48,12 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
 }) => {
   const { userProfile } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'published' | 'hidden'>('published');
+  const [activeTab, setActiveTab] = useState<'pending' | 'published' | 'hidden'>('pending');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{id: string, action: 'hide' | 'publish'} | null>(null);
+  const [pendingAction, setPendingAction] = useState<{id: string, action: 'hide' | 'publish' | 'approve' | 'reject', subject?: string} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Real feedback data from Firestore
@@ -122,15 +125,17 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
 
   // Calculate stats based on active tab
   const stats = useMemo(() => {
+    const pending = feedbackData.filter(f => f.status === 'pending');
     const published = feedbackData.filter(f => f.status === 'published');
     const hidden = feedbackData.filter(f => f.status === 'hidden');
     
-    const currentData = activeTab === 'published' ? published : hidden;
+    const currentData = activeTab === 'pending' ? pending : activeTab === 'published' ? published : hidden;
     const avgRating = currentData.length > 0
       ? (currentData.reduce((sum, f) => sum + f.rating, 0) / currentData.length).toFixed(1)
       : '0';
 
     return { 
+      pending: pending.length,
       published: published.length, 
       hidden: hidden.length, 
       avgRating, 
@@ -139,9 +144,15 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
     };
   }, [feedbackData, activeTab]);
 
-  // Handle moderation actions
-  const handleModerationRequest = (feedbackId: string, action: 'hide' | 'publish') => {
-    setPendingAction({id: feedbackId, action});
+  // Handle moderation actions (for published/hidden tabs)
+  const handleModerationRequest = (feedbackId: string, action: 'hide' | 'publish', subject?: string) => {
+    setPendingAction({id: feedbackId, action, subject});
+    setShowConfirmDialog(true);
+  };
+
+  // Handle pre-moderation actions (for pending tab)
+  const handlePreModerationRequest = (feedbackId: string, action: 'approve' | 'reject', subject?: string) => {
+    setPendingAction({id: feedbackId, action, subject});
     setShowConfirmDialog(true);
   };
 
@@ -149,19 +160,42 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
     if (!pendingAction || !userProfile) return;
 
     try {
-      const newStatus = pendingAction.action === 'hide' ? 'hidden' : 'published';
+      let successMessage: string;
 
-      await FeedbackService.moderateFeedback(
-        pendingAction.id,
-        newStatus,
-        userProfile.uid
-      );
+      if (pendingAction.action === 'approve') {
+        await FeedbackService.approveFeedback(
+          pendingAction.id,
+          userProfile.uid,
+          userProfile,
+          pendingAction.subject
+        );
+        successMessage = 'Feedback approved and published successfully.';
+      } else if (pendingAction.action === 'reject') {
+        await FeedbackService.rejectFeedback(
+          pendingAction.id,
+          userProfile.uid,
+          'Content did not meet guidelines',
+          userProfile,
+          pendingAction.subject
+        );
+        successMessage = 'Feedback rejected successfully.';
+      } else {
+        const newStatus = pendingAction.action === 'hide' ? 'hidden' : 'published';
+        await FeedbackService.moderateFeedback(
+          pendingAction.id,
+          newStatus,
+          userProfile.uid,
+          userProfile,
+          pendingAction.subject
+        );
+        successMessage = newStatus === 'hidden' 
+          ? 'Feedback has been hidden from public view.' 
+          : 'Feedback has been restored to public view.';
+      }
 
       toast({
         title: "Success",
-        description: newStatus === 'hidden' 
-          ? 'Feedback has been hidden from public view.' 
-          : 'Feedback has been unhidden to public view.',
+        description: successMessage,
       });
     } catch (error) {
       toast({
@@ -200,9 +234,18 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
         </div>
       </div>
 
-      {/* Tabs for Published/Hidden */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'published' | 'hidden')} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+      {/* Tabs for Pending/Published/Hidden */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pending' | 'published' | 'hidden')} className="w-full">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
+          <TabsTrigger value="pending" className="flex items-center gap-1">
+            <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Pending</span>
+            {stats.pending > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 min-w-[20px] px-1 text-xs">
+                {stats.pending}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="published">
             Published {stats.published > 0 && `(${stats.published})`}
           </TabsTrigger>
@@ -210,6 +253,159 @@ export const ParishFeedback: React.FC<ParishFeedbackProps> = ({
             Hidden {stats.hidden > 0 && `(${stats.hidden})`}
           </TabsTrigger>
         </TabsList>
+
+        {/* Pending Tab - Pre-Moderation Queue */}
+        <TabsContent value="pending" className="space-y-6 mt-6">
+          {/* Statistics Cards - Pending Tab */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Awaiting Review</p>
+                    <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Approved</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.published}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <XCircle className="w-4 h-4 text-red-600" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Rejected</p>
+                    <p className="text-2xl font-bold text-red-600">{stats.hidden}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Info Banner */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-blue-900">Pre-Moderation Queue</h4>
+                  <p className="text-sm text-blue-700">
+                    Review visitor feedback before it becomes visible to the public. Approve appropriate content or reject inappropriate submissions.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Search Filter */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search pending feedback..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pending Feedback List */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-amber-600 mr-2" />
+              <span className="text-muted-foreground">Loading feedback...</span>
+            </div>
+          ) : filteredFeedback.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
+                <p className="text-muted-foreground">No pending feedback awaiting review.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredFeedback.map((feedback) => (
+                <Card key={feedback.id} className="border-amber-200 hover:border-amber-300 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Pending Review
+                          </Badge>
+                          <div className="flex gap-0.5">
+                            {renderStars(feedback.rating)}
+                          </div>
+                        </div>
+                        <p className="text-gray-600 mb-2 text-sm">{feedback.message || feedback.comment}</p>
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span>{new Date(feedback.date_submitted).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span>{feedback.userName}</span>
+                        </div>
+                        {feedback.photos && feedback.photos.length > 0 && (
+                          <div className="flex gap-2 mt-2">
+                            {feedback.photos.slice(0, 3).map((photo, idx) => (
+                              <img
+                                key={idx}
+                                src={photo}
+                                alt={`Photo ${idx + 1}`}
+                                className="w-16 h-16 object-cover rounded border"
+                              />
+                            ))}
+                            {feedback.photos.length > 3 && (
+                              <div className="w-16 h-16 bg-gray-100 rounded border flex items-center justify-center text-sm text-muted-foreground">
+                                +{feedback.photos.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-green-700 border-green-300 hover:bg-green-50"
+                          onClick={() => handlePreModerationRequest(feedback.id, 'approve', feedback.subject)}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-700 border-red-300 hover:bg-red-50"
+                          onClick={() => handlePreModerationRequest(feedback.id, 'reject', feedback.subject)}
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
         {/* Published Tab */}
         <TabsContent value="published" className="space-y-6 mt-6">

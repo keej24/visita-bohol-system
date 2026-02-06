@@ -69,6 +69,7 @@ import '../repositories/announcement_repository.dart';
 import '../services/paginated_church_service.dart';
 import '../services/profile_service.dart';
 import '../services/location_service.dart';
+import '../services/auth_service.dart';
 // Persistence
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
@@ -198,6 +199,13 @@ class _HomeAnnouncementsTabState extends State<HomeAnnouncementsTab> {
         _allChurches = churches; // Store all churches
         _applyFilter(); // Filter and display
       });
+
+      // Skip profile-related operations for guest users
+      final authService = context.read<AuthService>();
+      if (!authService.isRegisteredUser) {
+        debugPrint('👤 Guest mode: Skipping profile sync');
+        return;
+      }
 
       // Load visited churches from Firestore after churches are loaded
       if (!mounted) return;
@@ -1432,6 +1440,48 @@ class _AdvancedFilterBottomSheetState
 class _ProfileAvatarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    // Check if user is in guest mode
+    final authService = context.watch<AuthService>();
+
+    // Guest users see a "Sign In" button instead of profile avatar
+    if (!authService.isRegisteredUser) {
+      return GestureDetector(
+        onTap: () {
+          // Exit guest mode to show login screen
+          authService.exitGuestMode();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2563EB),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2563EB).withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.person_outline, color: Colors.white, size: 18),
+              SizedBox(width: 4),
+              Text(
+                'Sign In',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Consumer<ProfileService>(
       builder: (context, profileService, child) {
         final userProfile = profileService.userProfile;
@@ -1535,8 +1585,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadLastTab();
-    // Trigger profile loading on home screen startup
+    // Trigger profile loading on home screen startup (only for registered users)
     Future.microtask(() {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      // Skip profile loading for guest users
+      if (!authService.isRegisteredUser) {
+        debugPrint('👤 Guest mode: Skipping profile load in HomeScreen');
+        return;
+      }
       final profileService =
           Provider.of<ProfileService>(context, listen: false);
       if (profileService.userProfile == null && !profileService.isLoading) {

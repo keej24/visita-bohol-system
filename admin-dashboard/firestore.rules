@@ -88,6 +88,40 @@ service cloud.firestore {
                        resource.data.accountType == 'public' &&
                        // Only allow updating specific fields (blocking-related)
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isBlocked', 'blockReason', 'blockedAt', 'blockedBy', 'isActive', 'lastUpdatedAt']);
+
+      // Parish secretaries can read pending staff registrations for their own parish
+      // This enables approval/rejection of new parish staff
+      allow read: if isAuthenticated() &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish_secretary' &&
+                     resource.data.parishId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parishId &&
+                     resource.data.status == 'pending';
+
+      // Parish secretaries can update pending staff in their parish (for approval/rejection)
+      allow update: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish_secretary' &&
+                       resource.data.parishId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parishId &&
+                       resource.data.status == 'pending';
+
+      // Museum researchers can read pending museum staff registrations
+      // This enables approval/rejection of new museum researchers
+      // Only ACTIVE museum researchers can view pending registrations
+      allow read: if isAuthenticated() &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'museum_researcher' &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
+                     resource.data.role == 'museum_researcher' &&
+                     resource.data.status == 'pending';
+
+      // Museum researchers can update pending museum staff (for approval/rejection)
+      // Only ACTIVE museum researchers can approve/reject
+      allow update: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'museum_researcher' &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
+                       resource.data.role == 'museum_researcher' &&
+                       resource.data.status == 'pending';
     }
     
     // Churches collection - Main church data
@@ -155,6 +189,27 @@ service cloud.firestore {
       
       // Museum researchers can add heritage documentation images
       allow create, update: if isMuseumResearcher();
+    }
+
+    // Church import sessions - Parish document upload + parsing
+    match /church_imports/{importId} {
+      // Parish secretaries can create import sessions for their diocese
+      allow create: if isParishSecretary() &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.diocese == getUserData().diocese;
+
+      // Owner can read their import sessions
+      allow read: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
+
+      // Chancery office can read imports in their diocese (audit/support)
+      allow read: if isChanceryOffice() &&
+                     resource.data.diocese == getUserData().diocese;
+
+      // Owner can update their import session
+      allow update: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
+
+      // No deletes for audit integrity
+      allow delete: if false;
     }
     
     // Parish information collection
@@ -240,7 +295,7 @@ service cloud.firestore {
                      isMuseumResearcher();
     }
 
-    // User activity logs (audit trail)
+    // User activity logs (audit trail) - LEGACY, use audit_logs instead
     match /logs/{logId} {
       // System can write logs (server-side)
       allow create: if isAuthenticated();
@@ -249,6 +304,101 @@ service cloud.firestore {
       allow read: if isChanceryOffice() &&
                      resource.data.diocese == getUserData().diocese;
     }
+
+    // =========================================================================
+    // AUDIT LOGS COLLECTION - Chancellor Term-Based Audit Trailing
+    // =========================================================================
+    // This collection stores immutable audit logs for all actions performed
+    // in the admin dashboard. Each entry is tied to a specific user (chancellor)
+    // and includes term context for accountability across different terms.
+    //
+    // IMMUTABILITY: Audit logs cannot be updated or deleted to ensure
+    // tamper-proof records for accountability and compliance.
+    // =========================================================================
+    match /audit_logs/{logId} {
+      // Any authenticated user can create audit logs
+      // This allows logging from all roles (chancery, parish, museum)
+      allow create: if isAuthenticated();
+
+      // Chancery office can read audit logs for their diocese
+      // This enables viewing activity within their jurisdiction
+      allow read: if isChanceryOffice() && 
+                     resource.data.diocese == getUserData().diocese;
+
+      // Museum researchers can read all audit logs (cross-diocese oversight)
+      // This supports heritage review across both dioceses
+      allow read: if isMuseumResearcher();
+
+      // Parish secretaries can read audit logs for their own actions
+      // and actions on resources in their parish
+      allow read: if isParishSecretary() && 
+                     (resource.data.actor.uid == request.auth.uid ||
+                      resource.data.parishId == getUserData().parishId);
+
+      // NO UPDATES OR DELETES - Audit logs are immutable
+      // This ensures tamper-proof records for accountability
+      allow update, delete: if false;
+    }
+
+    // =========================================================================
+    // CHANCELLOR TERMS COLLECTION - Historical Record of Chancellor Terms
+    // =========================================================================
+    // This collection maintains a denormalized history of chancellor terms
+    // for quick reference and reporting. Each document represents one term
+    // with summary statistics and links to predecessor/successor.
+    // =========================================================================
+    match /chancellor_terms/{termId} {
+      // All authenticated users can read term history
+      // This supports transparency and accountability
+      allow read: if isAuthenticated();
+
+      // Only chancery office can create/update term records
+      // This happens when approving new chancellors or archiving terms
+      allow create: if isChanceryOffice();
+      
+      // Update allowed only for the archiving chancellor or system
+      allow update: if isChanceryOffice() && 
+                       (resource.data.diocese == getUserData().diocese ||
+                        resource.data.status == 'active');
+
+      // Term records cannot be deleted (historical preservation)
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // MUSEUM STAFF TERM HISTORY
+    // =========================================================================
+    // Tracks the historical terms of museum researchers.
+    // Each term includes start/end dates, actions taken, heritage validations,
+    // with summary statistics and links to predecessor/successor.
+    // =========================================================================
+    match /museum_staff_terms/{termId} {
+      // All authenticated users can read term history
+      // This supports transparency and accountability
+      allow read: if isAuthenticated();
+
+      // Only museum researchers can create/update term records
+      // This happens when approving new museum researchers or archiving terms
+      allow create: if isMuseumResearcher();
+      
+      // Update allowed only for the archiving researcher
+      allow update: if isMuseumResearcher() && 
+                       resource.data.diocese == getUserData().diocese;
+
+      // Term records cannot be deleted (historical preservation)
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // PENDING CHANCELLOR REGISTRATIONS (via users collection)
+    // =========================================================================
+    // Note: Pending chancellor registrations are stored in the users collection
+    // with status: 'pending' and role: 'chancery_office'. The rules in the
+    // /users/{userId} match above handle these cases:
+    // - Self-registration creates profile with status: 'pending'
+    // - Active chancellors can approve/reject pending registrations
+    // - Archived chancellors (status: 'ended') become read-only
+    // =========================================================================
     
     // Configuration and system settings
     match /config/{configId} {

@@ -73,8 +73,20 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Church,
+  ChevronDown,
+  FolderOpen
 } from 'lucide-react';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -102,13 +114,35 @@ const FeedbackReports = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'published' | 'hidden'>('published');
+  const [activeTab, setActiveTab] = useState<'pending' | 'published' | 'hidden'>('pending');
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{id: string, action: 'hide' | 'publish'} | null>(null);
+  const [pendingAction, setPendingAction] = useState<{id: string, action: 'hide' | 'publish' | 'approve' | 'reject', subject?: string} | null>(null);
   const [feedbackData, setFeedbackData] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedChurch, setSelectedChurch] = useState<string>('all');
+
+  // Group feedback by church name
+  const feedbackByChurch = useMemo(() => {
+    const grouped = new Map<string, FeedbackItem[]>();
+    
+    feedbackData.forEach(feedback => {
+      const churchName = feedback.churchName;
+      if (!grouped.has(churchName)) {
+        grouped.set(churchName, []);
+      }
+      grouped.get(churchName)!.push(feedback);
+    });
+
+    // Sort churches alphabetically
+    return new Map([...grouped.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+  }, [feedbackData]);
+
+  // Get unique church names for filter dropdown
+  const churchNames = useMemo(() => {
+    return Array.from(new Set(feedbackData.map(f => f.churchName))).sort();
+  }, [feedbackData]);
 
   // Fetch all feedback for the diocese
   useEffect(() => {
@@ -274,9 +308,15 @@ const FeedbackReports = () => {
     fetchDioceseFeedback();
   }, [userProfile?.diocese, toast]);
 
-  // Handle moderation actions
-  const handleModerationRequest = (feedbackId: string, action: 'hide' | 'publish') => {
-    setPendingAction({id: feedbackId, action});
+  // Handle moderation actions (for published/hidden tabs)
+  const handleModerationRequest = (feedbackId: string, action: 'hide' | 'publish', subject?: string) => {
+    setPendingAction({id: feedbackId, action, subject});
+    setShowConfirmDialog(true);
+  };
+
+  // Handle pre-moderation actions (for pending tab)
+  const handlePreModerationRequest = (feedbackId: string, action: 'approve' | 'reject', subject?: string) => {
+    setPendingAction({id: feedbackId, action, subject});
     setShowConfirmDialog(true);
   };
 
@@ -289,13 +329,48 @@ const FeedbackReports = () => {
     console.log('🔄 [FEEDBACK] Starting moderation:', {
       feedbackId: pendingAction.id,
       action: pendingAction.action,
-      newStatus: pendingAction.action === 'hide' ? 'hidden' : 'published',
       userId: user.uid
     });
 
     try {
-      const newStatus = pendingAction.action === 'hide' ? 'hidden' : 'published';
-      await FeedbackService.moderateFeedback(pendingAction.id, newStatus, user.uid);
+      let newStatus: 'published' | 'hidden';
+      let successMessage: string;
+
+      if (pendingAction.action === 'approve') {
+        // Pre-moderation: Approve pending feedback
+        await FeedbackService.approveFeedback(
+          pendingAction.id, 
+          user.uid, 
+          userProfile || undefined, 
+          pendingAction.subject
+        );
+        newStatus = 'published';
+        successMessage = 'Feedback approved and published successfully.';
+      } else if (pendingAction.action === 'reject') {
+        // Pre-moderation: Reject pending feedback
+        await FeedbackService.rejectFeedback(
+          pendingAction.id, 
+          user.uid, 
+          'Content did not meet guidelines',
+          userProfile || undefined, 
+          pendingAction.subject
+        );
+        newStatus = 'hidden';
+        successMessage = 'Feedback rejected successfully.';
+      } else {
+        // Post-moderation: Hide or unhide
+        newStatus = pendingAction.action === 'hide' ? 'hidden' : 'published';
+        await FeedbackService.moderateFeedback(
+          pendingAction.id, 
+          newStatus, 
+          user.uid,
+          userProfile || undefined,
+          pendingAction.subject
+        );
+        successMessage = pendingAction.action === 'hide' 
+          ? 'Feedback hidden successfully.' 
+          : 'Feedback published successfully.';
+      }
 
       console.log('✅ [FEEDBACK] Moderation successful, updating local state');
 
@@ -308,9 +383,7 @@ const FeedbackReports = () => {
 
       toast({
         title: 'Success',
-        description: pendingAction.action === 'hide' 
-          ? 'Feedback hidden successfully.' 
-          : 'Feedback published successfully.',
+        description: successMessage,
       });
     } catch (error) {
       console.error('❌ [FEEDBACK] Error moderating feedback:', error);
@@ -325,11 +398,14 @@ const FeedbackReports = () => {
     }
   };
 
-  // Filter feedback based on search, status, and active tab
+  // Filter feedback based on search, status, active tab, and selected church
   const filteredFeedback = useMemo(() => {
     return feedbackData.filter(feedback => {
       // Filter by active tab
       const matchesTab = feedback.status === activeTab;
+      
+      // Filter by selected church
+      const matchesChurch = selectedChurch === 'all' || feedback.churchName === selectedChurch;
       
       const matchesSearch = feedback.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            feedback.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -338,9 +414,25 @@ const FeedbackReports = () => {
 
       const matchesStatus = statusFilter === 'all' || feedback.status === statusFilter;
 
-      return matchesTab && matchesSearch && matchesStatus;
+      return matchesTab && matchesChurch && matchesSearch && matchesStatus;
     });
-  }, [searchTerm, statusFilter, feedbackData, activeTab]);
+  }, [searchTerm, statusFilter, feedbackData, activeTab, selectedChurch]);
+
+  // Group filtered feedback by church for accordion view
+  const filteredFeedbackByChurch = useMemo(() => {
+    const grouped = new Map<string, FeedbackItem[]>();
+    
+    filteredFeedback.forEach(feedback => {
+      const churchName = feedback.churchName;
+      if (!grouped.has(churchName)) {
+        grouped.set(churchName, []);
+      }
+      grouped.get(churchName)!.push(feedback);
+    });
+
+    // Sort churches alphabetically
+    return new Map([...grouped.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+  }, [filteredFeedback]);
 
   // Calculate statistics for the active tab
   const stats = useMemo(() => {
@@ -352,6 +444,7 @@ const FeedbackReports = () => {
     const avgRating = total > 0 ? tabFeedback.reduce((sum, f) => sum + f.rating, 0) / total : 0;
 
     // Get counts for all feedback (for tab badges)
+    const pendingCount = feedbackData.filter(f => f.status === 'pending').length;
     const publishedCount = feedbackData.filter(f => f.status === 'published').length;
     const hiddenCount = feedbackData.filter(f => f.status === 'hidden').length;
 
@@ -359,6 +452,7 @@ const FeedbackReports = () => {
       total,
       pending,
       avgRating: avgRating.toFixed(1),
+      pendingCount,
       publishedCount,
       hiddenCount
     };
@@ -409,9 +503,18 @@ const FeedbackReports = () => {
           </Card>
         ) : (
           <>
-            {/* Tabs for Published vs Hidden */}
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'published' | 'hidden')} className="w-full">
-              <TabsList className="grid w-full max-w-xs sm:max-w-md grid-cols-2">
+            {/* Tabs for Pending, Published, Hidden */}
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'published' | 'hidden')} className="w-full">
+              <TabsList className="grid w-full max-w-xs sm:max-w-lg grid-cols-3">
+                <TabsTrigger value="pending" className="text-xs sm:text-sm flex items-center gap-1">
+                  <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Pending</span>
+                  {stats.pendingCount > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 min-w-[20px] px-1 text-xs">
+                      {stats.pendingCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="published" className="text-xs sm:text-sm">
                   <span className="hidden xs:inline">Published</span>
                   <span className="xs:hidden">Pub</span> {stats.publishedCount > 0 && `(${stats.publishedCount})`}
@@ -420,6 +523,196 @@ const FeedbackReports = () => {
                   Hidden {stats.hiddenCount > 0 && `(${stats.hiddenCount})`}
                 </TabsTrigger>
               </TabsList>
+
+              {/* Pending Tab - Pre-Moderation Queue */}
+              <TabsContent value="pending" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+                {/* Statistics Cards - Pending Tab */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                  <Card className="border-amber-200 bg-amber-50/50">
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <Clock className="w-4 h-4 text-amber-600 mb-1 sm:mb-0" />
+                        <div>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Awaiting Review</p>
+                          <p className="text-lg sm:text-2xl font-bold text-amber-600">{stats.pendingCount}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <CheckCircle className="w-4 h-4 text-green-600 mb-1 sm:mb-0" />
+                        <div>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">Approved</p>
+                          <p className="text-lg sm:text-2xl font-bold text-green-600">{stats.publishedCount}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-2 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <XCircle className="w-4 h-4 text-red-600 mb-1 sm:mb-0" />
+                        <div>
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">Rejected</p>
+                          <p className="text-lg sm:text-2xl font-bold text-red-600">{stats.hiddenCount}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Info Banner */}
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-blue-900">Pre-Moderation Queue</h4>
+                        <p className="text-sm text-blue-700">
+                          All new feedback submissions require approval before becoming visible to the public. 
+                          Review each submission and approve or reject based on community guidelines.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Search and Church Filter - Pending Tab */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="flex-1">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search pending feedback..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
+                      </div>
+                      <div className="w-full md:w-64">
+                        <Select value={selectedChurch} onValueChange={setSelectedChurch}>
+                          <SelectTrigger>
+                            <Church className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <SelectValue placeholder="Filter by church" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Churches</SelectItem>
+                            {churchNames.map(name => (
+                              <SelectItem key={name} value={name}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Pending Feedback Organized by Church */}
+                <div className="space-y-3 sm:space-y-4">
+                  {filteredFeedbackByChurch.size === 0 ? (
+                    <Card>
+                      <CardContent className="p-8 text-center">
+                        <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
+                        <p className="text-muted-foreground">No pending feedback awaiting review.</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Accordion type="multiple" className="space-y-2" defaultValue={Array.from(filteredFeedbackByChurch.keys())}>
+                      {Array.from(filteredFeedbackByChurch.entries()).map(([churchName, feedbackItems]) => (
+                        <AccordionItem key={churchName} value={churchName} className="border rounded-lg bg-white">
+                          <AccordionTrigger className="px-4 hover:no-underline hover:bg-gray-50 rounded-t-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                                <Church className="w-4 h-4 text-amber-600" />
+                              </div>
+                              <div className="text-left">
+                                <span className="font-medium text-gray-900">{churchName}</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                                    {feedbackItems.length} pending
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 pb-4">
+                            <div className="space-y-3 pt-2">
+                              {feedbackItems.map((feedback) => (
+                                <div key={feedback.id} className="border border-amber-200 rounded-lg p-3 bg-amber-50/30 hover:bg-amber-50 transition-colors">
+                                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
+                                        <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                                          <Clock className="w-3 h-3 mr-1" />
+                                          Pending
+                                        </Badge>
+                                        <div className="flex gap-0.5 ml-2">
+                                          {renderStars(feedback.rating)}
+                                        </div>
+                                      </div>
+                                      <p className="text-gray-600 mb-2 text-sm">{feedback.message}</p>
+                                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                        <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
+                                        <span>•</span>
+                                        <span>{feedback.userName}</span>
+                                      </div>
+                                      {feedback.photos && feedback.photos.length > 0 && (
+                                        <div className="flex gap-2 mt-2">
+                                          {feedback.photos.slice(0, 3).map((photo, idx) => (
+                                            <img
+                                              key={idx}
+                                              src={photo}
+                                              alt={`Attached photo ${idx + 1}`}
+                                              className="w-16 h-16 object-cover rounded border"
+                                            />
+                                          ))}
+                                          {feedback.photos.length > 3 && (
+                                            <div className="w-16 h-16 bg-gray-100 rounded border flex items-center justify-center text-sm text-muted-foreground">
+                                              +{feedback.photos.length - 3}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex gap-2 flex-shrink-0">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-green-700 border-green-300 hover:bg-green-50"
+                                        onClick={() => handlePreModerationRequest(feedback.id, 'approve', feedback.subject)}
+                                      >
+                                        <CheckCircle className="w-4 h-4 mr-1" />
+                                        Approve
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-red-700 border-red-300 hover:bg-red-50"
+                                        onClick={() => handlePreModerationRequest(feedback.id, 'reject', feedback.subject)}
+                                      >
+                                        <XCircle className="w-4 h-4 mr-1" />
+                                        Reject
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
+                </div>
+              </TabsContent>
 
               {/* Published Tab */}
               <TabsContent value="published" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
@@ -477,102 +770,27 @@ const FeedbackReports = () => {
                           />
                         </div>
                       </div>
+                      <div className="w-full md:w-64">
+                        <Select value={selectedChurch} onValueChange={setSelectedChurch}>
+                          <SelectTrigger>
+                            <Church className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <SelectValue placeholder="Filter by church" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Churches</SelectItem>
+                            {churchNames.map(name => (
+                              <SelectItem key={name} value={name}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Feedback List - Published Tab */}
+                {/* Feedback List - Published Tab (Organized by Church) */}
                 <div className="space-y-3 sm:space-y-4">
-              {filteredFeedback.map((feedback) => (
-                <div key={feedback.id} className="border rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
-                        <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{feedback.subject}</h4>
-                        <div className="flex gap-0.5">
-                          {renderStars(feedback.rating)}
-                        </div>
-                        <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'} className="text-xs">
-                          {feedback.status}
-                        </Badge>
-                      </div>
-                      <p className="text-gray-600 mb-2 line-clamp-2 text-xs sm:text-sm">{feedback.message}</p>
-
-                      {/* Display photos if available */}
-                      {feedback.photos && feedback.photos.length > 0 && (
-                        <div className="flex gap-1 sm:gap-2 mb-2 flex-wrap">
-                          {feedback.photos.slice(0, 3).map((photoUrl, index) => (
-                            <img
-                              key={index}
-                              src={photoUrl}
-                              alt={`Feedback photo ${index + 1}`}
-                              className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
-                              onClick={() => window.open(photoUrl, '_blank')}
-                            />
-                          ))}
-                          {feedback.photos.length > 3 && (
-                            <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-xs sm:text-sm font-medium">
-                              +{feedback.photos.length - 3}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
-                        <span className="hidden sm:inline">By: {feedback.userName}</span>
-                        <span className="hidden sm:inline">•</span>
-                        <span className="truncate max-w-[120px] sm:max-w-none">{feedback.churchName}</span>
-                        <span>•</span>
-                        <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
-                        {feedback.photos && feedback.photos.length > 0 && (
-                          <>
-                            <span className="hidden sm:inline">•</span>
-                            <span className="hidden sm:flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              {feedback.photos.length} photo{feedback.photos.length === 1 ? '' : 's'}
-                            </span>
-                          </>
-                        )}
-                        {feedback.moderatedAt && (
-                          <>
-                            <span className="hidden sm:inline">•</span>
-                            <span className="hidden sm:inline">Moderated by {feedback.moderatedBy}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-1 sm:gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedFeedback(feedback);
-                          setShowDetailsDialog(true);
-                        }}
-                        className="text-xs sm:text-sm"
-                      >
-                        <Eye className="w-4 h-4 sm:mr-1" />
-                        <span className="hidden sm:inline">View</span>
-                      </Button>
-                      {feedback.status === 'published' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleModerationRequest(feedback.id, 'hide')}
-                          className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs sm:text-sm"
-                        >
-                          <EyeOff className="w-4 h-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Hide</span>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-                  {filteredFeedback.length === 0 && (
+                  {filteredFeedbackByChurch.size === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p>
@@ -581,6 +799,105 @@ const FeedbackReports = () => {
                           : 'No published feedback available.'}
                       </p>
                     </div>
+                  ) : (
+                    <Accordion type="multiple" className="space-y-2" defaultValue={Array.from(filteredFeedbackByChurch.keys())}>
+                      {Array.from(filteredFeedbackByChurch.entries()).map(([churchName, feedbackItems]) => (
+                        <AccordionItem key={churchName} value={churchName} className="border rounded-lg bg-white">
+                          <AccordionTrigger className="px-4 hover:no-underline hover:bg-gray-50 rounded-t-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                <Church className="w-4 h-4 text-green-600" />
+                              </div>
+                              <div className="text-left">
+                                <span className="font-medium text-gray-900">{churchName}</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                    {feedbackItems.length} review{feedbackItems.length !== 1 ? 's' : ''}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    Avg: {(feedbackItems.reduce((sum, f) => sum + f.rating, 0) / feedbackItems.length).toFixed(1)} ★
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 pb-4">
+                            <div className="space-y-3 pt-2">
+                              {feedbackItems.map((feedback) => (
+                                <div key={feedback.id} className="border rounded-lg p-3 bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
+                                        <h4 className="font-semibold text-gray-900 text-sm truncate">{feedback.subject}</h4>
+                                        <div className="flex gap-0.5">
+                                          {renderStars(feedback.rating)}
+                                        </div>
+                                      </div>
+                                      <p className="text-gray-600 mb-2 line-clamp-2 text-xs sm:text-sm">{feedback.message}</p>
+
+                                      {/* Display photos if available */}
+                                      {feedback.photos && feedback.photos.length > 0 && (
+                                        <div className="flex gap-1 sm:gap-2 mb-2 flex-wrap">
+                                          {feedback.photos.slice(0, 3).map((photoUrl, index) => (
+                                            <img
+                                              key={index}
+                                              src={photoUrl}
+                                              alt={`Feedback photo ${index + 1}`}
+                                              className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                                              onClick={() => window.open(photoUrl, '_blank')}
+                                            />
+                                          ))}
+                                          {feedback.photos.length > 3 && (
+                                            <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-xs sm:text-sm font-medium">
+                                              +{feedback.photos.length - 3}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
+                                        <span>{feedback.userName}</span>
+                                        <span>•</span>
+                                        <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
+                                        {feedback.moderatedAt && (
+                                          <>
+                                            <span className="hidden sm:inline">•</span>
+                                            <span className="hidden sm:inline">Moderated by {feedback.moderatedBy}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 sm:gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedFeedback(feedback);
+                                          setShowDetailsDialog(true);
+                                        }}
+                                        className="text-xs sm:text-sm"
+                                      >
+                                        <Eye className="w-4 h-4 sm:mr-1" />
+                                        <span className="hidden sm:inline">View</span>
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleModerationRequest(feedback.id, 'hide')}
+                                        className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs sm:text-sm"
+                                      >
+                                        <EyeOff className="w-4 h-4 sm:mr-1" />
+                                        <span className="hidden sm:inline">Hide</span>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
                   )}
                 </div>
               </TabsContent>
@@ -641,100 +958,27 @@ const FeedbackReports = () => {
                           />
                         </div>
                       </div>
+                      <div className="w-full md:w-64">
+                        <Select value={selectedChurch} onValueChange={setSelectedChurch}>
+                          <SelectTrigger>
+                            <Church className="w-4 h-4 mr-2 text-muted-foreground" />
+                            <SelectValue placeholder="Filter by church" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Churches</SelectItem>
+                            {churchNames.map(name => (
+                              <SelectItem key={name} value={name}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Feedback List - Hidden Tab */}
+                {/* Feedback List - Hidden Tab (Organized by Church) */}
                 <div className="space-y-3 sm:space-y-4">
-                  {filteredFeedback.map((feedback) => (
-                    <div key={feedback.id} className="border rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
-                            <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{feedback.subject}</h4>
-                            <div className="flex gap-0.5">
-                              {renderStars(feedback.rating)}
-                            </div>
-                            <Badge variant={feedback.status === 'published' ? 'default' : 'secondary'} className="text-xs">
-                              {feedback.status}
-                            </Badge>
-                          </div>
-                          <p className="text-gray-600 mb-2 line-clamp-2 text-xs sm:text-sm">{feedback.message}</p>
-
-                          {/* Display photos if available */}
-                          {feedback.photos && feedback.photos.length > 0 && (
-                            <div className="flex gap-1 sm:gap-2 mb-2 flex-wrap">
-                              {feedback.photos.slice(0, 3).map((photoUrl, index) => (
-                                <img
-                                  key={index}
-                                  src={photoUrl}
-                                  alt={`Feedback photo ${index + 1}`}
-                                  className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
-                                  onClick={() => window.open(photoUrl, '_blank')}
-                                />
-                              ))}
-                              {feedback.photos.length > 3 && (
-                                <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-xs sm:text-sm font-medium">
-                                  +{feedback.photos.length - 3}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
-                            <span className="hidden sm:inline">By: {feedback.userName}</span>
-                            <span className="hidden sm:inline">•</span>
-                            <span className="truncate max-w-[120px] sm:max-w-none">{feedback.churchName}</span>
-                            <span>•</span>
-                            <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
-                            {feedback.photos && feedback.photos.length > 0 && (
-                              <>
-                                <span className="hidden sm:inline">•</span>
-                                <span className="hidden sm:flex items-center gap-1">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                  {feedback.photos.length} photo{feedback.photos.length === 1 ? '' : 's'}
-                                </span>
-                              </>
-                            )}
-                            {feedback.moderatedAt && (
-                              <>
-                                <span className="hidden sm:inline">•</span>
-                                <span className="hidden sm:inline">Moderated by {feedback.moderatedBy}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-1 sm:gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedFeedback(feedback);
-                              setShowDetailsDialog(true);
-                            }}
-                            className="text-xs sm:text-sm"
-                          >
-                            <Eye className="w-4 h-4 sm:mr-1" />
-                            <span className="hidden sm:inline">View</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleModerationRequest(feedback.id, 'publish')}
-                            className="text-green-600 border-green-200 hover:bg-green-50 text-xs sm:text-sm"
-                          >
-                            <Eye className="w-4 h-4 sm:mr-1" />
-                            <span className="hidden sm:inline">Unhide</span>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {filteredFeedback.length === 0 && (
+                  {filteredFeedbackByChurch.size === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p>
@@ -743,6 +987,105 @@ const FeedbackReports = () => {
                           : 'No hidden feedback available.'}
                       </p>
                     </div>
+                  ) : (
+                    <Accordion type="multiple" className="space-y-2" defaultValue={Array.from(filteredFeedbackByChurch.keys())}>
+                      {Array.from(filteredFeedbackByChurch.entries()).map(([churchName, feedbackItems]) => (
+                        <AccordionItem key={churchName} value={churchName} className="border rounded-lg bg-white">
+                          <AccordionTrigger className="px-4 hover:no-underline hover:bg-gray-50 rounded-t-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                                <Church className="w-4 h-4 text-orange-600" />
+                              </div>
+                              <div className="text-left">
+                                <span className="font-medium text-gray-900">{churchName}</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                                    {feedbackItems.length} hidden
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 pb-4">
+                            <div className="space-y-3 pt-2">
+                              {feedbackItems.map((feedback) => (
+                                <div key={feedback.id} className="border border-orange-200 rounded-lg p-3 bg-orange-50/30 hover:bg-orange-50 transition-colors">
+                                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
+                                        <h4 className="font-semibold text-gray-900 text-sm truncate">{feedback.subject}</h4>
+                                        <div className="flex gap-0.5">
+                                          {renderStars(feedback.rating)}
+                                        </div>
+                                        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                                          Hidden
+                                        </Badge>
+                                      </div>
+                                      <p className="text-gray-600 mb-2 line-clamp-2 text-xs sm:text-sm">{feedback.message}</p>
+
+                                      {/* Display photos if available */}
+                                      {feedback.photos && feedback.photos.length > 0 && (
+                                        <div className="flex gap-1 sm:gap-2 mb-2 flex-wrap">
+                                          {feedback.photos.slice(0, 3).map((photoUrl, index) => (
+                                            <img
+                                              key={index}
+                                              src={photoUrl}
+                                              alt={`Feedback photo ${index + 1}`}
+                                              className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                                              onClick={() => window.open(photoUrl, '_blank')}
+                                            />
+                                          ))}
+                                          {feedback.photos.length > 3 && (
+                                            <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-600 text-xs sm:text-sm font-medium">
+                                              +{feedback.photos.length - 3}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
+                                        <span>{feedback.userName}</span>
+                                        <span>•</span>
+                                        <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
+                                        {feedback.moderatedAt && (
+                                          <>
+                                            <span className="hidden sm:inline">•</span>
+                                            <span className="hidden sm:inline">Hidden by {feedback.moderatedBy}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 sm:gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedFeedback(feedback);
+                                          setShowDetailsDialog(true);
+                                        }}
+                                        className="text-xs sm:text-sm"
+                                      >
+                                        <Eye className="w-4 h-4 sm:mr-1" />
+                                        <span className="hidden sm:inline">View</span>
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleModerationRequest(feedback.id, 'publish')}
+                                        className="text-green-600 border-green-200 hover:bg-green-50 text-xs sm:text-sm"
+                                      >
+                                        <Eye className="w-4 h-4 sm:mr-1" />
+                                        <span className="hidden sm:inline">Unhide</span>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
                   )}
                 </div>
               </TabsContent>
@@ -847,12 +1190,18 @@ const FeedbackReports = () => {
         <DialogContent className="mx-2 sm:mx-auto w-[calc(100%-1rem)] sm:w-full max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">
-              {pendingAction?.action === 'hide' ? 'Confirm Hide Feedback' : 'Confirm Publish Feedback'}
+              {pendingAction?.action === 'approve' ? 'Approve Feedback' :
+               pendingAction?.action === 'reject' ? 'Reject Feedback' :
+               pendingAction?.action === 'hide' ? 'Hide Feedback' : 'Publish Feedback'}
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
-              {pendingAction?.action === 'hide'
-                ? 'Are you sure you want to hide this feedback?'
-                : 'Are you sure you want to publish this feedback?'}
+              {pendingAction?.action === 'approve'
+                ? 'Approving will make this feedback visible to all users on the mobile app. Are you sure?'
+                : pendingAction?.action === 'reject'
+                ? 'Rejecting will permanently hide this feedback from users. Are you sure?'
+                : pendingAction?.action === 'hide'
+                ? 'Are you sure you want to hide this feedback? It will no longer be visible to users.'
+                : 'Are you sure you want to publish this feedback? It will become visible to all users.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-3 sm:pt-4">
@@ -864,14 +1213,16 @@ const FeedbackReports = () => {
                 setPendingAction(null);
               }}
             >
-              No
+              Cancel
             </Button>
             <Button
-              variant={pendingAction?.action === 'hide' ? 'destructive' : 'default'}
-              className="w-full sm:w-auto"
+              variant={pendingAction?.action === 'reject' || pendingAction?.action === 'hide' ? 'destructive' : 'default'}
+              className={pendingAction?.action === 'approve' ? 'bg-green-600 hover:bg-green-700 w-full sm:w-auto' : 'w-full sm:w-auto'}
               onClick={confirmModeration}
             >
-              Yes
+              {pendingAction?.action === 'approve' ? 'Approve & Publish' :
+               pendingAction?.action === 'reject' ? 'Reject' :
+               pendingAction?.action === 'hide' ? 'Hide' : 'Publish'}
             </Button>
           </DialogFooter>
         </DialogContent>

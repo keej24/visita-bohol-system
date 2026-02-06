@@ -16,8 +16,12 @@ import {
   Edit,
   AlertTriangle,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  UserPlus
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PendingMuseumStaff } from '@/components/PendingMuseumStaff';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from "@/contexts/AuthContext";
 import { getChurchesByDiocese, updateChurchStatusWithValidation, type Church, type ChurchStatus } from '@/lib/churches';
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
@@ -43,6 +47,9 @@ const MuseumResearcherDashboard = () => {
   // Heritage validation checklist dialog state
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [churchToValidate, setChurchToValidate] = useState<Church | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<string>('heritage');
 
 
   // Fetch heritage review churches from both dioceses
@@ -167,7 +174,8 @@ const MuseumResearcherDashboard = () => {
       await ChurchService.updateChurchHeritage(
         selectedChurch.id,
         heritageData,
-        userProfile.uid
+        userProfile.uid,
+        userProfile
       );
 
       if (isChangingToNonHeritage) {
@@ -257,7 +265,8 @@ const MuseumResearcherDashboard = () => {
       await ChurchService.updateChurchHeritage(
         selectedChurch.id,
         heritageData,
-        userProfile.uid
+        userProfile.uid,
+        userProfile
       );
 
       if (isChangingToNonHeritage) {
@@ -445,26 +454,39 @@ const MuseumResearcherDashboard = () => {
           </Card>
         </div>
 
-        {/* Main Content - Heritage Validation */}
+        {/* Tabbed Content Area */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-flex">
+            <TabsTrigger value="heritage" className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Heritage Review</span>
+            </TabsTrigger>
+            <TabsTrigger value="staff" className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Pending Staff</span>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Heritage Review Queue */}
-        <Card className="heritage-card border-amber-200">
-          <CardHeader className="bg-gradient-to-r from-amber-50/50 to-transparent">
-            <CardTitle className="text-lg font-semibold text-amber-900">
-              Heritage Review Queue {isLoading && <Loader2 className="inline h-4 w-4 ml-2 animate-spin text-amber-600" />}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin text-amber-600" />
-                  <p className="text-sm text-slate-600">Loading heritage reviews...</p>
-                </div>
-              </div>
-            ) : heritageReviewChurches.length === 0 ? (
-              <div className="text-sm text-slate-600">No heritage churches awaiting validation.</div>
-            ) : (
+          {/* Heritage Review Tab */}
+          <TabsContent value="heritage" className="space-y-4">
+            {/* Heritage Review Queue */}
+            <Card className="heritage-card border-amber-200">
+              <CardHeader className="bg-gradient-to-r from-amber-50/50 to-transparent">
+                <CardTitle className="text-lg font-semibold text-amber-900">
+                  Heritage Review Queue {isLoading && <Loader2 className="inline h-4 w-4 ml-2 animate-spin text-amber-600" />}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin text-amber-600" />
+                      <p className="text-sm text-slate-600">Loading heritage reviews...</p>
+                    </div>
+                  </div>
+                ) : heritageReviewChurches.length === 0 ? (
+                  <div className="text-sm text-slate-600">No heritage churches awaiting validation.</div>
+                ) : (
               <TooltipProvider>
                 {heritageReviewChurches.map((church) => (
                   <div key={church.id} className="p-3 rounded-lg bg-amber-50/40 border border-amber-100 hover:bg-amber-50 transition-colors">
@@ -548,9 +570,28 @@ const MuseumResearcherDashboard = () => {
                   </div>
                 ))}
               </TooltipProvider>
-            )}
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Pending Staff Tab */}
+          <TabsContent value="staff">
+            <ErrorBoundary>
+              {userProfile && (
+                <PendingMuseumStaff
+                  currentUser={userProfile}
+                  onStaffApproved={() => {
+                    toast({
+                      title: "Staff Approved",
+                      description: "The museum researcher account has been activated successfully.",
+                    });
+                  }}
+                />
+              )}
+            </ErrorBoundary>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Heritage Validation Checklist Dialog */}

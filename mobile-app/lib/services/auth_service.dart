@@ -64,9 +64,32 @@ import 'package:cloud_functions/cloud_functions.dart';
 /// This service is registered as a ChangeNotifierProvider in main.dart,
 /// making it accessible throughout the app via Provider.of<AuthService>()
 /// or context.watch<AuthService>() for reactive updates.
+///
+/// GUEST MODE:
+/// The app supports a "guest mode" where users can browse churches without
+/// registering. Guest users can view all public church information but cannot:
+/// - Track visits (mark as visited)
+/// - Save churches to "For Visit" list
+/// - Submit reviews/feedback
+/// - Sync data across devices
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GUEST MODE STATE
+  // ─────────────────────────────────────────────────────────────────────────
+  /// Whether the user is browsing as a guest (not authenticated but allowed to browse)
+  bool _isGuestMode = false;
+
+  /// Whether the user is in guest mode
+  bool get isGuestMode => _isGuestMode;
+
+  /// Returns true if user can access the app (either authenticated or guest)
+  bool get canAccessApp => isAuthenticated || _isGuestMode;
+
+  /// Returns true if user is a registered (authenticated) user
+  bool get isRegisteredUser => isAuthenticated && !_isGuestMode;
 
   // Public getters for auth state
   User? get currentUser => _auth.currentUser;
@@ -90,8 +113,33 @@ class AuthService extends ChangeNotifier {
   AuthService() {
     // Listen to auth state changes
     _auth.authStateChanges().listen((User? user) {
+      // If user signs in, exit guest mode
+      if (user != null && _isGuestMode) {
+        _isGuestMode = false;
+      }
       notifyListeners();
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GUEST MODE METHODS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Enter guest mode - allows browsing without authentication
+  ///
+  /// This enables public users (tourists, casual visitors) to explore
+  /// church information without needing to create an account.
+  void enterGuestMode() {
+    debugPrint('👤 Entering guest mode - browsing without registration');
+    _isGuestMode = true;
+    notifyListeners();
+  }
+
+  /// Exit guest mode - typically called when user decides to sign in/register
+  void exitGuestMode() {
+    debugPrint('👤 Exiting guest mode');
+    _isGuestMode = false;
+    notifyListeners();
   }
 
   /// Check if user is blocked in Firestore
@@ -427,6 +475,8 @@ class AuthService extends ChangeNotifier {
     try {
       debugPrint('🔐 AuthService: Signing out user...');
       await _auth.signOut();
+      // Also reset guest mode on sign out
+      _isGuestMode = false;
       debugPrint('✅ AuthService: User signed out from Firebase');
       notifyListeners();
     } catch (e) {

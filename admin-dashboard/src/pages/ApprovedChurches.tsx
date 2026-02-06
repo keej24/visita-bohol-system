@@ -127,7 +127,8 @@ const ApprovedChurches = () => {
       await ChurchService.updateChurchHeritage(
         selectedChurch.id,
         heritageData,
-        userProfile.uid
+        userProfile.uid,
+        userProfile
       );
 
       if (isChangingToNonHeritage) {
@@ -199,7 +200,8 @@ const ApprovedChurches = () => {
       await ChurchService.updateChurchHeritage(
         selectedChurch.id,
         heritageData,
-        userProfile.uid
+        userProfile.uid,
+        userProfile
       );
 
       if (isChangingToNonHeritage) {

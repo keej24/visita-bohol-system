@@ -67,6 +67,10 @@ export function SecurityReviewChecklist({
         noValuations: false,
         contentAccurate: false,
         parishApproved: false,
+        religiousContentRespectful: false,
+        noUnpublishedDevotional: false,
+        supportingDocsReviewed: false,
+        parishConsentConfirmed: false,
       });
       onClose();
     } finally {
@@ -82,6 +86,10 @@ export function SecurityReviewChecklist({
       noValuations: false,
       contentAccurate: false,
       parishApproved: false,
+      religiousContentRespectful: false,
+      noUnpublishedDevotional: false,
+      supportingDocsReviewed: false,
+      parishConsentConfirmed: false,
     });
     onClose();
   };

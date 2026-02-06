@@ -6,10 +6,13 @@ import { DashboardHeader } from '@/components/optimized/DashboardHeader';
 import { StatsGrid } from '@/components/optimized/StatsGrid';
 import { ChanceryReviewList } from '@/components/ChanceryReviewList';
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
+import { PendingChancellors } from '@/components/PendingChancellors';
+import { AuditLogViewer } from '@/components/AuditLogViewer';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChurchStats } from '@/hooks/useChurchStats';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ClipboardList, History, UserPlus } from 'lucide-react';
 import type { Diocese } from '@/contexts/AuthContext';
 import type { Church } from '@/lib/churches';
 import { ChurchInfo } from '@/components/parish/types';
@@ -32,6 +35,9 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
   const handleViewChurch = (church: Church) => {
     setSelectedChurch(church);
@@ -238,8 +244,25 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
           <StatsGrid stats={churchStats} />
         </ErrorBoundary>
 
-        {/* Main Content - Dashboard Overview */}
-        <div className="space-y-4">
+        {/* Tabbed Content Area */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="chancellors" className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Chancellors</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">Activity Log</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab - Original Dashboard Content */}
+          <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Pending Reviews - Takes up more space on larger screens */}
               <div className="lg:col-span-2 order-2 lg:order-1">
@@ -275,7 +298,33 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
                 </div>
               </div>
             </div>
-        </div>
+          </TabsContent>
+
+          {/* Chancellors Tab - Pending Registrations */}
+          <TabsContent value="chancellors">
+            <ErrorBoundary>
+              {userProfile && (
+                <PendingChancellors
+                  diocese={diocese}
+                  currentChancellor={userProfile}
+                  onChancellorApproved={() => {
+                    toast({
+                      title: "Chancellor Approved",
+                      description: "The new chancellor account has been activated successfully.",
+                    });
+                  }}
+                />
+              )}
+            </ErrorBoundary>
+          </TabsContent>
+
+          {/* Activity Log Tab */}
+          <TabsContent value="activity">
+            <ErrorBoundary>
+              <AuditLogViewer diocese={diocese} limit={100} showFilters={true} />
+            </ErrorBoundary>
+          </TabsContent>
+        </Tabs>
       </div>
       )}
 

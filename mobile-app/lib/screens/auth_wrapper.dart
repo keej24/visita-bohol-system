@@ -107,7 +107,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
       builder: (context, authService, child) {
         assert(() {
           debugPrint(
-              'AuthWrapper -> isLoading=${authService.isLoading}, isAuthenticated=${authService.isAuthenticated}, user=${authService.currentUser?.uid}');
+              'AuthWrapper -> isLoading=${authService.isLoading}, isAuthenticated=${authService.isAuthenticated}, isGuestMode=${authService.isGuestMode}, user=${authService.currentUser?.uid}');
           return true;
         }());
         // Show loading spinner while checking auth state
@@ -117,6 +117,13 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
               child: CircularProgressIndicator(),
             ),
           );
+        }
+
+        // GUEST MODE: Allow browsing without authentication
+        // Guest users can view churches but cannot use registered-only features
+        if (authService.isGuestMode && !authService.isAuthenticated) {
+          debugPrint('👤 AuthWrapper: Guest mode active, showing HomeScreen');
+          return const HomeScreen();
         }
 
         // Show main app if user is authenticated

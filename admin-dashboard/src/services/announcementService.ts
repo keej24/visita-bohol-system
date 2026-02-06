@@ -16,8 +16,8 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { Announcement, AnnouncementFormData, AnnouncementFilters } from '@/types/announcement';
-import type { Diocese } from '@/contexts/AuthContext';
-
+import type { Diocese, UserProfile } from '@/contexts/AuthContext';
+import { AuditService } from './auditService';
 const ANNOUNCEMENTS_COLLECTION = 'announcements';
 
 // Convert Firestore document to Announcement
@@ -143,6 +143,31 @@ export class AnnouncementService {
       
       const docRef = await addDoc(collection(db, ANNOUNCEMENTS_COLLECTION), data);
       console.log('✅ Announcement created successfully with ID:', docRef.id);
+
+      // Log audit event (async, non-blocking)
+      const userProfile: UserProfile = {
+        uid: userId,
+        email: userData.email || '',
+        name: userData.name || 'Unknown',
+        role: userData.role,
+        diocese: userData.diocese,
+        createdAt: userData.createdAt?.toDate() || new Date(),
+        lastLoginAt: new Date(),
+      };
+      AuditService.logAction(
+        userProfile,
+        'announcement.create',
+        'announcement',
+        docRef.id,
+        {
+          resourceName: formData.title,
+          metadata: {
+            scope: formData.scope,
+            category: formData.category,
+          },
+        }
+      ).catch((err) => console.error('[AnnouncementService] Audit log failed:', err));
+
       return docRef.id;
     } catch (error) {
       console.error('❌ Error creating announcement:', error);
@@ -180,11 +205,29 @@ export class AnnouncementService {
     id: string, 
     formData: AnnouncementFormData, 
     diocese: Diocese,
-    userId: string
+    userId: string,
+    userProfile?: UserProfile
   ): Promise<void> {
     try {
       const data = convertToFirestoreData(formData, userId, diocese, true);
       await updateDoc(doc(db, ANNOUNCEMENTS_COLLECTION, id), data);
+
+      // Log audit event if userProfile provided
+      if (userProfile) {
+        AuditService.logAction(
+          userProfile,
+          'announcement.update',
+          'announcement',
+          id,
+          {
+            resourceName: formData.title,
+            metadata: {
+              scope: formData.scope,
+              category: formData.category,
+            },
+          }
+        ).catch((err) => console.error('[AnnouncementService] Audit log failed:', err));
+      }
     } catch (error) {
       console.error('Error updating announcement:', error);
       throw new Error('Failed to update announcement');
@@ -192,13 +235,27 @@ export class AnnouncementService {
   }
 
   // Archive announcement
-  static async archiveAnnouncement(id: string): Promise<void> {
+  static async archiveAnnouncement(id: string, userProfile?: UserProfile, announcementTitle?: string): Promise<void> {
     try {
       await updateDoc(doc(db, ANNOUNCEMENTS_COLLECTION, id), {
         isArchived: true,
         archivedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
+
+      // Log audit event if userProfile provided
+      if (userProfile) {
+        AuditService.logAction(
+          userProfile,
+          'announcement.archive',
+          'announcement',
+          id,
+          {
+            resourceName: announcementTitle,
+            changes: [{ field: 'isArchived', oldValue: false, newValue: true }],
+          }
+        ).catch((err) => console.error('[AnnouncementService] Audit log failed:', err));
+      }
     } catch (error) {
       console.error('Error archiving announcement:', error);
       throw new Error('Failed to archive announcement');
@@ -206,13 +263,27 @@ export class AnnouncementService {
   }
 
   // Unarchive announcement (restore)
-  static async unarchiveAnnouncement(id: string): Promise<void> {
+  static async unarchiveAnnouncement(id: string, userProfile?: UserProfile, announcementTitle?: string): Promise<void> {
     try {
       await updateDoc(doc(db, ANNOUNCEMENTS_COLLECTION, id), {
         isArchived: false,
         archivedAt: null,
         updatedAt: Timestamp.now(),
       });
+
+      // Log audit event if userProfile provided
+      if (userProfile) {
+        AuditService.logAction(
+          userProfile,
+          'announcement.unarchive',
+          'announcement',
+          id,
+          {
+            resourceName: announcementTitle,
+            changes: [{ field: 'isArchived', oldValue: true, newValue: false }],
+          }
+        ).catch((err) => console.error('[AnnouncementService] Audit log failed:', err));
+      }
     } catch (error) {
       console.error('Error unarchiving announcement:', error);
       throw new Error('Failed to unarchive announcement');
@@ -220,9 +291,22 @@ export class AnnouncementService {
   }
 
   // Delete announcement
-  static async deleteAnnouncement(id: string): Promise<void> {
+  static async deleteAnnouncement(id: string, userProfile?: UserProfile, announcementTitle?: string): Promise<void> {
     try {
       await deleteDoc(doc(db, ANNOUNCEMENTS_COLLECTION, id));
+
+      // Log audit event if userProfile provided
+      if (userProfile) {
+        AuditService.logAction(
+          userProfile,
+          'announcement.delete',
+          'announcement',
+          id,
+          {
+            resourceName: announcementTitle,
+          }
+        ).catch((err) => console.error('[AnnouncementService] Audit log failed:', err));
+      }
     } catch (error) {
       console.error('Error deleting announcement:', error);
       throw new Error('Failed to delete announcement');

@@ -72,6 +72,7 @@ import '../models/app_state.dart';
 import '../models/enums.dart';
 import '../services/profile_service.dart';
 import '../services/paginated_church_service.dart';
+import '../widgets/guest_feature_prompt.dart';
 import 'map_screen.dart';
 import 'virtual_tour_screen.dart';
 
@@ -383,6 +384,18 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                           );
                         }
                       : () async {
+                          // Check if user is a guest - prompt to sign in
+                          if (GuestFeaturePrompt.isGuest(context)) {
+                            await GuestFeaturePrompt.show(
+                              context,
+                              feature: 'your For Visit list',
+                              description:
+                                  'Save churches you want to visit and access them later.',
+                              icon: Icons.bookmark_outline,
+                            );
+                            return;
+                          }
+
                           final profileService = context.read<ProfileService>();
 
                           // Toggle in ProfileService (this handles Firebase sync)
@@ -1111,6 +1124,18 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
 
   Future<void> _handleMarkAsVisited(
       BuildContext context, AppState state) async {
+    // Check if user is a guest - prompt to sign in
+    if (GuestFeaturePrompt.isGuest(context)) {
+      await GuestFeaturePrompt.show(
+        context,
+        feature: 'visit tracking',
+        description:
+            'Track your church visits and build your pilgrimage journey.',
+        icon: Icons.check_circle_outline,
+      );
+      return;
+    }
+
     // Check if already visited
     if (state.isVisited(_currentChurch)) {
       ScaffoldMessenger.of(context).showSnackBar(

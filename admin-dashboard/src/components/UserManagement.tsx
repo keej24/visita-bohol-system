@@ -15,6 +15,7 @@ import { useAuth, type Diocese } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { generateParishId, formatParishFullName, getMunicipalitiesByDiocese } from '@/lib/parish-utils';
 import { CreateParishAccountModal } from '@/components/CreateParishAccountModal';
+import { AuditService } from '@/services/auditService';
 import {
   Users,
   Plus,
@@ -267,7 +268,26 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
         createdBy: userProfile?.uid || 'system'
       };
 
-      await addDoc(collection(db, 'users'), userData);
+      const userDocRef = await addDoc(collection(db, 'users'), userData);
+
+      // Log the user creation for audit trail
+      if (userProfile) {
+        await AuditService.logAction(
+          userProfile,
+          'user.create',
+          'user',
+          userDocRef.id,
+          {
+            resourceName: parishFullName,
+            metadata: {
+              userEmail: newUser.email,
+              userRole: 'parish_secretary',
+              parishId: parishId,
+              municipality: newUser.municipality,
+            },
+          }
+        );
+      }
 
       // Send password reset email so user can set their own password
       await sendPasswordResetEmail(auth, newUser.email);
@@ -316,10 +336,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
   };
 
   const handleToggleUserStatus = async () => {
-    if (!userToToggle) return;
+    if (!userToToggle || !userProfile) return;
 
     const newStatus = userToToggle.status === 'active' ? 'inactive' : 'active';
     const action = newStatus === 'active' ? 'activate' : 'deactivate';
+    const auditAction = newStatus === 'active' ? 'user.reactivate' : 'user.deactivate';
 
     try {
       setSubmitting(true);
@@ -330,6 +351,22 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
         updatedAt: new Date(),
         updatedBy: userProfile?.uid || 'system'
       });
+
+      // Log the action for audit trail
+      await AuditService.logAction(
+        userProfile,
+        auditAction as 'user.reactivate' | 'user.deactivate',
+        'user',
+        userToToggle.id,
+        {
+          resourceName: userToToggle.name,
+          changes: [{ field: 'status', oldValue: userToToggle.status, newValue: newStatus }],
+          metadata: {
+            userEmail: userToToggle.email,
+            userRole: userToToggle.role,
+          },
+        }
+      );
 
       toast({
         title: "Success",

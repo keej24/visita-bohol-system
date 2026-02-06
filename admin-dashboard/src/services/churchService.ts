@@ -86,9 +86,12 @@ import type {
   ChurchFilters,
   ChurchReviewAction,
   ChurchStats,
-  ChurchStatus
+  ChurchStatus,
+  ReligiousClassification
 } from '@/types/church';
-import type { Diocese } from '@/contexts/AuthContext';
+import type { Diocese, UserProfile } from '@/contexts/AuthContext';
+// Audit logging service
+import { AuditService, createFieldChange } from '@/services/auditService';
 
 // Firestore collection name (consistent naming prevents typos)
 const CHURCHES_COLLECTION = 'churches';
@@ -416,10 +419,16 @@ export class ChurchService {
         religiousClassifications?: string[];
       };
     },
-    userId: string
+    userId: string,
+    researcher?: UserProfile
   ): Promise<void> {
     try {
       const churchRef = doc(db, CHURCHES_COLLECTION, id);
+      
+      // Fetch current church data for audit logging
+      const churchDoc = await getDoc(churchRef);
+      const church = churchDoc.exists() ? churchDoc.data() : null;
+      const oldClassification = church?.classification || 'unknown';
       
       // Build update data with only allowed fields
       const updateData: Record<string, unknown> = {
@@ -494,6 +503,43 @@ export class ChurchService {
 
       console.log('[ChurchService] Updating church heritage fields:', id, updateData);
       await updateDoc(churchRef, updateData);
+
+      // Log the action for audit trail
+      if (researcher) {
+        const isClassificationChange = heritageData.classification && heritageData.classification !== oldClassification;
+        const auditAction = isClassificationChange && heritageData.classification === 'non_heritage' 
+          ? 'heritage.reclassify' 
+          : heritageData.status === 'approved' 
+            ? 'heritage.approve' 
+            : 'heritage.update';
+        
+        const changes = [];
+        if (isClassificationChange) {
+          changes.push(createFieldChange('classification', oldClassification, heritageData.classification));
+        }
+        if (heritageData.status) {
+          changes.push(createFieldChange('status', church?.status || 'unknown', heritageData.status));
+        }
+        if (heritageData.heritageValidation?.validated !== undefined) {
+          changes.push(createFieldChange('heritageValidation', 'unvalidated', 'validated'));
+        }
+
+        await AuditService.logAction(
+          researcher,
+          auditAction as 'heritage.update' | 'heritage.approve' | 'heritage.reclassify',
+          'church',
+          id,
+          {
+            resourceName: church?.name || 'Unknown Church',
+            changes: changes.length > 0 ? changes : [createFieldChange('heritageInfo', 'old', 'updated')],
+            metadata: {
+              diocese: church?.diocese,
+              classification: heritageData.classification || church?.classification,
+              lastReviewNote: heritageData.lastReviewNote,
+            },
+          }
+        );
+      }
     } catch (error) {
       console.error('Error updating church heritage:', error);
       throw new Error('Failed to update church heritage information');
@@ -501,8 +547,18 @@ export class ChurchService {
   }
 
   // Review church submission (Chancery action)
-  static async reviewChurch(action: ChurchReviewAction): Promise<void> {
+  // Updated to accept reviewer profile for audit logging
+  static async reviewChurch(
+    action: ChurchReviewAction,
+    reviewer?: UserProfile
+  ): Promise<void> {
     try {
+      // Fetch current church data for audit logging
+      const churchRef = doc(db, CHURCHES_COLLECTION, action.churchId);
+      const churchDoc = await getDoc(churchRef);
+      const church = churchDoc.exists() ? churchDoc.data() : null;
+      const oldStatus = church?.status || 'unknown';
+
       // Use Record for Firestore update - timestamps are Timestamp type in Firestore
       const updateData: Record<string, unknown> = {
         updatedAt: Timestamp.now(),
@@ -511,19 +567,47 @@ export class ChurchService {
         reviewNotes: action.notes,
       };
 
+      let newStatus: ChurchStatus;
+      let auditAction: 'church.approve' | 'church.forward_heritage';
+
       switch (action.action) {
         case 'approve': {
+          newStatus = 'approved';
+          auditAction = 'church.approve';
           updateData.status = 'approved';
           updateData.approvedAt = Timestamp.now();
           break;
         }
         case 'forward_to_museum': {
-          updateData.status = 'under_review';
+          newStatus = 'heritage_review';
+          auditAction = 'church.forward_heritage';
+          updateData.status = 'heritage_review';
           break;
         }
+        default:
+          newStatus = oldStatus as ChurchStatus;
+          auditAction = 'church.approve';
       }
 
-      await updateDoc(doc(db, CHURCHES_COLLECTION, action.churchId), updateData);
+      await updateDoc(churchRef, updateData);
+
+      // Log the action for audit trail
+      if (reviewer) {
+        await AuditService.logAction(
+          reviewer,
+          auditAction,
+          'church',
+          action.churchId,
+          {
+            resourceName: church?.name || 'Unknown Church',
+            changes: [createFieldChange('status', oldStatus, newStatus)],
+            metadata: {
+              notes: action.notes,
+              diocese: church?.diocese,
+            },
+          }
+        );
+      }
     } catch (error) {
       console.error('Error reviewing church:', error);
       throw new Error('Failed to review church');
@@ -763,19 +847,45 @@ export class ChurchService {
 
   // Unpublish church (soft delete - changes status to draft, hiding from mobile app)
   // The church data is preserved and can be republished by submitting for review again
+  // Updated to accept user profile for audit logging
   static async unpublishChurch(
     id: string,
     reason: string,
-    unpublishedBy: string
+    unpublishedBy: string,
+    userProfile?: UserProfile
   ): Promise<void> {
     try {
-      await updateDoc(doc(db, CHURCHES_COLLECTION, id), {
+      // Fetch church data for audit logging
+      const churchRef = doc(db, CHURCHES_COLLECTION, id);
+      const churchDoc = await getDoc(churchRef);
+      const church = churchDoc.exists() ? churchDoc.data() : null;
+      const oldStatus = church?.status || 'approved';
+
+      await updateDoc(churchRef, {
         status: 'draft',
         unpublishReason: reason,
         unpublishedAt: Timestamp.now(),
         unpublishedBy: unpublishedBy,
         updatedAt: Timestamp.now(),
       });
+
+      // Log the unpublish action for audit trail
+      if (userProfile) {
+        await AuditService.logAction(
+          userProfile,
+          'church.unpublish',
+          'church',
+          id,
+          {
+            resourceName: church?.name || 'Unknown Church',
+            changes: [createFieldChange('status', oldStatus, 'draft')],
+            metadata: {
+              reason,
+              diocese: church?.diocese,
+            },
+          }
+        );
+      }
     } catch (error) {
       console.error('Error unpublishing church:', error);
       throw new Error('Failed to unpublish church');

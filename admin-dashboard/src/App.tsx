@@ -63,6 +63,7 @@ import {
   LazyAccountSettings,        // User Account Settings Page
   LazyApprovedChurches,       // Approved Churches List (for Museum)
   LazyUserManagement,         // User Management Page (create/edit users)
+  LazyMuseumStaffManagement,  // Museum Staff Management Page
   LazyMigrateAccounts         // Parish Account Migration Tool
 } from "@/components/LazyComponents";
 
@@ -81,6 +82,10 @@ import { MuseumResearcherSetup } from "./pages/MuseumResearcherSetup";  // Museu
 import EmailVerified from "./pages/EmailVerified";  // Mobile app email verification success page
 import AuthAction from "./pages/AuthAction";  // Custom Firebase auth action handler (email verification, etc.)
 import PasswordResetSuccess from "./pages/PasswordResetSuccess";  // Mobile app password reset success page
+import ChancellorRegistration from "./pages/ChancellorRegistration";  // Chancellor self-registration page
+import ParishStaffRegistration from "./pages/ParishStaffRegistration";  // Parish staff self-registration page
+import MuseumStaffRegistration from "./pages/MuseumStaffRegistration";  // Museum researcher self-registration page
+import PendingApproval from "./pages/PendingApproval";  // Waiting page for pending chancellor approval
 
 // ===========================
 // STEP 4: LOADING SPINNER
@@ -156,6 +161,10 @@ const App = () => (
             <Route path="/setup" element={<AccountSetup />} />
             <Route path="/museum-setup" element={<MuseumResearcherSetup />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/chancellor-register" element={<ChancellorRegistration />} />
+            <Route path="/parish-register" element={<ParishStaffRegistration />} />
+            <Route path="/museum-register" element={<MuseumStaffRegistration />} />
+            <Route path="/pending-approval" element={<PendingApproval />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="/email-verified" element={<EmailVerified />} />
             <Route path="/password-reset-success" element={<PasswordResetSuccess />} />
@@ -383,6 +392,20 @@ const App = () => (
               <ProtectedRoute allowedRoles={['museum_researcher']}>
                 <Suspense fallback={<PageLoadingFallback />}>
                   <LazyApprovedChurches />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            
+            {/* 
+              STAFF MANAGEMENT PAGE (/staff-management)
+              
+              WHO: Only museum_researcher
+              WHAT: View and approve pending museum researcher registrations
+            */}
+            <Route path="/staff-management" element={
+              <ProtectedRoute allowedRoles={['museum_researcher']}>
+                <Suspense fallback={<PageLoadingFallback />}>
+                  <LazyMuseumStaffManagement />
                 </Suspense>
               </ProtectedRoute>
             } />

@@ -24,7 +24,6 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Timer? _autoCheckTimer;
   String? _message;
   bool _isSuccess = false;
-  int _checkCount = 0; // Track checks for visual feedback
 
   @override
   void initState() {
@@ -72,14 +71,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     debugPrint('📧 Email verified: $isVerified');
 
     if (mounted) {
-      setState(() {
-        _checkCount++;
-      });
+      setState(() {});
 
-      // If verified, notify listeners so AuthWrapper rebuilds
+      // If verified, checkEmailVerified already called notifyListeners internally
+      // so AuthWrapper will rebuild automatically
       if (isVerified) {
-        debugPrint('✅ Email is verified! Notifying listeners to navigate...');
-        authService.notifyListeners();
+        debugPrint('✅ Email is verified! AuthService notified listeners, navigating...');
       }
     }
   }

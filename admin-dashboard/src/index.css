@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide browser's native password reveal buttons to prevent duplicates with custom toggles */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-clear-button {
+  display: none !important;
+}
+
+/* For Safari */
+input::-webkit-textfield-decoration-container {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Catholic Heritage-Inspired Design System for Chancery Office Dashboard */
 
 @layer base {

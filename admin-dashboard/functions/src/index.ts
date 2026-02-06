@@ -50,6 +50,151 @@ const EMAIL_CONFIG = {
   
 };
 
+// ==========================
+// CHURCH IMPORT PARSING
+// ==========================
+
+const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
+
+const findLineValue = (lines: string[], labels: string[]) => {
+  const lowerLabels = labels.map((label) => label.toLowerCase());
+  for (const line of lines) {
+    const cleanLine = line.trim();
+    if (!cleanLine) continue;
+    const lower = cleanLine.toLowerCase();
+    for (const label of lowerLabels) {
+      if (lower.startsWith(label)) {
+        const separatorIndex = cleanLine.indexOf(":");
+        if (separatorIndex >= 0) {
+          const value = cleanLine.slice(separatorIndex + 1);
+          return normalizeWhitespace(value);
+        }
+        const parts = cleanLine.split("-");
+        if (parts.length > 1) {
+          return normalizeWhitespace(parts.slice(1).join("-"));
+        }
+      }
+    }
+  }
+  return "";
+};
+
+const setNestedValue = (target: Record<string, any>, path: string, value: unknown) => {
+  const keys = path.split(".");
+  let cursor = target;
+  for (let i = 0; i < keys.length - 1; i += 1) {
+    const key = keys[i];
+    if (!cursor[key] || typeof cursor[key] !== "object") {
+      cursor[key] = {};
+    }
+    cursor = cursor[key] as Record<string, any>;
+  }
+  cursor[keys[keys.length - 1]] = value;
+};
+
+const buildParsedDataFromText = (text: string) => {
+  const lines = text.split(/\r?\n/);
+  const parsedData: Record<string, any> = {};
+  const confidence: Record<string, number> = {};
+
+  const fieldMap: Array<{ path: string; labels: string[] }> = [
+    { path: "parishName", labels: ["Parish Name", "Parish"] },
+    { path: "churchName", labels: ["Church Name", "Church"] },
+    { path: "locationDetails.streetAddress", labels: ["Street Address", "Address"] },
+    { path: "locationDetails.barangay", labels: ["Barangay"] },
+    { path: "locationDetails.municipality", labels: ["Municipality", "City", "Town"] },
+    { path: "locationDetails.province", labels: ["Province"] },
+    { path: "currentParishPriest", labels: ["Parish Priest", "Current Parish Priest", "Priest"] },
+    { path: "feastDay", labels: ["Feast Day", "Patron Feast Day"] },
+    { path: "historicalDetails.foundingYear", labels: ["Founding Year", "Founded"] },
+    { path: "historicalDetails.architecturalStyle", labels: ["Architectural Style", "Architecture"] },
+    { path: "historicalDetails.historicalBackground", labels: ["Historical Background", "History"] },
+    { path: "historicalDetails.majorHistoricalEvents", labels: ["Major Historical Events", "Historical Events"] },
+    { path: "contactInfo.phone", labels: ["Phone", "Contact Phone", "Telephone"] },
+    { path: "contactInfo.email", labels: ["Email", "Contact Email"] },
+    { path: "contactInfo.website", labels: ["Website", "Official Website"] },
+    { path: "contactInfo.facebookPage", labels: ["Facebook", "Facebook Page"] }
+  ];
+
+  fieldMap.forEach(({ path, labels }) => {
+    const value = findLineValue(lines, labels);
+    if (value) {
+      setNestedValue(parsedData, path, value);
+      confidence[path] = 0.7;
+    }
+  });
+
+  return { parsedData, confidence };
+};
+
+const getStoragePathFromUrl = (url: string) => {
+  try {
+    const decoded = decodeURIComponent(url);
+    const marker = "/o/";
+    const start = decoded.indexOf(marker);
+    if (start === -1) return null;
+    const pathPart = decoded.slice(start + marker.length);
+    const end = pathPart.indexOf("?");
+    const objectPath = end === -1 ? pathPart : pathPart.slice(0, end);
+    return objectPath;
+  } catch (error) {
+    functions.logger.warn("Failed to parse storage path from URL", error);
+    return null;
+  }
+};
+
+const isPdf = (contentType: string, fileName?: string) =>
+  contentType === "application/pdf" || /\.pdf$/i.test(fileName || "");
+
+const isDocx = (contentType: string, fileName?: string) =>
+  contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+  /\.docx$/i.test(fileName || "");
+
+const isDoc = (contentType: string, fileName?: string) =>
+  contentType === "application/msword" || /\.doc$/i.test(fileName || "");
+
+const isImage = (contentType: string, fileName?: string) =>
+  contentType.startsWith("image/") || /\.(png|jpe?g|webp|bmp|tiff?)$/i.test(fileName || "");
+
+const extractTextFromPdf = async (buffer: Buffer) => {
+  const pdfParse = (await import("pdf-parse")).default as (data: Buffer) => Promise<{ text: string }>;
+  const result = await pdfParse(buffer);
+  return result.text || "";
+};
+
+const extractTextFromDocx = async (buffer: Buffer) => {
+  const mammoth = await import("mammoth");
+  const result = await mammoth.extractRawText({ buffer });
+  return result.value || "";
+};
+
+const extractTextFromImage = async (buffer: Buffer) => {
+  const vision = await import("@google-cloud/vision");
+  const client = new vision.ImageAnnotatorClient();
+  const [result] = await client.textDetection({ image: { content: buffer } });
+  const annotations = result?.textAnnotations;
+  return annotations && annotations.length > 0 ? annotations[0].description || "" : "";
+};
+
+const extractTextFromFile = async (buffer: Buffer, contentType: string, fileName?: string) => {
+  if (contentType.startsWith("text/")) {
+    return buffer.toString("utf8");
+  }
+  if (isPdf(contentType, fileName)) {
+    return extractTextFromPdf(buffer);
+  }
+  if (isDocx(contentType, fileName)) {
+    return extractTextFromDocx(buffer);
+  }
+  if (isDoc(contentType, fileName)) {
+    throw new Error("DOC format is not supported. Please upload DOCX instead.");
+  }
+  if (isImage(contentType, fileName)) {
+    return extractTextFromImage(buffer);
+  }
+  throw new Error("Unsupported file type for parsing.");
+};
+
 /**
  * Generate password reset link using Firebase Admin SDK
  * @param email - User's email address
@@ -871,6 +1016,142 @@ export const sendWelcomeEmailWithCredentials = functions
       );
     }
   });
+
+// =============================================================================
+// CHURCH IMPORT FUNCTIONS
+// =============================================================================
+
+export const parseChurchImport = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Must be authenticated to parse church imports"
+    );
+  }
+
+  const { importId } = data || {};
+  if (!importId || typeof importId !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "importId is required");
+  }
+
+  const db = admin.firestore();
+  const importRef = db.collection("church_imports").doc(importId);
+  const importSnap = await importRef.get();
+
+  if (!importSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "Import session not found");
+  }
+
+  const importData = importSnap.data() || {};
+  if (importData.createdBy && importData.createdBy !== context.auth.uid) {
+    throw new functions.https.HttpsError("permission-denied", "Not allowed to parse this import session");
+  }
+
+  await importRef.update({
+    status: "processing",
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  const sourceFile = importData.sourceFile || {};
+  const storagePath = sourceFile.storagePath || getStoragePathFromUrl(sourceFile.url || "");
+  if (!storagePath) {
+    await importRef.update({
+      status: "failed",
+      errorMessage: "Storage path not available for this file.",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { success: false };
+  }
+
+  const bucket = admin.storage().bucket();
+  const file = bucket.file(storagePath);
+  const [metadata] = await file.getMetadata();
+  const contentType = metadata?.contentType || sourceFile.contentType || "";
+  const fileName = sourceFile.name || metadata?.name || "";
+
+  let text = "";
+  try {
+    const [contents] = await file.download();
+    text = await extractTextFromFile(contents, contentType, fileName);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to parse this document.";
+    await importRef.update({
+      status: "failed",
+      errorMessage: message,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { success: false };
+  }
+
+  const { parsedData, confidence } = buildParsedDataFromText(text);
+
+  await importRef.update({
+    status: "ready",
+    parsedData,
+    confidence,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true };
+});
+
+// =============================================================================
+// CLEANUP JOBS
+// =============================================================================
+
+const cleanupChurchImportsInternal = async (retentionDays: number) => {
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const cutoffDate = admin.firestore.Timestamp.fromDate(new Date(cutoff));
+
+  const db = admin.firestore();
+  const bucket = admin.storage().bucket();
+
+  const snapshot = await db
+    .collection("church_imports")
+    .where("createdAt", "<=", cutoffDate)
+    .get();
+
+  if (snapshot.empty) {
+    return { deleted: 0 };
+  }
+
+  const deleteTasks: Promise<unknown>[] = [];
+
+  snapshot.docs.forEach((docSnap) => {
+    const data = docSnap.data() || {};
+    const sourceFile = data.sourceFile || {};
+    const storagePath = sourceFile.storagePath || getStoragePathFromUrl(sourceFile.url || "");
+
+    if (storagePath) {
+      deleteTasks.push(bucket.file(storagePath).delete({ ignoreNotFound: true }));
+    }
+
+    deleteTasks.push(docSnap.ref.delete());
+  });
+
+  await Promise.all(deleteTasks);
+  return { deleted: snapshot.size };
+};
+
+export const cleanupChurchImportsManual = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be authenticated to run cleanup");
+  }
+
+  const userDoc = await admin.firestore().collection("users").doc(context.auth.uid).get();
+  const userData = userDoc.data();
+  if (!userData || userData.role !== "chancery_office") {
+    throw new functions.https.HttpsError("permission-denied", "Only chancery office can run cleanup");
+  }
+
+  const retentionDays = Number(data?.retentionDays ?? 30);
+  if (!Number.isFinite(retentionDays) || retentionDays < 1 || retentionDays > 365) {
+    throw new functions.https.HttpsError("invalid-argument", "retentionDays must be between 1 and 365");
+  }
+
+  const result = await cleanupChurchImportsInternal(retentionDays);
+  return { success: true, deleted: result.deleted, retentionDays };
+});
 
 // =============================================================================
 // USER VERIFICATION FUNCTIONS

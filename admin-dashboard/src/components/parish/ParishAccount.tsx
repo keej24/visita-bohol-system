@@ -22,6 +22,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { ChurchService } from '@/services/churchService';
+import { PendingParishStaff } from '@/components/PendingParishStaff';
 
 interface ParishAccountProps {
   onClose: () => void;
@@ -709,6 +710,20 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Pending Staff Approvals Section */}
+      {userProfile && userProfile.parishId && (
+        <PendingParishStaff
+          parishId={userProfile.parishId}
+          currentUser={userProfile}
+          onStaffApproved={() => {
+            toast({
+              title: "Account Transition",
+              description: "Your account will be archived. Please log in with the new staff account.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

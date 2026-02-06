@@ -50,6 +50,8 @@ import {
   DocumentData
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { UserProfile } from '@/contexts/AuthContext';
+import { AuditService } from './auditService';
 
 /**
  * FeedbackItem Interface
@@ -247,13 +249,15 @@ export class FeedbackService {
    * @param feedbackId - Feedback document ID to moderate
    * @param status - New status: 'published' (show) or 'hidden' (hide)
    * @param moderatorId - User ID of chancery performing moderation
+   * @param userProfile - Optional: UserProfile for audit logging
+   * @param feedbackSubject - Optional: Feedback subject for audit context
    * 
    * EXAMPLE:
    * // Hide spam feedback
-   * await FeedbackService.moderateFeedback('feedback123', 'hidden', currentUser.uid);
+   * await FeedbackService.moderateFeedback('feedback123', 'hidden', currentUser.uid, userProfile);
    * 
    * // Unhide (restore previously hidden feedback)
-   * await FeedbackService.moderateFeedback('feedback123', 'published', currentUser.uid);
+   * await FeedbackService.moderateFeedback('feedback123', 'published', currentUser.uid, userProfile);
    * 
    * AUDIT TRAIL:
    * - Records WHO moderated (moderatedBy)
@@ -263,11 +267,22 @@ export class FeedbackService {
   static async moderateFeedback(
     feedbackId: string,
     status: 'published' | 'hidden',
-    moderatorId: string
+    moderatorId: string,
+    userProfile?: UserProfile,
+    feedbackSubject?: string
   ): Promise<void> {
     try {
       // Get document reference
       const feedbackRef = doc(db, this.COLLECTION_NAME, feedbackId);
+
+      // Get previous status for audit trail
+      let previousStatus = 'unknown';
+      if (userProfile) {
+        const feedbackDoc = await getDoc(feedbackRef);
+        if (feedbackDoc.exists()) {
+          previousStatus = feedbackDoc.data().status || 'unknown';
+        }
+      }
 
       // Update fields
       await updateDoc(feedbackRef, {
@@ -277,10 +292,201 @@ export class FeedbackService {
       });
 
       console.log(`✅ Feedback ${feedbackId} moderated to: ${status}`);
+
+      // Log audit event if userProfile provided
+      if (userProfile) {
+        const action = status === 'hidden' ? 'feedback.hide' : 'feedback.unhide';
+        AuditService.logAction(
+          userProfile,
+          action,
+          'feedback',
+          feedbackId,
+          {
+            resourceName: feedbackSubject || 'User feedback',
+            changes: [{ field: 'status', oldValue: previousStatus, newValue: status }],
+          }
+        ).catch((err) => console.error('[FeedbackService] Audit log failed:', err));
+      }
     } catch (error) {
       console.error('Error moderating feedback:', error);
       throw new Error('Failed to moderate feedback');
     }
+  }
+
+  /**
+   * Approve pending feedback (pre-moderation)
+   * 
+   * USE CASE: Chancery/Parish approves a pending review to publish it
+   * 
+   * @param feedbackId - Feedback document ID to approve
+   * @param moderatorId - User ID of moderator
+   * @param userProfile - Optional: UserProfile for audit logging
+   * @param feedbackSubject - Optional: Feedback subject for audit context
+   */
+  static async approveFeedback(
+    feedbackId: string,
+    moderatorId: string,
+    userProfile?: UserProfile,
+    feedbackSubject?: string
+  ): Promise<void> {
+    try {
+      const feedbackRef = doc(db, this.COLLECTION_NAME, feedbackId);
+
+      // Get previous status for audit trail
+      let previousStatus = 'pending';
+      if (userProfile) {
+        const feedbackDoc = await getDoc(feedbackRef);
+        if (feedbackDoc.exists()) {
+          previousStatus = feedbackDoc.data().status || 'pending';
+        }
+      }
+
+      await updateDoc(feedbackRef, {
+        status: 'published',
+        moderatedAt: Timestamp.now(),
+        moderatedBy: moderatorId,
+        approvedAt: Timestamp.now(),
+        approvedBy: moderatorId,
+      });
+
+      console.log(`✅ Feedback ${feedbackId} approved and published`);
+
+      // Log audit event
+      if (userProfile) {
+        AuditService.logAction(
+          userProfile,
+          'feedback.approve',
+          'feedback',
+          feedbackId,
+          {
+            resourceName: feedbackSubject || 'User feedback',
+            changes: [{ field: 'status', oldValue: previousStatus, newValue: 'published' }],
+          }
+        ).catch((err) => console.error('[FeedbackService] Audit log failed:', err));
+      }
+    } catch (error) {
+      console.error('Error approving feedback:', error);
+      throw new Error('Failed to approve feedback');
+    }
+  }
+
+  /**
+   * Reject pending feedback (pre-moderation)
+   * 
+   * USE CASE: Chancery/Parish rejects inappropriate or spam content
+   * 
+   * @param feedbackId - Feedback document ID to reject
+   * @param moderatorId - User ID of moderator
+   * @param reason - Optional: Reason for rejection
+   * @param userProfile - Optional: UserProfile for audit logging
+   * @param feedbackSubject - Optional: Feedback subject for audit context
+   */
+  static async rejectFeedback(
+    feedbackId: string,
+    moderatorId: string,
+    reason?: string,
+    userProfile?: UserProfile,
+    feedbackSubject?: string
+  ): Promise<void> {
+    try {
+      const feedbackRef = doc(db, this.COLLECTION_NAME, feedbackId);
+
+      // Get previous status for audit trail
+      let previousStatus = 'pending';
+      if (userProfile) {
+        const feedbackDoc = await getDoc(feedbackRef);
+        if (feedbackDoc.exists()) {
+          previousStatus = feedbackDoc.data().status || 'pending';
+        }
+      }
+
+      await updateDoc(feedbackRef, {
+        status: 'hidden',
+        moderatedAt: Timestamp.now(),
+        moderatedBy: moderatorId,
+        rejectedAt: Timestamp.now(),
+        rejectedBy: moderatorId,
+        rejectionReason: reason || 'Content did not meet guidelines',
+      });
+
+      console.log(`❌ Feedback ${feedbackId} rejected`);
+
+      // Log audit event
+      if (userProfile) {
+        AuditService.logAction(
+          userProfile,
+          'feedback.reject',
+          'feedback',
+          feedbackId,
+          {
+            resourceName: feedbackSubject || 'User feedback',
+            changes: [
+              { field: 'status', oldValue: previousStatus, newValue: 'hidden' },
+              { field: 'rejectionReason', oldValue: null, newValue: reason || 'Content did not meet guidelines' },
+            ],
+          }
+        ).catch((err) => console.error('[FeedbackService] Audit log failed:', err));
+      }
+    } catch (error) {
+      console.error('Error rejecting feedback:', error);
+      throw new Error('Failed to reject feedback');
+    }
+  }
+
+  /**
+   * Get all pending feedback for a diocese (for pre-moderation)
+   * 
+   * USE CASE: Chancery Office sees queue of reviews awaiting approval
+   * 
+   * @param diocese - Diocese to filter by
+   * @param churchIds - Array of church IDs belonging to the diocese
+   * @returns Promise<FeedbackItem[]> - Array of pending feedback items
+   */
+  static async getPendingFeedbackByDiocese(
+    churchIds: string[]
+  ): Promise<FeedbackItem[]> {
+    try {
+      if (churchIds.length === 0) {
+        return [];
+      }
+
+      const feedbackRef = collection(db, this.COLLECTION_NAME);
+      
+      // Firestore 'in' queries support up to 30 values, so we may need to batch
+      const batches: FeedbackItem[][] = [];
+      const batchSize = 30;
+      
+      for (let i = 0; i < churchIds.length; i += batchSize) {
+        const batchIds = churchIds.slice(i, i + batchSize);
+        const q = query(
+          feedbackRef,
+          where('church_id', 'in', batchIds),
+          where('status', '==', 'pending'),
+          orderBy('date_submitted', 'desc')
+        );
+        
+        const snapshot = await getDocs(q);
+        batches.push(this.mapFeedbackDocs(snapshot));
+      }
+      
+      // Combine all batches and sort by date
+      return batches.flat().sort((a, b) => 
+        new Date(b.date_submitted).getTime() - new Date(a.date_submitted).getTime()
+      );
+    } catch (error) {
+      console.error('Error fetching pending feedback:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get pending feedback count for a diocese
+   * 
+   * USE CASE: Show badge count on dashboard
+   */
+  static async getPendingFeedbackCount(churchIds: string[]): Promise<number> {
+    const pending = await this.getPendingFeedbackByDiocese(churchIds);
+    return pending.length;
   }
 
   /**

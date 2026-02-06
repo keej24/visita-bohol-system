@@ -42,6 +42,8 @@ import DocumentUploader from './DocumentUploader';
 import { CoordinateMapPicker } from './CoordinateMapPicker';
 import { assessHeritageSignificance, type HeritageAssessment } from '@/lib/heritage-detection';
 import { uploadChurchImage, uploadDocument, deleteFile, compressImage } from '@/lib/storage';
+import { ChurchDocumentImport } from './ChurchDocumentImport';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ChurchProfileFormProps {
   initialData?: Partial<ChurchInfo>;
@@ -73,6 +75,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   churchId
 }) => {
   const { toast } = useToast();
+  const { userProfile } = useAuth();
   // Museum researchers should start on the historical tab since they can only edit that
   const [activeTab, setActiveTab] = useState(isMuseumResearcher ? 'historical' : 'basic');
   const [heritageAssessment, setHeritageAssessment] = useState<HeritageAssessment | null>(null);
@@ -162,6 +165,36 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     description: initialData?.description || '',
     status: initialData?.status || 'draft'
   });
+
+  const handleImportApply = (data: Partial<ChurchInfo>, _metadata?: { importId: string; appliedFields: string[] }) => {
+    setFormData(prev => ({
+      ...prev,
+      ...data,
+      locationDetails: {
+        ...prev.locationDetails,
+        ...data.locationDetails
+      },
+      coordinates: {
+        ...prev.coordinates,
+        ...data.coordinates
+      },
+      historicalDetails: {
+        ...prev.historicalDetails,
+        ...data.historicalDetails
+      },
+      contactInfo: {
+        ...prev.contactInfo,
+        ...data.contactInfo
+      },
+      massSchedules: data.massSchedules || prev.massSchedules
+    }));
+
+    toast({
+      title: 'Import Applied',
+      description: 'Selected fields have been applied to the form. Please review before saving.',
+      variant: 'default'
+    });
+  };
 
   const [pendingSchedules, setPendingSchedules] = useState<MassSchedule[]>([]);
   const [scheduleForm, setScheduleForm] = useState({
@@ -1426,6 +1459,17 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       <p className="text-gray-600">Essential details about your church</p>
                     </div>
                   </div>
+
+                  {!isChanceryEdit && !isMuseumResearcher && userProfile?.uid && (
+                    <ChurchDocumentImport
+                      churchId={effectiveChurchId}
+                      diocese={userProfile?.diocese}
+                      user={userProfile || null}
+                      currentData={formData}
+                      disabled={isSubmitting || isSaving}
+                      onApply={handleImportApply}
+                    />
+                  )}
 
                   {/* Parish Name */}
                   <div className="space-y-2">

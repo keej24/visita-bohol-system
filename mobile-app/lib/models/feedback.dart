@@ -122,7 +122,8 @@ class FeedbackModel {
         'hasResponse': hasResponse,
         'response': response,
         'responseDate': responseDate?.toIso8601String(),
-        'status': 'published', // Auto-publish reviews
+        'status':
+            'pending', // Pre-moderation: requires approval before publishing
       };
 
   // Helper method to create a copy with response

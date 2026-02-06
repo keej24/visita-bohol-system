@@ -9,6 +9,7 @@ import '../../../models/church.dart';
 import '../../../models/feedback.dart';
 import '../../../services/feedback_service.dart';
 import '../../../services/auth_service.dart';
+import '../../../widgets/guest_feature_prompt.dart';
 
 class ReviewsTab extends StatefulWidget {
   final Church church;
@@ -158,6 +159,17 @@ class _ReviewsTabState extends State<ReviewsTab> {
   }
 
   Future<void> _submitReview() async {
+    // Check if user is a guest - prompt to sign in
+    if (GuestFeaturePrompt.isGuest(context)) {
+      await GuestFeaturePrompt.show(
+        context,
+        feature: 'submitting reviews',
+        description: 'Share your experience with other visitors.',
+        icon: Icons.rate_review_outlined,
+      );
+      return;
+    }
+
     // Validation
     if (_starRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -398,22 +410,27 @@ class _ReviewsTabState extends State<ReviewsTab> {
 
       if (!mounted) return;
 
-      // Show success message
+      // Show success message - inform user review is pending approval
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white),
+              Icon(Icons.hourglass_empty, color: Colors.white),
               SizedBox(width: 12),
-              Text('Review submitted successfully!'),
+              Expanded(
+                child: Text(
+                  'Review submitted! It will be visible after approval.',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
             ],
           ),
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: const Color(0xFF2563EB),
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
         ),
       );
 

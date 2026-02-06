@@ -9,11 +9,13 @@ const adminAccounts = [
     displayName: 'Diocese of Tagbilaran Admin',
     profile: {
       role: 'chancery_office',
+      name: 'Diocese of Tagbilaran Admin',
       diocese: 'tagbilaran',
       position: 'System Administrator',
       permissions: ['all'],
       createdAt: admin.firestore.Timestamp.now(),
-      isActive: true
+      status: 'active',
+      accountType: 'admin'
     }
   },
   {
@@ -23,11 +25,13 @@ const adminAccounts = [
     displayName: 'Diocese of Talibon Admin',
     profile: {
       role: 'chancery_office',
+      name: 'Diocese of Talibon Admin',
       diocese: 'talibon',
       position: 'System Administrator',
       permissions: ['all'],
       createdAt: admin.firestore.Timestamp.now(),
-      isActive: true
+      status: 'active',
+      accountType: 'admin'
     }
   },
   {
@@ -37,11 +41,13 @@ const adminAccounts = [
     displayName: 'National Museum Researcher',
     profile: {
       role: 'museum_researcher',
+      name: 'National Museum Researcher',
       institution: 'National Museum of the Philippines - Bohol',
       specialization: 'Cultural Heritage and Archaeology',
       permissions: ['heritage_validation', 'research_documentation'],
       createdAt: admin.firestore.Timestamp.now(),
-      isActive: true
+      status: 'active',
+      accountType: 'admin'
     }
   }
 ];
@@ -55,12 +61,14 @@ const parishAccounts = [
     displayName: 'Baclayon Parish Secretary',
     profile: {
       role: 'parish_secretary',
+      name: 'Baclayon Parish Secretary',
       diocese: 'tagbilaran',
       parish: 'baclayon-church',
       parishName: 'Our Lady of the Immaculate Conception Church',
       permissions: ['parish_management'],
       createdAt: admin.firestore.Timestamp.now(),
-      isActive: true
+      status: 'active',
+      accountType: 'admin'
     }
   },
   {
@@ -70,12 +78,14 @@ const parishAccounts = [
     displayName: 'Loboc Parish Secretary',
     profile: {
       role: 'parish_secretary',
+      name: 'Loboc Parish Secretary',
       diocese: 'tagbilaran',
       parish: 'loboc-church',
       parishName: 'San Pedro Apostol Church',
       permissions: ['parish_management'],
       createdAt: admin.firestore.Timestamp.now(),
-      isActive: true
+      status: 'active',
+      accountType: 'admin'
     }
   },
   {
@@ -85,12 +95,14 @@ const parishAccounts = [
     displayName: 'Talibon Cathedral Secretary',
     profile: {
       role: 'parish_secretary',
+      name: 'Talibon Cathedral Secretary',
       diocese: 'talibon',
       parish: 'talibon-cathedral',
       parishName: 'Cathedral of St. Michael the Archangel',
       permissions: ['parish_management'],
       createdAt: admin.firestore.Timestamp.now(),
-      isActive: true
+      status: 'active',
+      accountType: 'admin'
     }
   }
 ];
@@ -114,15 +126,23 @@ async function createAdminAccounts() {
           emailVerified: true
         });
 
-        // Create Firestore user profile
-        await db.collection('users').doc(account.uid).set(account.profile);
+        // Create Firestore user profile with uid and email
+        await db.collection('users').doc(account.uid).set({
+          ...account.profile,
+          uid: account.uid,
+          email: account.email.toLowerCase(),
+        });
 
         console.log(`✅ Created admin account: ${account.displayName} (${account.email})`);
       } catch (error) {
         if (error.code === 'auth/uid-already-exists') {
           console.log(`⚠️  Account already exists: ${account.displayName}`);
-          // Update the profile in Firestore
-          await db.collection('users').doc(account.uid).set(account.profile, { merge: true });
+          // Update the profile in Firestore with correct fields
+          await db.collection('users').doc(account.uid).set({
+            ...account.profile,
+            uid: account.uid,
+            email: account.email.toLowerCase(),
+          }, { merge: true });
         } else {
           throw error;
         }
@@ -142,15 +162,23 @@ async function createAdminAccounts() {
           emailVerified: true
         });
 
-        // Create Firestore user profile
-        await db.collection('users').doc(account.uid).set(account.profile);
+        // Create Firestore user profile with uid and email
+        await db.collection('users').doc(account.uid).set({
+          ...account.profile,
+          uid: account.uid,
+          email: account.email.toLowerCase(),
+        });
 
         console.log(`✅ Created parish account: ${account.displayName} (${account.email})`);
       } catch (error) {
         if (error.code === 'auth/uid-already-exists') {
           console.log(`⚠️  Account already exists: ${account.displayName}`);
-          // Update the profile in Firestore
-          await db.collection('users').doc(account.uid).set(account.profile, { merge: true });
+          // Update the profile in Firestore with correct fields
+          await db.collection('users').doc(account.uid).set({
+            ...account.profile,
+            uid: account.uid,
+            email: account.email.toLowerCase(),
+          }, { merge: true });
         } else {
           throw error;
         }

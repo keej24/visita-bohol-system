@@ -76,6 +76,7 @@ import {
   Info,
   Calendar,
   User,
+  Users,
   Landmark,
   Camera,
   Image as ImageIcon,
@@ -94,6 +95,7 @@ import { ParishReports } from '@/components/parish/ParishReports';
 import { ParishAccount } from '@/components/parish/ParishAccount';
 import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
 import { ParishFeedback } from '@/components/parish/ParishFeedback';
+import { PendingParishStaff } from '@/components/PendingParishStaff';
 import { ChurchService } from '@/services/churchService';
 import { notifyChurchStatusChange } from '@/lib/notifications';
 import type { ArchitecturalStyle, ChurchClassification, Church, ChurchDocument } from '@/types/church';
@@ -103,7 +105,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 
 // View type for managing which content is displayed
-type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback';
+type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback' | 'staff';
 
 // Simplified Parish Dashboard - Shows form on first access, then Parish Profile after approval
 const ParishDashboard = () => {
@@ -602,6 +604,8 @@ const ParishDashboard = () => {
       }
     } else if (activeTab === 'account') {
       setCurrentView('account');
+    } else if (activeTab === 'staff') {
+      setCurrentView('staff');
     } else if (activeTab === 'overview') {
       setCurrentView('overview');
     }
@@ -1945,6 +1949,19 @@ const ParishDashboard = () => {
             setActiveTab('overview');
           }}
         />
+      ) : currentView === 'staff' ? (
+        userProfile && (
+          <PendingParishStaff
+            parishId={userProfile.parishId || userProfile.parish || ''}
+            currentUser={userProfile}
+            onStaffApproved={() => {
+              toast({
+                title: "Staff Approved",
+                description: "The new parish staff member has been activated successfully.",
+              });
+            }}
+          />
+        )
       ) : currentView === 'reports' ? (
         <ParishReports
           churchInfo={churchInfo}
