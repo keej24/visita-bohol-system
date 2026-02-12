@@ -28,6 +28,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { format as formatDate, subMonths } from 'date-fns';
 import { HybridHeatmap } from '../components/heatmap/HybridHeatmap';
+import { ReportLogoManager } from '../components/reports/ReportLogoManager';
 import { DioceseAnalyticsService, type DioceseAnalytics, type EngagementMetrics, type ChurchSummaryData } from '@/services/dioceseAnalyticsService';
 import { PDFExportService } from '@/services/pdfExportService';
 import { ExcelExportService } from '@/services/excelExportService';
@@ -78,7 +79,7 @@ const Reports = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Determine if user is parish secretary (limited to own church) or chancery (diocesan-wide)
-  const isParishSecretary = userProfile?.role === 'parish_secretary';
+  const isParishUser = userProfile?.role === 'parish';
   const currentDiocese = userProfile?.diocese || 'tagbilaran';
 
   // Date range validation
@@ -204,7 +205,7 @@ const Reports = () => {
   const availableChurches = useMemo(() => {
     if (!churchSummaryData) return [];
 
-    if (isParishSecretary && userProfile?.parish) {
+    if (isParishUser && userProfile?.parish) {
       return churchSummaryData.filter(church => church.id === userProfile.parish);
     }
 
@@ -231,7 +232,7 @@ const Reports = () => {
     }
 
     return filtered;
-  }, [churchSummaryData, isParishSecretary, userProfile?.parish, selectedMunicipality, selectedParish, selectedClassification]);
+  }, [churchSummaryData, isParishUser, userProfile?.parish, selectedMunicipality, selectedParish, selectedClassification]);
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -368,7 +369,7 @@ const Reports = () => {
 
         // Parish Summary Report (specific church)
         if (format === 'pdf') {
-          DioceseReportService.exportDioceseChurchSummary(dioceseName, filteredAnalytics);
+          await DioceseReportService.exportDioceseChurchSummary(dioceseName, filteredAnalytics, currentDiocese);
           toast({
             title: "Report successfully exported",
             description: `Church Summary Report PDF has been downloaded`
@@ -416,7 +417,8 @@ const Reports = () => {
               ratingDistribution: engagementMetrics!.ratingDistribution,
               topRatedChurches: engagementMetrics!.topRatedChurches
             },
-            dateRangeObj
+            dateRangeObj,
+            currentDiocese
           );
           toast({
             title: "Report successfully exported",
@@ -508,7 +510,7 @@ const Reports = () => {
               Generate Reports
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground">
-              {isParishSecretary 
+              {isParishUser 
                 ? 'Create detailed reports for your parish church'
                 : `Create diocesan reports for ${currentDiocese} diocese`
               }
@@ -524,7 +526,7 @@ const Reports = () => {
                 <Church className="w-4 h-4 text-blue-600 flex-shrink-0" />
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">
-                    {isParishSecretary ? 'Churches' : 'Total Churches'}
+                    {isParishUser ? 'Churches' : 'Total Churches'}
                   </p>
                   <p className="text-lg sm:text-2xl font-bold">{summaryStats.totalChurches}</p>
                 </div>
@@ -569,6 +571,15 @@ const Reports = () => {
           </Card>
         </div>
 
+        {/* Report Branding — Logo Upload */}
+        <ReportLogoManager
+          dioceseId={currentDiocese}
+          parishId={isParishUser ? userProfile?.parish : undefined}
+          userId={userProfile?.uid || ''}
+          userRole={userProfile?.role as 'chancery_office' | 'parish' | 'museum_researcher'}
+          parishName={isParishUser ? churchSummaryData?.[0]?.name : undefined}
+        />
+
         {/* Main Report Tabs - Only 2 Reports for Chancery */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <TabsList className="grid w-full grid-cols-2 h-auto">
@@ -596,7 +607,7 @@ const Reports = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-                  {!isParishSecretary && (
+                  {!isParishUser && (
                     <div className="space-y-2">
                       <Label>Municipality</Label>
                       <Select value={selectedMunicipality} onValueChange={(value) => {
@@ -618,7 +629,7 @@ const Reports = () => {
                     </div>
                   )}
 
-                  {!isParishSecretary && (
+                  {!isParishUser && (
                     <div className="space-y-2">
                       <Label>Parish</Label>
                       <Select value={selectedParish} onValueChange={setSelectedParish}>

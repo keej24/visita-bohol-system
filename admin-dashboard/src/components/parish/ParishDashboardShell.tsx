@@ -265,23 +265,29 @@ export const ParishDashboardShell: React.FC<ParishDashboardShellProps> = ({
               </Card>
 
               {/* Contact Info Display */}
-              {(churchInfo.contactInfo?.phone || churchInfo.contactInfo?.email || churchInfo.contactInfo?.website) && (
+              {(churchInfo.contactInfo?.phones?.length || churchInfo.contactInfo?.phone || churchInfo.contactInfo?.emails?.length || churchInfo.contactInfo?.email || churchInfo.contactInfo?.website) && (
                 <Card className="border-slate-200">
                   <CardContent className="p-6">
                     <h3 className="font-semibold text-slate-800 mb-4">Contact Information</h3>
                     <div className="space-y-3 text-sm">
-                      {churchInfo.contactInfo?.phone && (
-                        <div className="flex items-center gap-2 text-slate-600">
+                      {/* Multiple Phones */}
+                      {(churchInfo.contactInfo?.phones?.length ? churchInfo.contactInfo.phones : churchInfo.contactInfo?.phone ? [churchInfo.contactInfo.phone] : [])
+                        .filter((p: string) => p && p.trim() && p !== '+63' && p !== '+63 ')
+                        .map((phone: string, index: number) => (
+                        <div key={`phone-${index}`} className="flex items-center gap-2 text-slate-600">
                           <Phone className="w-4 h-4" />
-                          {churchInfo.contactInfo.phone}
+                          {phone}
                         </div>
-                      )}
-                      {churchInfo.contactInfo?.email && (
-                        <div className="flex items-center gap-2 text-slate-600">
+                      ))}
+                      {/* Multiple Emails */}
+                      {(churchInfo.contactInfo?.emails?.length ? churchInfo.contactInfo.emails : churchInfo.contactInfo?.email ? [churchInfo.contactInfo.email] : [])
+                        .filter((e: string) => e && e.trim())
+                        .map((email: string, index: number) => (
+                        <div key={`email-${index}`} className="flex items-center gap-2 text-slate-600">
                           <Mail className="w-4 h-4" />
-                          {churchInfo.contactInfo.email}
+                          {email}
                         </div>
-                      )}
+                      ))}
                       {churchInfo.contactInfo?.website && (
                         <div className="flex items-center gap-2 text-slate-600">
                           <Globe className="w-4 h-4" />

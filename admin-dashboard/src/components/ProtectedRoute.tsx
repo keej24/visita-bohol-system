@@ -123,7 +123,7 @@ export const ProtectedRoute = ({
 
   // STEP 3: Check role-based authorization
   // If specific roles are required, check if user's role matches
-  // Example: allowedRoles = ['chancery_office'] but user is 'parish_secretary'
+  // Example: allowedRoles = ['chancery_office'] but user is 'parish'
   if (allowedRoles && userProfile && !allowedRoles.includes(userProfile.role)) {
     return <Navigate to="/unauthorized" replace />;
   }

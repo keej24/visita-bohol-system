@@ -37,7 +37,7 @@ service cloud.firestore {
     }
     
     function isParishSecretary() {
-      return hasRole('parish_secretary');
+      return hasRole('parish');
     }
     
     // Users collection - User profiles and authentication data
@@ -72,7 +72,7 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
                        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'chancery_office' &&
-                       request.resource.data.role == 'parish_secretary' &&
+                       request.resource.data.role == 'parish' &&
                        request.resource.data.diocese == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.diocese;
 
       // Chancery office can update user accounts in their diocese (admin users)
@@ -93,14 +93,14 @@ service cloud.firestore {
       // This enables approval/rejection of new parish staff
       allow read: if isAuthenticated() &&
                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish_secretary' &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish' &&
                      resource.data.parishId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parishId &&
                      resource.data.status == 'pending';
 
       // Parish secretaries can update pending staff in their parish (for approval/rejection)
       allow update: if isAuthenticated() &&
                        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish_secretary' &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish' &&
                        resource.data.parishId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parishId &&
                        resource.data.status == 'pending';
 
@@ -136,17 +136,28 @@ service cloud.firestore {
            request.resource.data.parishId == getUserData().parishId;
 
   // Parish secretaries can update churches that belong to their parish
+  // For APPROVED churches: can only modify direct-publish fields and pendingChanges
+  // For non-approved churches: can update all fields
   // Supports both: documents with parishId field AND legacy documents where document ID = parishId
   allow update: if isParishSecretary() &&
            (resource.data.parishId == getUserData().parishId || 
             (resource.data.parishId == null && churchId == getUserData().parishId)) &&
            resource.data.diocese == getUserData().diocese &&
-           request.resource.data.diocese == resource.data.diocese;
+           request.resource.data.diocese == resource.data.diocese &&
+           // For approved churches, restrict which root fields can be modified
+           // Sensitive fields must go through pendingChanges
+           (resource.data.status != 'approved' ||
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['contactInfo', 'massSchedules', 'assignedPriest', 'priestHistory', 'feastDay',
+                        'images', 'photos', 'documents', 'virtualTour',
+                        'tags', 'category', 'updatedAt', 'logoUrl',
+                        'pendingChanges', 'hasPendingChanges']));
 
   // Chancery office can create churches in their diocese
   allow create: if isChanceryOffice() && request.resource.data.diocese == getUserData().diocese;
 
   // Chancery office can update churches in their diocese (cannot change diocese)
+  // Chancery has full update access including applying pendingChanges to root fields
   allow update: if isChanceryOffice() &&
            resource.data.diocese == getUserData().diocese &&
            request.resource.data.diocese == resource.data.diocese;
@@ -154,14 +165,19 @@ service cloud.firestore {
   // Chancery office can delete churches in their diocese
   allow delete: if isChanceryOffice() && resource.data.diocese == getUserData().diocese;
       
-      // Museum researchers can update heritage-related fields and historical information across dioceses
+      // Museum researchers can update heritage-related fields, historical information,
+      // and process pendingChanges for heritage churches across dioceses
       allow update: if isMuseumResearcher() &&
                            request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['culturalSignificance', 'heritageNotes', 'heritageValidation',
                                        'heritageDeclaration', 'lastHeritageUpdate', 'heritageResearcher',
                                        'status', 'updatedAt', 'lastReviewedBy', 'lastReviewNote', 'lastStatusChange',
                                        'historicalBackground', 'description', 'architecturalStyle', 'architecturalFeatures',
-                                       'heritageInformation', 'classification', 'foundingYear', 'founders', 'documents']);
+                                       'heritageInformation', 'classification', 'foundingYear', 'founders', 'documents',
+                                       'pendingChanges', 'hasPendingChanges', 'reviewedBy', 'reviewedAt', 'approvedAt', 'reviewNotes',
+                                       'name', 'fullName', 'location', 'municipality', 'keyFigures',
+                                       'religiousClassification', 'historicalDetails', 'preservationHistory',
+                                       'restorationHistory', 'latitude', 'longitude']);
     }
     
     // Church heritage validation subcollection
@@ -225,7 +241,7 @@ service cloud.firestore {
       // Parish secretaries can update their own parish
       allow update: if isParishSecretary() && 
                        resource.data.diocese == getUserData().diocese &&
-                       getUserData().parish == parishId;
+                       (getUserData().parishId == parishId || getUserData().parish == parishId);
     }
     
     // Diocese information collection
@@ -236,6 +252,16 @@ service cloud.firestore {
       // Only chancery office can update their own diocese info
       allow update: if isChanceryOffice() && 
                        dioceseId == getUserData().diocese;
+    }
+    
+    // Diocese settings (logos, branding for reports)
+    match /diocese_settings/{dioceseId} {
+      // Everyone can read diocese settings (logos needed in reports)
+      allow read: if true;
+      
+      // Only chancery office can create/update their own diocese settings
+      allow create, update: if isChanceryOffice() && 
+                               dioceseId == getUserData().diocese;
     }
     
     // Reports collection

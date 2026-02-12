@@ -38,7 +38,7 @@ export async function debugAnnouncements() {
       console.log(JSON.stringify({
         uid: currentUser.uid,
         email: currentUser.email,
-        role: 'chancery_office', // or 'parish_secretary'
+        role: 'chancery_office', // or 'parish'
         diocese: 'tagbilaran', // or 'talibon'
         name: 'Your Name',
         createdAt: new Date(),
@@ -65,7 +65,7 @@ export async function debugAnnouncements() {
 
     // Step 3: Check Role Permission
     console.log('📌 Step 3: Checking Role Permissions');
-    const allowedRoles = ['chancery_office', 'parish_secretary'];
+    const allowedRoles = ['chancery_office', 'parish'];
     if (!allowedRoles.includes(userData.role)) {
       console.error('❌ User role does not have permission to create announcements');
       console.log('Current role:', userData.role);
@@ -82,7 +82,7 @@ export async function debugAnnouncements() {
     const testData = {
       title: '[TEST] Debug Announcement',
       description: 'This is a test announcement created by the debug tool',
-      scope: userData.role === 'parish_secretary' ? 'parish' : 'diocese',
+      scope: userData.role === 'parish' ? 'parish' : 'diocese',
       diocese: userData.diocese,
       parishId: userData.parish || null,
       eventDate: Timestamp.fromDate(new Date()),
@@ -129,7 +129,7 @@ export async function debugAnnouncements() {
         console.log('  - parish:', userData.parish);
         console.log('');
         console.log('Security rule expects:');
-        console.log('  - role: "chancery_office" or "parish_secretary"');
+        console.log('  - role: "chancery_office" or "parish"');
         console.log('  - diocese: must match announcement diocese');
         console.log('  - For parish secretary: parish must match parishId');
       } else {

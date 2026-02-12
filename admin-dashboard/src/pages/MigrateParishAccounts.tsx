@@ -58,11 +58,11 @@ export const MigrateParishAccounts = () => {
     try {
       setLoading(true);
 
-      // Load all parish secretary accounts
+      // Load all parish accounts
       const usersRef = collection(db, 'users');
       const usersQuery = query(
         usersRef,
-        where('role', '==', 'parish_secretary')
+        where('role', '==', 'parish')
       );
 
       const snapshot = await getDocs(usersQuery);
@@ -192,7 +192,7 @@ export const MigrateParishAccounts = () => {
       query(
         collection(db, 'users'),
         where('parishId', '==', newParishId),
-        where('role', '==', 'parish_secretary')
+        where('role', '==', 'parish')
       )
     );
 

@@ -40,7 +40,7 @@ interface UserAccount {
   uid: string;
   name: string;
   email: string;
-  role: 'chancery_office' | 'parish_secretary' | 'museum_researcher';
+  role: 'chancery_office' | 'parish' | 'museum_researcher';
   diocese: Diocese;
   parish?: string;
   parishId?: string;
@@ -99,13 +99,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
     try {
       setLoading(true);
 
-      // Load parish secretary users from the diocese only
+      // Load parish users from the diocese only
       // Exclude users with 'deleted' status (users removed from Firebase Auth)
       const usersRef = collection(db, 'users');
       const usersQuery = query(
         usersRef,
         where('diocese', '==', diocese),
-        where('role', '==', 'parish_secretary'),
+        where('role', '==', 'parish'),
         orderBy('createdAt', 'desc')
       );
 
@@ -114,9 +114,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
 
       usersSnapshot.forEach((doc) => {
         const data = doc.data();
-        // Only include parish secretary accounts that are NOT deleted
+        // Only include parish accounts that are NOT deleted
         // This filters out users that were removed from Firebase Authentication
-        if (data.role === 'parish_secretary' && data.status !== 'deleted') {
+        if (data.role === 'parish' && data.status !== 'deleted') {
           userData.push({
             id: doc.id,
             uid: data.uid || doc.id,
@@ -220,7 +220,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       const existingAccountQuery = query(
         collection(db, 'users'),
         where('parishId', '==', parishId),
-        where('role', '==', 'parish_secretary'),
+        where('role', '==', 'parish'),
         where('status', '==', 'active')
       );
 
@@ -243,12 +243,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, tempPassword);
       const user = userCredential.user;
 
-      // Create user document in Firestore (Parish Secretary only)
+      // Create user document in Firestore (Parish accounts only)
       const userData = {
         uid: user.uid,
         name: newUser.name,
         email: newUser.email,
-        role: 'parish_secretary',
+        role: 'parish',
         diocese: diocese,
         
         // NEW: Use unique parish identifier
@@ -282,7 +282,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
             resourceName: parishFullName,
             metadata: {
               userEmail: newUser.email,
-              userRole: 'parish_secretary',
+              userRole: 'parish',
               parishId: parishId,
               municipality: newUser.municipality,
             },
@@ -370,7 +370,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
       );
 
       // Send notification to the activated user (when activating from pending or inactive)
-      if (newStatus === 'active' && userToToggle.role === 'parish_secretary') {
+      if (newStatus === 'active' && userToToggle.role === 'parish') {
         try {
           await notifyAccountApproved(
             {
@@ -535,7 +535,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'chancery_office': return 'bg-blue-100 text-blue-800';
-      case 'parish_secretary': return 'bg-green-100 text-green-800';
+      case 'parish': return 'bg-green-100 text-green-800';
       case 'museum_researcher': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -885,27 +885,34 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
           )}
           <DialogFooter className="flex flex-row gap-2 sm:justify-between">
             <div className="flex gap-2">
-              <Button
-                variant={selectedUser?.status === 'active' ? 'destructive' : 'default'}
-                size="sm"
-                onClick={() => {
-                  setUserToToggle(selectedUser);
-                  setIsAccountViewOpen(false);
-                  setIsStatusDialogOpen(true);
-                }}
-              >
-                {selectedUser?.status === 'active' ? (
-                  <>
-                    <UserX className="w-4 h-4 mr-2" />
-                    Deactivate
-                  </>
-                ) : (
-                  <>
-                    <UserCheck className="w-4 h-4 mr-2" />
-                    Activate
-                  </>
-                )}
-              </Button>
+              {selectedUser?.status === 'pending' ? (
+                <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  <Clock className="w-4 h-4" />
+                  <span>Pending accounts must be approved by the current parish staff member.</span>
+                </div>
+              ) : (
+                <Button
+                  variant={selectedUser?.status === 'active' ? 'destructive' : 'default'}
+                  size="sm"
+                  onClick={() => {
+                    setUserToToggle(selectedUser);
+                    setIsAccountViewOpen(false);
+                    setIsStatusDialogOpen(true);
+                  }}
+                >
+                  {selectedUser?.status === 'active' ? (
+                    <>
+                      <UserX className="w-4 h-4 mr-2" />
+                      Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="w-4 h-4 mr-2" />
+                      Activate
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

@@ -69,7 +69,7 @@ export interface PendingParishStaff {
   position: ParishStaffPosition;
   phoneNumber?: string;
   status: 'pending';
-  role: 'parish_secretary';
+  role: 'parish';
   registeredAt: Date;
 }
 
@@ -140,7 +140,7 @@ export async function registerParishStaff(
         uid: user.uid,
         email: data.email.toLowerCase(),
         name: data.name,
-        role: 'parish_secretary' as UserRole, // All parish staff use parish_secretary role
+        role: 'parish' as UserRole, // All parish staff use parish role
         diocese: data.diocese,
         parishId: data.parishId,
         parishInfo: {
@@ -166,12 +166,13 @@ export async function registerParishStaff(
       throw firestoreError;
     }
 
-    // Log the registration BEFORE signing out (while still authenticated)
+    // Run audit log, active staff lookup + notification, and sign-out in parallel
+    // All of these are independent and non-critical (except sign-out)
     const registrationProfile: UserProfile = {
       uid: user.uid,
       email: data.email.toLowerCase(),
       name: data.name,
-      role: 'parish_secretary',
+      role: 'parish',
       diocese: data.diocese,
       parishId: data.parishId,
       status: 'pending',
@@ -179,8 +180,10 @@ export async function registerParishStaff(
       lastLoginAt: new Date(),
     };
 
-    try {
-      await AuditService.logAction(
+    // Kick off audit, notification lookup + send, and sign-out concurrently
+    await Promise.all([
+      // 1. Audit log (non-critical)
+      AuditService.logAction(
         registrationProfile,
         'parish_staff.register',
         'user',
@@ -195,29 +198,50 @@ export async function registerParishStaff(
             position: data.position,
           },
         }
-      );
-    } catch (auditError) {
-      console.warn('[ParishStaffService] Audit logging failed (non-critical):', auditError);
-    }
+      ).catch(auditError => {
+        console.warn('[ParishStaffService] Audit logging failed (non-critical):', auditError);
+      }),
 
-    // Send notification to Chancery Office about the pending registration
-    try {
-      await notifyAccountPendingApproval({
-        name: data.name,
-        email: data.email,
-        position: data.position,
-        parishName: data.parishName,
-        parishId: data.parishId,
-        diocese: data.diocese,
-        uid: user.uid,
-      });
-    } catch (notificationError) {
-      console.warn('[ParishStaffService] Notification failed (non-critical):', notificationError);
-    }
+      // 2. Look up current active parish staff + send notification (non-critical)
+      (async () => {
+        try {
+          let currentParishStaffUid: string | undefined;
+          try {
+            const activeStaffQuery = query(
+              collection(db, 'users'),
+              where('role', '==', 'parish'),
+              where('parishId', '==', data.parishId),
+              where('status', '==', 'active')
+            );
+            const activeStaffSnap = await getDocs(activeStaffQuery);
+            if (!activeStaffSnap.empty) {
+              currentParishStaffUid = activeStaffSnap.docs[0].id;
+              console.log('[ParishStaffService] Found current parish staff UID:', currentParishStaffUid);
+            }
+          } catch (lookupError) {
+            console.warn('[ParishStaffService] Could not look up current parish staff (non-critical):', lookupError);
+          }
 
-    // Sign out AFTER all writes are complete
-    await auth.signOut();
-    console.log('[ParishStaffService] User signed out after successful registration');
+          await notifyAccountPendingApproval({
+            name: data.name,
+            email: data.email,
+            position: data.position,
+            parishName: data.parishName,
+            parishId: data.parishId,
+            diocese: data.diocese,
+            uid: user.uid,
+            currentParishStaffUid,
+          });
+        } catch (notificationError) {
+          console.warn('[ParishStaffService] Notification failed (non-critical):', notificationError);
+        }
+      })(),
+
+      // 3. Sign out
+      auth.signOut().then(() => {
+        console.log('[ParishStaffService] User signed out after successful registration');
+      }),
+    ]);
 
     return {
       success: true,
@@ -268,7 +292,7 @@ export async function getPendingParishStaff(parishId: string): Promise<PendingPa
   try {
     const q = query(
       collection(db, 'users'),
-      where('role', '==', 'parish_secretary'),
+      where('role', '==', 'parish'),
       where('parishId', '==', parishId),
       where('status', '==', 'pending'),
       orderBy('createdAt', 'desc')
@@ -291,7 +315,7 @@ export async function getPendingParishStaff(parishId: string): Promise<PendingPa
         position: data.position || 'parish_secretary',
         phoneNumber: data.phoneNumber,
         status: 'pending' as const,
-        role: 'parish_secretary' as const,
+        role: 'parish' as const,
         registeredAt: data.createdAt?.toDate() || new Date(),
       };
     });
@@ -312,7 +336,7 @@ export async function getActiveParishStaff(
 ): Promise<UserProfile | null> {
   let q = query(
     collection(db, 'users'),
-    where('role', '==', 'parish_secretary'),
+    where('role', '==', 'parish'),
     where('parishId', '==', parishId),
     where('status', '==', 'active')
   );
@@ -320,7 +344,7 @@ export async function getActiveParishStaff(
   if (position) {
     q = query(
       collection(db, 'users'),
-      where('role', '==', 'parish_secretary'),
+      where('role', '==', 'parish'),
       where('parishId', '==', parishId),
       where('status', '==', 'active'),
       where('position', '==', position)
@@ -372,7 +396,7 @@ export async function approveParishStaff(
 ): Promise<ParishStaffApprovalResult> {
   try {
     // Only parish staff can approve new parish staff for their own parish
-    if (approvingUser.role !== 'parish_secretary') {
+    if (approvingUser.role !== 'parish') {
       return { success: false, message: 'Only current parish staff can approve new parish staff registrations.' };
     }
 
@@ -486,7 +510,7 @@ export async function rejectParishStaff(
 ): Promise<{ success: boolean; message: string }> {
   try {
     // Only parish staff can reject new parish staff for their own parish
-    if (rejectingUser.role !== 'parish_secretary') {
+    if (rejectingUser.role !== 'parish') {
       return { success: false, message: 'Only current parish staff can reject parish staff registrations.' };
     }
 

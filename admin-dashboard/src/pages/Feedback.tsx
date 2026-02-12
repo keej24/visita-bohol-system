@@ -661,8 +661,6 @@ const FeedbackReports = () => {
                                       <p className="text-gray-600 mb-2 text-sm">{feedback.message}</p>
                                       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                                         <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
-                                        <span>•</span>
-                                        <span>{feedback.userName}</span>
                                       </div>
                                       {feedback.photos && feedback.photos.length > 0 && (
                                         <div className="flex gap-2 mt-2">
@@ -856,13 +854,11 @@ const FeedbackReports = () => {
                                       )}
 
                                       <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
-                                        <span>{feedback.userName}</span>
-                                        <span>•</span>
                                         <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
                                         {feedback.moderatedAt && (
                                           <>
-                                            <span className="hidden sm:inline">•</span>
-                                            <span className="hidden sm:inline">Moderated by {feedback.moderatedBy}</span>
+                                            <span>•</span>
+                                            <span>Moderated by {feedback.moderatedBy}</span>
                                           </>
                                         )}
                                       </div>
@@ -1044,13 +1040,11 @@ const FeedbackReports = () => {
                                       )}
 
                                       <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-gray-500">
-                                        <span>{feedback.userName}</span>
-                                        <span>•</span>
                                         <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
                                         {feedback.moderatedAt && (
                                           <>
-                                            <span className="hidden sm:inline">•</span>
-                                            <span className="hidden sm:inline">Hidden by {feedback.moderatedBy}</span>
+                                            <span>•</span>
+                                            <span>Hidden by {feedback.moderatedBy}</span>
                                           </>
                                         )}
                                       </div>
@@ -1101,7 +1095,7 @@ const FeedbackReports = () => {
             <DialogHeader>
               <DialogTitle className="text-base sm:text-lg">{selectedFeedback.subject}</DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
-                Feedback from {selectedFeedback.userName} at {selectedFeedback.churchName}
+                Visitor feedback at {selectedFeedback.churchName}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 sm:space-y-4">

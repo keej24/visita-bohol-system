@@ -71,6 +71,47 @@ class ChurchDocument {
 /// - Easy to extend with new fields
 /// - Supports both online and offline modes
 
+/// Represents a parish priest assignment record for historical tracking.
+/// When a priest is reassigned, the old record gets an endDate
+/// and a new record is created with isCurrent: true.
+class PriestAssignment {
+  final String name;
+  final String? startDate;
+  final String? endDate;
+  final bool isCurrent;
+  final String? notes;
+
+  const PriestAssignment({
+    required this.name,
+    this.startDate,
+    this.endDate,
+    this.isCurrent = false,
+    this.notes,
+  });
+
+  factory PriestAssignment.fromMap(Map<String, dynamic> map) {
+    return PriestAssignment(
+      name: map['name']?.toString() ?? '',
+      startDate: map['startDate']?.toString(),
+      endDate: map['endDate']?.toString(),
+      isCurrent: map['isCurrent'] == true,
+      notes: map['notes']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'startDate': startDate,
+        'endDate': endDate,
+        'isCurrent': isCurrent,
+        if (notes != null) 'notes': notes,
+      };
+
+  @override
+  String toString() =>
+      'PriestAssignment(name: $name, $startDate–${endDate ?? "present"}, current: $isCurrent)';
+}
+
 /// Church Class - Core Data Model
 ///
 /// Represents a church with complete information including:
@@ -99,9 +140,11 @@ class Church {
   final String? history; // Historical background
   final String? description; // Church description
   final String? assignedPriest; // Current priest
+  final List<PriestAssignment>?
+      priestHistory; // Historical record of priest assignments
   final List<Map<String, String>>? massSchedules; // Mass schedule
-  final Map<String, String>?
-      contactInfo; // Contact information (phone, email, address)
+  final Map<String, dynamic>?
+      contactInfo; // Contact information (phone, email, address, phones[], emails[])
   final List<String> images;
   final List<ChurchDocument>? documents; // PDF documents with name and URL
   final bool isHeritage;
@@ -142,6 +185,7 @@ class Church {
     this.history,
     this.description,
     this.assignedPriest,
+    this.priestHistory,
     this.massSchedules,
     this.contactInfo,
     this.images = const [],
@@ -261,10 +305,63 @@ class Church {
         history: j['history'] ?? j['historicalBackground'],
         description: j['description'],
         assignedPriest: j['assignedPriest'],
+        priestHistory: (() {
+          if (j['priestHistory'] == null) return null;
+          if (j['priestHistory'] is! List) return null;
+          return (j['priestHistory'] as List)
+              .where((e) => e is Map<String, dynamic>)
+              .map((e) => PriestAssignment.fromMap(e as Map<String, dynamic>))
+              .toList();
+        })(),
         massSchedules: _parseMassSchedules(j['massSchedules']),
-        contactInfo: j['contactInfo'] != null
-            ? Map<String, String>.from(j['contactInfo'])
-            : null,
+        contactInfo: (() {
+          if (j['contactInfo'] == null) return null;
+          final rawContactInfo = j['contactInfo'] as Map<String, dynamic>;
+          final result = <String, dynamic>{};
+
+          // Handle legacy single phone/email
+          if (rawContactInfo['phone'] != null) {
+            result['phone'] = rawContactInfo['phone'].toString();
+          }
+          if (rawContactInfo['email'] != null) {
+            result['email'] = rawContactInfo['email'].toString();
+          }
+          if (rawContactInfo['address'] != null) {
+            result['address'] = rawContactInfo['address'].toString();
+          }
+
+          // Handle multiple phones array
+          if (rawContactInfo['phones'] != null) {
+            final phones = (rawContactInfo['phones'] as List)
+                .map((p) => p.toString())
+                .where((p) => p.isNotEmpty && p != '+63' && p != '+63 ')
+                .toList();
+            if (phones.isNotEmpty) {
+              result['phones'] = phones;
+              // Set primary phone from first in array if not set
+              if (result['phone'] == null || result['phone'] == '') {
+                result['phone'] = phones.first;
+              }
+            }
+          }
+
+          // Handle multiple emails array
+          if (rawContactInfo['emails'] != null) {
+            final emails = (rawContactInfo['emails'] as List)
+                .map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList();
+            if (emails.isNotEmpty) {
+              result['emails'] = emails;
+              // Set primary email from first in array if not set
+              if (result['email'] == null || result['email'] == '') {
+                result['email'] = emails.first;
+              }
+            }
+          }
+
+          return result.isEmpty ? null : result;
+        })(),
         images: (() {
           // Try 'photos' first (newer format), then fall back to 'images' (legacy)
           final imagesData = j['photos'] ?? j['images'];
@@ -401,6 +498,7 @@ class Church {
         'history': history,
         'description': description,
         'assignedPriest': assignedPriest,
+        'priestHistory': priestHistory?.map((p) => p.toMap()).toList(),
         'massSchedules': massSchedules,
         'contactInfo': contactInfo,
         'images': images,

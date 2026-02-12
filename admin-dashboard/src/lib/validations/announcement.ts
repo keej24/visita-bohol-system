@@ -241,7 +241,7 @@ export const canUserCreateAnnouncement = (userRole: string, announcementScope: s
   if (userRole === 'chancery_office') {
     return true; // Chancery can create any scope
   }
-  if (userRole === 'parish_secretary') {
+  if (userRole === 'parish') {
     return announcementScope === 'parish'; // Parish secretary can only create parish-scope
   }
   return false;
@@ -257,7 +257,7 @@ export const canUserEditAnnouncement = (
     return true; // Chancery can edit announcements in their diocese
   }
   if (
-    userRole === 'parish_secretary' &&
+    userRole === 'parish' &&
     announcement.scope === 'parish' &&
     userParish === announcement.parish &&
     userDiocese === announcement.diocese

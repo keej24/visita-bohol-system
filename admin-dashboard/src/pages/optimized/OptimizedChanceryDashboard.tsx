@@ -5,14 +5,16 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { DashboardHeader } from '@/components/optimized/DashboardHeader';
 import { StatsGrid } from '@/components/optimized/StatsGrid';
 import { ChanceryReviewList } from '@/components/ChanceryReviewList';
+import { PendingUpdatesReviewList } from '@/components/PendingUpdatesReviewList';
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
 import { PendingChancellors } from '@/components/PendingChancellors';
 import { AuditLogViewer } from '@/components/AuditLogViewer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChurchStats } from '@/hooks/useChurchStats';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, ClipboardList, History, UserPlus } from 'lucide-react';
+import { Loader2, ClipboardList, History, UserPlus, FileEdit } from 'lucide-react';
 import type { Diocese } from '@/contexts/AuthContext';
 import type { Church } from '@/lib/churches';
 import { ChurchInfo } from '@/components/parish/types';
@@ -135,7 +137,8 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         'Baroque': 'baroque',
         'Neo-Gothic': 'gothic',
         'Gothic': 'gothic',
-        'Byzantine': 'romanesque',
+        'Byzantine': 'byzantine',
+        'Romanesque': 'romanesque',
         'Neo-Classical': 'neoclassical',
         'Modern': 'modern',
         'Mixed': 'mixed',
@@ -179,6 +182,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         })
       },
       assignedPriest: data.currentParishPriest || '',
+      priestHistory: data.priestHistory || [],
       feastDay: data.feastDay || '',
       massSchedules: (data.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
@@ -246,10 +250,19 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
 
         {/* Tabbed Content Area */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="updates" className="flex items-center gap-2">
+              <FileEdit className="h-4 w-4" />
+              <span className="hidden sm:inline">Updates</span>
+              {churchStats.pendingUpdatesCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 min-w-[20px] px-1.5 text-xs">
+                  {churchStats.pendingUpdatesCount}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="chancellors" className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
@@ -278,12 +291,25 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
               {/* Info Panel */}
               <div className="space-y-3 sm:space-y-4 order-1 lg:order-2">
                 {/* Status Summary */}
-                {churchStats.pendingCount > 0 && (
+                {(churchStats.pendingCount > 0 || churchStats.pendingUpdatesCount > 0) && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 sm:p-4">
                     <h3 className="font-semibold text-orange-900 mb-1 sm:mb-2 text-sm sm:text-base">Action Required</h3>
-                    <p className="text-xs sm:text-sm text-orange-800">
-                      You have {churchStats.pendingCount} submission{churchStats.pendingCount > 1 ? 's' : ''} waiting for review.
-                    </p>
+                    {churchStats.pendingCount > 0 && (
+                      <p className="text-xs sm:text-sm text-orange-800">
+                        You have {churchStats.pendingCount} submission{churchStats.pendingCount > 1 ? 's' : ''} waiting for review.
+                      </p>
+                    )}
+                    {churchStats.pendingUpdatesCount > 0 && (
+                      <p className="text-xs sm:text-sm text-orange-800 mt-1">
+                        <button
+                          onClick={() => setActiveTab('updates')}
+                          className="underline font-medium hover:text-orange-900"
+                        >
+                          {churchStats.pendingUpdatesCount} approved church{churchStats.pendingUpdatesCount > 1 ? 'es have' : ' has'} pending profile updates
+                        </button>
+                        {' '}to review.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -298,6 +324,17 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
                 </div>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Pending Updates Tab */}
+          <TabsContent value="updates" className="space-y-4">
+            <ErrorBoundary>
+              <PendingUpdatesReviewList
+                diocese={diocese}
+                onViewChurch={handleViewChurch}
+                onEditChurch={handleEditChurch}
+              />
+            </ErrorBoundary>
           </TabsContent>
 
           {/* Chancellors Tab - Pending Registrations */}

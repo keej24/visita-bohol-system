@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // User roles enum
-export const userRoles = ['chancery_office', 'museum_researcher', 'parish_secretary'] as const;
+export const userRoles = ['chancery_office', 'museum_researcher', 'parish'] as const;
 export const dioceses = ['tagbilaran', 'talibon'] as const;
 
 // Base user schema
@@ -73,7 +73,7 @@ export const createUserSchema = userSchema.omit({
 }).refine(
   (data) => {
     // Parish secretaries must have a parish
-    if (data.role === 'parish_secretary' && !data.parish) {
+    if (data.role === 'parish' && !data.parish) {
       return false;
     }
     return true;
@@ -123,7 +123,7 @@ export const invitationSchema = z.object({
     .email('Invalid email format')
     .toLowerCase(),
   
-  role: z.enum(['parish_secretary'], {
+  role: z.enum(['parish'], {
     required_error: 'Role is required for invitation',
   }),
   
@@ -225,7 +225,7 @@ export const canManageParish = (user: User, parishId: string): boolean => {
   if (user.role === 'chancery_office') {
     return true; // Chancery can manage all parishes in their diocese
   }
-  if (user.role === 'parish_secretary') {
+  if (user.role === 'parish') {
     return user.parish === parishId;
   }
   return false;

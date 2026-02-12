@@ -1,5 +1,7 @@
 // Parish Dashboard Types
-import type { ChurchStatus } from '@/types/church';
+import type { ChurchStatus, PriestAssignment } from '@/types/church';
+
+export type { PriestAssignment } from '@/types/church';
 
 export interface MassSchedule {
   day: string;
@@ -19,6 +21,9 @@ export interface ContactInfo {
   email: string;
   website?: string;
   facebookPage?: string;
+  // Multiple contact support
+  phones?: string[];
+  emails?: string[];
 }
 
 export interface LocationDetails {
@@ -117,6 +122,7 @@ export interface ChurchInfo {
   
   // Current Parish Information
   currentParishPriest: string;
+  priestHistory?: PriestAssignment[];  // Historical record of all priest assignments
   feastDay?: string; // Feast day of the parish patron saint (e.g., "December 8" or "August 15")
   massSchedules: MassSchedule[];
   contactInfo: ContactInfo;

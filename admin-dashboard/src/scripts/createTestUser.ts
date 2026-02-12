@@ -64,7 +64,7 @@ export const createTestUsers = async (): Promise<void> => {
     // Parish Secretary - Tagbilaran
     await setDoc(doc(db, 'users', 'test-parish-tagbilaran'), {
       email: 'secretary@santonino.tagbilaran.ph',
-      role: 'parish_secretary',
+      role: 'parish',
       name: 'Santo Niño Parish Secretary',
       diocese: 'tagbilaran',
       parish: 'santo-nino-tagbilaran',

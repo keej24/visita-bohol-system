@@ -39,6 +39,32 @@ export interface UploadOptions {
   metadata?: Record<string, any>;
 }
 
+/**
+ * Resolve MIME content type for a file.
+ * Browsers (especially on Windows) can report empty or incorrect file.type
+ * for .docx, .csv, and other formats. This falls back to extension-based lookup.
+ */
+function resolveContentType(file: File): string {
+  if (file.type && file.type !== 'application/octet-stream') {
+    return file.type;
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  const mimeMap: Record<string, string> = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    md: 'text/markdown',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+  };
+  return mimeMap[ext] || file.type || 'application/octet-stream';
+}
+
 class UploadService {
   /**
    * Compress an image file before upload
@@ -95,9 +121,15 @@ class UploadService {
     // Create storage reference
     const storageRef = ref(storage, `${folder}/${filename}`);
 
+    // Resolve content type with fallback for browsers that misreport MIME types
+    const contentType = resolveContentType(file);
+    if (contentType !== file.type) {
+      console.log(`📎 MIME fallback: browser reported "${file.type}" for ${file.name}, using "${contentType}"`);
+    }
+
     // Create upload metadata
     const uploadMetadata = {
-      contentType: file.type,
+      contentType,
       customMetadata: {
         originalName: file.name,
         uploadedAt: new Date().toISOString(),
@@ -106,7 +138,7 @@ class UploadService {
     };
 
     return new Promise((resolve, reject) => {
-      const uploadTask = uploadBytesResumable(storageRef, file, uploadMetadata);
+      const uploadTask = uploadBytesResumable(storageRef, fileToUpload, uploadMetadata);
 
       uploadTask.on(
         'state_changed',

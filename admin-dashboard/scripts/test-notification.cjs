@@ -36,7 +36,7 @@ async function createTestNotifications() {
         actionBy: {
           uid: 'test-user',
           name: 'Test Parish Secretary',
-          role: 'parish_secretary'
+          role: 'parish'
         }
       },
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -56,7 +56,7 @@ async function createTestNotifications() {
       title: 'Church Published: Our Lady of Lourdes Parish',
       message: 'Congratulations! "Our Lady of Lourdes Parish" has been approved and is now live for public viewing in the VISITA app.',
       recipients: {
-        roles: ['parish_secretary'],
+        roles: ['parish'],
         dioceses: ['tagbilaran']
       },
       relatedData: {

@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import type { DioceseAnalytics, ChurchSummaryData } from './dioceseAnalyticsService';
+import { addReportHeader, addReportFooter } from '@/lib/report-header';
 
 // Type for jsPDF with autoTable extension
 interface jsPDFWithAutoTable extends jsPDF {
@@ -25,42 +26,28 @@ export class DioceseReportService {
    * Consolidates all municipalities with their churches
    * Adapts layout based on whether it's a single church or multiple churches
    */
-  static exportDioceseChurchSummary(
+  static async exportDioceseChurchSummary(
     dioceseName: string,
-    analytics: DioceseAnalytics
-  ): void {
+    analytics: DioceseAnalytics,
+    dioceseId?: string
+  ): Promise<void> {
     const doc = new jsPDF();
-    let yPos = 20;
     
     const isSingleChurch = analytics.totalChurches === 1;
     const singleChurch = isSingleChurch ? analytics.topChurches[0] : null;
 
     // ============================
-    // COVER HEADER WITH BRANDING
+    // COVER HEADER WITH BRANDING + LOGOS
     // ============================
-    // Sidebar color: HSL(220, 72%, 24%) = RGB(17, 40, 110) - Deep Ecclesiastical Blue
-    doc.setFillColor(17, 40, 110);
-    doc.rect(0, 0, 210, 45, 'F');
-
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text(`Diocese of ${dioceseName}`, 105, 18, { align: 'center' });
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    if (isSingleChurch && singleChurch) {
-      doc.text('CHURCH SUMMARY REPORT', 105, 28, { align: 'center' });
-      doc.setFontSize(12);
-      doc.text(singleChurch.name, 105, 38, { align: 'center' });
-    } else {
-      doc.text('CHURCH SUMMARY REPORT', 105, 28, { align: 'center' });
-      doc.setFontSize(11);
-      doc.text(`Total: ${analytics.totalChurches} Churches`, 105, 38, { align: 'center' });
-    }
-
-    doc.setTextColor(0, 0, 0);
-    yPos = 55;
+    let yPos = await addReportHeader(doc, {
+      title: `Diocese of ${dioceseName}`,
+      subtitle: 'CHURCH SUMMARY REPORT',
+      detail: isSingleChurch && singleChurch
+        ? singleChurch.name
+        : `Total: ${analytics.totalChurches} Churches`,
+      dioceseId: dioceseId || dioceseName.toLowerCase(),
+      parishId: isSingleChurch && singleChurch ? singleChurch.id : undefined,
+    });
 
     // Report metadata
     doc.setFontSize(9);
@@ -403,16 +390,9 @@ export class DioceseReportService {
     }
 
     // Footer on all pages
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      const footerText = isSingleChurch && singleChurch 
-        ? `${singleChurch.name} - ${dioceseName} Diocese | Generated ${new Date().toLocaleDateString()} | Page ${i} of ${pageCount}`
-        : `${dioceseName} Diocese Church Summary | Generated ${new Date().toLocaleDateString()} | Page ${i} of ${pageCount}`;
-      doc.text(footerText, 105, 290, { align: 'center' });
-    }
+    addReportFooter(doc, isSingleChurch && singleChurch
+      ? `${singleChurch.name} - ${dioceseName} Diocese | Generated ${new Date().toLocaleDateString()}`
+      : `${dioceseName} Diocese Church Summary | Generated ${new Date().toLocaleDateString()}`);
 
     // Save
     const fileName = isSingleChurch && singleChurch

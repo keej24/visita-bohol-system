@@ -97,7 +97,8 @@ import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
 import { ParishFeedback } from '@/components/parish/ParishFeedback';
 import { PendingParishStaff } from '@/components/PendingParishStaff';
 import { ChurchService } from '@/services/churchService';
-import { notifyChurchStatusChange } from '@/lib/notifications';
+import { notifyChurchStatusChange, notifyPendingChangesSubmitted } from '@/lib/notifications';
+import { getFieldLabel } from '@/lib/church-field-categories';
 import type { ArchitecturalStyle, ChurchClassification, Church, ChurchDocument } from '@/types/church';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -271,7 +272,7 @@ const ParishDashboard = () => {
         case 'baroque': return 'Baroque';
         case 'gothic': 
         case 'neo-gothic': return 'Neo-Gothic';
-        case 'romanesque': 
+        case 'romanesque': return 'Romanesque';
         case 'byzantine': return 'Byzantine';
         case 'neoclassical': 
         case 'neo-classical': return 'Neo-Classical';
@@ -316,6 +317,7 @@ const ParishDashboard = () => {
         heritageInformation: church.heritageInformation || ''
       },
       currentParishPriest: church.assignedPriest || '',
+      priestHistory: (church as unknown as { priestHistory?: import('@/types/church').PriestAssignment[] }).priestHistory || [],
       feastDay: church.feastDay || '',
       massSchedules: (church.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
@@ -328,7 +330,9 @@ const ParishDashboard = () => {
         phone: church.contactInfo?.phone || '',
         email: church.contactInfo?.email || '',
         website: '',
-        facebookPage: ''
+        facebookPage: '',
+        phones: church.contactInfo?.phones || [church.contactInfo?.phone || '+63 '],
+        emails: church.contactInfo?.emails || [church.contactInfo?.email || '']
       },
       // Convert photos from Firestore format to form format
       // Try church.photos first (new format), then fall back to church.images (legacy)
@@ -668,7 +672,8 @@ const ParishDashboard = () => {
         'Baroque': 'baroque',
         'Neo-Gothic': 'gothic',
         'Gothic': 'gothic',
-        'Byzantine': 'romanesque',
+        'Byzantine': 'byzantine',
+        'Romanesque': 'romanesque',
         'Neo-Classical': 'neoclassical',
         'Modern': 'modern',
         'Mixed': 'mixed',
@@ -710,12 +715,15 @@ const ParishDashboard = () => {
         religiousClassifications: mapReligiousClassifications(data.historicalDetails.religiousClassifications || [])
       },
       assignedPriest: data.currentParishPriest || '',
+      priestHistory: data.priestHistory || [],
       feastDay: data.feastDay || '',
       massSchedules: convertMassSchedules(data.massSchedules || []),
       coordinates: convertCoordinates(data.coordinates),
       contactInfo: {
         phone: data.contactInfo?.phone || '',
         email: data.contactInfo?.email || '',
+        phones: data.contactInfo?.phones || [],
+        emails: data.contactInfo?.emails || [],
         address: `${data.locationDetails.streetAddress || ''}, ${data.locationDetails.barangay || ''}, ${data.locationDetails.municipality || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '')
       },
       // Legacy images field - just URLs for backward compatibility
@@ -818,6 +826,61 @@ const ParishDashboard = () => {
           ? existingChurch.status 
           : 'draft';
         
+        // For APPROVED churches, use staged update flow
+        // Sensitive fields go to pendingChanges, operational fields publish immediately
+        if (existingChurch.status === 'approved') {
+          const stagingResult = await ChurchService.updateChurchWithStaging(
+            existingChurch.id,
+            formData,
+            userProfile.diocese,
+            userProfile.uid
+          );
+          
+          setChurchInfo({ ...data, status: 'approved', id: existingChurch.id });
+          
+          // Notify Chancery about pending changes
+          if (stagingResult.hasPendingChanges) {
+            try {
+              await notifyPendingChangesSubmitted(
+                existingChurch.id,
+                data.churchName || data.name || 'Church',
+                stagingResult.stagedForReview,
+                userProfile
+              );
+              console.log('[Parish] Notification sent to Chancery for pending profile updates');
+            } catch (notifError) {
+              console.error('[Parish] Failed to send pending update notification:', notifError);
+            }
+          }
+          
+          // Show feedback about what was staged vs. published
+          if (stagingResult.hasPendingChanges && stagingResult.directlyPublished.length > 0) {
+            // Mixed: some fields published, some staged
+            const stagedLabels = stagingResult.stagedForReview.map(f => getFieldLabel(f)).join(', ');
+            const publishedLabels = stagingResult.directlyPublished.map(f => getFieldLabel(f)).join(', ');
+            toast({ 
+              title: "Changes Saved", 
+              description: `Updated: ${publishedLabels}. Pending review: ${stagedLabels}.`
+            });
+          } else if (stagingResult.hasPendingChanges) {
+            // All changes need review
+            const stagedLabels = stagingResult.stagedForReview.map(f => getFieldLabel(f)).join(', ');
+            toast({ 
+              title: "Changes Submitted for Review", 
+              description: `The following changes require Chancery approval: ${stagedLabels}`
+            });
+          } else {
+            // All changes published immediately
+            toast({ 
+              title: "Saved", 
+              description: "Changes saved and published immediately!"
+            });
+          }
+          
+          return existingChurch.id;
+        }
+        
+        // For non-approved churches, use direct update
         await updateDoc(docRef, {
           ...formData,
           status: preservedStatus,
@@ -986,24 +1049,60 @@ const ParishDashboard = () => {
             console.error('[Parish] Failed to send notification:', notifError);
           }
         } else {
-          await ChurchService.updateChurch(
+          // Use updateChurchWithStaging for all non-draft churches.
+          // For approved churches, this splits fields into direct-publish vs staged-for-review
+          // to comply with Firestore security rules that restrict which fields parish secretaries can modify.
+          // For non-approved churches, it falls back to a standard update.
+          const stagingResult = await ChurchService.updateChurchWithStaging(
             existingChurch.id,
             formData,
             userProfile.diocese,
             userProfile.uid
           );
+
+          if (stagingResult.hasPendingChanges) {
+            // Notify Chancery about pending changes
+            try {
+              await notifyPendingChangesSubmitted(
+                existingChurch.id,
+                data.churchName || data.name || 'Church',
+                stagingResult.stagedForReview,
+                userProfile
+              );
+              console.log('[Parish] Notification sent to Chancery for pending profile updates (submit)');
+            } catch (notifError) {
+              console.error('[Parish] Failed to send pending update notification:', notifError);
+            }
+
+            // Some changes were staged for Chancery review
+            const stagedLabels = stagingResult.stagedForReview.map(f => getFieldLabel(f)).join(', ');
+            if (stagingResult.directlyPublished.length > 0) {
+              const publishedLabels = stagingResult.directlyPublished.map(f => getFieldLabel(f)).join(', ');
+              toast({
+                title: "Changes Partially Saved",
+                description: `Updated: ${publishedLabels}. Pending Chancery review: ${stagedLabels}.`
+              });
+            } else {
+              toast({
+                title: "Changes Submitted for Review",
+                description: `The following changes require Chancery approval: ${stagedLabels}`
+              });
+            }
+          }
         }
 
         // Update churchInfo with new status
         setChurchInfo({ ...data, status: newStatus, id: existingChurch.id });
         setCurrentView('overview');
 
-        const statusText = newStatus === 'approved' ? 'updated' : 'submitted for review';
-
-        toast({
-          title: "Success",
-          description: `Church profile ${statusText} successfully!`
-        });
+        // Show generic success toast only if no staging toast was already shown
+        if (newStatus !== 'approved' || !existingChurch || existingChurch.status !== 'approved') {
+          const statusText = newStatus === 'approved' ? 'updated' : 'submitted for review';
+          toast({
+            title: "Success",
+            description: `Church profile ${statusText} successfully!`
+          });
+        }
 
         // Invalidate all church queries to update all dashboards
         await queryClient.invalidateQueries({ queryKey: ['churches'] });
@@ -1253,8 +1352,14 @@ const ParishDashboard = () => {
           <div className="relative z-10 px-6 pt-6 pb-20">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   {getStatusBadge()}
+                  {existingChurch?.hasPendingChanges && (
+                    <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Updates Pending Review
+                    </Badge>
+                  )}
                   {churchInfo.historicalDetails?.heritageClassification && 
                    churchInfo.historicalDetails.heritageClassification !== 'None' && (
                     <Badge className="bg-amber-500/90 text-white border-0 shadow-sm">
@@ -1412,30 +1517,36 @@ const ParishDashboard = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {(churchInfo.contactInfo?.phone || churchInfo.contactInfo?.email || churchInfo.contactInfo?.website || churchInfo.contactInfo?.facebookPage) ? (
+                      {(churchInfo.contactInfo?.phones?.length || churchInfo.contactInfo?.phone || churchInfo.contactInfo?.emails?.length || churchInfo.contactInfo?.email || churchInfo.contactInfo?.website || churchInfo.contactInfo?.facebookPage) ? (
                         <div className="space-y-3">
-                          {churchInfo.contactInfo?.phone && (
-                            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                          {/* Multiple Phones */}
+                          {(churchInfo.contactInfo?.phones?.length ? churchInfo.contactInfo.phones : churchInfo.contactInfo?.phone ? [churchInfo.contactInfo.phone] : [])
+                            .filter((p: string) => p && p.trim() && p !== '+63' && p !== '+63 ')
+                            .map((phone: string, index: number) => (
+                            <div key={`phone-${index}`} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                               <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                                 <Phone className="w-5 h-5 text-green-600" />
                               </div>
-                              <div>
-                                <p className="text-xs font-medium text-gray-500">Phone</p>
-                                <p className="text-sm font-semibold text-gray-900">{churchInfo.contactInfo.phone}</p>
+                              <div className="flex-1">
+                                <p className="text-xs font-medium text-gray-500">Phone {(churchInfo.contactInfo?.phones?.length || 0) > 1 ? `#${index + 1}` : ''}</p>
+                                <p className="text-sm font-semibold text-gray-900">{phone}</p>
                               </div>
                             </div>
-                          )}
-                          {churchInfo.contactInfo?.email && (
-                            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                          ))}
+                          {/* Multiple Emails */}
+                          {(churchInfo.contactInfo?.emails?.length ? churchInfo.contactInfo.emails : churchInfo.contactInfo?.email ? [churchInfo.contactInfo.email] : [])
+                            .filter((e: string) => e && e.trim())
+                            .map((email: string, index: number) => (
+                            <div key={`email-${index}`} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                               <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                                 <Mail className="w-5 h-5 text-blue-600" />
                               </div>
-                              <div>
-                                <p className="text-xs font-medium text-gray-500">Email</p>
-                                <p className="text-sm font-semibold text-gray-900">{churchInfo.contactInfo.email}</p>
+                              <div className="flex-1">
+                                <p className="text-xs font-medium text-gray-500">Email {(churchInfo.contactInfo?.emails?.length || 0) > 1 ? `#${index + 1}` : ''}</p>
+                                <p className="text-sm font-semibold text-gray-900">{email}</p>
                               </div>
                             </div>
-                          )}
+                          ))}
                           {churchInfo.contactInfo?.website && (
                             <div 
                               className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer" 
@@ -1969,8 +2080,9 @@ const ParishDashboard = () => {
             setCurrentView('overview');
             setActiveTab('overview');
           }}
-        />
-      ) : currentView === 'announcements' ? (
+          userId={userProfile?.uid || ''}
+          userRole={(userProfile?.role as 'chancery_office' | 'parish' | 'museum_researcher') || 'parish'}
+        />) : currentView === 'announcements' ? (
         <ParishAnnouncements
           churchId={churchId || existingChurch?.id || userProfile?.parishId || userProfile?.parish || ''}
           onClose={() => {

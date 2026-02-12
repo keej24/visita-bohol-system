@@ -164,7 +164,7 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
 
         // Only include users that are NOT admin users (no role field or accountType is public)
         // Also exclude users with 'deleted' status (users removed from Firebase Auth)
-        const isAdminUser = data.role && ['chancery_office', 'parish_secretary', 'museum_researcher'].includes(data.role);
+        const isAdminUser = data.role && ['chancery_office', 'parish', 'museum_researcher'].includes(data.role);
         const isDeletedUser = data.status === 'deleted';
 
         if (!isAdminUser && !isDeletedUser) {

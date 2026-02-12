@@ -122,7 +122,7 @@ export class AnnouncementService {
       }
 
       // Verify user has permission
-      if (userData.role !== 'chancery_office' && userData.role !== 'parish_secretary') {
+      if (userData.role !== 'chancery_office' && userData.role !== 'parish') {
         console.error('❌ User does not have permission to create announcements:', userData.role);
         throw new Error('You do not have permission to create announcements.');
       }

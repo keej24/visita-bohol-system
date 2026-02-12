@@ -10,7 +10,7 @@ export function cn(...inputs: ClassValue[]) {
  * - Replaces underscores with spaces
  * - Capitalizes the first letter of each word
  * 
- * @example toTitleCase("parish_secretary") → "Parish Secretary"
+ * @example toTitleCase("parish") → "Parish"
  * @example toTitleCase("tagbilaran") → "Tagbilaran"
  * @example toTitleCase("HELLO WORLD") → "Hello World"
  */

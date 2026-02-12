@@ -69,7 +69,7 @@ import type { UserRole } from '@/contexts/AuthContext';
 import visitaLogo from '@/assets/visita-logo.png';
 
 // Role type for selection
-type LoginRole = 'chancery_office' | 'museum_researcher' | 'parish_secretary' | null;
+type LoginRole = 'chancery_office' | 'museum_researcher' | 'parish' | null;
 
 // Role configuration with visual properties
 const roleConfig = {
@@ -97,7 +97,7 @@ const roleConfig = {
     iconColor: 'text-amber-600',
     badgeClass: 'bg-amber-100 text-amber-700 border-amber-200',
   },
-  parish_secretary: {
+  parish: {
     title: 'Parish',
     description: 'Parish priest or secretary management',
     icon: Church,
@@ -608,7 +608,7 @@ const Login = () => {
                     </a>
                   </p>
                 )}
-                {selectedRole === 'parish_secretary' && (
+                {selectedRole === 'parish' && (
                   <p className="mt-2">
                     <a 
                       href="/parish-register" 

@@ -220,7 +220,7 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
     switch (position) {
       case 'parish_priest':
         return 'Parish Priest';
-      case 'parish_secretary':
+      case 'parish':
         return 'Parish Secretary';
       default:
         return position;

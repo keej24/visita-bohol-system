@@ -19,7 +19,7 @@
  * │ Role                 │ Header Display                                      │
  * ├──────────────────────┼─────────────────────────────────────────────────────┤
  * │ chancery_office      │ "Chancery Office Dashboard" + diocese info          │
- * │ parish_secretary     │ "Parish Secretary Dashboard" + parish/diocese badge │
+ * │ parish               │ "Parish Secretary Dashboard" + parish/diocese badge │
  * │ museum_researcher    │ "Museum Researcher Dashboard"                      │
  * └──────────────────────┴─────────────────────────────────────────────────────┘
  *
@@ -74,7 +74,7 @@ interface HeaderProps {
 export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
   const { userProfile, logout } = useAuth();
   const { toast } = useToast();
-  const isParish = userProfile?.role === 'parish_secretary';
+  const isParish = userProfile?.role === 'parish';
   const [parishName, setParishName] = useState<string>('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -192,12 +192,12 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
               <span className="hidden sm:inline">
                 {userProfile?.role === 'chancery_office' && 'Chancery Office Dashboard'}
                 {userProfile?.role === 'museum_researcher' && 'Museum Researcher Dashboard'}
-                {userProfile?.role === 'parish_secretary' && 'Parish Secretary Dashboard'}
+                {userProfile?.role === 'parish' && (userProfile?.position === 'parish_priest' ? 'Parish Priest Dashboard' : 'Parish Secretary Dashboard')}
               </span>
               <span className="sm:hidden">
                 {userProfile?.role === 'chancery_office' && 'Chancery'}
                 {userProfile?.role === 'museum_researcher' && 'Museum'}
-                {userProfile?.role === 'parish_secretary' && 'Parish'}
+                {userProfile?.role === 'parish' && 'Parish'}
               </span>
             </h1>
             <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
@@ -233,7 +233,9 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
                     {userProfile?.institutionName || userProfile?.name || 'Administrator'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {toTitleCase(userProfile?.role)} 
+                    {userProfile?.role === 'parish' 
+                      ? (userProfile?.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary')
+                      : toTitleCase(userProfile?.role)}
                     {userProfile?.diocese && ` • ${toTitleCase(userProfile.diocese)}`}
                   </p>
                 </div>

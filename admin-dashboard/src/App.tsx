@@ -199,14 +199,14 @@ const App = () => (
             {/* 
               PARISH SECRETARY DASHBOARD (/parish)
               
-              WHO: Only parish_secretary role
+              WHO: Only parish role
               WHAT: Manages their assigned church
               
               Protection: ProtectedRoute with allowedRoles
               Lazy Load: Wrapped in <Suspense> to load page when needed
             */}
             <Route path="/parish" element={
-              <ProtectedRoute allowedRoles={['parish_secretary']}>
+              <ProtectedRoute allowedRoles={['parish']}>
                 <Suspense fallback={<PageLoadingFallback />}>
                   <LazyParishDashboard />
                 </Suspense>
@@ -469,7 +469,7 @@ export default App;
  * ↓
  * ProtectedRoute checks auth: ✅ User is logged in
  * ↓
- * ProtectedRoute checks role: ✅ User is parish_secretary
+ * ProtectedRoute checks role: ✅ User is parish
  * ↓
  * Shows: ParishDashboard component
  * 
@@ -481,7 +481,7 @@ export default App;
  * ↓
  * DioceseProtectedRoute checks auth: ✅ User is logged in
  * ↓
- * DioceseProtectedRoute checks role: ❌ User is parish_secretary (needs chancery_office)
+ * DioceseProtectedRoute checks role: ❌ User is parish (needs chancery_office)
  * ↓
  * Redirects to: /unauthorized
  * 

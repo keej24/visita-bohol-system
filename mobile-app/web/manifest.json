@@ -1,6 +1,6 @@
 {
-    "name": "visita_mobile",
-    "short_name": "visita_mobile",
+    "name": "visita",
+    "short_name": "visita",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

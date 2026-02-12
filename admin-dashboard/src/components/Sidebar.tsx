@@ -11,7 +11,7 @@
  * ┌─────────────────────────┬─────────────────────────────────────────────────┐
  * │ Role                    │ Menu Items                                      │
  * ├─────────────────────────┼─────────────────────────────────────────────────┤
- * │ parish_secretary        │ Church Profile, Announcements*, Feedback*,     │
+ * │ parish                  │ Church Profile, Announcements*, Feedback*,     │
  * │                         │ Reports*, Account (*requires church approval)  │
  * │                         │                                                 │
  * │ chancery_office         │ Dashboard, Churches, Users, Announcements,     │
@@ -89,7 +89,7 @@ type NavItem = {
 };
 
 const getNavigationItems = (role?: string, setActiveTab?: (tab: string) => void, churchApproved?: boolean): NavItem[] => {
-  if (role === 'parish_secretary') {
+  if (role === 'parish') {
     return [
       { title: 'Church Profile', url: '/parish', icon: Church, onClick: () => setActiveTab?.('overview'), isTab: true },
       {
@@ -176,7 +176,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
   const { logout, userProfile } = useAuth();
 
   const isActive = (path: string, isTab?: boolean) => {
-    if (isTab && userProfile?.role === 'parish_secretary') {
+    if (isTab && userProfile?.role === 'parish') {
       // For parish secretary tabs, check if the item matches current active tab
       return false; // We'll handle active state differently for tabs
     }
@@ -184,7 +184,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
   };
 
   const isTabActive = (tabName: string) => {
-    if (userProfile?.role !== 'parish_secretary') return false;
+    if (userProfile?.role !== 'parish') return false;
     
     // Map sidebar items to tab names
     const tabMap: { [key: string]: string } = {
@@ -223,7 +223,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
   // Get role-specific sidebar class
   const getSidebarClass = () => {
     switch (userProfile?.role) {
-      case 'parish_secretary':
+      case 'parish':
         return 'sidebar-parish';
       case 'museum_researcher':
         return 'sidebar-museum';
@@ -260,7 +260,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
               <h1 className="text-sidebar-foreground font-bold text-sm leading-tight">
                 {userProfile?.role === 'chancery_office' && 'Chancery Office'}
                 {userProfile?.role === 'museum_researcher' && 'Museum Researcher'}
-                {userProfile?.role === 'parish_secretary' && 'Parish Secretary'}
+                {userProfile?.role === 'parish' && (userProfile?.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary')}
               </h1>
               <p className="text-sidebar-foreground/70 text-xs">
                 {userProfile?.role === 'museum_researcher' 
@@ -307,8 +307,8 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
               <p className="text-sidebar-foreground/70 text-xs truncate">
                 {userProfile?.role === 'museum_researcher' 
                   ? 'Museum Researcher' 
-                  : userProfile?.role === 'parish_secretary'
-                    ? `Parish Secretary • ${toTitleCase(userProfile?.diocese)}`
+                  : userProfile?.role === 'parish'
+                    ? `${userProfile?.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary'} • ${toTitleCase(userProfile?.diocese)}`
                     : `${toTitleCase(userProfile?.role)} • ${toTitleCase(userProfile?.diocese)}`}
               </p>
             </div>

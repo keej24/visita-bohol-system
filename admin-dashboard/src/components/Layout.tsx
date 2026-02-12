@@ -84,7 +84,7 @@ interface LayoutProps {
 
 export function Layout({ children, activeTab, setActiveTab, churchApproved }: LayoutProps) {
   const { userProfile } = useAuth();
-  const isParish = userProfile?.role === 'parish_secretary';
+  const isParish = userProfile?.role === 'parish';
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const toggleMobileSidebar = () => {

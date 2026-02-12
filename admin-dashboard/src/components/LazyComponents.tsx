@@ -131,7 +131,7 @@ export const loadComponentsByRole = (userRole: string) => {
       preloadComponent(() => import('../pages/TalibonDashboard'));
       preloadComponent(() => import('./CreateParishAccountModal'));
       break;
-    case 'parish_secretary':
+    case 'parish':
       preloadComponent(() => import('../pages/ParishDashboard'));
       preloadComponent(() => import('./forms/OptimizedChurchForm'));
       break;

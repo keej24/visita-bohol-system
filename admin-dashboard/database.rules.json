@@ -2,14 +2,14 @@
   "rules": {
     "churches": {
       ".read": true,
-      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary' || auth.token.role == 'museum_researcher')"
+      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish' || auth.token.role == 'museum_researcher')"
     },
     "announcements": {
       ".read": true,
-      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary')"
+      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish')"
     },
     "heritage_validations": {
-      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary' || auth.token.role == 'museum_researcher')",
+      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish' || auth.token.role == 'museum_researcher')",
       ".write": "auth != null && auth.token.role == 'museum_researcher'"
     },
     "heritage_churches": {
@@ -19,7 +19,7 @@
     "feedback": {
       ".read": "auth != null",
       "$feedbackId": {
-        ".write": "auth != null && (!data.exists() || auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary')",
+        ".write": "auth != null && (!data.exists() || auth.token.role == 'chancery_office' || auth.token.role == 'parish')",
         "userId": {
           ".validate": "auth != null && newData.val() == auth.uid"
         },
@@ -42,11 +42,11 @@
       ".write": "auth != null && auth.token.role == 'chancery_office'"
     },
     "reports": {
-      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary' || auth.token.role == 'museum_researcher')",
-      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary')"
+      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish' || auth.token.role == 'museum_researcher')",
+      ".write": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish')"
     },
     "analytics": {
-      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish_secretary' || auth.token.role == 'museum_researcher')",
+      ".read": "auth != null && (auth.token.role == 'chancery_office' || auth.token.role == 'parish' || auth.token.role == 'museum_researcher')",
       ".write": "auth != null && auth.token.role == 'chancery_office'"
     },
     "$other": {

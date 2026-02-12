@@ -36,6 +36,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { ChurchInfo, MassSchedule } from './types';
+import { PriestHistoryManager } from './PriestHistoryManager';
 import { VirtualTourManager } from '../360/VirtualTourManager';
 import PhotoUploader from './PhotoUploader';
 import DocumentUploader from './DocumentUploader';
@@ -138,13 +139,16 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     
     // Current Parish Operations
     currentParishPriest: initialData?.currentParishPriest || '',
+    priestHistory: initialData?.priestHistory || [],
     feastDay: initialData?.feastDay || '',
     massSchedules: initialData?.massSchedules || [],
     contactInfo: {
       phone: initialData?.contactInfo?.phone || '+63 ',
       email: initialData?.contactInfo?.email || '',
       website: initialData?.contactInfo?.website || '',
-      facebookPage: initialData?.contactInfo?.facebookPage || ''
+      facebookPage: initialData?.contactInfo?.facebookPage || '',
+      phones: initialData?.contactInfo?.phones || ['+63 '],
+      emails: initialData?.contactInfo?.emails || ['']
     },
     
     // Media Collections
@@ -372,9 +376,13 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         if (!value || !String(value).trim()) return '';
         const phoneRegex = /^[\d\s\-()+ ]+$/;
         if (!phoneRegex.test(String(value))) return 'Phone number contains invalid characters';
-        const digitCount = String(value).replace(/\D/g, '').length;
+        const allDigits = String(value).replace(/\D/g, '');
+        const digitCount = allDigits.length;
         // With +63 prefix (2 digits) + 10 digits (9XX-XXX-XXXX) = 12 total
         if (digitCount !== 12) return 'Please enter 10 digits after +63 (e.g., +63 9XX-XXX-XXXX)';
+        // Check for all zeros after stripping the +63 country code
+        const digitsAfterCode = allDigits.startsWith('63') ? allDigits.substring(2) : allDigits;
+        if (/^0+$/.test(digitsAfterCode)) return 'Phone number cannot be all zeros';
         return '';
       }
       case 'email': {
@@ -463,6 +471,151 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     if (touchedFields.has(field)) {
       updateFieldError(field, value);
     }
+  };
+
+  // Multiple contact phone management
+  const addContactPhone = () => {
+    setFormData(prev => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        phones: [...(prev.contactInfo.phones || []), '+63 ']
+      }
+    }));
+  };
+
+  const removeContactPhone = (index: number) => {
+    setFormData(prev => {
+      const phones = prev.contactInfo.phones || [];
+      if (phones.length <= 1) return prev;
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          phones: phones.filter((_, i) => i !== index),
+          // Keep primary phone in sync with first phone
+          phone: index === 0 && phones.length > 1 ? phones[1] : prev.contactInfo.phone
+        }
+      };
+    });
+  };
+
+  const updateContactPhone = (index: number, value: string) => {
+    // Ensure +63 prefix is maintained
+    const newValue = !value.startsWith('+63') 
+      ? '+63 ' + value.replace(/^\+63\s*/, '')
+      : value;
+    
+    setFormData(prev => {
+      const phones = [...(prev.contactInfo.phones || [])];
+      phones[index] = newValue;
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          phones,
+          // Keep primary phone in sync with first phone
+          phone: index === 0 ? newValue : prev.contactInfo.phone
+        }
+      };
+    });
+  };
+
+  // Multiple contact email management
+  const addContactEmail = () => {
+    setFormData(prev => ({
+      ...prev,
+      contactInfo: {
+        ...prev.contactInfo,
+        emails: [...(prev.contactInfo.emails || []), '']
+      }
+    }));
+  };
+
+  const removeContactEmail = (index: number) => {
+    setFormData(prev => {
+      const emails = prev.contactInfo.emails || [];
+      if (emails.length <= 1) return prev;
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          emails: emails.filter((_, i) => i !== index),
+          // Keep primary email in sync with first email
+          email: index === 0 && emails.length > 1 ? emails[1] : prev.contactInfo.email
+        }
+      };
+    });
+  };
+
+  const updateContactEmail = (index: number, value: string) => {
+    setFormData(prev => {
+      const emails = [...(prev.contactInfo.emails || [])];
+      emails[index] = value;
+      return {
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          emails,
+          // Keep primary email in sync with first email
+          email: index === 0 ? value : prev.contactInfo.email
+        }
+      };
+    });
+  };
+
+  // Email validation helper
+  const isValidEmail = (email: string) => {
+    if (!email || email.trim() === '') return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Phone validation helper
+  const isValidPhone = (phone: string) => {
+    if (!phone || phone.trim() === '' || phone.trim() === '+63' || phone.trim() === '+63 ') return true;
+    
+    // Remove all non-digit characters except +
+    const digitsOnly = phone.replace(/[^\d]/g, '');
+    
+    // Check for all zeros after stripping +63 country code (invalid)
+    const digitsAfterCode = digitsOnly.startsWith('63') ? digitsOnly.substring(2) : digitsOnly;
+    if (/^0+$/.test(digitsAfterCode)) return false;
+    
+    // Check for Philippine format: should have 10-12 digits after cleaning
+    // +63 9XX XXX XXXX = 12 digits, 09XX XXX XXXX = 11 digits, 9XX XXX XXXX = 10 digits
+    if (digitsOnly.length < 10 || digitsOnly.length > 13) return false;
+    
+    // Basic format validation
+    const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
+  // Get phone validation error message
+  const getPhoneValidationError = (phone: string): string | null => {
+    if (!phone || phone.trim() === '' || phone.trim() === '+63' || phone.trim() === '+63 ') return null;
+    
+    const digitsOnly = phone.replace(/[^\d]/g, '');
+    
+    // Strip +63 country code before checking for all zeros
+    const digitsAfterCode = digitsOnly.startsWith('63') ? digitsOnly.substring(2) : digitsOnly;
+    if (/^0+$/.test(digitsAfterCode)) {
+      return 'Phone number cannot be all zeros';
+    }
+    
+    if (digitsOnly.length < 10) {
+      return 'Phone number is too short (minimum 10 digits)';
+    }
+    
+    if (digitsOnly.length > 13) {
+      return 'Phone number is too long (maximum 13 digits)';
+    }
+    
+    if (!isValidPhone(phone)) {
+      return 'Invalid phone number format';
+    }
+    
+    return null;
   };
 
   const updateCoordinates = (lat: number, lng: number) => {
@@ -1106,22 +1259,38 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       validationErrors.push("Current Parish Priest is required");
     }
 
-    // Contact Information validation
-    if (formData.contactInfo.phone && formData.contactInfo.phone.trim()) {
-      const phoneRegex = /^[\d\s\-()+]+$/;
-      if (!phoneRegex.test(formData.contactInfo.phone)) {
-        validationErrors.push("Phone number contains invalid characters");
+    // Contact Information validation - validate all phones in the array
+    const phones = formData.contactInfo.phones || [];
+    for (let i = 0; i < phones.length; i++) {
+      const phone = phones[i];
+      const error = getPhoneValidationError(phone);
+      if (error) {
+        validationErrors.push(`Phone #${i + 1}: ${error}`);
       }
-      const digitCount = formData.contactInfo.phone.replace(/\D/g, '').length;
-      // With +63 prefix (2 digits) + 10 digits (9XX-XXX-XXXX) = 12 total
-      if (digitCount !== 12) {
-        validationErrors.push("Please enter 10 digits after +63 (e.g., +63 9XX-XXX-XXXX)");
+    }
+    
+    // Also validate legacy single phone field for backward compatibility
+    if (formData.contactInfo.phone && formData.contactInfo.phone.trim() && 
+        formData.contactInfo.phone.trim() !== '+63' && formData.contactInfo.phone.trim() !== '+63 ') {
+      const error = getPhoneValidationError(formData.contactInfo.phone);
+      if (error && !phones.length) {
+        validationErrors.push(error);
       }
     }
 
+    // Validate all emails in the array
+    const emails = formData.contactInfo.emails || [];
+    for (let i = 0; i < emails.length; i++) {
+      const email = emails[i];
+      if (email && email.trim() && !isValidEmail(email)) {
+        validationErrors.push(`Email #${i + 1}: Invalid email format`);
+      }
+    }
+    
+    // Also validate legacy single email field for backward compatibility
     if (formData.contactInfo.email && formData.contactInfo.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.contactInfo.email)) {
+      if (!emailRegex.test(formData.contactInfo.email) && !emails.length) {
         validationErrors.push("Invalid email format");
       }
     }
@@ -1714,6 +1883,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                         <SelectContent>
                           <SelectItem value="Baroque">Baroque</SelectItem>
                           <SelectItem value="Neo-Gothic">Neo-Gothic</SelectItem>
+                          <SelectItem value="Romanesque">Romanesque</SelectItem>
                           <SelectItem value="Byzantine">Byzantine</SelectItem>
                           <SelectItem value="Neo-Classical">Neo-Classical</SelectItem>
                           <SelectItem value="Modern">Modern</SelectItem>
@@ -1897,43 +2067,39 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     </div>
                   </div>
 
-                  {/* Parish Priest */}
-                  <div className="space-y-2">
-                    <Label htmlFor="currentParishPriest" className="text-sm font-medium text-gray-700">
-                      Current Parish Priest <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="currentParishPriest"
-                      value={formData.currentParishPriest}
-                      onChange={(e) => updateBasicField('currentParishPriest', e.target.value)}
-                      onBlur={() => {
-                        markFieldTouched('currentParishPriest');
-                        updateFieldError('currentParishPriest', formData.currentParishPriest);
-                      }}
-                      placeholder="Rev. Fr. [Full Name]"
-                      className={`h-11 ${getFieldError('currentParishPriest') ? 'border-red-500 focus:ring-red-500' : ''}`}
-                    />
-                    {getFieldError('currentParishPriest') && (
-                      <p className="text-sm text-red-500">{getFieldError('currentParishPriest')}</p>
-                    )}
-                  </div>
-
-                  {/* Feast Day */}
-                  <div className="space-y-2">
-                    <Label htmlFor="feastDay" className="text-sm font-medium text-gray-700">
-                      Feast Day
-                    </Label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="feastDay"
-                        value={formData.feastDay || ''}
-                        onChange={(e) => updateBasicField('feastDay', e.target.value)}
-                        placeholder="e.g., December 8, August 15"
-                        className="h-11 pl-10"
+                  {/* Parish Priest and Feast Day - 2-column grid */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Parish Priest with History */}
+                    <div>
+                      <PriestHistoryManager
+                        currentPriest={formData.currentParishPriest}
+                        priestHistory={formData.priestHistory || []}
+                        onUpdateCurrentPriest={(name) => updateBasicField('currentParishPriest', name)}
+                        onUpdateHistory={(history) => setFormData(prev => ({ ...prev, priestHistory: history }))}
+                        disabled={isMuseumResearcher}
                       />
+                      {getFieldError('currentParishPriest') && (
+                        <p className="text-xs text-red-500 mt-1">{getFieldError('currentParishPriest')}</p>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500">The feast day of your parish patron saint</p>
+
+                    {/* Feast Day */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="feastDay" className="text-sm font-medium text-gray-700">
+                        Feast Day
+                      </Label>
+                      <div className="relative">
+                        <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        <Input
+                          id="feastDay"
+                          value={formData.feastDay || ''}
+                          onChange={(e) => updateBasicField('feastDay', e.target.value)}
+                          placeholder="e.g., December 8"
+                          className="h-9 pl-8 text-sm"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500">Parish patron saint feast day</p>
+                    </div>
                   </div>
 
                   <Separator />
@@ -1950,61 +2116,110 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       )}
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-6">
+                    {/* Contact Fields in 2-column grid */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* Phone Numbers Column */}
                       <div className="space-y-2">
-                        <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                          Phone Number
-                        </Label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="phone"
-                            value={formData.contactInfo.phone}
-                            onChange={(e) => {
-                              // Ensure +63 prefix is maintained
-                              const value = e.target.value;
-                              const newValue = !value.startsWith('+63') 
-                                ? '+63 ' + value.replace(/^\+63\s*/, '')
-                                : value;
-                              updateContactField('phone', newValue);
-                            }}
-                            onBlur={() => {
-                              markFieldTouched('phone');
-                              updateFieldError('phone', formData.contactInfo.phone);
-                            }}
-                            placeholder="9XX XXX XXXX"
-                            className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''} ${getFieldError('phone') ? 'border-red-500 focus:ring-red-500' : ''}`}
-                            disabled={isChanceryEdit}
-                          />
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5" />
+                            Phone Numbers
+                          </Label>
+                          {!isChanceryEdit && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={addContactPhone}
+                              className="h-6 px-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            >
+                              <Plus className="h-3 w-3 mr-1" /> Add
+                            </Button>
+                          )}
                         </div>
-                        {getFieldError('phone') && (
-                          <p className="text-sm text-red-500">{getFieldError('phone')}</p>
-                        )}
+                        <div className="space-y-1.5">
+                          {(formData.contactInfo.phones || ['+63 ']).map((phone, index) => (
+                            <div key={`phone-${index}`} className="space-y-1">
+                              <div className="flex gap-1">
+                                <div className="relative flex-1">
+                                  <Phone className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                  <Input
+                                    value={phone}
+                                    onChange={(e) => updateContactPhone(index, e.target.value)}
+                                    onBlur={() => markFieldTouched(`phone-${index}`)}
+                                    placeholder="9XX XXX XXXX"
+                                    className={`h-9 pl-8 text-sm ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''} ${getPhoneValidationError(phone) ? 'border-red-500 focus:ring-red-500' : ''}`}
+                                    disabled={isChanceryEdit}
+                                  />
+                                </div>
+                                {!isChanceryEdit && (formData.contactInfo.phones?.length || 1) > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeContactPhone(index)}
+                                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                              {getPhoneValidationError(phone) && (
+                                <p className="text-xs text-red-500 pl-1">{getPhoneValidationError(phone)}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
+                      {/* Email Addresses Column */}
                       <div className="space-y-2">
-                        <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                          Email Address
-                        </Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input
-                            id="email"
-                            type="email"
-                            value={formData.contactInfo.email}
-                            onChange={(e) => updateContactField('email', e.target.value)}
-                            onBlur={() => {
-                              markFieldTouched('email');
-                              updateFieldError('email', formData.contactInfo.email);
-                            }}
-                            placeholder="parish@church.com"
-                            className={`h-11 pl-10 ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''} ${getFieldError('email') ? 'border-red-500 focus:ring-red-500' : ''}`}
-                            disabled={isChanceryEdit}
-                          />
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                            <Mail className="w-3.5 h-3.5" />
+                            Email Addresses
+                          </Label>
+                          {!isChanceryEdit && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={addContactEmail}
+                              className="h-6 px-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            >
+                              <Plus className="h-3 w-3 mr-1" /> Add
+                            </Button>
+                          )}
                         </div>
-                        {getFieldError('email') && (
-                          <p className="text-sm text-red-500">{getFieldError('email')}</p>
-                        )}
+                        <div className="space-y-1.5">
+                          {(formData.contactInfo.emails || ['']).map((email, index) => (
+                            <div key={`email-${index}`} className="flex gap-1">
+                              <div className="relative flex-1">
+                                <Mail className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                <Input
+                                  type="email"
+                                  value={email}
+                                  onChange={(e) => updateContactEmail(index, e.target.value)}
+                                  onBlur={() => markFieldTouched(`email-${index}`)}
+                                  placeholder="parish@church.com"
+                                  className={`h-9 pl-8 text-sm ${isChanceryEdit ? 'bg-gray-100 cursor-not-allowed' : ''} ${email && !isValidEmail(email) ? 'border-red-500 focus:ring-red-500' : ''}`}
+                                  disabled={isChanceryEdit}
+                                />
+                              </div>
+                              {!isChanceryEdit && (formData.contactInfo.emails?.length || 1) > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeContactEmail(index)}
+                                  className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -37,6 +37,7 @@ import {
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { AuditService } from './auditService';
+import { notifyChancellorPendingApproval } from '@/lib/notifications';
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
 import type { TermStats } from '@/types/audit';
 
@@ -133,7 +134,9 @@ export async function registerChancellor(
       throw firestoreError; // Re-throw to be caught by outer handler
     }
 
-    // Log the registration BEFORE signing out (while still authenticated)
+    // Run audit log, active chancellor lookup + notification, and sign-out in parallel
+    // All of these are independent and non-critical (except sign-out)
+    // IMPORTANT: All Firestore queries happen BEFORE sign-out since they run concurrently
     const registrationProfile: UserProfile = {
       uid: user.uid,
       email: data.email.toLowerCase(),
@@ -145,8 +148,9 @@ export async function registerChancellor(
       lastLoginAt: new Date(),
     };
 
-    try {
-      await AuditService.logAction(
+    await Promise.all([
+      // 1. Audit log (non-critical)
+      AuditService.logAction(
         registrationProfile,
         'chancellor.register',
         'user',
@@ -158,15 +162,47 @@ export async function registerChancellor(
             position: data.position || 'Chancellor',
           },
         }
-      );
-    } catch (auditError) {
-      // Audit logging failure shouldn't block registration
-      console.warn('[ChancellorService] Audit logging failed (non-critical):', auditError);
-    }
+      ).catch(auditError => {
+        console.warn('[ChancellorService] Audit logging failed (non-critical):', auditError);
+      }),
 
-    // Sign out AFTER all writes are complete
-    await auth.signOut();
-    console.log('[ChancellorService] User signed out after successful registration');
+      // 2. Look up current active chancellor + send notification (non-critical)
+      (async () => {
+        try {
+          let currentChancellorUid: string | undefined;
+          try {
+            const activeChancellorQuery = query(
+              collection(db, 'users'),
+              where('role', '==', 'chancery_office'),
+              where('diocese', '==', data.diocese),
+              where('status', '==', 'active')
+            );
+            const activeChancellorSnap = await getDocs(activeChancellorQuery);
+            if (!activeChancellorSnap.empty) {
+              currentChancellorUid = activeChancellorSnap.docs[0].id;
+              console.log('[ChancellorService] Found current chancellor UID:', currentChancellorUid);
+            }
+          } catch (lookupError) {
+            console.warn('[ChancellorService] Could not look up current chancellor (non-critical):', lookupError);
+          }
+
+          await notifyChancellorPendingApproval({
+            name: data.name,
+            email: data.email,
+            diocese: data.diocese,
+            uid: user.uid,
+            currentChancellorUid,
+          });
+        } catch (notificationError) {
+          console.warn('[ChancellorService] Notification failed (non-critical):', notificationError);
+        }
+      })(),
+
+      // 3. Sign out
+      auth.signOut().then(() => {
+        console.log('[ChancellorService] User signed out after successful registration');
+      }),
+    ]);
 
     return {
       success: true,

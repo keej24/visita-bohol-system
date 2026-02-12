@@ -442,13 +442,15 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
           {/* Profile Picture & Basic Info */}
           <div className="flex items-center gap-6">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {profileData.parishName.substring(0, 2).toUpperCase()}
+              {(userProfile?.name || profileData.parishName).substring(0, 2).toUpperCase()}
             </div>
             <div>
               <h3 className="text-lg font-semibold">
-                {profileData.parishName}
+                {userProfile?.name || profileData.parishName}
               </h3>
-              <p className="text-gray-600">Parish Account</p>
+              <p className="text-gray-600">
+                {userProfile?.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary'}
+              </p>
               <div className="flex items-center gap-1 mt-1">
                 <Church className="w-4 h-4 text-gray-500" />
                 <span className="text-sm text-gray-600">{profileData.diocese}</span>
@@ -456,10 +458,54 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
             </div>
           </div>
 
-          {/* Account Information Section */}
+          {/* Personal Information Section */}
           <div className="space-y-4">
             <h4 className="font-medium text-gray-900 flex items-center gap-2">
               <User className="w-4 h-4" />
+              Personal Information
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label>Full Name</Label>
+                <Input
+                  value={userProfile?.name || ''}
+                  disabled
+                  className="mt-1 bg-gray-50"
+                />
+              </div>
+              <div>
+                <Label>Position</Label>
+                <Input
+                  value={userProfile?.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary'}
+                  disabled
+                  className="mt-1 bg-gray-50"
+                />
+              </div>
+              {userProfile?.parishInfo?.municipality && (
+                <div>
+                  <Label>Municipality</Label>
+                  <Input
+                    value={userProfile.parishInfo.municipality}
+                    disabled
+                    className="mt-1 bg-gray-50"
+                  />
+                </div>
+              )}
+              <div>
+                <Label>Account Created</Label>
+                <Input
+                  value={userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                  disabled
+                  className="mt-1 bg-gray-50"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Parish Information Section */}
+          <div className="space-y-4">
+            <h4 className="font-medium text-gray-900 flex items-center gap-2">
+              <Church className="w-4 h-4" />
               Parish Information
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

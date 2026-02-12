@@ -46,7 +46,7 @@ const sampleData = {
       uid: 'parish_baclayon_001',
       email: 'secretary@baclayon.church',
       name: 'Sister Catherine Cruz',
-      role: 'parish_secretary',
+      role: 'parish',
       diocese: 'tagbilaran',
       parish: 'Baclayon Church',
       isActive: true,

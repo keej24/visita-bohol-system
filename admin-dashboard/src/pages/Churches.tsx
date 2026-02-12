@@ -11,7 +11,7 @@
  * USER ROLES:
  * - chancery_office: Full access - view, approve, forward to museum, delete
  * - museum_researcher: Read-only view of heritage churches for validation
- * - parish_secretary: Can see "Add New Church" button (redirects to ParishDashboard)
+ * - parish: Can see "Add New Church" button (redirects to ParishDashboard)
  *
  * PAGE FEATURES:
  * 1. Search bar for finding churches by name/location/description
@@ -186,7 +186,8 @@ const Churches = () => {
         'Baroque': 'baroque',
         'Neo-Gothic': 'gothic',
         'Gothic': 'gothic',
-        'Byzantine': 'romanesque',
+        'Byzantine': 'byzantine',
+        'Romanesque': 'romanesque',
         'Neo-Classical': 'neoclassical',
         'Modern': 'modern',
         'Mixed': 'mixed',
@@ -229,6 +230,7 @@ const Churches = () => {
         })
       },
       assignedPriest: data.currentParishPriest || '',
+      priestHistory: data.priestHistory || [],
       feastDay: data.feastDay || '',
       massSchedules: (data.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
@@ -368,7 +370,7 @@ const Churches = () => {
   };
 
   const canManageChurch = userProfile?.role === 'chancery_office' || userProfile?.role === 'museum_researcher';
-  const canCreateChurch = userProfile?.role === 'parish_secretary';
+  const canCreateChurch = userProfile?.role === 'parish';
 
   // Convert Church type from @/types/church to @/lib/churches format for the modal
   // Returns extended Church object with additional fields for UI display

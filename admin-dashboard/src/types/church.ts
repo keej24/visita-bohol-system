@@ -1,6 +1,6 @@
 export type ChurchStatus = 'draft' | 'pending' | 'approved' | 'under_review' | 'heritage_review';
 export type ChurchClassification = 'ICP' | 'NCT' | 'non_heritage' | 'parish_church' | 'pilgrimage_site' | 'historical_shrine';
-export type ArchitecturalStyle = 'baroque' | 'gothic' | 'romanesque' | 'neoclassical' | 'modern' | 'mixed' | 'other';
+export type ArchitecturalStyle = 'baroque' | 'gothic' | 'romanesque' | 'byzantine' | 'neoclassical' | 'modern' | 'mixed' | 'other';
 export type ReligiousClassification = 'diocesan_shrine' | 'jubilee_church' | 'papal_basilica_affinity' | 'none';
 
 // Church document interface
@@ -39,6 +39,15 @@ export interface MassSchedule {
   isFbLive?: boolean; // Whether the mass is live-streamed on Facebook
 }
 
+// Parish priest assignment record for historical tracking
+export interface PriestAssignment {
+  name: string;         // Full name of the priest (e.g., "Rev. Fr. Juan Dela Cruz")
+  startDate: string;    // ISO date string or year (e.g., "2020-06-15" or "2020")
+  endDate?: string;     // ISO date string or year; undefined means currently assigned
+  isCurrent: boolean;   // Whether this is the active/current assignment
+  notes?: string;       // Optional notes (e.g., reason for reassignment)
+}
+
 export interface Church {
   id: string;
   name: string;
@@ -54,7 +63,8 @@ export interface Church {
   description: string;
   classification: ChurchClassification;
   religiousClassification?: ReligiousClassification;
-  assignedPriest?: string;
+  assignedPriest?: string;  // Current priest name (kept for backward compatibility)
+  priestHistory?: PriestAssignment[];  // Historical record of all priest assignments
   feastDay?: string; // Feast day of the parish patron saint (e.g., "December 8")
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;
@@ -103,6 +113,20 @@ export interface Church {
 
   // Parish association
   parishId?: string;
+
+  // Pending changes system - staged updates awaiting approval
+  // When a parish updates an approved church's sensitive fields,
+  // changes are stored here until Chancery (and Museum for heritage) approves
+  pendingChanges?: {
+    data: Partial<ChurchFormData>;  // The proposed changes
+    submittedAt: Date;              // When the update was submitted
+    submittedBy: string;            // User ID who submitted
+    changedFields: string[];        // List of fields that were modified
+    forwardedToMuseum?: boolean;    // True when Chancery forwarded heritage changes to Museum
+    forwardedAt?: Date;             // When the changes were forwarded
+    forwardedBy?: string;           // User ID who forwarded
+  };
+  hasPendingChanges?: boolean;      // Quick filter flag for queries
 }
 
 export interface ChurchFormData {
@@ -122,6 +146,7 @@ export interface ChurchFormData {
     religiousClassifications?: string[];
   };
   assignedPriest?: string;
+  priestHistory?: PriestAssignment[];  // Historical record of all priest assignments
   feastDay?: string; // Feast day of the parish patron saint
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;

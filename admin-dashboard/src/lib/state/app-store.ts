@@ -9,7 +9,7 @@ export interface User {
   uid: string;
   email: string;
   displayName: string;
-  role: 'chancery_office' | 'parish_secretary' | 'museum_researcher' | 'admin';
+  role: 'chancery_office' | 'parish' | 'museum_researcher' | 'admin';
   diocese: 'tagbilaran' | 'talibon';
   permissions: string[];
   isActive: boolean;

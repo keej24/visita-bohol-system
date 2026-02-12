@@ -80,10 +80,10 @@ async function checkPendingUsers() {
       console.log('');
     });
 
-    // Query 4: All parish_secretary users
-    console.log('\n--- Query: All parish_secretary users ---');
+    // Query 4: All parish users
+    console.log('\n--- Query: All parish users ---');
     const parishQuery = await db.collection('users')
-      .where('role', '==', 'parish_secretary')
+      .where('role', '==', 'parish')
       .get();
     
     console.log(`Found ${parishQuery.size} parish secretary users:\n`);

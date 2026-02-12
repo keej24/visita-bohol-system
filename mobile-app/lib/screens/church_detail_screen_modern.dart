@@ -66,8 +66,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../models/church.dart';
+import '../services/proximity_detection_service.dart';
+import '../services/visitor_validation_service.dart';
+import '../services/auth_service.dart';
 import '../models/app_state.dart';
 import '../models/enums.dart';
 import '../services/profile_service.dart';
@@ -107,6 +111,12 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
   bool _showFAB = true;
   late Church _currentChurch;
 
+  // ── Auto-visit proximity detection ──
+  final ProximityDetectionService _proximityService =
+      ProximityDetectionService();
+  bool _isProximityListening = false;
+  bool _autoVisitTriggered = false;
+
   @override
   void initState() {
     super.initState();
@@ -117,6 +127,8 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
     // This ensures buttons show correct state even if user navigates quickly
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncStateWithProfile();
+      // Start auto-visit proximity detection (foreground only)
+      _startProximityDetection();
     });
   }
 
@@ -164,8 +176,199 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
 
   @override
   void dispose() {
+    _proximityService.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // AUTO-VISIT PROXIMITY DETECTION
+  // ════════════════════════════════════════════════════════════════════════
+
+  /// Starts a GPS stream that auto-marks the church as visited when the
+  /// user enters the 200 m proximity radius.
+  ///
+  /// Preconditions checked here:
+  /// - Not running on web
+  /// - User is authenticated (not a guest)
+  /// - Church is not already visited
+  /// - Church has coordinates
+  /// - Location permission is already granted (does NOT prompt)
+  Future<void> _startProximityDetection() async {
+    // Platform guard — no GPS stream on web
+    if (kIsWeb) return;
+
+    // Guest check — don't burn battery for unauthenticated users
+    try {
+      final authService = context.read<AuthService>();
+      if (!authService.isRegisteredUser) {
+        debugPrint('📍 AutoVisit: Skipping — user is a guest');
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+
+    // Already visited — nothing to detect
+    final appState = context.read<AppState>();
+    if (appState.isVisited(_currentChurch)) {
+      debugPrint('📍 AutoVisit: Skipping — church already visited');
+      return;
+    }
+
+    // No coordinates — can't do proximity check
+    if (_currentChurch.latitude == null || _currentChurch.longitude == null) {
+      debugPrint('📍 AutoVisit: Skipping — church has no coordinates');
+      return;
+    }
+
+    // Only start if location permission is already granted.
+    // We do NOT prompt here — that would be intrusive on screen open.
+    final permission = await Geolocator.checkPermission();
+    if (permission != LocationPermission.whileInUse &&
+        permission != LocationPermission.always) {
+      debugPrint('📍 AutoVisit: Skipping — location permission not granted');
+      return;
+    }
+
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      debugPrint('📍 AutoVisit: Skipping — location services disabled');
+      return;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isProximityListening = true;
+    });
+
+    _proximityService.startListening(
+      church: _currentChurch,
+      onAutoVisitDetected: (position, result) async {
+        await _handleAutoVisit(position, result);
+      },
+      onError: (error) {
+        debugPrint('📍 AutoVisit: Stream error — $error');
+        if (mounted) {
+          setState(() {
+            _isProximityListening = false;
+          });
+        }
+      },
+    );
+  }
+
+  /// Called by ProximityDetectionService when user enters the church radius.
+  /// Performs the same persistence as the manual button but with
+  /// auto-dismiss success feedback.
+  Future<void> _handleAutoVisit(
+      Position position, ValidationResult result) async {
+    if (!mounted) return;
+
+    final appState = context.read<AppState>();
+
+    // Double-check — another trigger may have beaten us
+    if (appState.isVisited(_currentChurch)) return;
+
+    setState(() {
+      _autoVisitTriggered = true;
+      _isProximityListening = false;
+    });
+
+    // Persist the visit using the same pipeline as the manual button
+    await appState.markVisitedWithValidation(_currentChurch, position);
+
+    if (!mounted) return;
+
+    // Show a celebratory auto-dismiss dialog
+    _showAutoVisitSuccessDialog();
+  }
+
+  /// Shows a brief success dialog when auto-visit triggers.
+  void _showAutoVisitSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        // Auto-dismiss after 3 seconds
+        Future.delayed(const Duration(seconds: 3), () {
+          if (ctx.mounted && Navigator.of(ctx).canPop()) {
+            Navigator.of(ctx).pop();
+          }
+        });
+
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Success icon with animated container
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: Color(0xFF4CAF50),
+                    size: 48,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Visit Recorded!',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You\'re at ${_currentChurch.name}. '
+                  'Your visit has been automatically recorded.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF6B7280),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2C5F2D),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Great!',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _refreshChurchData() async {
@@ -940,6 +1143,7 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
   }
 
   /// Modern Floating Action Button with scroll-aware visibility
+  /// and proximity detection indicator
   Widget _buildMarkVisitedFAB(BuildContext context) {
     return AnimatedSlide(
       duration: const Duration(milliseconds: 200),
@@ -951,12 +1155,34 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
           builder: (context, state, _) {
             final visited = state.isVisited(_currentChurch);
 
+            // Determine FAB appearance based on state
+            final Color bgColor;
+            final IconData icon;
+            final String label;
+
+            if (visited || _autoVisitTriggered) {
+              bgColor = const Color(0xFF4CAF50);
+              icon = Icons.check_circle;
+              label = 'Visited';
+            } else if (_isMarkingVisited) {
+              bgColor = const Color(0xFF2C5F2D);
+              icon = Icons.check_circle_outline;
+              label = 'Verifying...';
+            } else if (_isProximityListening) {
+              bgColor = const Color(0xFF2C5F2D);
+              icon = Icons.near_me;
+              label = 'Detecting...';
+            } else {
+              bgColor = const Color(0xFF2C5F2D);
+              icon = Icons.check_circle_outline;
+              label = 'Mark Visited';
+            }
+
             return FloatingActionButton.extended(
               onPressed: _isMarkingVisited
                   ? null
                   : () => _handleMarkAsVisited(context, state),
-              backgroundColor:
-                  visited ? const Color(0xFF4CAF50) : const Color(0xFF2C5F2D),
+              backgroundColor: bgColor,
               foregroundColor: Colors.white,
               elevation: 6,
               extendedPadding: const EdgeInsets.symmetric(horizontal: 24),
@@ -969,11 +1195,9 @@ class _ChurchDetailScreenState extends State<ChurchDetailScreen>
                         color: Colors.white,
                       ),
                     )
-                  : Icon(
-                      visited ? Icons.check_circle : Icons.check_circle_outline,
-                      size: 24),
+                  : Icon(icon, size: 24),
               label: Text(
-                visited ? 'Visited' : 'Mark Visited',
+                label,
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,

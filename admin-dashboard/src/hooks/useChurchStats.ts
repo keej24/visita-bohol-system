@@ -11,6 +11,7 @@ interface ChurchStats {
   activeUsers: number;
   heritageCount: number;
   pendingCount: number;
+  pendingUpdatesCount: number;
   approvedCount: number;
   churchesByStatus: Record<ChurchStatus, Church[]>;
   isLoading: boolean;
@@ -78,6 +79,7 @@ export function useChurchStats(diocese: Diocese): ChurchStats {
         activeUsers: activeUsersCount || 0,
         heritageCount: 0,
         pendingCount: 0,
+        pendingUpdatesCount: 0,
         approvedCount: 0,
         churchesByStatus: {} as Record<ChurchStatus, Church[]>,
       };
@@ -99,6 +101,11 @@ export function useChurchStats(diocese: Diocese): ChurchStats {
       pendingStatuses.includes(c.status)
     ).length;
 
+    // Count approved churches with staged field changes awaiting review
+    const pendingUpdatesCount = churches.filter(
+      (c) => c.hasPendingChanges === true
+    ).length;
+
     const approvedCount = churches.filter((c) => c.status === 'approved').length;
 
     return {
@@ -107,6 +114,7 @@ export function useChurchStats(diocese: Diocese): ChurchStats {
       activeUsers: activeUsersCount || 0,
       heritageCount,
       pendingCount,
+      pendingUpdatesCount,
       approvedCount,
       churchesByStatus,
     };

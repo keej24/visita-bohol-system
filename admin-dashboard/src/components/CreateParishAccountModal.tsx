@@ -53,12 +53,12 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
       console.log('🔍 Checking for duplicates:', { name, mun, diocese, generatedParishId: parishId });
       console.log('🎯 Target parish ID we are looking for:', parishId);
       
-      // Get ALL parish secretary accounts in this diocese
+      // Get ALL parish accounts in this diocese
       const allAccountsCheck = await getDocs(
         query(
           collection(db, 'users'),
           where('diocese', '==', diocese),
-          where('role', '==', 'parish_secretary')
+          where('role', '==', 'parish')
         )
       );
 
@@ -250,7 +250,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
         query(
           collection(db, 'users'),
           where('parishId', '==', parishId),
-          where('role', '==', 'parish_secretary'),
+          where('role', '==', 'parish'),
           where('status', '==', 'active')
         )
       );
@@ -277,7 +277,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
       await setDoc(doc(db, 'users', uid), {
         uid,
         email: emailLower,
-        role: 'parish_secretary',
+        role: 'parish',
         name: parishName,
         diocese,
         

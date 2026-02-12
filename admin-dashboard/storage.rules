@@ -25,6 +25,13 @@ service firebase.storage {
       return request.resource.contentType.matches('(application/pdf|image/.*|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document)');
     }
     
+    // Broader validation for the church import feature which accepts
+    // text, PDF, DOCX, images, and OCR sources. Also allows zip/octet-stream
+    // since some browsers report .docx files with those MIME types.
+    function isValidImportType() {
+      return request.resource.contentType.matches('(application/pdf|image/.*|application/msword|application/vnd.openxmlformats.*|text/.*|application/octet-stream|application/zip|application/x-zip-compressed)');
+    }
+    
     function isChanceryOffice() {
       return isAuthenticated() && getUserRole() == 'chancery_office';
     }
@@ -34,7 +41,7 @@ service firebase.storage {
     }
     
     function isParishSecretary() {
-      return isAuthenticated() && getUserRole() == 'parish_secretary';
+      return isAuthenticated() && getUserRole() == 'parish';
     }
     
     // Church images - publicly readable, restricted write
@@ -82,24 +89,26 @@ service firebase.storage {
     }
 
     // Church import files (document parsing)
+    // Note: The churchId in the storage path may not correspond to an existing
+    // Firestore document yet (e.g., during initial church creation). We validate
+    // access based on the user's role rather than cross-referencing the church
+    // document, since the Cloud Function uses admin SDK for actual processing.
     match /churches/{churchId}/imports/{fileId} {
-      // Restrict reads to authenticated staff in the same diocese
-      allow read: if (isParishSecretary() || isChanceryOffice()) &&
-                      firestore.get(/databases/(default)/documents/churches/$(churchId)).data.diocese == getUserDiocese();
+      // Restrict reads to authenticated parish staff and chancery office
+      // Cannot check diocese against church doc because the church may not exist yet
+      allow read: if isParishSecretary() || isChanceryOffice();
 
       // Parish secretaries and chancery can upload import documents
+      // Uses broader type check to support text, PDF, DOCX, and image imports
       allow write: if (isParishSecretary() || isChanceryOffice()) &&
-                      isValidDocumentType() &&
+                      isValidImportType() &&
                       request.resource.size < 20 * 1024 * 1024; // 20MB limit
     }
 
-    // Church import files before churchId is created (drafts)
-    match /churches/draft_{userId}/imports/{fileId} {
-      allow read, write: if isAuthenticated() &&
-                            request.auth.uid == userId &&
-                            isValidDocumentType() &&
-                            request.resource.size < 20 * 1024 * 1024; // 20MB limit
-    }
+    // Church import draft files (before churchId is assigned)
+    // Note: Draft paths (churches/draft_<uid>/imports/...) are covered by
+    // the general imports rule above for writes. The Cloud Function uses
+    // admin SDK for reads during parsing, so no client-side read rule needed.
     
     // Legacy document path - kept for backward compatibility
     match /documents/{churchId}/{documentId} {
@@ -191,6 +200,38 @@ service firebase.storage {
                       firestore.get(/databases/(default)/documents/announcements/$(announcementId)).data.diocese == getUserDiocese();
     }
     
+    // Diocese logos - for report branding
+    match /logos/diocese/{dioceseId}/{logoFile} {
+      // Public read access for logos (needed in reports)
+      allow read: if true;
+      
+      // Only chancery office can upload/update their diocese logo
+      allow write: if isChanceryOffice() &&
+                      getUserDiocese() == dioceseId &&
+                      isValidImageType() &&
+                      request.resource.size < 2 * 1024 * 1024; // 2MB limit for logos
+      
+      allow delete: if isChanceryOffice() && getUserDiocese() == dioceseId;
+    }
+    
+    // Parish logos - for report branding
+    match /logos/parish/{parishId}/{logoFile} {
+      // Public read access for logos (needed in reports)
+      allow read: if true;
+      
+      // Parish secretaries can upload their own parish logo
+      allow write: if isParishSecretary() &&
+                      isValidImageType() &&
+                      request.resource.size < 2 * 1024 * 1024; // 2MB limit for logos
+      
+      // Chancery office can manage any parish logo in their diocese
+      allow write: if isChanceryOffice() &&
+                      isValidImageType() &&
+                      request.resource.size < 2 * 1024 * 1024;
+      
+      allow delete: if isParishSecretary() || isChanceryOffice();
+    }
+
     // Report exports (PDF/Excel files)
     match /reports/{dioceseId}/exports/{reportId} {
       // Only chancery office can read/write reports for their diocese

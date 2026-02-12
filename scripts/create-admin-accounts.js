@@ -60,7 +60,7 @@ const parishAccounts = [
     password: 'BaclayonSecretary2024!',
     displayName: 'Baclayon Parish Secretary',
     profile: {
-      role: 'parish_secretary',
+      role: 'parish',
       name: 'Baclayon Parish Secretary',
       diocese: 'tagbilaran',
       parish: 'baclayon-church',
@@ -77,7 +77,7 @@ const parishAccounts = [
     password: 'LobocSecretary2024!',
     displayName: 'Loboc Parish Secretary',
     profile: {
-      role: 'parish_secretary',
+      role: 'parish',
       name: 'Loboc Parish Secretary',
       diocese: 'tagbilaran',
       parish: 'loboc-church',
@@ -94,7 +94,7 @@ const parishAccounts = [
     password: 'TalibonSecretary2024!',
     displayName: 'Talibon Cathedral Secretary',
     profile: {
-      role: 'parish_secretary',
+      role: 'parish',
       name: 'Talibon Cathedral Secretary',
       diocese: 'talibon',
       parish: 'talibon-cathedral',

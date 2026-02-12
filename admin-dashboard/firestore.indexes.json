@@ -5,6 +5,20 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "hasPendingChanges",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "pendingChanges.forwardedToMuseum",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "churches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "diocese",
           "order": "ASCENDING"
         },

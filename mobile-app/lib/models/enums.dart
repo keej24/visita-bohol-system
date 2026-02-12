@@ -11,6 +11,7 @@ enum ArchitecturalStyle {
   baroque,
   gothic,
   romanesque,
+  byzantine,
   neoclassical,
   modern,
   mixed,
@@ -118,6 +119,8 @@ extension ArchitecturalStyleX on ArchitecturalStyle {
         return 'Gothic';
       case ArchitecturalStyle.romanesque:
         return 'Romanesque';
+      case ArchitecturalStyle.byzantine:
+        return 'Byzantine';
       case ArchitecturalStyle.neoclassical:
         return 'Neoclassical';
       case ArchitecturalStyle.modern:
@@ -145,6 +148,8 @@ extension ArchitecturalStyleX on ArchitecturalStyle {
         return ArchitecturalStyle.neoGothic;
       case 'romanesque':
         return ArchitecturalStyle.romanesque;
+      case 'byzantine':
+        return ArchitecturalStyle.byzantine;
       case 'neoclassical':
       case 'neo-classical':
         return ArchitecturalStyle.neoclassical;

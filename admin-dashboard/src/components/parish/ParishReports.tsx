@@ -35,6 +35,7 @@ import { format, subMonths } from 'date-fns';
 import { AnalyticsService, AnalyticsData } from '@/services/analyticsService';
 import { PDFExportService } from '@/services/pdfExportService';
 import { ExcelExportService } from '@/services/excelExportService';
+import { ReportLogoManager } from '@/components/reports/ReportLogoManager';
 import {
   LineChart,
   Line,
@@ -57,11 +58,15 @@ import {
 interface ParishReportsProps {
   churchInfo: ChurchInfo;
   onClose: () => void;
+  userId?: string;
+  userRole?: 'chancery_office' | 'parish' | 'museum_researcher';
 }
 
 export const ParishReports: React.FC<ParishReportsProps> = ({
   churchInfo,
-  onClose
+  onClose,
+  userId = '',
+  userRole = 'parish',
 }) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('summary');
@@ -406,7 +411,10 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
           ExcelExportService.exportChurchSummary(summaryData);
         } else {
           // Export Church Summary as PDF
-          PDFExportService.exportChurchSummary(summaryData);
+          await PDFExportService.exportChurchSummary({
+            ...summaryData,
+            churchId: churchInfo.id,
+          });
         }
 
         toast({
@@ -470,7 +478,9 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
         await PDFExportService.exportAnalyticsReport(
           churchInfo.churchName,
           exportData,
-          dateRangeObj
+          dateRangeObj,
+          churchInfo.id,
+          churchInfo.diocese
         );
 
         toast({
@@ -575,6 +585,15 @@ export const ParishReports: React.FC<ParishReportsProps> = ({
           Back to Dashboard
         </Button>
       </div>
+
+      {/* Report Branding — Logo Upload */}
+      <ReportLogoManager
+        dioceseId={churchInfo.diocese || 'tagbilaran'}
+        parishId={churchInfo.id}
+        userId={userId}
+        userRole={userRole}
+        parishName={churchInfo.parishName || churchInfo.churchName}
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">

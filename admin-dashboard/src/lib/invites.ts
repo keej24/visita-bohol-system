@@ -6,7 +6,7 @@ export type InviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 
 export interface ParishInvite {
   id?: string;
-  type: 'parish_secretary';
+  type: 'parish';
   diocese: Diocese;
   parishName: string;
   parishId?: string; // optional if you later model parishes
@@ -35,7 +35,7 @@ export async function createParishInvite(params: {
 }): Promise<{ id: string; token: string }> {
   const token = randomToken();
   const payload: Omit<ParishInvite, 'id'> = {
-    type: 'parish_secretary',
+    type: 'parish',
     diocese: params.diocese,
     parishName: params.parishName,
     parishId: params.parishId,

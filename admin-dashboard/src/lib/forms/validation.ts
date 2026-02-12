@@ -123,7 +123,7 @@ export type FeedbackFormData = z.infer<typeof feedbackValidationSchema>;
 export const userValidationSchema = z.object({
   email: baseValidationSchemas.email,
   displayName: baseValidationSchemas.required('Display name'),
-  role: z.enum(['chancery_office', 'parish_secretary', 'museum_researcher', 'admin'], {
+  role: z.enum(['chancery_office', 'parish', 'museum_researcher', 'admin'], {
     message: 'Please select a valid role'
   }),
   diocese: z.enum(['tagbilaran', 'talibon'], { message: 'Please select a diocese' }),

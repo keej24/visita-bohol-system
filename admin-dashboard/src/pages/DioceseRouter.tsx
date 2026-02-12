@@ -93,7 +93,7 @@ const DioceseRouter = () => {
   }
 
   // Parish secretaries get their own dashboard
-  if (userProfile.role === 'parish_secretary') {
+  if (userProfile.role === 'parish') {
     return (
       <Suspense fallback={<PageLoadingFallback />}>
         <LazyParishDashboard />

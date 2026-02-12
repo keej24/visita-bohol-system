@@ -35,7 +35,7 @@
  *    - Upload heritage declarations
  *    - Cross-diocese read access
  *
- * 3. parish_secretary: Parish staff
+ * 3. parish: Parish staff (Parish Secretary or Parish Priest)
  *    - Manage their own church profile
  *    - Create announcements
  *    - Limited to their parish only
@@ -62,7 +62,7 @@ import { AuditService } from '@/services/auditService';
  */
 
 // Three distinct user roles in the VISITA system
-export type UserRole = 'chancery_office' | 'museum_researcher' | 'parish_secretary';
+export type UserRole = 'chancery_office' | 'museum_researcher' | 'parish';
 
 // Two dioceses in Bohol province
 export type Diocese = 'tagbilaran' | 'talibon';
@@ -79,7 +79,7 @@ export type Diocese = 'tagbilaran' | 'talibon';
  * - role: Determines what actions user can perform
  * - name: Full name for display purposes
  * - diocese: Which diocese the user belongs to (access control)
- * - parish: Specific parish (only for parish_secretary role)
+ * - parish: Specific parish (only for parish role)
  * - createdAt: Account creation timestamp (audit trail)
  * - lastLoginAt: Last successful login (security monitoring)
  */
@@ -242,6 +242,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             name: data.name,
             diocese: data.diocese,
             status: data.status || 'active',  // Default to active for legacy accounts
+            position: data.position,  // Parish position (parish_priest or parish_secretary)
             
             // NEW: Support new parish ID structure
             parishId: data.parishId,
@@ -388,6 +389,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           name: data.name,
           diocese: data.diocese,
           status: data.status || 'active',
+          position: data.position,  // Parish position (parish_priest or parish_secretary)
           parishId: data.parishId,
           parishInfo: data.parishInfo,
           parish: data.parishId || data.parish,
@@ -445,7 +447,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     // Parish secretaries can only access their own parish
-    if (userProfile.role === 'parish_secretary') {
+    if (userProfile.role === 'parish') {
       if (targetParish) {
         return userProfile.parish === targetParish;
       }

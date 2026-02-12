@@ -107,7 +107,6 @@ export class ExcelExportService {
     if (analyticsData.feedback.length > 0) {
       const feedbackData = analyticsData.feedback.map(feedback => ({
         'Date': feedback.date.toLocaleDateString(),
-        'User': feedback.userName || 'Anonymous',
         'Rating': `${feedback.rating} / 5`,
         'Subject': feedback.subject,
         'Comment': feedback.comment,
@@ -119,7 +118,6 @@ export class ExcelExportService {
       // Set column widths
       feedbackSheet['!cols'] = [
         { wch: 12 }, // Date
-        { wch: 15 }, // User
         { wch: 8 },  // Rating
         { wch: 25 }, // Subject
         { wch: 50 }, // Comment
@@ -210,7 +208,6 @@ export class ExcelExportService {
     const data = feedback.map((item, index) => ({
       '#': index + 1,
       'Date': item.date.toLocaleDateString(),
-      'User': item.userName || 'Anonymous',
       'Rating': `${item.rating}/5`,
       'Subject': item.subject,
       'Comment': item.comment,
@@ -223,7 +220,6 @@ export class ExcelExportService {
     worksheet['!cols'] = [
       { wch: 5 },  // #
       { wch: 12 }, // Date
-      { wch: 15 }, // User
       { wch: 8 },  // Rating
       { wch: 25 }, // Subject
       { wch: 50 }, // Comment

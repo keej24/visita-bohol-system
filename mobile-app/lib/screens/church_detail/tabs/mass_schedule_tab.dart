@@ -148,6 +148,78 @@ class MassScheduleTab extends StatelessWidget {
               ),
             ),
 
+          // Previous Parish Priests History
+          if (church.priestHistory != null &&
+              church.priestHistory!.where((e) => !e.isCurrent).isNotEmpty)
+            _buildCard(
+              icon: Icons.history,
+              title: 'Previous Parish Priests',
+              child: Column(
+                children: church.priestHistory!
+                    .where((e) => !e.isCurrent)
+                    .toList()
+                    .reversed
+                    .map((entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE5E7EB),
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: const Icon(
+                                  Icons.person_outline,
+                                  color: Color(0xFF6B7280),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      entry.name,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${_formatHistoryDate(entry.startDate)} — ${_formatHistoryDate(entry.endDate)}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                    if (entry.notes != null &&
+                                        entry.notes!.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          entry.notes!,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontStyle: FontStyle.italic,
+                                            color: Color(0xFF9CA3AF),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
+
           // Contact Information Card
           if (church.contactInfo != null && church.contactInfo!.isNotEmpty)
             _buildCard(
@@ -155,26 +227,51 @@ class MassScheduleTab extends StatelessWidget {
               title: 'Contact Information',
               child: Column(
                 children: [
-                  if (church.contactInfo!['phone'] != null)
+                  // Multiple phones support
+                  if (church.contactInfo!['phones'] != null &&
+                      church.contactInfo!['phones'] is List &&
+                      (church.contactInfo!['phones'] as List).isNotEmpty)
+                    ...(church.contactInfo!['phones'] as List)
+                        .map((phone) => _buildContactRow(
+                              icon: Icons.phone,
+                              label: 'Phone',
+                              value: phone.toString(),
+                              onTap: () => _makePhoneCall(phone.toString()),
+                            ))
+                  // Fallback to single phone
+                  else if (church.contactInfo!['phone'] != null)
                     _buildContactRow(
                       icon: Icons.phone,
                       label: 'Phone',
-                      value: church.contactInfo!['phone']!,
-                      onTap: () =>
-                          _makePhoneCall(church.contactInfo!['phone']!),
+                      value: church.contactInfo!['phone'].toString(),
+                      onTap: () => _makePhoneCall(
+                          church.contactInfo!['phone'].toString()),
                     ),
-                  if (church.contactInfo!['email'] != null)
+                  // Multiple emails support
+                  if (church.contactInfo!['emails'] != null &&
+                      church.contactInfo!['emails'] is List &&
+                      (church.contactInfo!['emails'] as List).isNotEmpty)
+                    ...(church.contactInfo!['emails'] as List)
+                        .map((email) => _buildContactRow(
+                              icon: Icons.email,
+                              label: 'Email',
+                              value: email.toString(),
+                              onTap: () => _sendEmail(email.toString()),
+                            ))
+                  // Fallback to single email
+                  else if (church.contactInfo!['email'] != null)
                     _buildContactRow(
                       icon: Icons.email,
                       label: 'Email',
-                      value: church.contactInfo!['email']!,
-                      onTap: () => _sendEmail(church.contactInfo!['email']!),
+                      value: church.contactInfo!['email'].toString(),
+                      onTap: () =>
+                          _sendEmail(church.contactInfo!['email'].toString()),
                     ),
                   if (church.contactInfo!['address'] != null)
                     _buildContactRow(
                       icon: Icons.location_on,
                       label: 'Address',
-                      value: church.contactInfo!['address']!,
+                      value: church.contactInfo!['address'].toString(),
                       onTap: null,
                     ),
                 ],
@@ -219,6 +316,34 @@ class MassScheduleTab extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Formats a date string for priest history display.
+  /// Handles ISO dates, year-only, or null (returns "Present").
+  String _formatHistoryDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return 'Present';
+    // Year-only format
+    if (RegExp(r'^\d{4}$').hasMatch(dateStr)) return dateStr;
+    try {
+      final date = DateTime.parse(dateStr);
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
+      return '${months[date.month - 1]} ${date.year}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   Widget _buildCard({

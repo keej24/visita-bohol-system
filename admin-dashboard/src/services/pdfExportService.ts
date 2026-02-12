@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
+import { addReportHeader, addReportFooter } from '@/lib/report-header';
 
 // Type for jsPDF with autoTable extension
 interface jsPDFWithAutoTable extends jsPDF {
@@ -11,6 +12,7 @@ interface ChurchInfo {
   churchName: string;
   parishName: string;
   diocese?: string;
+  churchId?: string;
   coordinates?: {
     lat: number;
     lng: number;
@@ -149,28 +151,21 @@ export class PDFExportService {
   /**
    * Export Church Summary Report as PDF - Comprehensive Implementation
    */
-  static exportChurchSummary(churchInfo: ChurchInfo): void {
+  static async exportChurchSummary(churchInfo: ChurchInfo): Promise<void> {
     const doc = new jsPDF();
-    let yPos = 20;
 
     // ============================
-    // 1. COVER PAGE / HEADER
+    // 1. COVER PAGE / HEADER WITH LOGOS
     // ============================
-    // Sidebar color: HSL(220, 72%, 24%) = RGB(17, 40, 110) - Deep Ecclesiastical Blue
-    doc.setFillColor(17, 40, 110);
-    doc.rect(0, 0, 210, 50, 'F');
-
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text('CHURCH SUMMARY REPORT', 105, 25, { align: 'center' });
-
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'normal');
-    doc.text(churchInfo.churchName || churchInfo.parishName, 105, 38, { align: 'center' });
-
-    doc.setTextColor(0, 0, 0);
-    yPos = 60;
+    let yPos = await addReportHeader(doc, {
+      title: 'CHURCH SUMMARY REPORT',
+      subtitle: churchInfo.churchName || churchInfo.parishName,
+      detail: churchInfo.diocese
+        ? `Diocese of ${churchInfo.diocese.charAt(0).toUpperCase() + churchInfo.diocese.slice(1)}`
+        : undefined,
+      dioceseId: churchInfo.diocese,
+      parishId: churchInfo.churchId,
+    });
 
     // Report Metadata
     doc.setFontSize(9);
@@ -183,13 +178,9 @@ export class PDFExportService {
     })}`, 105, yPos, { align: 'center' });
     yPos += 5;
     doc.text(`Report Type: Official Church Documentation`, 105, yPos, { align: 'center' });
-    yPos += 5;
-    if (churchInfo.diocese) {
-      doc.text(`Diocese of ${churchInfo.diocese.charAt(0).toUpperCase() + churchInfo.diocese.slice(1)}`, 105, yPos, { align: 'center' });
-    }
 
     doc.setTextColor(0, 0, 0);
-    yPos = 80;
+    yPos += 10;
 
     // ============================
     // 2. BASIC INFORMATION SECTION
@@ -519,37 +510,22 @@ export class PDFExportService {
   static async exportAnalyticsReport(
     churchName: string,
     analyticsData: AnalyticsData,
-    dateRange: { start: Date; end: Date }
+    dateRange: { start: Date; end: Date },
+    churchId?: string,
+    diocese?: string
   ): Promise<void> {
     const doc = new jsPDF();
-    let yPos = 20;
 
     // ============================
-    // COVER HEADER WITH BRANDING
+    // COVER HEADER WITH BRANDING + LOGOS
     // ============================
-    // Sidebar color: HSL(220, 72%, 24%) = RGB(17, 40, 110) - Deep Ecclesiastical Blue
-    doc.setFillColor(17, 40, 110);
-    doc.rect(0, 0, 210, 45, 'F');
-
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text('ENGAGEMENT & ANALYTICS REPORT', 105, 18, { align: 'center' });
-
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'normal');
-    doc.text(churchName, 105, 30, { align: 'center' });
-
-    doc.setFontSize(10);
-    doc.text(
-      `${dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-      105,
-      40,
-      { align: 'center' }
-    );
-
-    doc.setTextColor(0, 0, 0);
-    yPos = 55;
+    let yPos = await addReportHeader(doc, {
+      title: 'ENGAGEMENT & ANALYTICS REPORT',
+      subtitle: churchName,
+      detail: `${dateRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${dateRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      dioceseId: diocese,
+      parishId: churchId,
+    });
 
     // Report metadata
     doc.setFontSize(9);
@@ -663,18 +639,7 @@ export class PDFExportService {
     });
 
     // Footer
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text(
-        `Generated on ${new Date().toLocaleDateString()} | Page ${i} of ${pageCount}`,
-        105,
-        290,
-        { align: 'center' }
-      );
-    }
+    addReportFooter(doc, `${churchName} Analytics | Generated ${new Date().toLocaleDateString()}`);
 
     // Save
     const fileName = `${churchName.replace(/\s+/g, '_')}_Analytics_${new Date().getFullYear()}.pdf`;
@@ -706,37 +671,22 @@ export class PDFExportService {
       ratingDistribution: Array<{ rating: number; count: number; percentage: number }>;
       topRatedChurches: Array<{ name: string; rating: number; feedbackCount: number }>;
     },
-    dateRange: { start: Date; end: Date }
+    dateRange: { start: Date; end: Date },
+    dioceseId?: string
   ): Promise<void> {
     const doc = new jsPDF();
-    let yPos = 20;
 
-    // Header
-    doc.setFillColor(17, 40, 110);
-    doc.rect(0, 0, 210, 45, 'F');
+    // Header with logos
+    let yPos = await addReportHeader(doc, {
+      title: 'Engagement & Feedback Analytics Report',
+      subtitle: `${dioceseName} Diocese`,
+      detail: `${dateRange.start.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} - ${dateRange.end.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      dioceseId: dioceseId || dioceseName.toLowerCase(),
+    });
 
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text('Engagement & Feedback Analytics Report', 105, 22, { align: 'center' });
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${dioceseName} Diocese`, 105, 34, { align: 'center' });
-
-    doc.setTextColor(0, 0, 0);
-    yPos = 55;
-
-    // Report period
+    // Report period metadata
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text(
-      `Report Period: ${dateRange.start.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} - ${dateRange.end.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
-      105,
-      yPos,
-      { align: 'center' }
-    );
-    yPos += 5;
     doc.text(
       `Generated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
       105,
@@ -744,7 +694,7 @@ export class PDFExportService {
       { align: 'center' }
     );
     doc.setTextColor(0, 0, 0);
-    yPos += 15;
+    yPos += 12;
 
     // Summary Statistics
     doc.setFontSize(14);
@@ -946,21 +896,7 @@ export class PDFExportService {
     }
 
     // Footer on all pages
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      
-      doc.setDrawColor(200, 200, 200);
-      doc.line(20, 282, 190, 282);
-
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(120, 120, 120);
-      doc.text(`${dioceseName} Diocese Engagement Report`, 20, 287);
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 287, { align: 'center' });
-      doc.text(`Page ${i} of ${pageCount}`, 190, 287, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-    }
+    addReportFooter(doc, `${dioceseName} Diocese Engagement Report | Generated ${new Date().toLocaleDateString()}`);
 
     // Save
     const fileName = `${dioceseName.replace(/\s+/g, '_')}_Diocese_Engagement_Analytics_${new Date().getFullYear()}.pdf`;

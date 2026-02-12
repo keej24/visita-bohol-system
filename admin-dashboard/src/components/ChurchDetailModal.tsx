@@ -30,7 +30,8 @@ import {
   Users,
   BookOpen,
   Camera,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 import type { Church } from '@/lib/churches';
 import { ChurchProfileForm } from '@/components/parish/ChurchProfileForm';
@@ -67,6 +68,21 @@ export function ChurchDetailModal({
 
   if (!church) return null;
 
+  // Merge pending changes over the live church data so reviewers see proposed values.
+  // pendingChanges.data stores ChurchFormData-keyed values (e.g., location, architecturalStyle)
+  // that were staged for review instead of being directly published.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const churchAny = church as any;
+  const pendingData = churchAny.pendingChanges?.data as Record<string, unknown> | undefined;
+  const pendingFields: string[] = churchAny.pendingChanges?.changedFields || [];
+  const hasPending = pendingFields.length > 0 && !!pendingData;
+
+  // Build a church object with pending changes overlaid on top of the live data.
+  // This lets the reviewer see the PROPOSED values in both view and edit modes.
+  const effectiveChurch: Church = hasPending
+    ? { ...church, ...pendingData } as Church
+    : church;
+
   // Helper function to convert database architectural style to display value
   // Must match the conversion in ParishDashboard
   const getArchitecturalStyleDisplay = (style?: string): string => {
@@ -74,7 +90,7 @@ export function ChurchDetailModal({
       case 'baroque': return 'Baroque';
       case 'gothic': 
       case 'neo-gothic': return 'Neo-Gothic';
-      case 'romanesque': 
+      case 'romanesque': return 'Romanesque';
       case 'byzantine': return 'Byzantine';
       case 'neoclassical': 
       case 'neo-classical': return 'Neo-Classical';
@@ -153,6 +169,7 @@ export function ChurchDetailModal({
         heritageInformation: churchData.heritageInformation || ''
       },
       currentParishPriest: churchData.assignedPriest || '',
+      priestHistory: (churchData as unknown as { priestHistory?: import('@/types/church').PriestAssignment[] }).priestHistory || [],
       feastDay: churchData.feastDay || '',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       massSchedules: (churchData.massSchedules || []).map((schedule: any) => ({
@@ -256,8 +273,9 @@ export function ChurchDetailModal({
   };
 
   // Cast church to extended type for view mode
+  // Use effectiveChurch so pending changes are shown to the reviewer
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const churchData = church as any;
+  const churchData = effectiveChurch as any;
 
   if (editMode) {
     return (
@@ -314,9 +332,18 @@ export function ChurchDetailModal({
                 </AlertDescription>
               </Alert>
             )}
+            {hasPending && (
+              <Alert className="mx-6 mt-4 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <strong>Pending Changes:</strong> The form is pre-filled with the parish&apos;s proposed values for: {' '}
+                  {pendingFields.map((f) => f.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim()).join(', ')}.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="p-0">
               <ChurchProfileForm
-                initialData={convertToChurchInfo(church)}
+                initialData={convertToChurchInfo(effectiveChurch)}
                 onSave={handleFormSave}
                 onSubmit={handleFormSubmit}
                 isSubmitting={isSubmitting}
@@ -360,7 +387,7 @@ export function ChurchDetailModal({
               <>
                 <img 
                   src={primaryImage} 
-                  alt={church.name}
+                  alt={effectiveChurch.name}
                   className="w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
@@ -379,11 +406,11 @@ export function ChurchDetailModal({
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   {getStatusBadge(church.status)}
-                  {church.classification && church.classification !== 'non-heritage' && (
+                  {effectiveChurch.classification && effectiveChurch.classification !== 'non-heritage' && (
                     <Badge className="bg-amber-500/90 text-white border-0 shadow-sm">
                       <Landmark className="w-3 h-3 mr-1" />
-                      {church.classification === 'NCT' ? 'National Cultural Treasure' : 
-                       church.classification === 'ICP' ? 'Important Cultural Property' : church.classification}
+                      {effectiveChurch.classification === 'NCT' ? 'National Cultural Treasure' : 
+                       effectiveChurch.classification === 'ICP' ? 'Important Cultural Property' : effectiveChurch.classification}
                     </Badge>
                   )}
                 </div>
@@ -391,11 +418,11 @@ export function ChurchDetailModal({
                   <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
                     <ChurchIcon className="w-6 h-6" />
                   </div>
-                  {church.name}
+                  {effectiveChurch.name}
                 </DialogTitle>
                 <DialogDescription className={`flex items-center gap-2 mt-2 ${primaryImage ? 'text-white/90' : 'text-white/90'}`}>
                   <MapPin className="w-4 h-4" />
-                  <span className="font-medium">{(churchData.location as string) || church.municipality}, {church.diocese === 'tagbilaran' ? 'Diocese of Tagbilaran' : 'Apostolic Vicariate of Talibon'}</span>
+                  <span className="font-medium">{(churchData.location as string) || effectiveChurch.municipality}, {church.diocese === 'tagbilaran' ? 'Diocese of Tagbilaran' : 'Apostolic Vicariate of Talibon'}</span>
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-2 mr-12">
@@ -433,7 +460,7 @@ export function ChurchDetailModal({
                   <Landmark className="w-4 h-4" />
                   <span className="text-xs font-semibold uppercase tracking-wide">Style</span>
                 </div>
-                <p className="text-sm font-semibold text-gray-900 truncate">{church.architecturalStyle || '—'}</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{effectiveChurch.architecturalStyle || '—'}</p>
               </div>
               <div className="bg-white rounded-xl p-3 shadow-lg border border-gray-100">
                 <div className="flex items-center gap-2 text-amber-600 mb-1">
@@ -458,6 +485,24 @@ export function ChurchDetailModal({
               </Alert>
             )}
             
+            {/* Pending Changes Review Banner */}
+            {hasPending && (
+              <Alert className="mb-4 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 shadow-sm">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <strong>Pending Changes for Review:</strong> The parish has submitted updates to the following fields. 
+                  Values shown below reflect the <em>proposed</em> changes.
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {pendingFields.map((field) => (
+                      <Badge key={field} variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-xs">
+                        {field.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim()}
+                      </Badge>
+                    ))}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="grid w-full grid-cols-4 bg-gray-100/80 p-1 rounded-xl h-12">
                 <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
@@ -497,7 +542,7 @@ export function ChurchDetailModal({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Parish Name</p>
-                            <p className="text-sm font-semibold text-gray-900">{(churchData.fullName as string) || church.name}</p>
+                            <p className="text-sm font-semibold text-gray-900">{(churchData.fullName as string) || effectiveChurch.name}</p>
                           </div>
                         </div>
                         <div className="flex items-start gap-3">
@@ -506,7 +551,7 @@ export function ChurchDetailModal({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Location</p>
-                            <p className="text-sm font-medium text-gray-900">{church.municipality}, Bohol</p>
+                            <p className="text-sm font-medium text-gray-900">{effectiveChurch.municipality}, Bohol</p>
                             {churchData.location && (
                               <p className="text-xs text-gray-500 mt-0.5">{churchData.location as string}</p>
                             )}
@@ -628,16 +673,16 @@ export function ChurchDetailModal({
                       <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100">
                         <Landmark className="w-5 h-5 text-purple-600 mb-2" />
                         <p className="text-xs font-medium text-purple-700 uppercase tracking-wide">Style</p>
-                        <p className="text-sm font-bold text-purple-900">{church.architecturalStyle || '—'}</p>
+                        <p className="text-sm font-bold text-purple-900">{effectiveChurch.architecturalStyle || '—'}</p>
                       </div>
                       <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
                         <Badge variant="outline" className={`${
-                          church.classification === 'NCT' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                          church.classification === 'ICP' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                          effectiveChurch.classification === 'NCT' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                          effectiveChurch.classification === 'ICP' ? 'bg-blue-100 text-blue-800 border-blue-300' :
                           'bg-gray-100 text-gray-600 border-gray-300'
                         }`}>
-                          {church.classification === 'NCT' ? 'National Cultural Treasure' :
-                           church.classification === 'ICP' ? 'Important Cultural Property' :
+                          {effectiveChurch.classification === 'NCT' ? 'National Cultural Treasure' :
+                           effectiveChurch.classification === 'ICP' ? 'Important Cultural Property' :
                            'Not classified'}
                         </Badge>
                       </div>
@@ -721,10 +766,43 @@ export function ChurchDetailModal({
                           <User className="w-7 h-7 text-blue-700" />
                         </div>
                         <div>
-                          <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Parish Priest</p>
+                          <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Current Parish Priest</p>
                           <p className="text-lg font-bold text-gray-900">{churchData.assignedPriest || 'Not assigned'}</p>
                         </div>
                       </div>
+
+                      {/* Priest Assignment History */}
+                      {(() => {
+                        const history = (churchData as unknown as { priestHistory?: Array<{ name: string; startDate?: string; endDate?: string; isCurrent: boolean; notes?: string }> }).priestHistory;
+                        const pastPriests = history?.filter(e => !e.isCurrent) || [];
+                        if (pastPriests.length === 0) return null;
+                        const formatHistDate = (d?: string) => {
+                          if (!d) return 'Present';
+                          if (/^\d{4}$/.test(d)) return d;
+                          try { return new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short' }); } catch { return d; }
+                        };
+                        return (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                              <History className="w-3 h-3" />
+                              Previous Parish Priests
+                            </p>
+                            <div className="space-y-1.5">
+                              {pastPriests.map((entry, idx) => (
+                                <div key={`${entry.name}-${idx}`} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+                                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <User className="w-4 h-4 text-gray-500" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-800 truncate">{entry.name}</p>
+                                    <p className="text-xs text-gray-500">{formatHistDate(entry.startDate)} — {formatHistDate(entry.endDate)}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       
                       {churchData.feastDay && (
                         <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
@@ -886,7 +964,7 @@ export function ChurchDetailModal({
                           >
                             <img
                               src={image}
-                              alt={`${church.name} - Photo ${index + 1}`}
+                              alt={`${effectiveChurch.name} - Photo ${index + 1}`}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />

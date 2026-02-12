@@ -63,7 +63,7 @@ async function fixOrphanedUsers() {
       
       for (const user of orphanedUsers) {
         // Determine role from email domain/pattern
-        let role = 'parish_secretary'; // Default
+        let role = 'parish'; // Default
         let diocese = 'tagbilaran'; // Default
         
         if (user.email.includes('chancery') || user.email.includes('diocese')) {
@@ -74,7 +74,7 @@ async function fixOrphanedUsers() {
         } else if (user.email.includes('museum') || user.email.includes('researcher')) {
           role = 'museum_researcher';
         } else if (user.email.includes('shrine') || user.email.includes('parish')) {
-          role = 'parish_secretary';
+          role = 'parish';
         }
 
         const profileData = {
@@ -90,7 +90,7 @@ async function fixOrphanedUsers() {
         };
 
         // Add diocese for roles that need it
-        if (role === 'chancery_office' || role === 'parish_secretary') {
+        if (role === 'chancery_office' || role === 'parish') {
           profileData.diocese = diocese;
         }
 

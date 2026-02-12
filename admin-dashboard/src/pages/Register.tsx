@@ -56,7 +56,7 @@ const Register = () => {
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
-        role: 'parish_secretary',
+        role: 'parish',
         name,
         diocese: invite.diocese,
         parish: invite.parishName,

@@ -17,10 +17,12 @@ import {
   AlertTriangle,
   Loader2,
   ArrowRight,
-  UserPlus
+  UserPlus,
+  FileEdit
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PendingMuseumStaff } from '@/components/PendingMuseumStaff';
+import { MuseumPendingUpdates } from '@/components/MuseumPendingUpdates';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from "@/contexts/AuthContext";
 import { getChurchesByDiocese, updateChurchStatusWithValidation, type Church, type ChurchStatus } from '@/lib/churches';
@@ -136,7 +138,8 @@ const MuseumResearcherDashboard = () => {
           'Baroque': 'baroque',
           'Neo-Gothic': 'gothic',
           'Gothic': 'gothic',
-          'Byzantine': 'romanesque',
+          'Byzantine': 'byzantine',
+          'Romanesque': 'romanesque',
           'Neo-Classical': 'neoclassical',
           'Modern': 'modern',
           'Mixed': 'mixed',
@@ -228,7 +231,8 @@ const MuseumResearcherDashboard = () => {
           'Baroque': 'baroque',
           'Neo-Gothic': 'gothic',
           'Gothic': 'gothic',
-          'Byzantine': 'romanesque',
+          'Byzantine': 'byzantine',
+          'Romanesque': 'romanesque',
           'Neo-Classical': 'neoclassical',
           'Modern': 'modern',
           'Mixed': 'mixed',
@@ -456,10 +460,14 @@ const MuseumResearcherDashboard = () => {
 
         {/* Tabbed Content Area */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
             <TabsTrigger value="heritage" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Heritage Review</span>
+            </TabsTrigger>
+            <TabsTrigger value="updates" className="flex items-center gap-2">
+              <FileEdit className="h-4 w-4" />
+              <span className="hidden sm:inline">Updates</span>
             </TabsTrigger>
             <TabsTrigger value="staff" className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
@@ -573,6 +581,16 @@ const MuseumResearcherDashboard = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Pending Updates Tab */}
+          <TabsContent value="updates" className="space-y-4">
+            <ErrorBoundary>
+              <MuseumPendingUpdates
+                onViewChurch={handleViewChurch}
+                onEditChurch={handleEditChurch}
+              />
+            </ErrorBoundary>
           </TabsContent>
 
           {/* Pending Staff Tab */}

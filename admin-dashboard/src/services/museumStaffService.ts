@@ -38,6 +38,7 @@ import {
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { AuditService } from './auditService';
+import { notifyMuseumStaffPendingApproval } from '@/lib/notifications';
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
 
 // ============================================================================
@@ -154,9 +155,12 @@ export async function registerMuseumStaff(
       throw firestoreError;
     }
 
-    // Log the registration for audit BEFORE signing out
-    try {
-      await AuditService.logAction(
+    // Run audit log, active staff lookup + notification, and sign-out in parallel
+    // All of these are independent and non-critical (except sign-out)
+    // IMPORTANT: All Firestore queries happen BEFORE sign-out since they run concurrently
+    await Promise.all([
+      // 1. Audit log (non-critical)
+      AuditService.logAction(
         {
           uid,
           email: data.email,
@@ -177,14 +181,45 @@ export async function registerMuseumStaff(
             selfRegistration: true,
           },
         }
-      );
-    } catch (auditError) {
-      console.warn('[MuseumStaffService] Audit logging failed (non-critical):', auditError);
-    }
+      ).catch(auditError => {
+        console.warn('[MuseumStaffService] Audit logging failed (non-critical):', auditError);
+      }),
 
-    // Sign out AFTER all writes are complete
-    await auth.signOut();
-    console.log('[MuseumStaffService] User signed out after successful registration');
+      // 2. Look up current active museum researcher + send notification (non-critical)
+      (async () => {
+        try {
+          let currentMuseumStaffUid: string | undefined;
+          try {
+            const activeStaffQuery = query(
+              collection(db, 'users'),
+              where('role', '==', 'museum_researcher'),
+              where('status', '==', 'active')
+            );
+            const activeStaffSnap = await getDocs(activeStaffQuery);
+            if (!activeStaffSnap.empty) {
+              currentMuseumStaffUid = activeStaffSnap.docs[0].id;
+              console.log('[MuseumStaffService] Found current museum staff UID:', currentMuseumStaffUid);
+            }
+          } catch (lookupError) {
+            console.warn('[MuseumStaffService] Could not look up current museum staff (non-critical):', lookupError);
+          }
+
+          await notifyMuseumStaffPendingApproval({
+            name: data.name,
+            email: data.email,
+            uid,
+            currentMuseumStaffUid,
+          });
+        } catch (notificationError) {
+          console.warn('[MuseumStaffService] Notification failed (non-critical):', notificationError);
+        }
+      })(),
+
+      // 3. Sign out
+      auth.signOut().then(() => {
+        console.log('[MuseumStaffService] User signed out after successful registration');
+      }),
+    ]);
 
     return {
       success: true,

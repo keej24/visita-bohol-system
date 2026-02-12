@@ -92,6 +92,8 @@ import type {
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
 // Audit logging service
 import { AuditService, createFieldChange } from '@/services/auditService';
+// Field categorization for staged updates
+import { categorizeChanges, DIRECT_PUBLISH_FIELDS, REVERIFICATION_REQUIRED_FIELDS } from '@/lib/church-field-categories';
 
 // Firestore collection name (consistent naming prevents typos)
 const CHURCHES_COLLECTION = 'churches';
@@ -125,6 +127,7 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
     classification: data.classification,
     religiousClassification: data.religiousClassification,
     assignedPriest: data.assignedPriest as string,
+    priestHistory: (data.priestHistory || []) as import('@/types/church').PriestAssignment[],
     feastDay: data.feastDay as string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     massSchedules: (data.massSchedules || []) as any[],
@@ -196,6 +199,7 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     // Persist religiousClassifications array in historicalDetails
     historicalDetails: formData.historicalDetails,
     assignedPriest: formData.assignedPriest,
+    priestHistory: formData.priestHistory || [],
     feastDay: formData.feastDay,
     massSchedules: formData.massSchedules,
     // Save coordinates at root level for mobile app compatibility
@@ -375,6 +379,175 @@ export class ChurchService {
       await updateDoc(churchRef, updateData);
     } catch (error) {
       console.error('Error updating church:', error);
+      throw new Error('Failed to update church');
+    }
+  }
+
+  /**
+   * Update church with staged changes for approved churches.
+   * 
+   * When updating an APPROVED church:
+   * - DIRECT_PUBLISH_FIELDS (mass schedules, contact info, 360° photos) → Applied immediately
+   * - REVERIFICATION_REQUIRED_FIELDS (historical, heritage info) → Stored in pendingChanges for review
+   * 
+   * For non-approved churches, all changes are applied directly (standard workflow).
+   * 
+   * @param id - Church document ID
+   * @param formData - Updated form data
+   * @param diocese - Diocese for security validation
+   * @param userId - User making the update
+   * @returns Object indicating what was staged vs. published
+   */
+  static async updateChurchWithStaging(
+    id: string,
+    formData: ChurchFormData,
+    diocese: Diocese,
+    userId: string
+  ): Promise<{
+    directlyPublished: string[];
+    stagedForReview: string[];
+    hasPendingChanges: boolean;
+  }> {
+    try {
+      const churchRef = doc(db, CHURCHES_COLLECTION, id);
+      const churchSnapshot = await getDoc(churchRef);
+      
+      if (!churchSnapshot.exists()) {
+        throw new Error('Church not found');
+      }
+      
+      const currentChurch = churchSnapshot.data() as Church;
+      
+      // For non-approved churches, use the standard update flow
+      if (currentChurch.status !== 'approved') {
+        console.log(`[ChurchService] Church ${id} is not approved (status: ${currentChurch.status}). Using standard update flow.`);
+        await ChurchService.updateChurch(id, formData, diocese, userId);
+        return {
+          directlyPublished: Object.keys(formData),
+          stagedForReview: [],
+          hasPendingChanges: false,
+        };
+      }
+      
+      // Church is approved - use staged update flow
+      console.log(`[ChurchService] Church ${id} is approved. Using staged update flow.`);
+      
+      // Convert current church data to form data format for comparison
+      // IMPORTANT: All fields returned by convertToFormData() must be included here,
+      // otherwise categorizeChanges() will always detect them as "changed"
+      const currentFormData: Partial<ChurchFormData> = {
+        name: currentChurch.name,
+        fullName: currentChurch.fullName,
+        location: currentChurch.location,
+        municipality: currentChurch.municipality,
+        foundingYear: currentChurch.foundingYear,
+        founders: currentChurch.founders,
+        keyFigures: currentChurch.keyFigures,
+        architecturalStyle: currentChurch.architecturalStyle,
+        historicalBackground: currentChurch.historicalBackground,
+        description: currentChurch.description,
+        classification: currentChurch.classification,
+        religiousClassification: currentChurch.religiousClassification,
+        historicalDetails: (currentChurch as unknown as Record<string, unknown>).historicalDetails as ChurchFormData['historicalDetails'],
+        assignedPriest: currentChurch.assignedPriest,
+        priestHistory: currentChurch.priestHistory,
+        feastDay: currentChurch.feastDay,
+        massSchedules: currentChurch.massSchedules,
+        coordinates: currentChurch.coordinates,
+        contactInfo: currentChurch.contactInfo,
+        images: currentChurch.images,
+        photos: currentChurch.photos,
+        documents: currentChurch.documents as (string | { url: string; name?: string })[],
+        // Map Firestore's virtualTour field to the form's virtualTour360 field name
+        // The Church type has virtualTour as a VirtualTour object, but some documents
+        // may store it as a string array. Read from raw data to handle both cases.
+        virtualTour360: ((currentChurch as unknown as Record<string, unknown>).virtualTour360 as string[]) 
+          || ((currentChurch as unknown as Record<string, unknown>).virtualTour as string[]) 
+          || [],
+        culturalSignificance: currentChurch.culturalSignificance,
+        preservationHistory: currentChurch.preservationHistory,
+        restorationHistory: currentChurch.restorationHistory,
+        architecturalFeatures: currentChurch.architecturalFeatures,
+        heritageInformation: currentChurch.heritageInformation,
+        tags: currentChurch.tags,
+        category: currentChurch.category,
+      };
+      
+      // Categorize the changes
+      const {
+        hasSensitiveChanges,
+        sensitiveChanges,
+        sensitiveFields,
+        directPublishChanges,
+        directPublishFields,
+      } = categorizeChanges(currentFormData, formData);
+      
+      console.log(`[ChurchService] Change categorization for church ${id}:`, {
+        sensitiveFields,
+        directPublishFields,
+        hasSensitiveChanges,
+      });
+      
+      // Prepare the update object
+      const updateData: Record<string, unknown> = {
+        updatedAt: Timestamp.now(),
+      };
+      
+      // Apply direct publish changes immediately
+      if (directPublishFields.length > 0) {
+        for (const field of directPublishFields) {
+          const value = (directPublishChanges as Record<string, unknown>)[field];
+          if (value !== undefined) {
+            // Map form field names to Firestore field names if needed
+            if (field === 'coordinates' && value) {
+              const coords = value as { latitude: number; longitude: number };
+              updateData['latitude'] = coords.latitude;
+              updateData['longitude'] = coords.longitude;
+            } else if (field === 'virtualTour360') {
+              // Form uses virtualTour360 but Firestore document/rules use virtualTour
+              updateData['virtualTour'] = value;
+            } else {
+              updateData[field] = value;
+            }
+          }
+        }
+        console.log(`[ChurchService] Applying direct publish changes:`, directPublishFields);
+      }
+      
+      // Handle sensitive changes - store in pendingChanges
+      if (hasSensitiveChanges) {
+        // Merge with existing pending changes if any
+        const existingPending = currentChurch.pendingChanges?.data || {};
+        const existingFields = currentChurch.pendingChanges?.changedFields || [];
+        
+        const mergedData = { ...existingPending, ...sensitiveChanges };
+        const mergedFields = [...new Set([...existingFields, ...sensitiveFields])];
+        
+        updateData['pendingChanges'] = {
+          data: mergedData,
+          submittedAt: Timestamp.now(),
+          submittedBy: userId,
+          changedFields: mergedFields,
+        };
+        updateData['hasPendingChanges'] = true;
+        
+        console.log(`[ChurchService] Storing pending changes for review:`, mergedFields);
+      }
+      
+      // Perform the update
+      await updateDoc(churchRef, updateData);
+      
+      return {
+        directlyPublished: directPublishFields,
+        stagedForReview: sensitiveFields,
+        hasPendingChanges: hasSensitiveChanges,
+      };
+      
+    } catch (error) {
+      console.error('Error updating church with staging:', error);
+      if (error instanceof Error && error.message.includes('already exists')) {
+        throw error;
+      }
       throw new Error('Failed to update church');
     }
   }

@@ -302,7 +302,7 @@ const AccountSettings = () => {
         updateData.name = profileData.institutionName || null;
         
         // For parish secretaries, also save phone number and sync to church
-        if (userProfile.role === 'parish_secretary') {
+        if (userProfile.role === 'parish') {
           updateData.phoneNumber = profileData.phone || null;
           
           // Sync phone number to church document's contactInfo
@@ -750,7 +750,7 @@ const AccountSettings = () => {
                   {isSystemAccount ? (profileData.institutionName || userProfile?.institutionName || userProfile?.name || 'Institution Name') : `${profileData.firstName} ${profileData.lastName}`}
                 </h3>
                 <p className="text-gray-600">
-                  {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : userProfile?.role === 'parish_secretary' ? 'Parish Secretary' : 'Chancery Office'}
+                  {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : userProfile?.role === 'parish' ? 'Parish' : 'Chancery Office'}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   {userProfile?.role === 'museum_researcher' ? (
@@ -813,7 +813,7 @@ const AccountSettings = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-1">Official institutional email</p>
                     </div>
-                    {userProfile?.role === 'parish_secretary' && (
+                    {userProfile?.role === 'parish' && (
                       <div>
                         <Label htmlFor="phone">Contact Number</Label>
                         <div className="relative">
@@ -942,6 +942,34 @@ const AccountSettings = () => {
                         <p className="text-xs text-gray-500 mt-1">Your department or division</p>
                       </div>
                     )}
+                    {userProfile?.position && (
+                      <div>
+                        <Label>Position</Label>
+                        <Input
+                          value={userProfile.position === 'parish_priest' ? 'Parish Priest' : userProfile.position === 'parish_secretary' ? 'Parish Secretary' : userProfile.position === 'Chancellor' ? 'Chancellor' : userProfile.position}
+                          disabled
+                          className="mt-1 bg-gray-50"
+                        />
+                      </div>
+                    )}
+                    {userProfile?.parishInfo && (
+                      <div>
+                        <Label>Assigned Parish</Label>
+                        <Input
+                          value={userProfile.parishInfo.fullName || `${userProfile.parishInfo.name}, ${userProfile.parishInfo.municipality}`}
+                          disabled
+                          className="mt-1 bg-gray-50"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <Label>Account Created</Label>
+                      <Input
+                        value={userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                        disabled
+                        className="mt-1 bg-gray-50"
+                      />
+                    </div>
                   </>
                 )}
               </div>

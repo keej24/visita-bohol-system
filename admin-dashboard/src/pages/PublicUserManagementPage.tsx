@@ -11,8 +11,8 @@ export const PublicUserManagementPage: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Check authorization - only chancery_office and parish_secretary can access
-  const canAccess = userProfile.role === 'chancery_office' || userProfile.role === 'parish_secretary';
+  // Check authorization - only chancery_office and parish can access
+  const canAccess = userProfile.role === 'chancery_office' || userProfile.role === 'parish';
 
   if (!canAccess) {
     return (
@@ -49,7 +49,7 @@ export const PublicUserManagementPage: React.FC = () => {
   }
 
   // For parish secretaries, pass their church ID to filter users
-  const churchId = userProfile.role === 'parish_secretary' ? userProfile.parish : undefined;
+  const churchId = userProfile.role === 'parish' ? userProfile.parish : undefined;
 
   return (
     <div className="min-h-screen bg-gray-50">

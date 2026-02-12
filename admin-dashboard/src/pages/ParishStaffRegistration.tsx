@@ -8,7 +8,7 @@
  * FEATURES:
  * - Email and password registration
  * - Diocese and parish selection
- * - Position selection (Secretary or Priest) - stored as position field with role='parish_secretary'
+ * - Position selection (Secretary or Priest) - stored as position field with role='parish'
  * - Name and contact information
  * - Clear feedback on registration status
  * - Redirect to pending approval page after success
@@ -554,7 +554,7 @@ const ParishStaffRegistration: React.FC = () => {
               <Info className="h-4 w-4 text-blue-600" />
               <AlertTitle className="text-blue-800">What happens next?</AlertTitle>
               <AlertDescription className="text-sm text-blue-700">
-                After registration, your account will be in pending status until the Chancery Office
+                After registration, your account will be in pending status until the current Parish user
                 approves it. You'll receive an email notification once approved.
               </AlertDescription>
             </Alert>

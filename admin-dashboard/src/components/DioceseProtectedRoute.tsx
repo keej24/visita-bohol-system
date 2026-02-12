@@ -101,7 +101,7 @@ export const DioceseProtectedRoute = ({
 
   // ─────────────────────────────────────────────────────────────────────────
   // STEP 3: Check role authorization
-  // Example: allowedRoles = ['chancery_office'], user.role = 'parish_secretary'
+  // Example: allowedRoles = ['chancery_office'], user.role = 'parish'
   // Result: Redirect to /unauthorized
   // ─────────────────────────────────────────────────────────────────────────
   if (allowedRoles && userProfile && !allowedRoles.includes(userProfile.role)) {
