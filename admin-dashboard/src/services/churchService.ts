@@ -128,6 +128,7 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
     religiousClassification: data.religiousClassification,
     assignedPriest: data.assignedPriest as string,
     priestHistory: (data.priestHistory || []) as import('@/types/church').PriestAssignment[],
+    assistantPriests: (data.assistantPriests || []) as string[],
     feastDay: data.feastDay as string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     massSchedules: (data.massSchedules || []) as any[],
@@ -200,6 +201,7 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     historicalDetails: formData.historicalDetails,
     assignedPriest: formData.assignedPriest,
     priestHistory: formData.priestHistory || [],
+    assistantPriests: (formData.assistantPriests || []).filter(p => p.trim() !== ''),
     feastDay: formData.feastDay,
     massSchedules: formData.massSchedules,
     // Save coordinates at root level for mobile app compatibility
@@ -451,6 +453,7 @@ export class ChurchService {
         historicalDetails: (currentChurch as unknown as Record<string, unknown>).historicalDetails as ChurchFormData['historicalDetails'],
         assignedPriest: currentChurch.assignedPriest,
         priestHistory: currentChurch.priestHistory,
+        assistantPriests: currentChurch.assistantPriests,
         feastDay: currentChurch.feastDay,
         massSchedules: currentChurch.massSchedules,
         coordinates: currentChurch.coordinates,

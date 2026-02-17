@@ -12,12 +12,10 @@ import { User, Shield, Save, Camera, Lock, Eye, EyeOff, Crown, Mail, Phone, Edit
 import { useToast } from '@/components/ui/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { db, auth, storage, functions } from '@/lib/firebase';
+import { db, auth, storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 import { ChurchService } from '@/services/churchService';
-import { httpsCallable } from 'firebase/functions';
-import { AuditService } from '@/services/auditService';
 
 const AccountSettings = () => {
   const { userProfile, user, refreshUserProfile } = useAuth();
@@ -31,7 +29,7 @@ const AccountSettings = () => {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [isCleaningImports, setIsCleaningImports] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profileData, setProfileData] = useState({
@@ -362,42 +360,7 @@ const AccountSettings = () => {
     }
   };
 
-  const handleCleanupImports = async () => {
-    if (!userProfile) return;
-    setIsCleaningImports(true);
-    try {
-      const cleanupFn = httpsCallable(functions, 'cleanupChurchImportsManual');
-      const result = await cleanupFn({ retentionDays: 30 });
-      const data = result.data as { deleted?: number; retentionDays?: number };
-      toast({
-        title: 'Cleanup complete',
-        description: `Removed ${data.deleted ?? 0} import session(s) older than ${data.retentionDays ?? 30} days.`
-      });
 
-      void AuditService.logAction(
-        userProfile,
-        'system.maintenance',
-        'system',
-        'church_import_cleanup',
-        {
-          resourceName: 'Church Import Cleanup',
-          metadata: {
-            deleted: data.deleted ?? 0,
-            retentionDays: data.retentionDays ?? 30
-          }
-        }
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Cleanup failed. Please try again.';
-      toast({
-        title: 'Cleanup failed',
-        description: message,
-        variant: 'destructive'
-      });
-    } finally {
-      setIsCleaningImports(false);
-    }
-  };
 
   const handlePasswordUpdate = async () => {
     // Validate current password is provided
@@ -986,46 +949,6 @@ const AccountSettings = () => {
             )}
           </CardContent>
         </Card>
-
-        {/* System Maintenance (Chancery only) */}
-        {userProfile?.role === 'chancery_office' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                System Maintenance
-              </CardTitle>
-              <CardDescription>
-                Administrative tools for system upkeep and cleanup tasks
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <p className="text-sm text-gray-600">
-                  Remove old church import sessions and their uploaded files (older than 30 days).
-                </p>
-                <Button
-                  onClick={handleCleanupImports}
-                  disabled={isCleaningImports}
-                  variant="outline"
-                  className="w-fit"
-                >
-                  {isCleaningImports ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Running cleanup...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="w-4 h-4 mr-2" />
-                      Run Import Cleanup
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Change Password Card - Separate Section */}
         <Card>

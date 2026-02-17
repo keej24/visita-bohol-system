@@ -65,6 +65,7 @@ export interface Church {
   religiousClassification?: ReligiousClassification;
   assignedPriest?: string;  // Current priest name (kept for backward compatibility)
   priestHistory?: PriestAssignment[];  // Historical record of all priest assignments
+  assistantPriests?: string[];  // Assistant parish priest(s) - optional, supports multiple entries
   feastDay?: string; // Feast day of the parish patron saint (e.g., "December 8")
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;
@@ -147,6 +148,7 @@ export interface ChurchFormData {
   };
   assignedPriest?: string;
   priestHistory?: PriestAssignment[];  // Historical record of all priest assignments
+  assistantPriests?: string[];  // Assistant parish priest(s)
   feastDay?: string; // Feast day of the parish patron saint
   massSchedules: MassSchedule[];
   coordinates?: Coordinates;

@@ -140,6 +140,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     // Current Parish Operations
     currentParishPriest: initialData?.currentParishPriest || '',
     priestHistory: initialData?.priestHistory || [],
+    assistantPriests: initialData?.assistantPriests || [],
     feastDay: initialData?.feastDay || '',
     massSchedules: initialData?.massSchedules || [],
     contactInfo: {
@@ -2100,6 +2101,64 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                       </div>
                       <p className="text-xs text-gray-500">Parish patron saint feast day</p>
                     </div>
+                  </div>
+
+                  {/* Assistant Parish Priest(s) - Dynamic multi-entry field */}
+                  <div className="max-w-md space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-gray-700">
+                        Assistant Parish Priest(s)
+                        <span className="ml-1 text-xs text-gray-400 font-normal">(optional)</span>
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = formData.assistantPriests || [];
+                          setFormData(prev => ({ ...prev, assistantPriests: [...current, ''] }));
+                        }}
+                        disabled={isMuseumResearcher}
+                        className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium disabled:opacity-50"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Assistant Priest
+                      </button>
+                    </div>
+                    {(formData.assistantPriests && formData.assistantPriests.length > 0) ? (
+                      <div className="space-y-2">
+                        {formData.assistantPriests.map((priest, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <User className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                              <Input
+                                value={priest}
+                                onChange={(e) => {
+                                  const updated = [...(formData.assistantPriests || [])];
+                                  updated[index] = e.target.value;
+                                  setFormData(prev => ({ ...prev, assistantPriests: updated }));
+                                }}
+                                placeholder={`e.g., Rev. Fr. Juan Dela Cruz`}
+                                className="h-9 pl-8 text-sm"
+                                disabled={isMuseumResearcher}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (formData.assistantPriests || []).filter((_, i) => i !== index);
+                                setFormData(prev => ({ ...prev, assistantPriests: updated }));
+                              }}
+                              disabled={isMuseumResearcher}
+                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                              title="Remove assistant priest"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">No assistant parish priests added. Click &quot;Add Assistant Priest&quot; to add one.</p>
+                    )}
                   </div>
 
                   <Separator />

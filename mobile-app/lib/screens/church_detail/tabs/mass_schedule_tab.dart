@@ -148,6 +148,91 @@ class MassScheduleTab extends StatelessWidget {
               ),
             ),
 
+          // Assistant Parish Priest(s)
+          if (church.assistantPriests != null &&
+              church.assistantPriests!.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2C5F2D).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.people_outline,
+                          color: Color(0xFF2C5F2D),
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Assistant Parish Priest${church.assistantPriests!.length > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1F2937),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ...church.assistantPriests!.map(
+                    (name) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2C5F2D)
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: const Icon(
+                              Icons.person_outline,
+                              color: Color(0xFF2C5F2D),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Previous Parish Priests History
           if (church.priestHistory != null &&
               church.priestHistory!.where((e) => !e.isCurrent).isNotEmpty)
@@ -289,6 +374,8 @@ class MassScheduleTab extends StatelessWidget {
           // Empty State
           if ((church.contactInfo == null || church.contactInfo!.isEmpty) &&
               church.assignedPriest == null &&
+              (church.assistantPriests == null ||
+                  church.assistantPriests!.isEmpty) &&
               (church.massSchedules == null || church.massSchedules!.isEmpty))
             const Center(
               child: Padding(

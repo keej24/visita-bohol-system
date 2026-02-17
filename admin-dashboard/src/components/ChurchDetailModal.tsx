@@ -170,6 +170,7 @@ export function ChurchDetailModal({
       },
       currentParishPriest: churchData.assignedPriest || '',
       priestHistory: (churchData as unknown as { priestHistory?: import('@/types/church').PriestAssignment[] }).priestHistory || [],
+      assistantPriests: (churchData as unknown as { assistantPriests?: string[] }).assistantPriests || [],
       feastDay: churchData.feastDay || '',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       massSchedules: (churchData.massSchedules || []).map((schedule: any) => ({
@@ -770,6 +771,30 @@ export function ChurchDetailModal({
                           <p className="text-lg font-bold text-gray-900">{churchData.assignedPriest || 'Not assigned'}</p>
                         </div>
                       </div>
+
+                      {/* Assistant Parish Priests */}
+                      {(() => {
+                        const assistants = (churchData as unknown as { assistantPriests?: string[] }).assistantPriests;
+                        if (!assistants || assistants.length === 0) return null;
+                        return (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              Assistant Parish Priest{assistants.length > 1 ? 's' : ''}
+                            </p>
+                            <div className="space-y-1.5">
+                              {assistants.map((name, idx) => (
+                                <div key={`asst-${idx}`} className="flex items-center gap-3 p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
+                                  <div className="w-8 h-8 rounded-full bg-emerald-200 flex items-center justify-center flex-shrink-0">
+                                    <User className="w-4 h-4 text-emerald-600" />
+                                  </div>
+                                  <p className="text-sm font-medium text-gray-800 truncate">{name}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Priest Assignment History */}
                       {(() => {

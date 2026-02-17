@@ -123,6 +123,7 @@ export interface ChurchInfo {
   // Current Parish Information
   currentParishPriest: string;
   priestHistory?: PriestAssignment[];  // Historical record of all priest assignments
+  assistantPriests?: string[];  // Assistant parish priest(s) - optional, supports multiple entries
   feastDay?: string; // Feast day of the parish patron saint (e.g., "December 8" or "August 15")
   massSchedules: MassSchedule[];
   contactInfo: ContactInfo;

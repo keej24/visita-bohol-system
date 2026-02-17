@@ -318,6 +318,7 @@ const ParishDashboard = () => {
       },
       currentParishPriest: church.assignedPriest || '',
       priestHistory: (church as unknown as { priestHistory?: import('@/types/church').PriestAssignment[] }).priestHistory || [],
+      assistantPriests: (church as unknown as { assistantPriests?: string[] }).assistantPriests || [],
       feastDay: church.feastDay || '',
       massSchedules: (church.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
@@ -716,6 +717,7 @@ const ParishDashboard = () => {
       },
       assignedPriest: data.currentParishPriest || '',
       priestHistory: data.priestHistory || [],
+      assistantPriests: (data.assistantPriests || []).filter((p: string) => p.trim() !== ''),
       feastDay: data.feastDay || '',
       massSchedules: convertMassSchedules(data.massSchedules || []),
       coordinates: convertCoordinates(data.coordinates),

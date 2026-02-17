@@ -142,6 +142,8 @@ class Church {
   final String? assignedPriest; // Current priest
   final List<PriestAssignment>?
       priestHistory; // Historical record of priest assignments
+  final List<String>?
+      assistantPriests; // Assistant parish priest(s) - optional, supports multiple
   final List<Map<String, String>>? massSchedules; // Mass schedule
   final Map<String, dynamic>?
       contactInfo; // Contact information (phone, email, address, phones[], emails[])
@@ -186,6 +188,7 @@ class Church {
     this.description,
     this.assignedPriest,
     this.priestHistory,
+    this.assistantPriests,
     this.massSchedules,
     this.contactInfo,
     this.images = const [],
@@ -311,6 +314,14 @@ class Church {
           return (j['priestHistory'] as List)
               .where((e) => e is Map<String, dynamic>)
               .map((e) => PriestAssignment.fromMap(e as Map<String, dynamic>))
+              .toList();
+        })(),
+        assistantPriests: (() {
+          if (j['assistantPriests'] == null) return null;
+          if (j['assistantPriests'] is! List) return null;
+          return (j['assistantPriests'] as List)
+              .map((e) => e.toString())
+              .where((e) => e.isNotEmpty)
               .toList();
         })(),
         massSchedules: _parseMassSchedules(j['massSchedules']),
@@ -499,6 +510,7 @@ class Church {
         'description': description,
         'assignedPriest': assignedPriest,
         'priestHistory': priestHistory?.map((p) => p.toMap()).toList(),
+        'assistantPriests': assistantPriests,
         'massSchedules': massSchedules,
         'contactInfo': contactInfo,
         'images': images,

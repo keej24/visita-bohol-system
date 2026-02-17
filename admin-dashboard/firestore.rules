@@ -148,7 +148,7 @@ service cloud.firestore {
            // Sensitive fields must go through pendingChanges
            (resource.data.status != 'approved' ||
             request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['contactInfo', 'massSchedules', 'assignedPriest', 'priestHistory', 'feastDay',
+              .hasOnly(['contactInfo', 'massSchedules', 'assignedPriest', 'priestHistory', 'assistantPriests', 'feastDay',
                         'images', 'photos', 'documents', 'virtualTour',
                         'tags', 'category', 'updatedAt', 'logoUrl',
                         'pendingChanges', 'hasPendingChanges']));
