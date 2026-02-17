@@ -50,14 +50,15 @@ import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { UserManagement } from '@/components/UserManagement';
 import { PublicUserManagement } from '@/components/PublicUserManagement';
+import { ChanceryStaffManagement } from '@/components/ChanceryStaffManagement';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Users, UserCog } from 'lucide-react';
+import { AlertTriangle, Users, UserCog, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const UserManagementPage: React.FC = () => {
   const { userProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'admin' | 'public'>('admin');
+  const [activeTab, setActiveTab] = useState<'admin' | 'public' | 'chancery'>('admin');
 
   // Check if user has permission to manage users
   if (!userProfile || userProfile.role !== 'chancery_office') {
@@ -127,6 +128,22 @@ const UserManagementPage: React.FC = () => {
                 Mobile App
               </span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('chancery')}
+              className={cn(
+                'flex items-center gap-2 px-6 py-3 font-medium text-sm border-b-2 transition-colors',
+                activeTab === 'chancery'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              )}
+            >
+              <Crown className="w-4 h-4" />
+              Chancery Staff
+              <span className="ml-1 px-2 py-0.5 text-xs bg-amber-100 text-amber-600 rounded-full">
+                Chancellors
+              </span>
+            </button>
           </div>
         </div>
 
@@ -134,8 +151,10 @@ const UserManagementPage: React.FC = () => {
         <div>
           {activeTab === 'admin' ? (
             <UserManagement diocese={userProfile.diocese} />
-          ) : (
+          ) : activeTab === 'public' ? (
             <PublicUserManagement />
+          ) : (
+            <ChanceryStaffManagement diocese={userProfile.diocese} />
           )}
         </div>
       </div>

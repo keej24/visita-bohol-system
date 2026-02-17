@@ -225,7 +225,7 @@ const DioceseSelection = () => {
           <Card className="heritage-card mt-6">
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground mb-4">
-                As a Museum Researcher, you have read access to heritage content across both dioceses.
+                As Museum Staff, you have read access to heritage content across both dioceses.
               </p>
               <div className="flex gap-4 justify-center">
                 <Button variant="outline" onClick={() => window.location.href = '/heritage/overview'}>

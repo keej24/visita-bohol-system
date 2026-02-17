@@ -17,11 +17,9 @@ import {
   AlertTriangle,
   Loader2,
   ArrowRight,
-  UserPlus,
   FileEdit
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PendingMuseumStaff } from '@/components/PendingMuseumStaff';
 import { MuseumPendingUpdates } from '@/components/MuseumPendingUpdates';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from "@/contexts/AuthContext";
@@ -171,7 +169,7 @@ const MuseumResearcherDashboard = () => {
         })).filter(doc => doc.url !== ''),
         lastReviewNote: isChangingToNonHeritage 
           ? 'Heritage classification changed to non-heritage. Returned to Chancery for approval.'
-          : 'Heritage information saved as draft by Museum Researcher',
+          : 'Heritage information saved as draft by Museum Staff',
       };
 
       await ChurchService.updateChurchHeritage(
@@ -263,7 +261,7 @@ const MuseumResearcherDashboard = () => {
         })).filter(doc => doc.url !== ''),
         lastReviewNote: isChangingToNonHeritage 
           ? 'Heritage classification changed to non-heritage. Returned to Chancery for approval.'
-          : 'Heritage information updated by Museum Researcher',
+          : 'Heritage information updated by Museum Staff',
       };
 
       await ChurchService.updateChurchHeritage(
@@ -408,7 +406,7 @@ const MuseumResearcherDashboard = () => {
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-800">
-                  Museum Researcher
+                  Museum Staff
                 </Badge>
               </div>
             </div>
@@ -460,7 +458,7 @@ const MuseumResearcherDashboard = () => {
 
         {/* Tabbed Content Area */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-flex">
             <TabsTrigger value="heritage" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Heritage Review</span>
@@ -468,10 +466,6 @@ const MuseumResearcherDashboard = () => {
             <TabsTrigger value="updates" className="flex items-center gap-2">
               <FileEdit className="h-4 w-4" />
               <span className="hidden sm:inline">Updates</span>
-            </TabsTrigger>
-            <TabsTrigger value="staff" className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              <span className="hidden sm:inline">Pending Staff</span>
             </TabsTrigger>
           </TabsList>
 
@@ -593,22 +587,6 @@ const MuseumResearcherDashboard = () => {
             </ErrorBoundary>
           </TabsContent>
 
-          {/* Pending Staff Tab */}
-          <TabsContent value="staff">
-            <ErrorBoundary>
-              {userProfile && (
-                <PendingMuseumStaff
-                  currentUser={userProfile}
-                  onStaffApproved={() => {
-                    toast({
-                      title: "Staff Approved",
-                      description: "The museum researcher account has been activated successfully.",
-                    });
-                  }}
-                />
-              )}
-            </ErrorBoundary>
-          </TabsContent>
         </Tabs>
       </div>
 

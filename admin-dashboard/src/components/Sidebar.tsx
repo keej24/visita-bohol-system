@@ -146,6 +146,9 @@ const getNavigationItems = (role?: string, setActiveTab?: (tab: string) => void,
       // Heritage Church Management
       { title: 'Approved Churches', url: '/approved-churches', icon: Church },
       
+      // Staff Management
+      { title: 'Staff Management', url: '/staff-management', icon: Users },
+      
       // Settings
       { title: 'Account Settings', url: '/settings', icon: Settings },
     ];
@@ -259,7 +262,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
             <div className="flex-1 min-w-0">
               <h1 className="text-sidebar-foreground font-bold text-sm leading-tight">
                 {userProfile?.role === 'chancery_office' && 'Chancery Office'}
-                {userProfile?.role === 'museum_researcher' && 'Museum Researcher'}
+                {userProfile?.role === 'museum_researcher' && 'Museum Staff'}
                 {userProfile?.role === 'parish' && (userProfile?.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary')}
               </h1>
               <p className="text-sidebar-foreground/70 text-xs">
@@ -306,7 +309,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
               </p>
               <p className="text-sidebar-foreground/70 text-xs truncate">
                 {userProfile?.role === 'museum_researcher' 
-                  ? 'Museum Researcher' 
+                  ? 'Museum Staff' 
                   : userProfile?.role === 'parish'
                     ? `${userProfile?.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary'} • ${toTitleCase(userProfile?.diocese)}`
                     : `${toTitleCase(userProfile?.role)} • ${toTitleCase(userProfile?.diocese)}`}
@@ -318,7 +321,7 @@ export function Sidebar({ activeTab, setActiveTab, churchApproved, onMobileClose
           {userProfile?.role === 'museum_researcher' && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-sidebar-foreground/70">Museum Researcher</span>
+                <span className="text-sidebar-foreground/70">Museum Staff</span>
                 <Badge variant="secondary" className="text-xs h-4 px-1">Active</Badge>
               </div>
             </div>

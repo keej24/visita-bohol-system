@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { addDoc, collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp, Timestamp, limit } from 'firebase/firestore';
+import { addDoc, collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp, Timestamp, limit, deleteDoc, writeBatch, arrayUnion } from 'firebase/firestore';
 import type { ChurchStatus } from '@/lib/churches';
 import type { UserProfile, Diocese } from '@/contexts/AuthContext';
 
@@ -101,7 +101,7 @@ const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
   {
     type: 'heritage_validated',
     titleTemplate: 'Heritage Validated: {churchName}',
-    messageTemplate: 'Museum Researcher has validated "{churchName}" as a heritage site. The church has been approved and published.',
+    messageTemplate: 'Museum Staff has validated "{churchName}" as a heritage site. The church has been approved and published.',
     priority: 'medium',
     recipientRules: {
       roles: ['chancery_office']
@@ -177,8 +177,8 @@ const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
   // New Museum Staff Pending Approval → Current Active Museum Researcher
   {
     type: 'museum_staff_pending_approval',
-    titleTemplate: 'New Museum Researcher Registration: {userName}',
-    messageTemplate: '{userName} has registered as a new Museum Researcher. Please review and approve or reject the registration from the Staff Management tab.',
+    titleTemplate: 'New Museum Staff Registration: {userName}',
+    messageTemplate: '{userName} has registered as a new Museum Staff. Please review and approve or reject the registration from the Staff Management tab.',
     priority: 'high',
     recipientRules: {
       roles: ['museum_researcher']
@@ -518,7 +518,7 @@ export class NotificationService {
     try {
       const notificationRef = doc(db, 'notifications', notificationId);
       await updateDoc(notificationRef, {
-        readBy: [userId] // In a real implementation, this would append to array
+        readBy: arrayUnion(userId)
       });
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -557,6 +557,35 @@ export class NotificationService {
     } catch (error) {
       console.error('Error getting unread count:', error);
       return 0;
+    }
+  }
+
+  /**
+   * Clear (delete) all notifications visible to the current user.
+   * Deletes them from Firestore in batches of 500 (Firestore batch limit).
+   */
+  async clearAllNotifications(userProfile: UserProfile): Promise<void> {
+    try {
+      const notifications = await this.getUserNotifications(userProfile, 500, false);
+      if (notifications.length === 0) return;
+
+      // Firestore batched writes (max 500 per batch)
+      const batchSize = 500;
+      for (let i = 0; i < notifications.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = notifications.slice(i, i + batchSize);
+        for (const notification of chunk) {
+          if (notification.id) {
+            batch.delete(doc(db, 'notifications', notification.id));
+          }
+        }
+        await batch.commit();
+      }
+      
+      console.log(`[NotificationService] Cleared ${notifications.length} notifications for user ${userProfile.uid}`);
+    } catch (error) {
+      console.error('Error clearing all notifications:', error);
+      throw error;
     }
   }
 
@@ -961,8 +990,8 @@ export async function notifyMuseumStaffPendingApproval(
     const notification: Omit<Notification, 'id'> = {
       type: 'museum_staff_pending_approval',
       priority: 'high',
-      title: `New Museum Researcher Registration: ${staffData.name}`,
-      message: `${staffData.name} has registered as a new Museum Researcher. Please review and approve or reject the registration from your Staff Management tab.`,
+      title: `New Museum Staff Registration: ${staffData.name}`,
+      message: `${staffData.name} has registered as a new Museum Staff. Please review and approve or reject the registration from your Staff Management tab.`,
       recipients,
       relatedData: {
         actionBy: {

@@ -521,7 +521,7 @@ export const ParishAccount: React.FC<ParishAccountProps> = ({
               </div>
               <div>
                 <Label htmlFor="email" className="flex items-center gap-1">
-                  Parish Email Address
+                   Email Address
                   <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">

@@ -89,7 +89,7 @@ export interface UserProfile {
   role: UserRole;
   name: string;
   diocese: Diocese;
-  status?: 'active' | 'inactive' | 'pending';  // Account status
+  status?: 'active' | 'inactive' | 'pending' | 'archived';  // Account status
   
   // NEW: Unique parish identifier (replaces parish name)
   parishId?: string;  // e.g., "tagbilaran_alburquerque_san_isidro_labrador_parish"
@@ -232,6 +232,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUserProfile(null);
             setLoading(false);
             // Return without throwing - let the registration page handle the redirect
+            return;
+          }
+
+          // Check if account has been archived (term ended)
+          if (data.status === 'archived') {
+            console.log('[AuthContext] Account is archived (term ended):', user.email);
+            await signOut(auth);
+            setUserProfile(null);
+            setLoading(false);
+            // Return without throwing - let the term-ended page handle display
             return;
           }
           

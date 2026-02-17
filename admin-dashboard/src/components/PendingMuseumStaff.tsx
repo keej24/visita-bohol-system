@@ -17,11 +17,15 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -66,6 +70,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
   onStaffApproved,
 }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // State
   const [pendingList, setPendingList] = useState<PendingStaffType[]>([]);
@@ -76,8 +81,8 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
   // Approval dialog state
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedPending, setSelectedPending] = useState<PendingStaffType | null>(null);
-  const [approvalNotes, setApprovalNotes] = useState('');
   const [approving, setApproving] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
 
   // Rejection dialog state
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
@@ -113,7 +118,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
   // Open approval dialog
   const handleApproveClick = (pending: PendingStaffType) => {
     setSelectedPending(pending);
-    setApprovalNotes('');
+    setConfirmText('');
     setApprovalDialogOpen(true);
   };
 
@@ -125,8 +130,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
     try {
       const result = await MuseumStaffService.approveMuseumStaff(
         currentUser,
-        selectedPending.uid,
-        approvalNotes || undefined
+        selectedPending.uid
       );
 
       if (result.success) {
@@ -135,8 +139,20 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
           description: result.message,
         });
         setApprovalDialogOpen(false);
-        loadPendingStaff();
         onStaffApproved?.();
+        // The approver's account is now archived — sign out and redirect
+        try {
+          await signOut(auth);
+        } catch (e) {
+          console.warn('[PendingMuseumStaff] Sign out after approval failed:', e);
+        }
+        navigate('/term-ended', {
+          state: {
+            name: currentUser.name,
+            role: 'museum_researcher',
+            successorName: selectedPending.name,
+          },
+        });
       } else {
         toast({
           title: 'Approval Failed',
@@ -181,6 +197,8 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
           description: result.message,
         });
         setRejectionDialogOpen(false);
+        // Optimistically remove the rejected entry for instant UI feedback
+        setPendingList(prev => prev.filter(p => p.uid !== selectedPending?.uid));
         loadPendingStaff();
       } else {
         toast({
@@ -219,7 +237,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Pending Museum Researcher Registrations
+            Pending Museum Staff Registrations
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -246,7 +264,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Pending Museum Researcher Registrations
+            Pending Museum Staff Registrations
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -272,10 +290,10 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Pending Museum Researcher Registrations
+                Pending Museum Staff Registrations
               </CardTitle>
               <CardDescription>
-                Review and approve new museum researcher registrations
+                Review and approve new museum staff registrations
               </CardDescription>
             </div>
             <Button
@@ -296,7 +314,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
               <UserPlus className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p>No pending registrations</p>
               <p className="text-sm mt-1">
-                New museum researcher registrations will appear here for your review.
+                New museum staff registrations will appear here for your review.
               </p>
             </div>
           ) : (
@@ -317,7 +335,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
                       <h3 className="font-medium">{pending.name}</h3>
                       <Badge variant="secondary" className="text-xs">
                         <Building className="h-3 w-3 mr-1" />
-                        Museum Researcher
+                        Museum Staff
                       </Badge>
                       <Badge variant="outline" className="text-xs">
                         <Clock className="h-3 w-3 mr-1" />
@@ -380,34 +398,34 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Check className="h-5 w-5 text-green-600" />
-              Approve Museum Researcher Registration
+              Approve Museum Staff Registration
             </DialogTitle>
             <DialogDescription>
-              You are about to approve {selectedPending?.name} as the new Museum Researcher.
+              You are about to approve {selectedPending?.name} as the new Museum Staff.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Info about account approval */}
-            <Alert variant="default" className="border-green-200 bg-green-50">
-              <Check className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Approval Information</AlertTitle>
-              <AlertDescription className="text-green-700 text-sm">
+            {/* Warning about account archival */}
+            <Alert variant="default" className="border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800">Important: Account Transition</AlertTitle>
+              <AlertDescription className="text-amber-700 text-sm">
                 <p className="mb-2">
                   By approving this registration:
                 </p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>
-                    {selectedPending?.name} will become an active Museum Researcher
+                    {selectedPending?.name} will become the active Museum Staff
                   </li>
                   <li>
-                    <strong>Your account will remain active</strong> - you can continue using the system
+                    <strong>Your account will be archived</strong> — you will be signed out and will no longer have access
                   </li>
                   <li>
-                    Multiple researchers can be active at the same time
+                    Your term history and actions will be preserved for audit purposes
                   </li>
                   <li>
-                    This action will be recorded in the audit log
+                    This action cannot be undone
                   </li>
                 </ul>
               </AlertDescription>
@@ -422,17 +440,22 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
               <div className="text-muted-foreground">{selectedPending?.email}</div>
             </div>
 
-            {/* Approval notes */}
+            {/* Confirmation input */}
             <div className="space-y-2">
-              <Label htmlFor="approvalNotes">Notes (optional)</Label>
-              <Textarea
-                id="approvalNotes"
-                placeholder="Add any notes about this approval..."
-                value={approvalNotes}
-                onChange={(e) => setApprovalNotes(e.target.value)}
-                rows={3}
+              <Label htmlFor="confirmMuseumApproval" className="text-sm font-medium">
+                Type <strong>APPROVE</strong> to confirm this action
+              </Label>
+              <Input
+                id="confirmMuseumApproval"
+                type="text"
+                placeholder="Type APPROVE to confirm"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                disabled={approving}
+                className={confirmText === 'APPROVE' ? 'border-green-300 focus-visible:ring-green-500' : ''}
               />
             </div>
+
           </div>
 
           <DialogFooter>
@@ -445,8 +468,8 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
             </Button>
             <Button
               onClick={handleConfirmApproval}
-              disabled={approving}
-              className="bg-green-600 hover:bg-green-700"
+              disabled={approving || confirmText !== 'APPROVE'}
+              className="bg-amber-600 hover:bg-amber-700"
             >
               {approving ? (
                 <>

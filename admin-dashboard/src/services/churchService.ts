@@ -654,7 +654,7 @@ export class ChurchService {
         // since heritage validation is no longer needed
         if (heritageData.classification === 'non_heritage') {
           updateData.status = 'pending';
-          updateData.lastReviewNote = 'Heritage classification changed to non-heritage by Museum Researcher. Returned to Chancery for final approval.';
+          updateData.lastReviewNote = 'Heritage classification changed to non-heritage by Museum Staff. Returned to Chancery for final approval.';
           console.log(`[ChurchService] Church ${id} classification changed to non-heritage. Status changed to 'pending' for Chancery approval.`);
         }
       }

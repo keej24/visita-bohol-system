@@ -79,7 +79,6 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
   // Approval dialog state
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedPending, setSelectedPending] = useState<PendingStaffType | null>(null);
-  const [approvalNotes, setApprovalNotes] = useState('');
   const [approving, setApproving] = useState(false);
 
   // Rejection dialog state
@@ -116,7 +115,6 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
   // Open approval dialog
   const handleApproveClick = (pending: PendingStaffType) => {
     setSelectedPending(pending);
-    setApprovalNotes('');
     setApprovalDialogOpen(true);
   };
 
@@ -128,8 +126,7 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
     try {
       const result = await ParishStaffService.approveParishStaff(
         currentUser,
-        selectedPending.uid,
-        approvalNotes || undefined
+        selectedPending.uid
       );
 
       if (result.success) {
@@ -138,6 +135,8 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
           description: result.message,
         });
         setApprovalDialogOpen(false);
+        // Optimistically remove the approved entry for instant UI feedback
+        setPendingList(prev => prev.filter(p => p.uid !== selectedPending.uid));
         loadPendingStaff();
         onStaffApproved?.();
       } else {
@@ -184,6 +183,8 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
           description: result.message,
         });
         setRejectionDialogOpen(false);
+        // Optimistically remove the rejected entry for instant UI feedback
+        setPendingList(prev => prev.filter(p => p.uid !== selectedPending?.uid));
         loadPendingStaff();
       } else {
         toast({
@@ -437,17 +438,6 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
               </AlertDescription>
             </Alert>
 
-            {/* Approval notes */}
-            <div className="space-y-2">
-              <Label htmlFor="approvalNotes">Notes (optional)</Label>
-              <Textarea
-                id="approvalNotes"
-                placeholder="Add any notes about this approval..."
-                value={approvalNotes}
-                onChange={(e) => setApprovalNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
           </div>
 
           <DialogFooter>

@@ -143,7 +143,7 @@ const MuseumStaffRegistration: React.FC = () => {
         setSuccess(true);
         toast({
           title: '✓ Registration Successful!',
-          description: 'Your account has been created. Awaiting approval from the current museum researcher.',
+          description: 'Your account has been created. Awaiting approval from the current museum staff.',
           duration: 4000,
         });
         // Redirect to pending approval page after a short delay
@@ -198,7 +198,7 @@ const MuseumStaffRegistration: React.FC = () => {
             </div>
             <h2 className="text-2xl font-bold text-green-800 mb-2">Registration Successful!</h2>
             <p className="text-muted-foreground mb-4">
-              Your account has been created and is pending approval from the current Museum Researcher.
+              Your account has been created and is pending approval from the current Museum Staff.
             </p>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -217,10 +217,10 @@ const MuseumStaffRegistration: React.FC = () => {
           <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Landmark className="h-8 w-8 text-purple-600" />
           </div>
-          <CardTitle className="text-2xl">Museum Researcher Registration</CardTitle>
+          <CardTitle className="text-2xl">Museum Staff Registration</CardTitle>
           <CardDescription>
-            Register as a museum researcher for heritage validation. Your account will need to be approved
-            by the current museum researcher before you can access the system.
+            Register as museum staff for heritage validation. Your account will need to be approved
+            by the current museum staff before you can access the system.
           </CardDescription>
           
           {/* Progress Indicator */}
@@ -400,7 +400,7 @@ const MuseumStaffRegistration: React.FC = () => {
               <AlertTitle className="text-purple-800">What happens next?</AlertTitle>
               <AlertDescription className="text-sm text-purple-700">
                 After registration, your account will be in pending status until the current Museum
-                Researcher approves it. You'll receive an email notification once approved.
+                Staff approves it. You'll receive an email notification once approved.
               </AlertDescription>
             </Alert>
           </CardContent>

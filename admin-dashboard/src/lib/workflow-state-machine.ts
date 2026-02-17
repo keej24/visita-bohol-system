@@ -90,7 +90,7 @@ const WORKFLOW_TRANSITIONS: WorkflowTransition[] = [
     from: 'pending',
     to: 'heritage_review',
     requiredRoles: ['chancery_office'],
-    description: 'Forward to museum researcher for heritage validation',
+    description: 'Forward to museum staff for heritage validation',
     conditions: (context) => {
       // Chancery decides when a church needs heritage review
       return true;
@@ -270,7 +270,7 @@ export class ChurchWorkflowStateMachine {
       heritage_review: {
         label: 'Heritage Review',
         color: 'orange',
-        description: 'Under review by Museum Researcher'
+        description: 'Under review by Museum Staff'
       },
       approved: {
         label: 'Published',
@@ -324,7 +324,7 @@ export class ChurchWorkflowStateMachine {
   private getActionLabel(transition: WorkflowTransition): string {
     const actionLabels: Record<ChurchStatus, string> = {
       pending: 'Submit for Review',
-      heritage_review: 'Send to Museum Researcher',
+      heritage_review: 'Send to Museum Staff',
       approved: 'Approve & Publish'
     };
 

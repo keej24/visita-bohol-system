@@ -25,6 +25,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   setDoc,
   updateDoc,
   query,
@@ -148,7 +149,11 @@ export async function registerChancellor(
       lastLoginAt: new Date(),
     };
 
-    await Promise.all([
+    // Fire-and-forget: Run audit log, notification, and sign-out in the background.
+    // These are non-critical and must NOT block the return, because AuthContext's
+    // onAuthStateChanged may also call signOut (for pending users), which can cause
+    // these Firestore operations to lose their auth context and hang indefinitely.
+    Promise.all([
       // 1. Audit log (non-critical)
       AuditService.logAction(
         registrationProfile,
@@ -201,8 +206,12 @@ export async function registerChancellor(
       // 3. Sign out
       auth.signOut().then(() => {
         console.log('[ChancellorService] User signed out after successful registration');
+      }).catch(signOutError => {
+        console.warn('[ChancellorService] Sign out failed (non-critical):', signOutError);
       }),
-    ]);
+    ]).catch(() => {
+      // Ensure no unhandled promise rejection from the background tasks
+    });
 
     return {
       success: true,
@@ -259,7 +268,9 @@ export async function getPendingChancellors(diocese: Diocese): Promise<PendingCh
       orderBy('createdAt', 'desc')
     );
 
-    const snapshot = await getDocs(q);
+    // Use getDocsFromServer to bypass the SDK's memory cache and ensure
+    // fresh results, especially after approval/rejection mutations.
+    const snapshot = await getDocsFromServer(q);
     console.log('[ChancellorService] Query returned', snapshot.size, 'pending chancellors');
     
     const results = snapshot.docs.map((doc) => {
@@ -362,11 +373,34 @@ export async function approveChancellor(
     // Get current active chancellor (the one approving)
     const activeChancellor = await getActiveChancellor(approvingChancellor.diocese);
 
-    // Note: We no longer archive the approving chancellor's account.
-    // Both the old and new chancellor accounts will remain active.
-    // This allows multiple chancellors to be active simultaneously.
+    // Step 1: Archive the approving chancellor's account
+    if (activeChancellor) {
+      const approvingDocRef = doc(db, 'users', approvingChancellor.uid);
+      batch.update(approvingDocRef, {
+        status: 'archived',
+        archivedAt: now,
+        archivedReason: `Term ended - approved successor: ${pendingData.name}`,
+        termEnd: now,
+      });
 
-    // Step 1: Activate the new chancellor
+      // Step 2: Create a term record for the outgoing chancellor
+      const termRef = doc(collection(db, 'chancellor_terms'));
+      batch.set(termRef, {
+        chancellorId: approvingChancellor.uid,
+        chancellorName: approvingChancellor.name,
+        chancellorEmail: approvingChancellor.email,
+        diocese: approvingChancellor.diocese,
+        termStart: activeChancellor.createdAt || now,
+        termEnd: now,
+        status: 'completed',
+        endReason: `Approved successor: ${pendingData.name}`,
+        successorId: pendingChancellorId,
+        successorName: pendingData.name,
+        createdAt: now,
+      });
+    }
+
+    // Step 3: Activate the new chancellor
     batch.update(pendingDocRef, {
       status: 'active',
       approvedAt: now,
@@ -400,9 +434,12 @@ export async function approveChancellor(
         resourceName: pendingData.name,
         changes: [
           { field: 'status', oldValue: 'pending', newValue: 'active' },
+          { field: 'previous_chancellor_status', oldValue: 'active', newValue: 'archived' },
         ],
         metadata: {
           diocese: pendingData.diocese,
+          archivedChancellorId: approvingChancellor.uid,
+          archivedChancellorName: approvingChancellor.name,
           notes,
         },
       }
@@ -410,7 +447,7 @@ export async function approveChancellor(
 
     return {
       success: true,
-      message: `${pendingData.name} has been approved as the new chancellor.`,
+      message: `${pendingData.name} has been approved as the new chancellor. Your account has been archived.`,
       archivedChancellorId: activeChancellor?.uid,
       newChancellorId: pendingChancellorId,
     };

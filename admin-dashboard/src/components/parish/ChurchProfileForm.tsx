@@ -1545,7 +1545,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                 <Building2 className="h-5 w-5 text-amber-600" />
                 <AlertDescription className="text-amber-800">
                   <strong className="text-amber-900">🏛️ Heritage Site Review Required:</strong> This church is classified as <span className="font-semibold">{formData.historicalDetails.heritageClassification}</span>. 
-                  After Chancery evaluation, your submission will be forwarded to the Museum Researcher dashboard for heritage validation before final approval.
+                  After Chancery evaluation, your submission will be forwarded to the Museum Staff dashboard for heritage validation before final approval.
                 </AlertDescription>
               </Alert>
             )}
@@ -1933,7 +1933,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                               <p className="text-xs text-amber-600 mt-1">
                                 {isApprovedHeritage 
                                   ? '🔒 Heritage classification is locked after museum validation.'
-                                  : '🔒 This church is under heritage review. Only the Museum Researcher can modify this field.'}
+                                  : '🔒 This church is under heritage review. Only the Museum Staff can modify this field.'}
                               </p>
                             )}
                           </>

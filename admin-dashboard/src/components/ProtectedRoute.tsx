@@ -114,11 +114,13 @@ export const ProtectedRoute = ({
     return <Navigate to="/login" replace />;
   }
 
-  // STEP 2.5: Check if user account is inactive
-  // Even if logged in, inactive accounts should be logged out
+  // STEP 2.5: Check if user account is inactive or archived
+  // Even if logged in, inactive/archived accounts should be redirected
   if (userProfile && userProfile.status === 'inactive') {
-    // This will trigger the auth state listener to log them out
     return <Navigate to="/login" state={{ message: 'Your account has been deactivated. Please contact the administrator.' }} replace />;
+  }
+  if (userProfile && userProfile.status === 'archived') {
+    return <Navigate to="/term-ended" replace />;
   }
 
   // STEP 3: Check role-based authorization

@@ -418,7 +418,7 @@ export const OptimizedChurchForm: React.FC<OptimizedChurchFormProps> = ({
                         <Building2 className="h-4 w-4 text-amber-600" />
                         <AlertDescription className="text-amber-800 text-sm">
                           <strong>Heritage Site Review Required:</strong> This church profile will be forwarded to the 
-                          <span className="font-semibold"> Museum Researcher</span> for heritage validation before final approval and publication.
+                          <span className="font-semibold"> Museum Staff</span> for heritage validation before final approval and publication.
                         </AlertDescription>
                       </Alert>
                     )}

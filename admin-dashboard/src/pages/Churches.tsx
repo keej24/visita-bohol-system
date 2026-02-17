@@ -614,7 +614,7 @@ const Churches = () => {
                               className="text-blue-600 hover:text-blue-700"
                               onClick={() => handleReviewChurch(church.id, 'forward_to_museum', 'Forwarded for heritage review')}
                               disabled={reviewMutation.isPending}
-                              title="Forward to Museum Researcher"
+                              title="Forward to Museum Staff"
                             >
                               <ExternalLink className="w-4 h-4" />
                             </Button>

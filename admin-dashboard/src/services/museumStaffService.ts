@@ -25,6 +25,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   setDoc,
   updateDoc,
   query,
@@ -155,10 +156,11 @@ export async function registerMuseumStaff(
       throw firestoreError;
     }
 
-    // Run audit log, active staff lookup + notification, and sign-out in parallel
-    // All of these are independent and non-critical (except sign-out)
-    // IMPORTANT: All Firestore queries happen BEFORE sign-out since they run concurrently
-    await Promise.all([
+    // Fire-and-forget: Run audit log, notification, and sign-out in the background.
+    // These are non-critical and must NOT block the return, because AuthContext's
+    // onAuthStateChanged may also call signOut (for pending users), which can cause
+    // these Firestore operations to lose their auth context and hang indefinitely.
+    Promise.all([
       // 1. Audit log (non-critical)
       AuditService.logAction(
         {
@@ -218,12 +220,16 @@ export async function registerMuseumStaff(
       // 3. Sign out
       auth.signOut().then(() => {
         console.log('[MuseumStaffService] User signed out after successful registration');
+      }).catch(signOutError => {
+        console.warn('[MuseumStaffService] Sign out failed (non-critical):', signOutError);
       }),
-    ]);
+    ]).catch(() => {
+      // Ensure no unhandled promise rejection from the background tasks
+    });
 
     return {
       success: true,
-      message: 'Registration successful! Your account is pending approval by the current Museum Researcher.',
+      message: 'Registration successful! Your account is pending approval by the current Museum Staff.',
       uid,
     };
   } catch (error: unknown) {
@@ -265,7 +271,9 @@ export async function getPendingMuseumStaff(): Promise<PendingMuseumStaff[]> {
       orderBy('createdAt', 'desc')
     );
 
-    const snapshot = await getDocs(q);
+    // Use getDocsFromServer to bypass the SDK's memory cache and ensure
+    // fresh results, especially after approval/rejection mutations.
+    const snapshot = await getDocsFromServer(q);
     console.log('[MuseumStaffService] Query returned', snapshot.size, 'pending museum staff');
     
     const results = snapshot.docs.map((doc) => {
@@ -344,7 +352,17 @@ export async function approveMuseumStaff(
   try {
     // Only museum researcher can approve new museum staff
     if (approvingUser.role !== 'museum_researcher') {
-      return { success: false, message: 'Only the current Museum Researcher can approve new registrations.' };
+      return { success: false, message: 'Only the current Museum Staff can approve new registrations.' };
+    }
+
+    // Ensure the approving user's Firestore document has `status: 'active'`.
+    // Legacy/migrated accounts may be missing this field, which causes Firestore
+    // security rules to reject the update (rules require status == 'active').
+    const approvingUserRef = doc(db, 'users', approvingUser.uid);
+    const approvingUserDoc = await getDoc(approvingUserRef);
+    if (approvingUserDoc.exists() && !approvingUserDoc.data().status) {
+      console.log('[MuseumStaffService] Backfilling missing status field for approving user:', approvingUser.uid);
+      await updateDoc(approvingUserRef, { status: 'active' });
     }
 
     const batch = writeBatch(db);
@@ -363,9 +381,31 @@ export async function approveMuseumStaff(
       return { success: false, message: 'This registration has already been processed.' };
     }
 
-    // Note: We no longer archive the approving user's account.
-    // Both the old and new museum researcher accounts will remain active.
-    // This allows multiple researchers to be active simultaneously.
+    // Archive the approving museum researcher's account
+    const approvingUserDocRef = doc(db, 'users', approvingUser.uid);
+    batch.update(approvingUserDocRef, {
+      status: 'archived',
+      archivedAt: now,
+      archivedReason: `Term ended - approved successor: ${pendingData.name}`,
+      termEnd: now,
+    });
+
+    // Create a term record for the outgoing museum researcher
+    const termRef = doc(collection(db, 'museum_staff_terms'));
+    batch.set(termRef, {
+      staffId: approvingUser.uid,
+      staffName: approvingUser.name,
+      staffEmail: approvingUser.email,
+      diocese: approvingUser.diocese || 'tagbilaran',
+      institution: 'National Museum of the Philippines',
+      position: approvingUser.position,
+      termStart: approvingUser.createdAt || now,
+      termEnd: now,
+      status: 'completed',
+      endReason: `Approved successor: ${pendingData.name}`,
+      approvedSuccessorId: pendingStaffId,
+      createdAt: now,
+    });
 
     // Activate the new museum staff
     batch.update(pendingDocRef, {
@@ -390,20 +430,23 @@ export async function approveMuseumStaff(
         resourceName: pendingData.name,
         changes: [
           { field: 'status', oldValue: 'pending', newValue: 'active' },
+          { field: 'previous_staff_status', oldValue: 'active', newValue: 'archived' },
         ],
         metadata: {
           institution: pendingData.institution || pendingData.institutionName,
           position: pendingData.position,
           diocese: pendingData.diocese,
           approvalNotes: notes,
-          approvedByUserId: approvingUser.uid,
+          archivedStaffId: approvingUser.uid,
+          archivedStaffName: approvingUser.name,
         },
       }
     );
 
     return {
       success: true,
-      message: `${pendingData.name} has been approved as a Museum Researcher.`,
+      message: `${pendingData.name} has been approved as Museum Staff. Your account has been archived.`,
+      archivedStaffId: approvingUser.uid,
       newStaffId: pendingStaffId,
     };
   } catch (error) {
@@ -427,7 +470,17 @@ export async function rejectMuseumStaff(
   try {
     // Only museum researcher can reject new museum staff
     if (rejectingUser.role !== 'museum_researcher') {
-      return { success: false, message: 'Only the current Museum Researcher can reject registrations.' };
+      return { success: false, message: 'Only the current Museum Staff can reject registrations.' };
+    }
+
+    // Ensure the rejecting user's Firestore document has `status: 'active'`.
+    // Legacy/migrated accounts may be missing this field, which causes Firestore
+    // security rules to reject the update (rules require status == 'active').
+    const rejectingUserRef = doc(db, 'users', rejectingUser.uid);
+    const rejectingUserDoc = await getDoc(rejectingUserRef);
+    if (rejectingUserDoc.exists() && !rejectingUserDoc.data().status) {
+      console.log('[MuseumStaffService] Backfilling missing status field for rejecting user:', rejectingUser.uid);
+      await updateDoc(rejectingUserRef, { status: 'active' });
     }
 
     const pendingDocRef = doc(db, 'users', pendingStaffId);
@@ -524,6 +577,102 @@ export async function getMuseumTermHistory(diocese?: Diocese): Promise<MuseumSta
 }
 
 // ============================================================================
+// MANUAL TERM MANAGEMENT
+// ============================================================================
+
+/**
+ * Manually end a museum researcher's term (for administrative purposes)
+ *
+ * This operation:
+ * 1. Archives the target museum researcher
+ * 2. Creates a term record in museum_staff_terms for audit trail
+ * 3. Logs the action via AuditService
+ *
+ * @param adminProfile - The user performing the action (must be museum_researcher or chancery_office)
+ * @param staffId - UID of the museum researcher whose term is being ended
+ * @param reason - Reason for ending the term
+ */
+export async function endMuseumStaffTerm(
+  adminProfile: UserProfile,
+  staffId: string,
+  reason: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const staffDocRef = doc(db, 'users', staffId);
+    const staffDoc = await getDoc(staffDocRef);
+
+    if (!staffDoc.exists()) {
+      return { success: false, message: 'Museum researcher not found.' };
+    }
+
+    const staffData = staffDoc.data();
+    if (staffData.status !== 'active') {
+      return { success: false, message: 'Museum researcher is not currently active.' };
+    }
+
+    const now = Timestamp.now();
+
+    // Generate term statistics
+    const termStats = await AuditService.getTermStats(staffId);
+
+    // Create term record
+    await setDoc(doc(collection(db, 'museum_staff_terms')), {
+      staffId,
+      staffName: staffData.name,
+      staffEmail: staffData.email,
+      diocese: staffData.diocese || 'tagbilaran',
+      institution: staffData.institution || 'National Museum of the Philippines',
+      position: staffData.position,
+      termStart: staffData.termStart || staffData.createdAt || now,
+      termEnd: now,
+      status: 'completed',
+      endReason: reason,
+      stats: termStats,
+      endedBy: adminProfile.uid,
+      endedByName: adminProfile.name,
+      createdAt: now,
+    });
+
+    // Archive the museum researcher
+    await updateDoc(staffDocRef, {
+      status: 'archived',
+      archivedAt: now,
+      archivedReason: reason,
+      termEnd: now,
+    });
+
+    // Log the action
+    await AuditService.logAction(
+      adminProfile,
+      'museum_staff.term_end',
+      'user',
+      staffId,
+      {
+        resourceName: staffData.name,
+        changes: [
+          { field: 'status', oldValue: 'active', newValue: 'archived' },
+        ],
+        metadata: {
+          reason,
+          termStats,
+        },
+      }
+    );
+
+    return {
+      success: true,
+      message: `Museum researcher term for ${staffData.name} has been ended.`,
+    };
+  } catch (error) {
+    console.error('[MuseumStaffService] End term error:', error);
+    return {
+      success: false,
+      message: 'Failed to end museum researcher term. Please try again.',
+    };
+  }
+}
+
+// ============================================================================
 // SERVICE EXPORT
 // ============================================================================
 
@@ -534,4 +683,5 @@ export const MuseumStaffService = {
   approveMuseumStaff,
   rejectMuseumStaff,
   getMuseumTermHistory,
+  endMuseumStaffTerm,
 };

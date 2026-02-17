@@ -86,6 +86,7 @@ import ChancellorRegistration from "./pages/ChancellorRegistration";  // Chancel
 import ParishStaffRegistration from "./pages/ParishStaffRegistration";  // Parish staff self-registration page
 import MuseumStaffRegistration from "./pages/MuseumStaffRegistration";  // Museum researcher self-registration page
 import PendingApproval from "./pages/PendingApproval";  // Waiting page for pending chancellor approval
+import TermEnded from "./pages/TermEnded";  // Term ended page for archived chancellors/museum staff
 
 // ===========================
 // STEP 4: LOADING SPINNER
@@ -165,6 +166,7 @@ const App = () => (
             <Route path="/parish-register" element={<ParishStaffRegistration />} />
             <Route path="/museum-register" element={<MuseumStaffRegistration />} />
             <Route path="/pending-approval" element={<PendingApproval />} />
+            <Route path="/term-ended" element={<TermEnded />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="/email-verified" element={<EmailVerified />} />
             <Route path="/password-reset-success" element={<PasswordResetSuccess />} />

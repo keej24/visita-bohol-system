@@ -43,10 +43,10 @@ export function MuseumResearcherSetup() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Crown className="h-8 w-8 text-amber-600" />
-            <h1 className="text-3xl font-bold text-primary">Museum Researcher Setup</h1>
+            <h1 className="text-3xl font-bold text-primary">Museum Staff Setup</h1>
           </div>
           <p className="text-muted-foreground">
-            Set up the Museum Researcher account for heritage validation
+            Set up the Museum Staff account for heritage validation
           </p>
         </div>
 
@@ -63,7 +63,7 @@ export function MuseumResearcherSetup() {
                 <h3 className="font-medium text-amber-800 mb-2">Account Details</h3>
                 <div className="space-y-1">
                   <p><strong>Email:</strong> bohol@nationalmuseum.gov.ph</p>
-                  <p><strong>Role:</strong> Museum Researcher</p>
+                  <p><strong>Role:</strong> Museum Staff</p>
                   <p><strong>Permissions:</strong> Heritage validation, cross-diocese access</p>
                   <p><strong>Primary Diocese:</strong> Tagbilaran (with Talibon access)</p>
                 </div>
@@ -99,7 +99,7 @@ export function MuseumResearcherSetup() {
               ) : (
                 <>
                   <Crown className="h-4 w-4 mr-2" />
-                  Setup Museum Researcher
+                  Setup Museum Staff
                 </>
               )}
             </Button>
@@ -132,7 +132,7 @@ export function MuseumResearcherSetup() {
                 <ol className="text-green-700 space-y-1 text-sm">
                   <li>1. Navigate to the login page</li>
                   <li>2. Use the credentials: bohol@nationalmuseum.gov.ph</li>
-                  <li>3. Access the Museum Researcher Dashboard</li>
+                  <li>3. Access the Museum Staff Dashboard</li>
                   <li>4. Begin heritage validation workflow</li>
                 </ol>
               </div>

@@ -17,6 +17,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +71,7 @@ export const PendingChancellors: React.FC<PendingChancellorsProps> = ({
   onChancellorApproved,
 }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // State
   const [pendingList, setPendingList] = useState<PendingChancellor[]>([]);
@@ -78,8 +82,8 @@ export const PendingChancellors: React.FC<PendingChancellorsProps> = ({
   // Approval dialog state
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [selectedPending, setSelectedPending] = useState<PendingChancellor | null>(null);
-  const [approvalNotes, setApprovalNotes] = useState('');
   const [approving, setApproving] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
 
   // Rejection dialog state
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
@@ -115,7 +119,7 @@ export const PendingChancellors: React.FC<PendingChancellorsProps> = ({
   // Open approval dialog
   const handleApproveClick = (pending: PendingChancellor) => {
     setSelectedPending(pending);
-    setApprovalNotes('');
+    setConfirmText('');
     setApprovalDialogOpen(true);
   };
 
@@ -127,8 +131,7 @@ export const PendingChancellors: React.FC<PendingChancellorsProps> = ({
     try {
       const result = await ChancellorService.approveChancellor(
         currentChancellor,
-        selectedPending.uid,
-        approvalNotes || undefined
+        selectedPending.uid
       );
 
       if (result.success) {
@@ -137,8 +140,20 @@ export const PendingChancellors: React.FC<PendingChancellorsProps> = ({
           description: result.message,
         });
         setApprovalDialogOpen(false);
-        loadPendingChancellors();
         onChancellorApproved?.();
+        // The approver's account is now archived — sign out and redirect
+        try {
+          await signOut(auth);
+        } catch (e) {
+          console.warn('[PendingChancellors] Sign out after approval failed:', e);
+        }
+        navigate('/term-ended', {
+          state: {
+            name: currentChancellor.name,
+            role: 'chancellor',
+            successorName: selectedPending.name,
+          },
+        });
       } else {
         toast({
           title: 'Approval Failed',
@@ -183,6 +198,8 @@ export const PendingChancellors: React.FC<PendingChancellorsProps> = ({
           description: result.message,
         });
         setRejectionDialogOpen(false);
+        // Optimistically remove the rejected entry for instant UI feedback
+        setPendingList(prev => prev.filter(p => p.uid !== selectedPending?.uid));
         loadPendingChancellors();
       } else {
         toast({
@@ -386,42 +403,47 @@ export const PendingChancellors: React.FC<PendingChancellorsProps> = ({
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Info about account approval */}
-            <Alert variant="default" className="border-green-200 bg-green-50">
-              <Check className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Approval Information</AlertTitle>
-              <AlertDescription className="text-green-700 text-sm">
+            {/* Warning about account archival */}
+            <Alert variant="default" className="border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800">Important: Account Transition</AlertTitle>
+              <AlertDescription className="text-amber-700 text-sm">
                 <p className="mb-2">
                   By approving this registration:
                 </p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>
-                    {selectedPending?.name} will become an active chancellor
+                    {selectedPending?.name} will become the active chancellor
                   </li>
                   <li>
-                    <strong>Your account will remain active</strong> - you can continue using the system
+                    <strong>Your account will be archived</strong> — you will be signed out and will no longer have admin access
                   </li>
                   <li>
-                    Multiple chancellors can be active at the same time
+                    Your term history and actions will be preserved for audit purposes
                   </li>
                   <li>
-                    This action will be recorded in the audit log
+                    This action cannot be undone
                   </li>
                 </ul>
               </AlertDescription>
             </Alert>
 
-            {/* Approval notes */}
+            {/* Confirmation input */}
             <div className="space-y-2">
-              <Label htmlFor="approvalNotes">Notes (optional)</Label>
-              <Textarea
-                id="approvalNotes"
-                placeholder="Add any notes about this approval..."
-                value={approvalNotes}
-                onChange={(e) => setApprovalNotes(e.target.value)}
-                rows={3}
+              <Label htmlFor="confirmApproval" className="text-sm font-medium">
+                Type <strong>APPROVE</strong> to confirm this action
+              </Label>
+              <Input
+                id="confirmApproval"
+                type="text"
+                placeholder="Type APPROVE to confirm"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                disabled={approving}
+                className={confirmText === 'APPROVE' ? 'border-green-300 focus-visible:ring-green-500' : ''}
               />
             </div>
+
           </div>
 
           <DialogFooter>
@@ -434,8 +456,8 @@ export const PendingChancellors: React.FC<PendingChancellorsProps> = ({
             </Button>
             <Button
               onClick={handleConfirmApproval}
-              disabled={approving}
-              className="bg-green-600 hover:bg-green-700"
+              disabled={approving || confirmText !== 'APPROVE'}
+              className="bg-amber-600 hover:bg-amber-700"
             >
               {approving ? (
                 <>

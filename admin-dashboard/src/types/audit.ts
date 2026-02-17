@@ -369,13 +369,13 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'parish_staff.reactivate': 'Reactivated parish staff account',
   
   // Museum Staff
-  'museum_staff.register': 'Registered as museum researcher',
-  'museum_staff.approve': 'Approved museum researcher registration',
-  'museum_staff.reject': 'Rejected museum researcher registration',
-  'museum_staff.archive': 'Archived museum researcher account',
-  'museum_staff.term_end': 'Ended museum researcher term',
-  'museum_staff.suspend': 'Suspended museum researcher account',
-  'museum_staff.reactivate': 'Reactivated museum researcher account',
+  'museum_staff.register': 'Registered as museum staff',
+  'museum_staff.approve': 'Approved museum staff registration',
+  'museum_staff.reject': 'Rejected museum staff registration',
+  'museum_staff.archive': 'Archived museum staff account',
+  'museum_staff.term_end': 'Ended museum staff term',
+  'museum_staff.suspend': 'Suspended museum staff account',
+  'museum_staff.reactivate': 'Reactivated museum staff account',
   
   // User
   'user.create': 'Created user account',

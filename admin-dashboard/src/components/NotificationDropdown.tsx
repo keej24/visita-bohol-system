@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Bell, Check, CheckCheck, ChevronDown, ChevronUp, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { Bell, Check, CheckCheck, ChevronDown, ChevronUp, ExternalLink, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/optimized/queries";
+import { useUserNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead, useClearAllNotifications } from "@/lib/optimized/queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,6 +44,7 @@ export function NotificationDropdown() {
   const { data: unreadCount = 0 } = useUnreadNotificationCount(userProfile);
   const markAsReadMutation = useMarkNotificationAsRead();
   const markAllAsReadMutation = useMarkAllNotificationsAsRead();
+  const clearAllMutation = useClearAllNotifications();
 
   const handleNotificationClick = (notification: Notification) => {
     if (!userProfile) return;
@@ -71,6 +72,11 @@ export function NotificationDropdown() {
     refetch();
   };
 
+  const handleClearAll = () => {
+    if (!userProfile || sortedNotifications.length === 0) return;
+    clearAllMutation.mutate(userProfile);
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'church_submitted':
@@ -89,6 +95,12 @@ export function NotificationDropdown() {
         return '⚠️';  // Error
       case 'account_pending_approval':
         return '👤';  // New account registration
+      case 'chancellor_pending_approval':
+        return '🧑‍💼';  // New chancellor registration
+      case 'museum_staff_pending_approval':
+        return '🏛️';  // New museum staff registration
+      case 'pending_update_submitted':
+        return '📋';  // Parish submitted profile updates
       case 'account_approved':
         return '🎉';  // Account activated
       case 'feedback_received':
@@ -147,18 +159,64 @@ export function NotificationDropdown() {
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between py-1.5">
           <span className="text-sm font-medium">Notifications</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleRefresh();
-            }}
-          >
-            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex items-center gap-0.5">
+            {unreadCount > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={markAllAsReadMutation.isPending}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleMarkAllAsRead();
+                      }}
+                    >
+                      <CheckCheck className={`w-3 h-3 ${markAllAsReadMutation.isPending ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom"><p>Mark all as read</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {sortedNotifications.length > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      disabled={clearAllMutation.isPending}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleClearAll();
+                      }}
+                    >
+                      <Trash2 className={`w-3 h-3 ${clearAllMutation.isPending ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom"><p>Clear all notifications</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleRefresh();
+              }}
+            >
+              <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -184,6 +242,8 @@ export function NotificationDropdown() {
                       notification.type === 'heritage_review_assigned' ? 'border-l-purple-500 bg-purple-50/50' :
                       notification.type === 'heritage_validated' ? 'border-l-green-500 bg-green-50/50' :
                       notification.type === 'church_unpublished' ? 'border-l-red-500 bg-red-50/50' :
+                      notification.type === 'pending_update_submitted' ? 'border-l-amber-500 bg-amber-50/50' :
+                      (notification.type === 'chancellor_pending_approval' || notification.type === 'museum_staff_pending_approval' || notification.type === 'account_pending_approval') ? 'border-l-indigo-500 bg-indigo-50/50' :
                       'border-l-gray-500 bg-gray-50/50'
                     } ${isUnread(notification) ? '' : 'opacity-60'}`}
                     onClick={() => {
@@ -210,6 +270,21 @@ export function NotificationDropdown() {
                             )}
                             {notification.relatedData?.actionBy?.name && (
                               <p><b>From:</b> {notification.relatedData.actionBy.name}</p>
+                            )}
+                            {notification.metadata?.staffEmail && (
+                              <p><b>Email:</b> {String(notification.metadata.staffEmail)}</p>
+                            )}
+                            {notification.metadata?.staffPosition && (
+                              <p><b>Position:</b> {String(notification.metadata.staffPosition) === 'parish_priest' ? 'Parish Priest' : String(notification.metadata.staffPosition) === 'parish_secretary' ? 'Parish Secretary' : String(notification.metadata.staffPosition)}</p>
+                            )}
+                            {notification.metadata?.chancellorEmail && (
+                              <p><b>Email:</b> {String(notification.metadata.chancellorEmail)}</p>
+                            )}
+                            {notification.metadata?.parishName && (
+                              <p><b>Parish:</b> {String(notification.metadata.parishName)}</p>
+                            )}
+                            {notification.metadata?.changedFields && (
+                              <p><b>Changed:</b> {Array.isArray(notification.metadata.changedFields) ? (notification.metadata.changedFields as string[]).join(', ') : String(notification.metadata.changedFields)}</p>
                             )}
                             {notification.metadata?.note && (
                               <p><b>Note:</b> {String(notification.metadata.note)}</p>

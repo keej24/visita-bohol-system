@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Bell, CheckCheck, ChevronDown, ChevronUp, ExternalLink, Loader2, RefreshCw, AlertTriangle, Clock, FileText, EyeOff } from "lucide-react";
+import { Bell, CheckCheck, ChevronDown, ChevronUp, ExternalLink, Loader2, RefreshCw, AlertTriangle, Clock, FileText, EyeOff, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/optimized/queries";
+import { useUserNotifications, useUnreadNotificationCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead, useClearAllNotifications } from "@/lib/optimized/queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -48,6 +49,7 @@ interface ParishNotificationDropdownProps {
 
 export function ParishNotificationDropdown({ churchStatus: propChurchStatus, churchName: propChurchName }: ParishNotificationDropdownProps) {
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const [churchData, setChurchData] = useState<Church | null>(null);
   const [isLoadingChurch, setIsLoadingChurch] = useState(true);
 
@@ -85,6 +87,7 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
   const { data: unreadCount = 0 } = useUnreadNotificationCount(userProfile);
   const markAsReadMutation = useMarkNotificationAsRead();
   const markAllAsReadMutation = useMarkAllNotificationsAsRead();
+  const clearAllMutation = useClearAllNotifications();
 
   // Filter notifications relevant to parish users
   const parishNotifications = notifications.filter(notification => {
@@ -94,7 +97,9 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
       'church_unpublished',
       'revision_requested',
       'heritage_review_assigned',
-      'heritage_validated'
+      'heritage_validated',
+      'account_pending_approval',
+      'pending_update_submitted'
     ];
     
     // General notification types that all parish secretaries can see
@@ -159,7 +164,7 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
           id: 'local-heritage',
           type: 'heritage_review_assigned' as const,
           title: 'Heritage Review in Progress',
-          message: `Your church "${churchName}" has been forwarded to the Museum Researcher for heritage validation.`,
+          message: `Your church "${churchName}" has been forwarded to the Museum Staff for heritage validation.`,
           priority: 'medium' as const,
           isLocal: true,
           icon: '🏛️'
@@ -192,6 +197,11 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
     refetch();
   };
 
+  const handleClearAll = () => {
+    if (!userProfile || sortedParishNotifications.length === 0) return;
+    clearAllMutation.mutate(userProfile);
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'church_approved':
@@ -204,6 +214,10 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
         return '🏛️';  // Sent to museum researcher
       case 'heritage_validated':
         return '🎖️';  // Museum validated heritage
+      case 'account_pending_approval':
+        return '👤';  // New staff registration
+      case 'pending_update_submitted':
+        return '📋';  // Parish profile update submitted
       case 'account_approved':
         return '🎉';  // Account activated
       case 'feedback_received':
@@ -224,6 +238,10 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
       case 'heritage_review_assigned':
       case 'heritage_validated':
         return 'border-l-4 border-l-purple-500 bg-purple-50/50';
+      case 'account_pending_approval':
+        return 'border-l-4 border-l-indigo-500 bg-indigo-50/50';
+      case 'pending_update_submitted':
+        return 'border-l-4 border-l-amber-500 bg-amber-50/50';
       case 'account_approved':
         return 'border-l-4 border-l-emerald-500 bg-emerald-50/50';
       case 'feedback_received':
@@ -302,18 +320,64 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between py-1.5">
           <span className="text-sm font-medium">Notifications</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleRefresh();
-            }}
-          >
-            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex items-center gap-0.5">
+            {totalUnread > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={markAllAsReadMutation.isPending}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleMarkAllAsRead();
+                      }}
+                    >
+                      <CheckCheck className={`w-3 h-3 ${markAllAsReadMutation.isPending ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom"><p>Mark all as read</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {sortedParishNotifications.length > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      disabled={clearAllMutation.isPending}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleClearAll();
+                      }}
+                    >
+                      <Trash2 className={`w-3 h-3 ${clearAllMutation.isPending ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom"><p>Clear all notifications</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleRefresh();
+              }}
+            >
+              <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -339,6 +403,8 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
                       notif.type === 'church_approved' ? 'border-l-green-500 bg-green-50/50' :
                       notif.type === 'church_unpublished' ? 'border-l-red-500 bg-red-50/50' :
                       notif.type === 'revision_requested' ? 'border-l-orange-500 bg-orange-50/50' :
+                      notif.type === 'account_pending_approval' ? 'border-l-indigo-500 bg-indigo-50/50' :
+                      notif.type === 'pending_update_submitted' ? 'border-l-amber-500 bg-amber-50/50' :
                       'border-l-blue-500 bg-blue-50/50'
                     } ${isUnread(notif) ? '' : 'opacity-60'}`}
                     onClick={() => {
@@ -366,11 +432,34 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
                             {(notif as Notification).relatedData?.churchName && (
                               <p><b>Church:</b> {(notif as Notification).relatedData?.churchName}</p>
                             )}
+                            {(notif as Notification).relatedData?.actionBy?.name && (
+                              <p><b>From:</b> {(notif as Notification).relatedData?.actionBy?.name}</p>
+                            )}
+                            {(notif as Notification).metadata?.staffEmail && (
+                              <p><b>Email:</b> {String((notif as Notification).metadata?.staffEmail)}</p>
+                            )}
+                            {(notif as Notification).metadata?.staffPosition && (
+                              <p><b>Position:</b> {String((notif as Notification).metadata?.staffPosition) === 'parish_priest' ? 'Parish Priest' : String((notif as Notification).metadata?.staffPosition) === 'parish_secretary' ? 'Parish Secretary' : String((notif as Notification).metadata?.staffPosition)}</p>
+                            )}
+                            {(notif as Notification).metadata?.changedFields && (
+                              <p><b>Changed:</b> {Array.isArray((notif as Notification).metadata?.changedFields) ? ((notif as Notification).metadata?.changedFields as string[]).join(', ') : String((notif as Notification).metadata?.changedFields)}</p>
+                            )}
                             {(notif as Notification).metadata?.unpublishReason && (
                               <p><b>Reason:</b> {String((notif as Notification).metadata?.unpublishReason)}</p>
                             )}
                             {(notif as Notification).metadata?.note && (
                               <p><b>Note:</b> {String((notif as Notification).metadata?.note)}</p>
+                            )}
+                            {(notif as Notification).actionUrl && (
+                              <button
+                                className="text-blue-600 hover:underline mt-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate((notif as Notification).actionUrl!);
+                                }}
+                              >
+                                View Details →
+                              </button>
                             )}
                           </div>
                         )}

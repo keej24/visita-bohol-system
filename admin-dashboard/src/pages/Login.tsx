@@ -86,7 +86,7 @@ const roleConfig = {
     badgeClass: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   },
   museum_researcher: {
-    title: 'Museum Researcher',
+    title: 'Museum Staff',
     description: 'Heritage site validators for ICP/NCT churches',
     icon: Landmark,
     color: 'amber',
@@ -604,7 +604,7 @@ const Login = () => {
                       href="/museum-register" 
                       className="text-amber-600 hover:text-amber-800 hover:underline font-medium"
                     >
-                      New Museum Researcher? Register here →
+                      New Museum Staff? Register here →
                     </a>
                   </p>
                 )}

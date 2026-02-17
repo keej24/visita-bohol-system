@@ -442,6 +442,23 @@ export const useMarkAllNotificationsAsRead = () => {
   });
 };
 
+/**
+ * useClearAllNotifications - Mutation for deleting all notifications
+ */
+export const useClearAllNotifications = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (userProfile: UserProfile) => 
+      notificationService.clearAllNotifications(userProfile),
+    
+    onSuccess: (_, userProfile) => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.user(userProfile.uid) });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unread(userProfile.uid) });
+    },
+  });
+};
+
 // =============================================================================
 // SUBSCRIPTION MANAGER - Prevents memory leaks with real-time listeners
 // =============================================================================

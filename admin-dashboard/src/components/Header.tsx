@@ -191,7 +191,7 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
               {/* Shorter titles on mobile */}
               <span className="hidden sm:inline">
                 {userProfile?.role === 'chancery_office' && 'Chancery Office Dashboard'}
-                {userProfile?.role === 'museum_researcher' && 'Museum Researcher Dashboard'}
+                {userProfile?.role === 'museum_researcher' && 'Museum Staff Dashboard'}
                 {userProfile?.role === 'parish' && (userProfile?.position === 'parish_priest' ? 'Parish Priest Dashboard' : 'Parish Secretary Dashboard')}
               </span>
               <span className="sm:hidden">
@@ -235,6 +235,7 @@ export function Header({ setActiveTab, onMobileMenuClick }: HeaderProps) {
                   <p className="text-xs text-muted-foreground">
                     {userProfile?.role === 'parish' 
                       ? (userProfile?.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary')
+                      : userProfile?.role === 'museum_researcher' ? 'Museum Staff'
                       : toTitleCase(userProfile?.role)}
                     {userProfile?.diocese && ` • ${toTitleCase(userProfile.diocese)}`}
                   </p>

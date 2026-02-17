@@ -80,7 +80,7 @@ function generateReasoning(indicators: HeritageIndicator[], confidence: string):
 
   if (presentIndicators.length > 0 && confidence === 'high') {
     const heritageType = presentIndicators[0]?.name === 'declared_nct' ? 'National Cultural Treasure (NCT)' : 'Important Cultural Property (ICP)';
-    return `Church is classified as ${heritageType}. Must be forwarded to Museum Researcher for heritage validation.`;
+    return `Church is classified as ${heritageType}. Must be forwarded to Museum Staff for heritage validation.`;
   } else {
     return `No heritage classification (ICP or NCT) found. Standard Chancery approval process applies.`;
   }

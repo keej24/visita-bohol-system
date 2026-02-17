@@ -19,7 +19,7 @@ const museumResearcherAccount = {
 };
 
 export const setupMuseumResearcher = async () => {
-  console.log('🏛️ Setting up Museum Researcher account...');
+  console.log('🏛️ Setting up Museum Staff account...');
   
   try {
     // Check if account already exists
@@ -40,7 +40,7 @@ export const setupMuseumResearcher = async () => {
       if (userDoc.exists()) {
         console.log('✅ Profile exists:', userDoc.data());
         await auth.signOut();
-        return { success: true, message: 'Museum Researcher account already exists and is properly configured' };
+        return { success: true, message: 'Museum Staff account already exists and is properly configured' };
       } else {
         console.log('Creating missing profile...');
         await setDoc(doc(db, 'users', user.uid), {
@@ -50,7 +50,7 @@ export const setupMuseumResearcher = async () => {
         });
         console.log('✅ Profile created successfully');
         await auth.signOut();
-        return { success: true, message: 'Museum Researcher profile created successfully' };
+        return { success: true, message: 'Museum Staff profile created successfully' };
       }
       
     } catch (loginError) {
@@ -78,7 +78,7 @@ export const setupMuseumResearcher = async () => {
       
       return { 
         success: true, 
-        message: 'Museum Researcher account and profile created successfully',
+        message: 'Museum Staff account and profile created successfully',
         credentials: {
           email: museumResearcherAccount.email,
           password: museumResearcherAccount.password
@@ -87,7 +87,7 @@ export const setupMuseumResearcher = async () => {
     }
     
   } catch (error) {
-    console.error('❌ Error setting up Museum Researcher account:', error);
+    console.error('❌ Error setting up Museum Staff account:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 

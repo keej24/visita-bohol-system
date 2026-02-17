@@ -11,7 +11,8 @@ import {
   where, 
   orderBy, 
   serverTimestamp,
-  onSnapshot
+  onSnapshot,
+  Timestamp
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -62,7 +63,7 @@ export interface ParishUpload {
   thumbnailUrl?: string;
   description: string;
   status: 'pending' | 'approved';
-  uploadedAt?: Date | Timestamp;
+  uploadedAt?: Date | Timestamp | ReturnType<typeof serverTimestamp>;
   approvedBy?: string;
   approvedAt?: Date | Timestamp;
   metadata?: {
@@ -365,7 +366,7 @@ export const getParishUploads = async (parishId: string): Promise<ParishUpload[]
 };
 
 // Feedback Management
-export const getChurchFeedback = async (churchId: string): Promise<any[]> => {
+export const getChurchFeedback = async (churchId: string): Promise<Record<string, unknown>[]> => {
   try {
     const q = query(
       collection(db, 'feedback'),
@@ -451,7 +452,7 @@ export const getSubmissionHistory = async (parishId: string): Promise<Submission
 // Real-time subscriptions
 export const subscribeToParishData = (
   parishId: string,
-  onUpdate: (data: { schedules: ParishSchedule[]; announcements: ParishAnnouncement[]; uploads: ParishUpload[]; feedback: FeedbackResponse[] }) => void
+  onUpdate: (data: { type: string; data: Record<string, unknown>[] }) => void
 ) => {
   const unsubscribeFunctions: (() => void)[] = [];
   
@@ -614,7 +615,7 @@ export const chanceryApproveChurch = async (
       action: isHeritageChurch ? 'forwarded_to_museum' : 'approved',
       performedBy: chanceryUserId,
       performedAt: serverTimestamp(),
-      comments: isHeritageChurch ? 'Approved by chancery, forwarded to museum researcher' : 'Approved by chancery office'
+      comments: isHeritageChurch ? 'Approved by chancery, forwarded to museum staff' : 'Approved by chancery office'
     });
   } catch (error) {
     console.error('Error in chancery approval:', error);
@@ -642,7 +643,7 @@ export const museumApproveChurch = async (
       action: 'approved',
       performedBy: museumUserId,
       performedAt: serverTimestamp(),
-      comments: 'Heritage information verified and approved by museum researcher'
+      comments: 'Heritage information verified and approved by museum staff'
     });
   } catch (error) {
     console.error('Error in museum approval:', error);
@@ -657,7 +658,7 @@ export const museumEditChurchHistory = async (
   heritageDocuments?: string[]
 ): Promise<void> => {
   try {
-    const updateData: Partial<ChurchSubmission> = {
+    const updateData: Record<string, unknown> = {
       historicalBackground,
       lastEditedBy: museumUserId,
       lastEditedAt: serverTimestamp()
@@ -677,7 +678,7 @@ export const museumEditChurchHistory = async (
       action: 'edited_by_museum',
       performedBy: museumUserId,
       performedAt: serverTimestamp(),
-      comments: 'Historical background and heritage documents updated by museum researcher'
+      comments: 'Historical background and heritage documents updated by museum staff'
     });
   } catch (error) {
     console.error('Error editing church history:', error);

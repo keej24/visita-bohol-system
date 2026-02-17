@@ -1,29 +1,119 @@
 /**
  * =============================================================================
- * MUSEUM STAFF MANAGEMENT PAGE - Museum Researcher User Management
+ * MUSEUM STAFF MANAGEMENT PAGE - Full Museum Researcher Account Management
  * =============================================================================
  *
  * PURPOSE:
- * This page allows current Museum Researchers to view and manage pending
- * registration requests from new museum researcher applicants.
+ * This page provides comprehensive museum researcher account management:
+ * - Stats cards (Total / Active / Archived / Pending)
+ * - Searchable, filterable list of all museum researcher accounts
+ * - End Term action for active accounts (excludes self)
+ * - Term history viewer from museum_staff_terms collection
+ * - Embedded PendingMuseumStaff component for approve/reject workflow
  *
  * ACCESS CONTROL:
  * - Only 'museum_researcher' role can access this page
- * - Shows pending registrations for museum researcher positions
  */
 
+import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert';
+import {
+  Landmark,
+  Users,
+  Archive,
+  Clock,
+  Mail,
+  Phone,
+  Briefcase,
+  RefreshCw,
+  Loader2,
+  Search,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Calendar,
+} from 'lucide-react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { MuseumStaffService, type MuseumStaffTermRecord } from '@/services/museumStaffService';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { PendingMuseumStaff } from '@/components/PendingMuseumStaff';
-import { Users, AlertTriangle } from 'lucide-react';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface MuseumStaffAccount {
+  uid: string;
+  email: string;
+  name: string;
+  status: string;
+  position?: string;
+  phoneNumber?: string;
+  institution?: string;
+  createdAt?: Date;
+  lastLoginAt?: Date;
+  approvedAt?: Date;
+  archivedAt?: Date;
+  archivedReason?: string;
+  termStart?: Date;
+  termEnd?: Date;
+}
+
+type StatusFilter = 'all' | 'active' | 'archived' | 'pending' | 'rejected';
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 const MuseumStaffManagement = () => {
   const { userProfile } = useAuth();
   const { toast } = useToast();
 
-  // Check if user has permission to manage museum staff
+  // State
+  const [accounts, setAccounts] = useState<MuseumStaffAccount[]>([]);
+  const [termHistory, setTermHistory] = useState<MuseumStaffTermRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // End Term dialog
+  const [endTermDialogOpen, setEndTermDialogOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<MuseumStaffAccount | null>(null);
+  const [endTermReason, setEndTermReason] = useState('');
+  const [endingTerm, setEndingTerm] = useState(false);
+
+  // Term history dialog
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+
+  // ============================================================================
+  // ACCESS CHECK
+  // ============================================================================
+
   if (!userProfile || userProfile.role !== 'museum_researcher') {
     return (
       <Layout>
@@ -37,7 +127,7 @@ const MuseumStaffManagement = () => {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                Only Museum Researchers can access staff management. Please contact your administrator if you need access.
+                Only Museum Staff can access staff management. Please contact your administrator if you need access.
               </p>
             </CardContent>
           </Card>
@@ -46,31 +136,630 @@ const MuseumStaffManagement = () => {
     );
   }
 
+  // ============================================================================
+  // DATA LOADING
+  // ============================================================================
+
+  const loadAccounts = useCallback(async () => {
+    try {
+      setError(null);
+      // Simple query without orderBy to avoid composite index requirement.
+      // We sort client-side instead (small dataset).
+      const q = query(
+        collection(db, 'users'),
+        where('role', '==', 'museum_researcher')
+      );
+
+      const snapshot = await getDocs(q);
+      const results: MuseumStaffAccount[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          email: data.email,
+          name: data.name,
+          status: data.status || 'active',
+          position: data.position,
+          phoneNumber: data.phoneNumber,
+          institution: data.institution || data.institutionName,
+          createdAt: data.createdAt?.toDate(),
+          lastLoginAt: data.lastLoginAt?.toDate(),
+          approvedAt: data.approvedAt?.toDate?.(),
+          archivedAt: data.archivedAt?.toDate?.(),
+          archivedReason: data.archivedReason,
+          termStart: data.termStart?.toDate?.(),
+          termEnd: data.termEnd?.toDate?.(),
+        };
+      });
+
+      // Sort by createdAt descending (newest first), client-side
+      results.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+
+      setAccounts(results);
+    } catch (err) {
+      console.error('[MuseumStaffManagement] Load error:', err);
+      setError('Failed to load museum researcher accounts');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  const loadTermHistory = useCallback(async () => {
+    try {
+      const terms = await MuseumStaffService.getMuseumTermHistory();
+      setTermHistory(terms);
+    } catch (err) {
+      console.error('[MuseumStaffManagement] Term history load error:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAccounts();
+    loadTermHistory();
+  }, [loadAccounts, loadTermHistory]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadAccounts();
+    loadTermHistory();
+  };
+
+  // ============================================================================
+  // ACTIONS
+  // ============================================================================
+
+  const handleEndTermClick = (account: MuseumStaffAccount) => {
+    setSelectedAccount(account);
+    setEndTermReason('');
+    setEndTermDialogOpen(true);
+  };
+
+  const handleConfirmEndTerm = async () => {
+    if (!selectedAccount || !endTermReason.trim() || !userProfile) return;
+
+    setEndingTerm(true);
+    try {
+      const result = await MuseumStaffService.endMuseumStaffTerm(
+        userProfile,
+        selectedAccount.uid,
+        endTermReason.trim()
+      );
+
+      if (result.success) {
+        toast({
+          title: 'Term Ended',
+          description: result.message,
+        });
+        setEndTermDialogOpen(false);
+        loadAccounts();
+        loadTermHistory();
+      } else {
+        toast({
+          title: 'Action Failed',
+          description: result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('[MuseumStaffManagement] End term error:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to end museum researcher term. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEndingTerm(false);
+    }
+  };
+
+  // ============================================================================
+  // FILTERING & STATS
+  // ============================================================================
+
+  const filteredAccounts = accounts.filter((account) => {
+    const matchesSearch =
+      !searchTerm ||
+      account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || account.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: accounts.length,
+    active: accounts.filter((a) => a.status === 'active').length,
+    archived: accounts.filter((a) => a.status === 'archived').length,
+    pending: accounts.filter((a) => a.status === 'pending').length,
+  };
+
+  // ============================================================================
+  // HELPERS
+  // ============================================================================
+
+  const formatDate = (date?: Date): string => {
+    if (!date) return 'N/A';
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return (
+          <Badge className="bg-green-100 text-green-700 border-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Active
+          </Badge>
+        );
+      case 'archived':
+        return (
+          <Badge className="bg-slate-100 text-slate-700 border-slate-200">
+            <Archive className="h-3 w-3 mr-1" />
+            Archived
+          </Badge>
+        );
+      case 'pending':
+        return (
+          <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+            <Clock className="h-3 w-3 mr-1" />
+            Pending
+          </Badge>
+        );
+      case 'rejected':
+        return (
+          <Badge className="bg-red-100 text-red-700 border-red-200">
+            <XCircle className="h-3 w-3 mr-1" />
+            Rejected
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="secondary">
+            {status}
+          </Badge>
+        );
+    }
+  };
+
+  // ============================================================================
+  // LOADING STATE
+  // ============================================================================
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="space-y-6 max-w-5xl mx-auto">
+          <div className="border-b border-gray-200 pb-4">
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardContent className="pt-6">
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardContent className="pt-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4 py-4 border-b last:border-0">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // ============================================================================
+  // ERROR STATE
+  // ============================================================================
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="max-w-5xl mx-auto mt-8">
+          <Card>
+            <CardContent className="pt-6">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+              <Button variant="outline" onClick={handleRefresh} className="mt-4">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
   return (
     <Layout>
-      <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Header */}
+      <div className="space-y-6 max-w-5xl mx-auto">
+        {/* Page Header */}
         <div className="border-b border-gray-200 pb-4">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users className="w-6 h-6 text-amber-600" />
-            Staff Management
+            <Landmark className="w-6 h-6 text-purple-600" />
+            Museum Staff Management
           </h1>
           <p className="text-gray-600 mt-1">
-            Review and manage pending museum researcher registrations
+            Manage museum researcher accounts, view term history, and review pending registrations
           </p>
         </div>
 
-        {/* Pending Museum Staff Registrations */}
-        <PendingMuseumStaff
-          currentUser={userProfile}
-          onStaffApproved={() => {
-            toast({
-              title: "Researcher Approved",
-              description: "The new museum researcher has been activated successfully.",
-            });
-          }}
-        />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setStatusFilter('all')}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold">{stats.total}</p>
+                  <p className="text-sm text-muted-foreground">Total</p>
+                </div>
+                <Users className="h-8 w-8 text-muted-foreground/30" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setStatusFilter('active')}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+                  <p className="text-sm text-muted-foreground">Active</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-green-200" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setStatusFilter('archived')}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-slate-600">{stats.archived}</p>
+                  <p className="text-sm text-muted-foreground">Archived</p>
+                </div>
+                <Archive className="h-8 w-8 text-slate-200" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setStatusFilter('pending')}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                </div>
+                <Clock className="h-8 w-8 text-amber-200" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* All Accounts Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Landmark className="h-5 w-5 text-purple-600" />
+                  Museum Researcher Accounts
+                </CardTitle>
+                <CardDescription>
+                  All museum researcher accounts across both dioceses
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHistoryDialogOpen(true)}
+                  disabled={termHistory.length === 0}
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Term History ({termHistory.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center gap-3 mt-4 flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            {filteredAccounts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Landmark className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p>No museum researcher accounts found</p>
+                {(searchTerm || statusFilter !== 'all') && (
+                  <p className="text-sm mt-1">Try adjusting your search or filter criteria</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredAccounts.map((account) => (
+                  <div
+                    key={account.uid}
+                    className="flex items-start gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    {/* Avatar */}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      account.status === 'active' ? 'bg-green-100' :
+                      account.status === 'archived' ? 'bg-slate-100' :
+                      account.status === 'pending' ? 'bg-amber-100' :
+                      'bg-red-100'
+                    }`}>
+                      <Landmark className={`h-5 w-5 ${
+                        account.status === 'active' ? 'text-green-600' :
+                        account.status === 'archived' ? 'text-slate-600' :
+                        account.status === 'pending' ? 'text-amber-600' :
+                        'text-red-600'
+                      }`} />
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium">{account.name}</h3>
+                        {getStatusBadge(account.status)}
+                        {account.uid === userProfile?.uid && (
+                          <Badge variant="outline" className="text-xs">You</Badge>
+                        )}
+                      </div>
+
+                      <div className="mt-1 space-y-1 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-3 w-3" />
+                          <span>{account.email}</span>
+                        </div>
+                        {account.position && (
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="h-3 w-3" />
+                            <span>{account.position}</span>
+                          </div>
+                        )}
+                        {account.phoneNumber && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-3 w-3" />
+                            <span>{account.phoneNumber}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-4 text-xs flex-wrap">
+                          {account.termStart && (
+                            <span>Term started: {formatDate(account.termStart)}</span>
+                          )}
+                          {account.archivedAt && (
+                            <span>Archived: {formatDate(account.archivedAt)}</span>
+                          )}
+                          {!account.termStart && account.createdAt && (
+                            <span>Created: {formatDate(account.createdAt)}</span>
+                          )}
+                        </div>
+                        {account.archivedReason && (
+                          <div className="text-xs italic text-muted-foreground/70 mt-1">
+                            Reason: {account.archivedReason}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 flex-shrink-0">
+                      {account.status === 'active' && account.uid !== userProfile?.uid && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          onClick={() => handleEndTermClick(account)}
+                        >
+                          <Archive className="h-4 w-4 mr-1" />
+                          End Term
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Pending Registrations Section */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-amber-600" />
+            Pending Registrations
+          </h2>
+          <PendingMuseumStaff
+            currentUser={userProfile}
+            onStaffApproved={() => {
+              toast({
+                title: 'Researcher Approved',
+                description: 'The new museum staff has been activated successfully.',
+              });
+              // Refresh the accounts list to reflect the change
+              loadAccounts();
+              loadTermHistory();
+            }}
+          />
+        </div>
       </div>
+
+      {/* End Term Dialog */}
+      <Dialog open={endTermDialogOpen} onOpenChange={setEndTermDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="h-5 w-5 text-amber-600" />
+              End Museum Researcher Term
+            </DialogTitle>
+            <DialogDescription>
+              You are about to end the term for <strong>{selectedAccount?.name}</strong>.
+              Their account will be archived and they will lose admin access.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Alert variant="default" className="border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800">This action is significant</AlertTitle>
+              <AlertDescription className="text-amber-700 text-sm">
+                <ul className="list-disc list-inside space-y-1 mt-1">
+                  <li>{selectedAccount?.name} will be signed out and lose all admin access</li>
+                  <li>A term record will be created for audit purposes</li>
+                  <li>This action cannot be easily undone</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <Label htmlFor="endTermReason">
+                Reason for ending term <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="endTermReason"
+                placeholder="e.g., End of appointment period, Transfer to another institution..."
+                value={endTermReason}
+                onChange={(e) => setEndTermReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEndTermDialogOpen(false)}
+              disabled={endingTerm}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={handleConfirmEndTerm}
+              disabled={endingTerm || !endTermReason.trim()}
+            >
+              {endingTerm ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Ending Term...
+                </>
+              ) : (
+                <>
+                  <Archive className="h-4 w-4 mr-2" />
+                  End Term
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Term History Dialog */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Museum Researcher Term History
+            </DialogTitle>
+            <DialogDescription>
+              Historical record of museum researcher terms
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {termHistory.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <Calendar className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p>No term history records found</p>
+              </div>
+            ) : (
+              termHistory.map((term) => (
+                <div key={term.id} className="p-3 border rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{term.staffName}</div>
+                    <Badge variant={term.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                      {term.status}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground">{term.staffEmail}</div>
+                  {term.institution && (
+                    <div className="text-sm text-muted-foreground">{term.institution}</div>
+                  )}
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>From: {formatDate(term.termStart)}</span>
+                    <span>To: {formatDate(term.termEnd)}</span>
+                  </div>
+                  {term.endReason && (
+                    <div className="text-xs italic text-muted-foreground">
+                      Reason: {term.endReason}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

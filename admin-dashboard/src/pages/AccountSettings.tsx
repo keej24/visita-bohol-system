@@ -291,9 +291,12 @@ const AccountSettings = () => {
     try {
       // Update Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
-      const updateData: Record<string, string | null> = {
-        department: profileData.department || null
-      };
+      const updateData: Record<string, string | null> = {};
+
+      // Only save department for non-museum roles
+      if (userProfile.role !== 'museum_researcher') {
+        updateData.department = profileData.department || null;
+      }
 
       // For system accounts (chancery/museum), save institution name but not phone
       // For parish secretaries, save phone and sync to church document
@@ -330,7 +333,9 @@ const AccountSettings = () => {
         updateData.name = `${profileData.firstName} ${profileData.lastName}`;
         updateData.firstName = profileData.firstName;
         updateData.lastName = profileData.lastName;
-        updateData.phoneNumber = profileData.phone || null;
+        if (userProfile.role !== 'museum_researcher') {
+          updateData.phoneNumber = profileData.phone || null;
+        }
       }
 
       await updateDoc(userDocRef, updateData);
@@ -750,7 +755,7 @@ const AccountSettings = () => {
                   {isSystemAccount ? (profileData.institutionName || userProfile?.institutionName || userProfile?.name || 'Institution Name') : `${profileData.firstName} ${profileData.lastName}`}
                 </h3>
                 <p className="text-gray-600">
-                  {userProfile?.role === 'museum_researcher' ? 'Museum Researcher' : userProfile?.role === 'parish' ? 'Parish' : 'Chancery Office'}
+                  {userProfile?.role === 'museum_researcher' ? 'Museum Staff' : userProfile?.role === 'parish' ? 'Parish' : 'Chancery Office'}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   {userProfile?.role === 'museum_researcher' ? (
@@ -899,6 +904,7 @@ const AccountSettings = () => {
                       </div>
                       <p className="text-xs text-gray-500 mt-1">Contact admin to change email address</p>
                     </div>
+                    {userProfile?.role !== 'museum_researcher' && (
                     <div>
                       <Label htmlFor="phone">Phone Number</Label>
                       <div className="relative">
@@ -928,19 +934,6 @@ const AccountSettings = () => {
                         <p className="text-xs text-red-600 mt-1">{errors.phone}</p>
                       )}
                     </div>
-                    {userProfile?.role === 'museum_researcher' && (
-                      <div>
-                        <Label htmlFor="department">Department</Label>
-                        <Input
-                          id="department"
-                          value={profileData.department}
-                          onChange={(e) => setProfileData(prev => ({ ...prev, department: e.target.value }))}
-                          disabled={!isEditingProfile}
-                          className="mt-1"
-                          placeholder="e.g., Cultural Properties Division"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Your department or division</p>
-                      </div>
                     )}
                     {userProfile?.position && (
                       <div>

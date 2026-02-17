@@ -72,7 +72,7 @@ export function getKnownAccountProfile(email: string): KnownAccountProfile | nul
       diocese: 'talibon',
     },
     'bohol@nationalmuseum.gov.ph': {
-      name: 'Museum Researcher',
+      name: 'Museum Staff',
       role: 'museum_researcher',
       diocese: 'tagbilaran',
     }

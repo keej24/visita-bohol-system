@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -19,6 +19,7 @@ import type { Diocese } from '@/contexts/AuthContext';
 import type { Church } from '@/lib/churches';
 import { ChurchInfo } from '@/components/parish/types';
 import { ChurchService } from '@/services/churchService';
+import { ChancellorService } from '@/services/chancellorService';
 import type { ArchitecturalStyle, ChurchClassification, ReligiousClassification } from '@/types/church';
 
 interface OptimizedChanceryDashboardProps {
@@ -40,6 +41,24 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
 
   // Tab state
   const [activeTab, setActiveTab] = useState<string>('overview');
+
+  // Pending chancellor registration count
+  const [pendingChancellorCount, setPendingChancellorCount] = useState(0);
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const pending = await ChancellorService.getPendingChancellors(diocese);
+        setPendingChancellorCount(pending.length);
+      } catch (error) {
+        console.error('[ChanceryDashboard] Error fetching pending chancellor count:', error);
+      }
+    };
+    fetchPendingCount();
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchPendingCount, 60000);
+    return () => clearInterval(interval);
+  }, [diocese]);
 
   const handleViewChurch = (church: Church) => {
     setSelectedChurch(church);
@@ -267,6 +286,11 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
             <TabsTrigger value="chancellors" className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
               <span className="hidden sm:inline">Chancellors</span>
+              {pendingChancellorCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 min-w-[20px] px-1.5 text-xs">
+                  {pendingChancellorCount}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="activity" className="flex items-center gap-2">
               <History className="h-4 w-4" />
@@ -291,7 +315,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
               {/* Info Panel */}
               <div className="space-y-3 sm:space-y-4 order-1 lg:order-2">
                 {/* Status Summary */}
-                {(churchStats.pendingCount > 0 || churchStats.pendingUpdatesCount > 0) && (
+                {(churchStats.pendingCount > 0 || churchStats.pendingUpdatesCount > 0 || pendingChancellorCount > 0) && (
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 sm:p-4">
                     <h3 className="font-semibold text-orange-900 mb-1 sm:mb-2 text-sm sm:text-base">Action Required</h3>
                     {churchStats.pendingCount > 0 && (
@@ -310,6 +334,17 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
                         {' '}to review.
                       </p>
                     )}
+                    {pendingChancellorCount > 0 && (
+                      <p className="text-xs sm:text-sm text-orange-800 mt-1">
+                        <button
+                          onClick={() => setActiveTab('chancellors')}
+                          className="underline font-medium hover:text-orange-900"
+                        >
+                          {pendingChancellorCount} pending chancellor registration{pendingChancellorCount > 1 ? 's' : ''}
+                        </button>
+                        {' '}awaiting approval.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -318,7 +353,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
                   <h3 className="font-semibold text-blue-900 mb-1 sm:mb-2 text-sm sm:text-base">Tips</h3>
                   <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
                     <li>• Review submissions promptly</li>
-                    <li>• Heritage churches must be forwarded to the Museum Researcher</li>
+                    <li>• Heritage churches must be forwarded to the Museum Staff</li>
                     <li className="hidden sm:list-item">• Use reports to track diocese progress</li>
                   </ul>
                 </div>

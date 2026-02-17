@@ -25,6 +25,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   setDoc,
   updateDoc,
   query,
@@ -180,8 +181,11 @@ export async function registerParishStaff(
       lastLoginAt: new Date(),
     };
 
-    // Kick off audit, notification lookup + send, and sign-out concurrently
-    await Promise.all([
+    // Fire-and-forget: Run audit log, notification, and sign-out in the background.
+    // These are non-critical and must NOT block the return, because AuthContext's
+    // onAuthStateChanged may also call signOut (for pending users), which can cause
+    // these Firestore operations to lose their auth context and hang indefinitely.
+    Promise.all([
       // 1. Audit log (non-critical)
       AuditService.logAction(
         registrationProfile,
@@ -240,8 +244,12 @@ export async function registerParishStaff(
       // 3. Sign out
       auth.signOut().then(() => {
         console.log('[ParishStaffService] User signed out after successful registration');
+      }).catch(signOutError => {
+        console.warn('[ParishStaffService] Sign out failed (non-critical):', signOutError);
       }),
-    ]);
+    ]).catch(() => {
+      // Ensure no unhandled promise rejection from the background tasks
+    });
 
     return {
       success: true,
@@ -298,7 +306,9 @@ export async function getPendingParishStaff(parishId: string): Promise<PendingPa
       orderBy('createdAt', 'desc')
     );
 
-    const snapshot = await getDocs(q);
+    // Use getDocsFromServer to bypass the SDK's memory cache and ensure
+    // fresh results, especially after approval/rejection mutations.
+    const snapshot = await getDocsFromServer(q);
     console.log('[ParishStaffService] Query returned', snapshot.size, 'pending parish staff');
     
     const results = snapshot.docs.map((doc) => {
