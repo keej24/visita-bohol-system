@@ -13,6 +13,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "recipients.roles", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recipients.roles", "arrayConfig": "CONTAINS" },
         { "fieldPath": "recipients.dioceses", "arrayConfig": "CONTAINS" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]

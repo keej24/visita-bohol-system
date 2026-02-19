@@ -138,6 +138,15 @@ service cloud.firestore {
                      resource.data.role == 'museum_researcher' &&
                      resource.data.status == 'pending';
 
+      // Museum researchers can read active/inactive museum staff
+      // This enables the museum staff management UI (deactivation/reactivation)
+      allow read: if isAuthenticated() &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'museum_researcher' &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
+                     resource.data.role == 'museum_researcher' &&
+                     resource.data.status in ['active', 'inactive'];
+
       // Museum researchers can update pending museum staff (for approval/rejection)
       // Only ACTIVE museum researchers can approve/reject
       allow update: if isAuthenticated() &&
@@ -147,15 +156,18 @@ service cloud.firestore {
                        resource.data.role == 'museum_researcher' &&
                        resource.data.status == 'pending';
 
-      // Museum researchers can deactivate (archive) active museum staff
-      // Only ACTIVE museum researchers can deactivate other museum staff
+      // Museum researchers can deactivate/reactivate other museum staff
+      // Only ACTIVE museum researchers can toggle status between active and inactive
+      // Also handles legacy accounts without a status field (treated as active)
       allow update: if isAuthenticated() &&
                        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'museum_researcher' &&
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
                        resource.data.role == 'museum_researcher' &&
-                       resource.data.status == 'active' &&
-                       request.resource.data.status == 'archived';
+                       (resource.data.status in ['active', 'inactive'] || !('status' in resource.data)) &&
+                       request.resource.data.status in ['active', 'inactive'] &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'updatedAt', 'updatedBy', 'deactivatedAt', 'deactivatedBy', 'deactivationReason', 'reactivatedAt', 'reactivatedBy']);
     }
     
     // Churches collection - Main church data

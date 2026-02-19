@@ -91,7 +91,7 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
 
   // Filter notifications relevant to parish users
   const parishNotifications = notifications.filter(notification => {
-    // Parish-specific notification types
+    // Parish-specific notification types (filtered by parish matching)
     const parishSpecificTypes = [
       'church_approved',
       'church_unpublished',
@@ -99,11 +99,13 @@ export function ParishNotificationDropdown({ churchStatus: propChurchStatus, chu
       'heritage_review_assigned',
       'heritage_validated',
       'account_pending_approval',
-      'pending_update_submitted'
+      'pending_update_submitted',
+      'feedback_received'
     ];
     
-    // General notification types that all parish secretaries can see
-    const generalTypes = ['system_notification'];
+    // General/user-targeted notification types shown without parish filtering
+    // (account_approved is user-targeted via userIds, so it's already filtered at the query level)
+    const generalTypes = ['system_notification', 'account_approved'];
     
     const userParishId = userProfile?.parishId || userProfile?.parish;
     

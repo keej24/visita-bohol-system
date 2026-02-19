@@ -572,14 +572,29 @@ export async function getChancellorTerms(diocese: Diocese): Promise<ChancellorTe
 }
 
 /**
- * Manually end a chancellor's term (for administrative purposes)
+ * Toggle a chancellor's status between active and inactive.
+ * This is a reversible operation — inactive chancellors can be reactivated.
+ *
+ * @param actingUser - The chancellor performing the action
+ * @param chancellorId - UID of the chancellor to deactivate/reactivate
+ * @param newStatus - The target status: 'inactive' or 'active'
+ * @param reason - Reason for deactivation (required when deactivating)
  */
-export async function endChancellorTerm(
-  adminProfile: UserProfile,
+export async function toggleChancellorStatus(
+  actingUser: UserProfile,
   chancellorId: string,
-  reason: string
+  newStatus: 'active' | 'inactive',
+  reason?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
+    if (actingUser.role !== 'chancery_office') {
+      return { success: false, message: 'Only chancery office staff can manage chancellor accounts.' };
+    }
+
+    if (actingUser.uid === chancellorId) {
+      return { success: false, message: 'You cannot deactivate your own account.' };
+    }
+
     const chancellorDocRef = doc(db, 'users', chancellorId);
     const chancellorDoc = await getDoc(chancellorDocRef);
 
@@ -588,65 +603,69 @@ export async function endChancellorTerm(
     }
 
     const chancellorData = chancellorDoc.data();
-    if (chancellorData.status !== 'active') {
-      return { success: false, message: 'Chancellor is not currently active.' };
+    const currentStatus = chancellorData.status || 'active';
+
+    // Must be in the same diocese
+    if (chancellorData.diocese !== actingUser.diocese) {
+      return { success: false, message: 'You can only manage chancellors in your own diocese.' };
+    }
+
+    // Validate current status allows the transition
+    if (newStatus === 'inactive' && currentStatus !== 'active') {
+      return { success: false, message: 'Only active accounts can be deactivated.' };
+    }
+    if (newStatus === 'active' && currentStatus !== 'inactive') {
+      return { success: false, message: 'Only inactive accounts can be reactivated.' };
     }
 
     const now = Timestamp.now();
 
-    // Generate term statistics
-    const termStats = await AuditService.getTermStats(chancellorId);
+    const updateData: Record<string, unknown> = {
+      status: newStatus,
+      updatedAt: now,
+      updatedBy: actingUser.uid,
+    };
 
-    // Create term record
-    await setDoc(doc(collection(db, 'chancellor_terms')), {
-      chancellorId,
-      chancellorName: chancellorData.name,
-      chancellorEmail: chancellorData.email,
-      diocese: chancellorData.diocese,
-      termStart: chancellorData.termStart || chancellorData.createdAt || now,
-      termEnd: now,
-      status: 'completed',
-      endReason: reason,
-      stats: termStats,
-      endedBy: adminProfile.uid,
-      endedByName: adminProfile.name,
-      createdAt: now,
-    });
+    if (newStatus === 'inactive') {
+      updateData.deactivatedAt = now;
+      updateData.deactivatedBy = actingUser.uid;
+      updateData.deactivationReason = reason || 'Deactivated by chancery office';
+    } else {
+      updateData.reactivatedAt = now;
+      updateData.reactivatedBy = actingUser.uid;
+    }
 
-    // Archive the chancellor
-    await updateDoc(chancellorDocRef, {
-      status: 'archived',
-      archivedAt: now,
-      archivedReason: reason,
-    });
+    await updateDoc(chancellorDocRef, updateData);
 
-    // Log the action
+    // Audit trail
+    const action = newStatus === 'inactive' ? 'user.deactivate' : 'user.reactivate';
     await AuditService.logAction(
-      adminProfile,
-      'chancellor.term_end',
+      actingUser,
+      action as 'user.deactivate' | 'user.reactivate',
       'user',
       chancellorId,
       {
         resourceName: chancellorData.name,
         changes: [
-          { field: 'status', oldValue: 'active', newValue: 'archived' },
+          { field: 'status', oldValue: currentStatus, newValue: newStatus },
         ],
         metadata: {
-          reason,
-          termStats,
+          reason: reason || undefined,
+          diocese: chancellorData.diocese,
         },
       }
     );
 
+    const actionLabel = newStatus === 'inactive' ? 'deactivated' : 'reactivated';
     return {
       success: true,
-      message: `Chancellor term for ${chancellorData.name} has been ended.`,
+      message: `${chancellorData.name}'s account has been ${actionLabel}.`,
     };
   } catch (error) {
-    console.error('[ChancellorService] End term error:', error);
+    console.error('[ChancellorService] Toggle status error:', error);
     return {
       success: false,
-      message: 'Failed to end chancellor term. Please try again.',
+      message: 'Failed to update account status. Please try again.',
     };
   }
 }
@@ -659,7 +678,7 @@ export const ChancellorService = {
   approveChancellor,
   rejectChancellor,
   getChancellorTerms,
-  endChancellorTerm,
+  toggleChancellorStatus,
 };
 
 export default ChancellorService;

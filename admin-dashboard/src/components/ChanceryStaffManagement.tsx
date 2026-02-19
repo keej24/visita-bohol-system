@@ -43,7 +43,6 @@ import {
 import {
   Crown,
   Users,
-  Archive,
   Clock,
   Mail,
   Phone,
@@ -58,10 +57,13 @@ import {
   Calendar,
   Info,
   UserX,
+  UserCheck,
 } from 'lucide-react';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ChancellorService, type ChancellorTermRecord } from '@/services/chancellorService';
+
+type ToggleAction = 'deactivate' | 'reactivate';
 import { useAuth, type Diocese, type UserProfile } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -80,13 +82,13 @@ interface ChancellorAccount {
   createdAt?: Date;
   lastLoginAt?: Date;
   approvedAt?: Date;
-  archivedAt?: Date;
-  archivedReason?: string;
+  deactivatedAt?: Date;
+  deactivationReason?: string;
   termStart?: Date;
   termEnd?: Date;
 }
 
-type StatusFilter = 'all' | 'active' | 'archived' | 'pending' | 'rejected';
+type StatusFilter = 'all' | 'active' | 'inactive' | 'pending' | 'rejected';
 
 interface ChanceryStaffManagementProps {
   diocese: Diocese;
@@ -146,8 +148,8 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
           createdAt: data.createdAt?.toDate(),
           lastLoginAt: data.lastLoginAt?.toDate(),
           approvedAt: data.approvedAt?.toDate?.(),
-          archivedAt: data.archivedAt?.toDate?.(),
-          archivedReason: data.archivedReason,
+          deactivatedAt: data.deactivatedAt?.toDate?.(),
+          deactivationReason: data.deactivationReason,
           termStart: data.termStart?.toDate?.(),
           termEnd: data.termEnd?.toDate?.(),
         };
@@ -187,26 +189,31 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
   // ACTIONS
   // ============================================================================
 
-  const handleDeactivateClick = (account: ChancellorAccount) => {
+  const handleToggleStatusClick = (account: ChancellorAccount) => {
     setSelectedAccount(account);
     setDeactivateReason('');
     setDeactivateDialogOpen(true);
   };
 
-  const handleConfirmDeactivate = async () => {
-    if (!selectedAccount || !deactivateReason.trim() || !userProfile) return;
+  const toggleAction: ToggleAction = selectedAccount?.status === 'active' ? 'deactivate' : 'reactivate';
+  const newStatus = toggleAction === 'deactivate' ? 'inactive' : 'active';
+
+  const handleConfirmToggle = async () => {
+    if (!selectedAccount || !userProfile) return;
+    if (toggleAction === 'deactivate' && (!deactivateReason.trim() || deactivateReason.trim().length < 10)) return;
 
     setDeactivating(true);
     try {
-      const result = await ChancellorService.endChancellorTerm(
+      const result = await ChancellorService.toggleChancellorStatus(
         userProfile,
         selectedAccount.uid,
-        deactivateReason.trim()
+        newStatus,
+        toggleAction === 'deactivate' ? deactivateReason.trim() : undefined
       );
 
       if (result.success) {
         toast({
-          title: 'Account Deactivated',
+          title: toggleAction === 'deactivate' ? 'Account Deactivated' : 'Account Reactivated',
           description: result.message,
         });
         setDeactivateDialogOpen(false);
@@ -220,10 +227,10 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
         });
       }
     } catch (err) {
-      console.error('[ChanceryStaffManagement] Deactivate error:', err);
+      console.error('[ChanceryStaffManagement] Toggle status error:', err);
       toast({
         title: 'Error',
-        description: 'Failed to end chancellor term. Please try again.',
+        description: `Failed to ${toggleAction} account. Please try again.`,
         variant: 'destructive',
       });
     } finally {
@@ -249,7 +256,7 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
   const stats = {
     total: accounts.length,
     active: accounts.filter((a) => a.status === 'active').length,
-    archived: accounts.filter((a) => a.status === 'archived').length,
+    inactive: accounts.filter((a) => a.status === 'inactive').length,
     pending: accounts.filter((a) => a.status === 'pending').length,
     rejected: accounts.filter((a) => a.status === 'rejected').length,
   };
@@ -287,11 +294,11 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
             Active
           </Badge>
         );
-      case 'archived':
+      case 'inactive':
         return (
           <Badge className="bg-slate-100 text-slate-700 border-slate-200">
-            <Archive className="h-3 w-3 mr-1" />
-            Archived
+            <XCircle className="h-3 w-3 mr-1" />
+            Inactive
           </Badge>
         );
       case 'pending':
@@ -405,14 +412,14 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setStatusFilter('archived')}>
+        <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setStatusFilter('inactive')}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-slate-600">{stats.archived}</p>
-                <p className="text-sm text-muted-foreground">Archived</p>
+                <p className="text-2xl font-bold text-slate-600">{stats.inactive}</p>
+                <p className="text-sm text-muted-foreground">Inactive</p>
               </div>
-              <Archive className="h-8 w-8 text-slate-200" />
+              <XCircle className="h-8 w-8 text-slate-200" />
             </div>
           </CardContent>
         </Card>
@@ -484,7 +491,7 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
@@ -511,13 +518,13 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
                   {/* Avatar */}
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                     account.status === 'active' ? 'bg-green-100' :
-                    account.status === 'archived' ? 'bg-slate-100' :
+                    account.status === 'inactive' ? 'bg-slate-100' :
                     account.status === 'pending' ? 'bg-amber-100' :
                     'bg-red-100'
                   }`}>
                     <Crown className={`h-5 w-5 ${
                       account.status === 'active' ? 'text-green-600' :
-                      account.status === 'archived' ? 'text-slate-600' :
+                      account.status === 'inactive' ? 'text-slate-600' :
                       account.status === 'pending' ? 'text-amber-600' :
                       'text-red-600'
                     }`} />
@@ -554,16 +561,16 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
                         {account.termStart && (
                           <span>Term started: {formatDate(account.termStart)}</span>
                         )}
-                        {account.archivedAt && (
-                          <span>Archived: {formatDate(account.archivedAt)}</span>
+                        {account.deactivatedAt && (
+                          <span>Deactivated: {formatDate(account.deactivatedAt)}</span>
                         )}
                         {!account.termStart && account.createdAt && (
                           <span>Created: {formatDate(account.createdAt)}</span>
                         )}
                       </div>
-                      {account.archivedReason && (
+                      {account.deactivationReason && (
                         <div className="text-xs italic text-muted-foreground/70 mt-1">
-                          Reason: {account.archivedReason}
+                          Reason: {account.deactivationReason}
                         </div>
                       )}
                     </div>
@@ -576,10 +583,21 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
                         size="sm"
                         variant="outline"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeactivateClick(account)}
+                        onClick={() => handleToggleStatusClick(account)}
                       >
                         <UserX className="h-4 w-4 mr-1" />
                         Deactivate
+                      </Button>
+                    )}
+                    {account.status === 'inactive' && account.uid !== userProfile?.uid && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                        onClick={() => handleToggleStatusClick(account)}
+                      >
+                        <UserCheck className="h-4 w-4 mr-1" />
+                        Reactivate
                       </Button>
                     )}
                   </div>
@@ -590,46 +608,69 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
         </CardContent>
       </Card>
 
-      {/* Deactivate Dialog */}
+      {/* Toggle Status Dialog */}
       <Dialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserX className="h-5 w-5 text-red-600" />
-              Deactivate Account
+              {toggleAction === 'deactivate' ? (
+                <UserX className="h-5 w-5 text-red-600" />
+              ) : (
+                <UserCheck className="h-5 w-5 text-green-600" />
+              )}
+              {toggleAction === 'deactivate' ? 'Deactivate' : 'Reactivate'} Account
             </DialogTitle>
             <DialogDescription>
-              You are about to deactivate the account for <strong>{selectedAccount?.name}</strong>.
-              They will lose admin access until reactivated.
+              {toggleAction === 'deactivate'
+                ? <>You are about to deactivate the account for <strong>{selectedAccount?.name}</strong>. They will lose admin access until reactivated.</>
+                : <>You are about to reactivate the account for <strong>{selectedAccount?.name}</strong>. They will regain admin access.</>
+              }
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <Alert variant="default" className="border-red-200 bg-red-50">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              <AlertTitle className="text-red-800">Account Deactivation</AlertTitle>
-              <AlertDescription className="text-red-700 text-sm">
-                <ul className="list-disc list-inside space-y-1 mt-1">
-                  <li>{selectedAccount?.name} will be unable to log in</li>
-                  <li>Their data and history will be preserved</li>
-                  <li>You can reactivate the account at any time</li>
-                  <li>This action will be recorded in the audit log</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
+            {toggleAction === 'deactivate' ? (
+              <Alert variant="default" className="border-red-200 bg-red-50">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertTitle className="text-red-800">Account Deactivation</AlertTitle>
+                <AlertDescription className="text-red-700 text-sm">
+                  <ul className="list-disc list-inside space-y-1 mt-1">
+                    <li>{selectedAccount?.name} will be unable to log in</li>
+                    <li>Their data and history will be preserved</li>
+                    <li>You can reactivate the account at any time</li>
+                    <li>This action will be recorded in the audit log</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert variant="default" className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800">Account Reactivation</AlertTitle>
+                <AlertDescription className="text-green-700 text-sm">
+                  <ul className="list-disc list-inside space-y-1 mt-1">
+                    <li>{selectedAccount?.name} will be able to log in again</li>
+                    <li>Their previous data and history will be restored</li>
+                    <li>This action will be recorded in the audit log</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="deactivateReason">
-                Reason for deactivation <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="deactivateReason"
-                placeholder="Please provide a reason for deactivation (minimum 10 characters)..."
-                value={deactivateReason}
-                onChange={(e) => setDeactivateReason(e.target.value)}
-                rows={3}
-              />
-            </div>
+            {toggleAction === 'deactivate' && (
+              <div className="space-y-2">
+                <Label htmlFor="deactivateReason">
+                  Reason for deactivation <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="deactivateReason"
+                  placeholder="Please provide a reason for deactivation (minimum 10 characters)..."
+                  value={deactivateReason}
+                  onChange={(e) => setDeactivateReason(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">{deactivateReason.length}/10 characters minimum</p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -640,23 +681,43 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDeactivate}
-              disabled={deactivating || !deactivateReason.trim()}
-            >
-              {deactivating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deactivating...
-                </>
-              ) : (
-                <>
-                  <UserX className="h-4 w-4 mr-2" />
-                  Deactivate Account
-                </>
-              )}
-            </Button>
+            {toggleAction === 'deactivate' ? (
+              <Button
+                variant="destructive"
+                onClick={handleConfirmToggle}
+                disabled={deactivating || deactivateReason.trim().length < 10}
+              >
+                {deactivating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Deactivating...
+                  </>
+                ) : (
+                  <>
+                    <UserX className="h-4 w-4 mr-2" />
+                    Deactivate Account
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleConfirmToggle}
+                disabled={deactivating}
+              >
+                {deactivating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Reactivating...
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Reactivate Account
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

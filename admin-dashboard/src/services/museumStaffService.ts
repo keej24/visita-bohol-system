@@ -581,23 +581,29 @@ export async function getMuseumTermHistory(diocese?: Diocese): Promise<MuseumSta
 // ============================================================================
 
 /**
- * Manually end a museum researcher's term (for administrative purposes)
+ * Toggle a museum researcher's status between active and inactive.
+ * This is a reversible operation — inactive researchers can be reactivated.
  *
- * This operation:
- * 1. Archives the target museum researcher
- * 2. Creates a term record in museum_staff_terms for audit trail
- * 3. Logs the action via AuditService
- *
- * @param adminProfile - The user performing the action (must be museum_researcher or chancery_office)
- * @param staffId - UID of the museum researcher whose term is being ended
- * @param reason - Reason for ending the term
+ * @param actingUser - The museum researcher performing the action
+ * @param staffId - UID of the museum researcher to deactivate/reactivate
+ * @param newStatus - The target status: 'inactive' or 'active'
+ * @param reason - Reason for deactivation (required when deactivating)
  */
-export async function endMuseumStaffTerm(
-  adminProfile: UserProfile,
+export async function toggleMuseumStaffStatus(
+  actingUser: UserProfile,
   staffId: string,
-  reason: string
+  newStatus: 'active' | 'inactive',
+  reason?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
+    if (actingUser.role !== 'museum_researcher') {
+      return { success: false, message: 'Only museum researchers can manage museum staff accounts.' };
+    }
+
+    if (actingUser.uid === staffId) {
+      return { success: false, message: 'You cannot deactivate your own account.' };
+    }
+
     const staffDocRef = doc(db, 'users', staffId);
     const staffDoc = await getDoc(staffDocRef);
 
@@ -606,68 +612,63 @@ export async function endMuseumStaffTerm(
     }
 
     const staffData = staffDoc.data();
-    if (staffData.status !== 'active') {
-      return { success: false, message: 'Museum researcher is not currently active.' };
+    const currentStatus = staffData.status || 'active';
+
+    // Validate current status allows the transition
+    if (newStatus === 'inactive' && currentStatus !== 'active') {
+      return { success: false, message: 'Only active accounts can be deactivated.' };
+    }
+    if (newStatus === 'active' && currentStatus !== 'inactive') {
+      return { success: false, message: 'Only inactive accounts can be reactivated.' };
     }
 
     const now = Timestamp.now();
 
-    // Generate term statistics
-    const termStats = await AuditService.getTermStats(staffId);
+    const updateData: Record<string, unknown> = {
+      status: newStatus,
+      updatedAt: now,
+      updatedBy: actingUser.uid,
+    };
 
-    // Create term record
-    await setDoc(doc(collection(db, 'museum_staff_terms')), {
-      staffId,
-      staffName: staffData.name,
-      staffEmail: staffData.email,
-      diocese: staffData.diocese || 'tagbilaran',
-      institution: staffData.institution || 'National Museum of the Philippines',
-      position: staffData.position,
-      termStart: staffData.termStart || staffData.createdAt || now,
-      termEnd: now,
-      status: 'completed',
-      endReason: reason,
-      stats: termStats,
-      endedBy: adminProfile.uid,
-      endedByName: adminProfile.name,
-      createdAt: now,
-    });
+    if (newStatus === 'inactive') {
+      updateData.deactivatedAt = now;
+      updateData.deactivatedBy = actingUser.uid;
+      updateData.deactivationReason = reason || 'Deactivated by museum researcher';
+    } else {
+      updateData.reactivatedAt = now;
+      updateData.reactivatedBy = actingUser.uid;
+    }
 
-    // Archive the museum researcher
-    await updateDoc(staffDocRef, {
-      status: 'archived',
-      archivedAt: now,
-      archivedReason: reason,
-      termEnd: now,
-    });
+    await updateDoc(staffDocRef, updateData);
 
-    // Log the action
+    // Audit trail
+    const action = newStatus === 'inactive' ? 'user.deactivate' : 'user.reactivate';
     await AuditService.logAction(
-      adminProfile,
-      'museum_staff.term_end',
+      actingUser,
+      action as 'user.deactivate' | 'user.reactivate',
       'user',
       staffId,
       {
         resourceName: staffData.name,
         changes: [
-          { field: 'status', oldValue: 'active', newValue: 'archived' },
+          { field: 'status', oldValue: currentStatus, newValue: newStatus },
         ],
         metadata: {
-          reason,
-          termStats,
+          reason: reason || undefined,
         },
       }
     );
 
+    const actionLabel = newStatus === 'inactive' ? 'deactivated' : 'reactivated';
     return {
       success: true,
-      message: `Museum researcher term for ${staffData.name} has been ended.`,
+      message: `${staffData.name}'s account has been ${actionLabel}.`,
     };
   } catch (error) {
-    console.error('[MuseumStaffService] End term error:', error);
+    console.error('[MuseumStaffService] Toggle status error:', error);
     return {
       success: false,
-      message: 'Failed to end museum researcher term. Please try again.',
+      message: 'Failed to update account status. Please try again.',
     };
   }
 }
@@ -683,5 +684,5 @@ export const MuseumStaffService = {
   approveMuseumStaff,
   rejectMuseumStaff,
   getMuseumTermHistory,
-  endMuseumStaffTerm,
+  toggleMuseumStaffStatus,
 };

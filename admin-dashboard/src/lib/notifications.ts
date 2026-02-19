@@ -462,6 +462,8 @@ export class NotificationService {
             const isParishUser = userProfile.role === 'parish';
             
             // Parish-specific notification types that should only show to the specific parish
+            // account_approved is included here so it's filtered out from roleQuery results
+            // (the target user still sees it via the userIdQuery which has no parish filter)
             const parishSpecificTypes: NotificationType[] = [
               'church_approved',
               'church_unpublished', 
@@ -469,6 +471,7 @@ export class NotificationService {
               'heritage_review_assigned',
               'heritage_validated',
               'account_pending_approval',
+              'account_approved',
               'feedback_received'
             ];
             
