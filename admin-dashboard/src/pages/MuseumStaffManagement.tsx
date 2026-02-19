@@ -7,7 +7,7 @@
  * This page provides comprehensive museum researcher account management:
  * - Stats cards (Total / Active / Archived / Pending)
  * - Searchable, filterable list of all museum researcher accounts
- * - End Term action for active accounts (excludes self)
+ * - Deactivate action for active accounts (excludes self)
  * - Term history viewer from museum_staff_terms collection
  * - Embedded PendingMuseumStaff component for approve/reject workflow
  *
@@ -53,6 +53,7 @@ import {
   CheckCircle,
   XCircle,
   Calendar,
+  UserX,
 } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -101,11 +102,11 @@ const MuseumStaffManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  // End Term dialog
-  const [endTermDialogOpen, setEndTermDialogOpen] = useState(false);
+  // Deactivate dialog
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<MuseumStaffAccount | null>(null);
-  const [endTermReason, setEndTermReason] = useState('');
-  const [endingTerm, setEndingTerm] = useState(false);
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [deactivating, setDeactivating] = useState(false);
 
   // Term history dialog
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
@@ -208,29 +209,29 @@ const MuseumStaffManagement = () => {
   // ACTIONS
   // ============================================================================
 
-  const handleEndTermClick = (account: MuseumStaffAccount) => {
+  const handleDeactivateClick = (account: MuseumStaffAccount) => {
     setSelectedAccount(account);
-    setEndTermReason('');
-    setEndTermDialogOpen(true);
+    setDeactivateReason('');
+    setDeactivateDialogOpen(true);
   };
 
-  const handleConfirmEndTerm = async () => {
-    if (!selectedAccount || !endTermReason.trim() || !userProfile) return;
+  const handleConfirmDeactivate = async () => {
+    if (!selectedAccount || !deactivateReason.trim() || !userProfile) return;
 
-    setEndingTerm(true);
+    setDeactivating(true);
     try {
       const result = await MuseumStaffService.endMuseumStaffTerm(
         userProfile,
         selectedAccount.uid,
-        endTermReason.trim()
+        deactivateReason.trim()
       );
 
       if (result.success) {
         toast({
-          title: 'Term Ended',
+          title: 'Account Deactivated',
           description: result.message,
         });
-        setEndTermDialogOpen(false);
+        setDeactivateDialogOpen(false);
         loadAccounts();
         loadTermHistory();
       } else {
@@ -241,14 +242,14 @@ const MuseumStaffManagement = () => {
         });
       }
     } catch (err) {
-      console.error('[MuseumStaffManagement] End term error:', err);
+      console.error('[MuseumStaffManagement] Deactivate error:', err);
       toast({
         title: 'Error',
-        description: 'Failed to end museum researcher term. Please try again.',
+        description: 'Failed to deactivate museum researcher account. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      setEndingTerm(false);
+      setDeactivating(false);
     }
   };
 
@@ -606,11 +607,11 @@ const MuseumStaffManagement = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                          onClick={() => handleEndTermClick(account)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeactivateClick(account)}
                         >
-                          <Archive className="h-4 w-4 mr-1" />
-                          End Term
+                          <UserX className="h-4 w-4 mr-1" />
+                          Deactivate
                         </Button>
                       )}
                     </div>
@@ -642,42 +643,43 @@ const MuseumStaffManagement = () => {
         </div>
       </div>
 
-      {/* End Term Dialog */}
-      <Dialog open={endTermDialogOpen} onOpenChange={setEndTermDialogOpen}>
+      {/* Deactivate Dialog */}
+      <Dialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Archive className="h-5 w-5 text-amber-600" />
-              End Museum Researcher Term
+              <UserX className="h-5 w-5 text-red-600" />
+              Deactivate Account
             </DialogTitle>
             <DialogDescription>
-              You are about to end the term for <strong>{selectedAccount?.name}</strong>.
-              Their account will be archived and they will lose admin access.
+              You are about to deactivate the account for <strong>{selectedAccount?.name}</strong>.
+              They will lose admin access until reactivated.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertTitle className="text-amber-800">This action is significant</AlertTitle>
-              <AlertDescription className="text-amber-700 text-sm">
+            <Alert variant="default" className="border-red-200 bg-red-50">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertTitle className="text-red-800">Account Deactivation</AlertTitle>
+              <AlertDescription className="text-red-700 text-sm">
                 <ul className="list-disc list-inside space-y-1 mt-1">
-                  <li>{selectedAccount?.name} will be signed out and lose all admin access</li>
-                  <li>A term record will be created for audit purposes</li>
-                  <li>This action cannot be easily undone</li>
+                  <li>{selectedAccount?.name} will be unable to log in</li>
+                  <li>Their data and history will be preserved</li>
+                  <li>You can reactivate the account at any time</li>
+                  <li>This action will be recorded in the audit log</li>
                 </ul>
               </AlertDescription>
             </Alert>
 
             <div className="space-y-2">
-              <Label htmlFor="endTermReason">
-                Reason for ending term <span className="text-destructive">*</span>
+              <Label htmlFor="deactivateReason">
+                Reason for deactivation <span className="text-destructive">*</span>
               </Label>
               <Textarea
-                id="endTermReason"
-                placeholder="e.g., End of appointment period, Transfer to another institution..."
-                value={endTermReason}
-                onChange={(e) => setEndTermReason(e.target.value)}
+                id="deactivateReason"
+                placeholder="Please provide a reason for deactivation (minimum 10 characters)..."
+                value={deactivateReason}
+                onChange={(e) => setDeactivateReason(e.target.value)}
                 rows={3}
               />
             </div>
@@ -686,26 +688,25 @@ const MuseumStaffManagement = () => {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setEndTermDialogOpen(false)}
-              disabled={endingTerm}
+              onClick={() => setDeactivateDialogOpen(false)}
+              disabled={deactivating}
             >
               Cancel
             </Button>
             <Button
-              variant="default"
-              className="bg-amber-600 hover:bg-amber-700"
-              onClick={handleConfirmEndTerm}
-              disabled={endingTerm || !endTermReason.trim()}
+              variant="destructive"
+              onClick={handleConfirmDeactivate}
+              disabled={deactivating || !deactivateReason.trim()}
             >
-              {endingTerm ? (
+              {deactivating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Ending Term...
+                  Deactivating...
                 </>
               ) : (
                 <>
-                  <Archive className="h-4 w-4 mr-2" />
-                  End Term
+                  <UserX className="h-4 w-4 mr-2" />
+                  Deactivate Account
                 </>
               )}
             </Button>

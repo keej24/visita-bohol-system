@@ -116,7 +116,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
         const data = doc.data();
         // Only include parish accounts that are NOT deleted
         // This filters out users that were removed from Firebase Authentication
-        if (data.role === 'parish' && data.status !== 'deleted') {
+        // Also exclude self-registered pending accounts — those are managed by the parish staff
+        // via the PendingParishStaff component, not by the Chancery
+        const isSelfRegisteredPending = data.registrationSource === 'self' && data.status === 'pending';
+        if (data.role === 'parish' && data.status !== 'deleted' && !isSelfRegisteredPending) {
           userData.push({
             id: doc.id,
             uid: data.uid || doc.id,
@@ -265,6 +268,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ diocese }) => {
         parish: parishId,
         
         status: 'active',
+        registrationSource: 'chancery', // Created by Chancery Office
         createdAt: new Date(),
         createdBy: userProfile?.uid || 'system'
       };

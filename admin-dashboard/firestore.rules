@@ -97,12 +97,36 @@ service cloud.firestore {
                      resource.data.parishId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parishId &&
                      resource.data.status == 'pending';
 
+      // Parish secretaries can read active/inactive staff in their parish
+      // This enables the parish staff management UI (deactivation/reactivation)
+      allow read: if isAuthenticated() &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish' &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
+                     resource.data.role == 'parish' &&
+                     resource.data.parishId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parishId &&
+                     resource.data.status in ['active', 'inactive'];
+
       // Parish secretaries can update pending staff in their parish (for approval/rejection)
       allow update: if isAuthenticated() &&
                        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish' &&
                        resource.data.parishId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parishId &&
                        resource.data.status == 'pending';
+
+      // Parish secretaries can deactivate/reactivate staff in their parish
+      // Only allows changing status between 'active' and 'inactive', plus metadata fields
+      // Cannot deactivate their own account (enforced in application code)
+      allow update: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parish' &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
+                       resource.data.parishId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parishId &&
+                       resource.data.status in ['active', 'inactive'] &&
+                       request.resource.data.status in ['active', 'inactive'] &&
+                       request.auth.uid != resource.data.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'updatedAt', 'updatedBy', 'deactivatedAt', 'deactivatedBy', 'deactivationReason', 'reactivatedAt', 'reactivatedBy']);
 
       // Museum researchers can read pending museum staff registrations
       // This enables approval/rejection of new museum researchers
@@ -122,6 +146,16 @@ service cloud.firestore {
                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
                        resource.data.role == 'museum_researcher' &&
                        resource.data.status == 'pending';
+
+      // Museum researchers can deactivate (archive) active museum staff
+      // Only ACTIVE museum researchers can deactivate other museum staff
+      allow update: if isAuthenticated() &&
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'museum_researcher' &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
+                       resource.data.role == 'museum_researcher' &&
+                       resource.data.status == 'active' &&
+                       request.resource.data.status == 'archived';
     }
     
     // Churches collection - Main church data
@@ -410,6 +444,28 @@ service cloud.firestore {
       // Update allowed only for the archiving researcher
       allow update: if isMuseumResearcher() && 
                        resource.data.diocese == getUserData().diocese;
+
+      // Term records cannot be deleted (historical preservation)
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // PARISH STAFF TERMS
+    // =========================================================================
+    // Tracks the historical terms of parish staff members.
+    // Each term includes start/end dates and parish assignment details.
+    // =========================================================================
+    match /parish_staff_terms/{termId} {
+      // All authenticated users can read term history
+      allow read: if isAuthenticated();
+
+      // Parish secretaries can create term records for their parish
+      allow create: if isParishSecretary() || isChanceryOffice();
+
+      // Parish secretaries can update terms within their parish,
+      // Chancery office can update terms within their diocese
+      allow update: if (isParishSecretary() && resource.data.parishId == getUserData().parishId) ||
+                       (isChanceryOffice() && resource.data.diocese == getUserData().diocese);
 
       // Term records cannot be deleted (historical preservation)
       allow delete: if false;

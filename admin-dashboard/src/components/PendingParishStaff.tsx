@@ -52,6 +52,9 @@ import {
   MapPin,
   Users,
   Archive,
+  UserX,
+  UserCheck,
+  Shield,
 } from 'lucide-react';
 import { ParishStaffService, type PendingParishStaff as PendingStaffType } from '@/services/parishStaffService';
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
@@ -86,6 +89,16 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
 
+  // Active staff state
+  const [activeStaff, setActiveStaff] = useState<UserProfile[]>([]);
+  const [activeStaffLoading, setActiveStaffLoading] = useState(true);
+
+  // Deactivation dialog state
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [staffToToggle, setStaffToToggle] = useState<UserProfile | null>(null);
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [toggling, setToggling] = useState(false);
+
   // Load pending staff
   const loadPendingStaff = React.useCallback(async () => {
     try {
@@ -106,10 +119,79 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
     loadPendingStaff();
   }, [loadPendingStaff]);
 
+  // Load active/inactive staff for the parish
+  const loadActiveStaff = React.useCallback(async () => {
+    try {
+      setActiveStaffLoading(true);
+      const staff = await ParishStaffService.getAllActiveParishStaff(parishId);
+      setActiveStaff(staff);
+    } catch (err) {
+      console.error('[PendingParishStaff] Load active staff error:', err);
+    } finally {
+      setActiveStaffLoading(false);
+    }
+  }, [parishId]);
+
+  useEffect(() => {
+    loadActiveStaff();
+  }, [loadActiveStaff]);
+
   // Handle refresh
   const handleRefresh = () => {
     setRefreshing(true);
     loadPendingStaff();
+    loadActiveStaff();
+  };
+
+  // Open deactivate/reactivate dialog
+  const handleToggleStatusClick = (staff: UserProfile) => {
+    setStaffToToggle(staff);
+    setDeactivateReason('');
+    setDeactivateDialogOpen(true);
+  };
+
+  // Confirm deactivate/reactivate
+  const handleConfirmToggleStatus = async () => {
+    if (!staffToToggle) return;
+
+    const newStatus = staffToToggle.status === 'active' ? 'inactive' : 'active';
+    if (newStatus === 'inactive' && deactivateReason.trim().length < 10) return;
+
+    setToggling(true);
+    try {
+      const result = await ParishStaffService.toggleParishStaffStatus(
+        currentUser,
+        staffToToggle.uid,
+        newStatus,
+        newStatus === 'inactive' ? deactivateReason.trim() : undefined
+      );
+
+      if (result.success) {
+        toast({
+          title: newStatus === 'inactive' ? 'Account Deactivated' : 'Account Reactivated',
+          description: result.message,
+        });
+        setDeactivateDialogOpen(false);
+        setStaffToToggle(null);
+        setDeactivateReason('');
+        loadActiveStaff();
+      } else {
+        toast({
+          title: 'Action Failed',
+          description: result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('[PendingParishStaff] Toggle status error:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to update account status. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setToggling(false);
+    }
   };
 
   // Open approval dialog
@@ -395,6 +477,259 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Active Staff Management Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Parish Staff Accounts
+              </CardTitle>
+              <CardDescription>
+                View and manage active and inactive staff accounts for this parish
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {activeStaffLoading ? (
+            <div className="space-y-4">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : activeStaff.filter(s => s.uid !== currentUser.uid).length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p>No other staff accounts</p>
+              <p className="text-sm mt-1">
+                Other parish staff accounts will appear here after they are approved.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activeStaff
+                .filter(staff => staff.uid !== currentUser.uid) // Can't manage your own account
+                .map((staff) => (
+                  <div
+                    key={staff.uid}
+                    className="flex items-start gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    {/* Avatar */}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      staff.status === 'active' ? 'bg-green-100' : 'bg-gray-100'
+                    }`}>
+                      <Church className={`h-5 w-5 ${
+                        staff.status === 'active' ? 'text-green-600' : 'text-gray-400'
+                      }`} />
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium">{staff.name}</h3>
+                        {staff.position && (
+                          <Badge
+                            variant={staff.position === 'parish_priest' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            <Briefcase className="h-3 w-3 mr-1" />
+                            {staff.position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary'}
+                          </Badge>
+                        )}
+                        <Badge
+                          variant={staff.status === 'active' ? 'default' : 'outline'}
+                          className={`text-xs ${
+                            staff.status === 'active'
+                              ? 'bg-green-100 text-green-800 border-green-200'
+                              : 'bg-gray-100 text-gray-600 border-gray-200'
+                          }`}
+                        >
+                          {staff.status === 'active' ? (
+                            <><UserCheck className="h-3 w-3 mr-1" /> Active</>
+                          ) : (
+                            <><UserX className="h-3 w-3 mr-1" /> Inactive</>
+                          )}
+                        </Badge>
+                      </div>
+
+                      <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-3 w-3" />
+                          <span>{staff.email}</span>
+                        </div>
+                        {staff.createdAt && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <Clock className="h-3 w-3" />
+                            <span>Joined: {formatDate(staff.createdAt)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action */}
+                    <div className="flex-shrink-0">
+                      {staff.status === 'active' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => handleToggleStatusClick(staff)}
+                        >
+                          <UserX className="h-4 w-4 mr-1" />
+                          Deactivate
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-green-600 border-green-200 hover:bg-green-50"
+                          onClick={() => handleToggleStatusClick(staff)}
+                        >
+                          <UserCheck className="h-4 w-4 mr-1" />
+                          Reactivate
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Deactivate/Reactivate Confirmation Dialog */}
+      <Dialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {staffToToggle?.status === 'active' ? (
+                <>
+                  <UserX className="h-5 w-5 text-red-600" />
+                  Deactivate Account
+                </>
+              ) : (
+                <>
+                  <UserCheck className="h-5 w-5 text-green-600" />
+                  Reactivate Account
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {staffToToggle?.status === 'active'
+                ? `This will prevent ${staffToToggle?.name} from accessing their account.`
+                : `This will restore ${staffToToggle?.name}'s access to their account.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Alert>
+              <AlertDescription>
+                Are you sure you want to {staffToToggle?.status === 'active' ? 'deactivate' : 'reactivate'} this account?
+              </AlertDescription>
+            </Alert>
+
+            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              <div>
+                <span className="text-sm font-semibold">Name:</span>
+                <span className="text-sm ml-2">{staffToToggle?.name}</span>
+              </div>
+              <div>
+                <span className="text-sm font-semibold">Email:</span>
+                <span className="text-sm ml-2">{staffToToggle?.email}</span>
+              </div>
+              <div>
+                <span className="text-sm font-semibold">Current Status:</span>
+                <Badge className={`ml-2 ${
+                  staffToToggle?.status === 'active'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {staffToToggle?.status === 'active' ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Deactivation reason (only when deactivating) */}
+            {staffToToggle?.status === 'active' && (
+              <div className="space-y-2">
+                <Label htmlFor="deactivateReason">
+                  Reason for deactivation <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="deactivateReason"
+                  placeholder="Please provide a reason for deactivation (minimum 10 characters)..."
+                  value={deactivateReason}
+                  onChange={(e) => setDeactivateReason(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {deactivateReason.length} / 10 characters minimum
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeactivateDialogOpen(false);
+                setStaffToToggle(null);
+                setDeactivateReason('');
+              }}
+              disabled={toggling}
+            >
+              Cancel
+            </Button>
+            {staffToToggle?.status === 'active' ? (
+              <Button
+                variant="destructive"
+                onClick={handleConfirmToggleStatus}
+                disabled={toggling || deactivateReason.trim().length < 10}
+              >
+                {toggling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Deactivating...
+                  </>
+                ) : (
+                  <>
+                    <UserX className="h-4 w-4 mr-2" />
+                    Deactivate Account
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleConfirmToggleStatus}
+                disabled={toggling}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {toggling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Reactivating...
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Reactivate Account
+                  </>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Approval Dialog */}
       <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>

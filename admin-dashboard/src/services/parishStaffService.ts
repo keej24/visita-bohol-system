@@ -149,6 +149,7 @@ export async function registerParishStaff(
           municipality: data.municipality,
         },
         status: 'pending',
+        registrationSource: 'self', // Self-registered via parish staff registration form
         position: data.position, // Position distinguishes secretary vs priest
         phoneNumber: data.phoneNumber || null,
         createdAt: serverTimestamp(),
@@ -380,6 +381,138 @@ export async function getActiveParishStaff(
     createdAt: data.createdAt?.toDate(),
     lastLoginAt: data.lastLoginAt?.toDate(),
   };
+}
+
+/**
+ * Get ALL currently active parish staff for a specific parish.
+ * Unlike getActiveParishStaff (which returns only the first match),
+ * this returns every active staff member — used for the parish staff
+ * management UI where the current user can deactivate other staff.
+ */
+export async function getAllActiveParishStaff(
+  parishId: string,
+): Promise<UserProfile[]> {
+  const q = query(
+    collection(db, 'users'),
+    where('role', '==', 'parish'),
+    where('parishId', '==', parishId),
+    where('status', 'in', ['active', 'inactive']),
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      uid: docSnap.id,
+      email: data.email,
+      name: data.name,
+      role: data.role,
+      diocese: data.diocese,
+      parishId: data.parishId,
+      parishInfo: data.parishInfo,
+      status: data.status,
+      position: data.position,
+      registrationSource: data.registrationSource,
+      createdAt: data.createdAt?.toDate(),
+      lastLoginAt: data.lastLoginAt?.toDate(),
+    } as UserProfile;
+  });
+}
+
+/**
+ * Deactivate or reactivate a parish staff member's account.
+ * Can be called by a fellow parish staff member for accounts in the same parish.
+ *
+ * @param actingUser - The parish staff member performing the action
+ * @param targetStaffId - UID of the staff member to deactivate/reactivate
+ * @param newStatus - The target status: 'inactive' or 'active'
+ * @param reason - Reason for deactivation (required when deactivating)
+ */
+export async function toggleParishStaffStatus(
+  actingUser: UserProfile,
+  targetStaffId: string,
+  newStatus: 'active' | 'inactive',
+  reason?: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (actingUser.role !== 'parish') {
+      return { success: false, message: 'Only parish staff can manage parish accounts.' };
+    }
+
+    if (actingUser.uid === targetStaffId) {
+      return { success: false, message: 'You cannot deactivate your own account.' };
+    }
+
+    const targetDocRef = doc(db, 'users', targetStaffId);
+    const targetDoc = await getDoc(targetDocRef);
+
+    if (!targetDoc.exists()) {
+      return { success: false, message: 'Staff member not found.' };
+    }
+
+    const targetData = targetDoc.data();
+
+    // Must be in the same parish
+    if (targetData.parishId !== actingUser.parishId) {
+      return { success: false, message: 'You can only manage staff in your own parish.' };
+    }
+
+    // Validate current status allows the transition
+    if (newStatus === 'inactive' && targetData.status !== 'active') {
+      return { success: false, message: 'Only active accounts can be deactivated.' };
+    }
+    if (newStatus === 'active' && targetData.status !== 'inactive') {
+      return { success: false, message: 'Only inactive accounts can be reactivated.' };
+    }
+
+    const updateData: Record<string, unknown> = {
+      status: newStatus,
+      updatedAt: Timestamp.now(),
+      updatedBy: actingUser.uid,
+    };
+
+    if (newStatus === 'inactive') {
+      updateData.deactivatedAt = Timestamp.now();
+      updateData.deactivatedBy = actingUser.uid;
+      updateData.deactivationReason = reason || 'Deactivated by parish staff';
+    } else {
+      updateData.reactivatedAt = Timestamp.now();
+      updateData.reactivatedBy = actingUser.uid;
+    }
+
+    await updateDoc(targetDocRef, updateData);
+
+    // Audit trail
+    const action = newStatus === 'inactive' ? 'user.deactivate' : 'user.reactivate';
+    await AuditService.logAction(
+      actingUser,
+      action as 'user.deactivate' | 'user.reactivate',
+      'user',
+      targetStaffId,
+      {
+        resourceName: targetData.name,
+        changes: [
+          { field: 'status', oldValue: targetData.status, newValue: newStatus },
+        ],
+        metadata: {
+          reason: reason || undefined,
+          parishId: targetData.parishId,
+        },
+      }
+    );
+
+    const actionLabel = newStatus === 'inactive' ? 'deactivated' : 'reactivated';
+    return {
+      success: true,
+      message: `${targetData.name}'s account has been ${actionLabel}.`,
+    };
+  } catch (error) {
+    console.error('[ParishStaffService] Toggle status error:', error);
+    return {
+      success: false,
+      message: 'Failed to update account status. Please try again.',
+    };
+  }
 }
 
 // ============================================================================
@@ -722,8 +855,10 @@ export const ParishStaffService = {
   registerParishStaff,
   getPendingParishStaff,
   getActiveParishStaff,
+  getAllActiveParishStaff,
   approveParishStaff,
   rejectParishStaff,
+  toggleParishStaffStatus,
   getParishTermHistory,
   endParishStaffTerm,
 };

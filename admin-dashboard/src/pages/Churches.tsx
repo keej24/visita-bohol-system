@@ -84,7 +84,7 @@ import {
 import { useState, useMemo, useEffect } from "react";
 import heroImage from "@/assets/baclayon-church-hero.jpg";
 import { useAuth } from "@/contexts/AuthContext";
-import { useChurches, useChurchReview } from "@/hooks/useChurches";
+import { useChurches, useChurchReview, useUnpublishChurch } from "@/hooks/useChurches";
 import { useToast } from "@/components/ui/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChurchStatus, ChurchClassification, Church, ArchitecturalStyle, ReligiousClassification } from "@/types/church";
@@ -93,6 +93,7 @@ import { ChurchInfo } from "@/components/parish/types";
 import { ChurchService } from "@/services/churchService";
 import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { notifyChurchUnpublished } from "@/lib/notifications";
 
 const Churches = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -111,6 +112,12 @@ const Churches = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const reviewMutation = useChurchReview();
+  const unpublishMutation = useUnpublishChurch();
+
+  // Unpublish dialog state
+  const [unpublishTarget, setUnpublishTarget] = useState<Church | null>(null);
+  const [unpublishReason, setUnpublishReason] = useState('');
+  const [isUnpublishDialogOpen, setIsUnpublishDialogOpen] = useState(false);
 
   // Build filters
   const filters = useMemo(() => {
@@ -341,6 +348,43 @@ const Churches = () => {
       notes,
       reviewerId: userProfile.uid,
     });
+  };
+
+  // Unpublish handlers
+  const handleUnpublish = (church: Church) => {
+    setUnpublishTarget(church);
+    setUnpublishReason('');
+    setIsUnpublishDialogOpen(true);
+  };
+
+  const confirmUnpublish = async () => {
+    if (!unpublishTarget || !userProfile || !unpublishReason.trim()) return;
+
+    unpublishMutation.mutate(
+      {
+        churchId: unpublishTarget.id,
+        reason: unpublishReason.trim(),
+        unpublishedBy: userProfile.uid,
+      },
+      {
+        onSuccess: async () => {
+          // Send notifications to parish and chancery
+          try {
+            await notifyChurchUnpublished(
+              unpublishTarget.id,
+              unpublishTarget.name,
+              unpublishReason.trim(),
+              userProfile
+            );
+          } catch (err) {
+            console.error('Failed to send unpublish notifications:', err);
+          }
+          setIsUnpublishDialogOpen(false);
+          setUnpublishTarget(null);
+          setUnpublishReason('');
+        },
+      }
+    );
   };
 
   const getStatusBadge = (status: ChurchStatus) => {
@@ -622,6 +666,19 @@ const Churches = () => {
                         </>
                       )}
 
+                      {userProfile?.role === 'chancery_office' && church.status === 'approved' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleUnpublish(church)}
+                          disabled={unpublishMutation.isPending}
+                          title="Unpublish Church"
+                        >
+                          <EyeOff className="w-4 h-4" />
+                        </Button>
+                      )}
+
                     </div>
                   </div>
 
@@ -681,6 +738,49 @@ const Churches = () => {
           </div>
         )}
       </div>
+
+      {/* Unpublish Confirmation Dialog */}
+      <AlertDialog open={isUnpublishDialogOpen} onOpenChange={setIsUnpublishDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <EyeOff className="w-5 h-5" />
+              Unpublish Church
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Are you sure you want to unpublish <strong>{unpublishTarget?.name}</strong>? This will hide it from the mobile app. The church data will be preserved and can be republished later.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="unpublish-reason" className="text-sm font-medium text-foreground">
+                    Reason for unpublishing <span className="text-red-500">*</span>
+                  </Label>
+                  <Textarea
+                    id="unpublish-reason"
+                    placeholder="e.g., Incorrect information needs review, Church under renovation, Data accuracy concerns..."
+                    value={unpublishReason}
+                    onChange={(e) => setUnpublishReason(e.target.value)}
+                    className="min-h-[80px]"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setUnpublishTarget(null); setUnpublishReason(''); }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmUnpublish}
+              disabled={!unpublishReason.trim() || unpublishMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {unpublishMutation.isPending ? 'Unpublishing...' : 'Unpublish'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Church Detail Modal */}
       <ChurchDetailModal

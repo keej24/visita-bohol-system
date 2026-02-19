@@ -122,6 +122,7 @@ const getNavigationItems = (role?: string, setActiveTab?: (tab: string) => void,
         disabled: !churchApproved,
         disabledReason: 'Available after church profile approval'
       },
+      { title: 'Staff Management', url: '/parish', icon: Users, onClick: () => setActiveTab?.('staff'), isTab: true },
       { title: 'Account Settings', url: '/parish', icon: User, onClick: () => setActiveTab?.('account'), isTab: true },
     ];
   }

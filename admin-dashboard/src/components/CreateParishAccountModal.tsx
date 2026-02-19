@@ -295,6 +295,7 @@ export const CreateParishAccountModal = ({ diocese, trigger }: Props) => {
         parish: parishId,
         
         status: 'active',
+        registrationSource: 'chancery', // Created by Chancery Office
         createdAt: serverTimestamp(),
         createdBy: { uid: userProfile.uid, email: userProfile.email, name: userProfile.name },
       });
