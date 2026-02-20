@@ -61,6 +61,8 @@ interface AuditLogViewerProps {
   limit?: number;
   showFilters?: boolean;
   compact?: boolean;
+  /** Client-side filter: only show logs matching these actions */
+  filterActions?: AuditAction[];
 }
 
 // Get appropriate icon based on action category
@@ -121,6 +123,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
   parishId,
   limit = 50,
   compact = false,
+  filterActions,
 }) => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,6 +151,12 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
         fetchedLogs = [];
       }
 
+      // Apply client-side action filter if provided
+      if (filterActions && filterActions.length > 0) {
+        const allowedSet = new Set(filterActions);
+        fetchedLogs = fetchedLogs.filter(log => allowedSet.has(log.action));
+      }
+
       setLogs(fetchedLogs);
     } catch (err) {
       console.error('[AuditLogViewer] Failed to load logs:', err);
@@ -156,7 +165,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [diocese, mode, actorUid, parishId, limit]);
+  }, [diocese, mode, actorUid, parishId, limit, filterActions]);
 
   // Initial load
   useEffect(() => {

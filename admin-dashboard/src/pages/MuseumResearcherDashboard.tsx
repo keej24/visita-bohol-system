@@ -24,6 +24,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MuseumPendingUpdates } from '@/components/MuseumPendingUpdates';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuditLogViewer } from '@/components/AuditLogViewer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useAuth } from "@/contexts/AuthContext";
 import { getChurchesByDiocese, updateChurchStatusWithValidation, type Church, type ChurchStatus } from '@/lib/churches';
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
@@ -48,6 +54,8 @@ const MuseumResearcherDashboard = () => {
   
   // Heritage validation checklist dialog state
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
+
   const [churchToValidate, setChurchToValidate] = useState<Church | null>(null);
 
   // Tab state
@@ -460,7 +468,7 @@ const MuseumResearcherDashboard = () => {
 
         {/* Tabbed Content Area */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-flex">
             <TabsTrigger value="heritage" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Heritage Review</span>
@@ -468,10 +476,6 @@ const MuseumResearcherDashboard = () => {
             <TabsTrigger value="updates" className="flex items-center gap-2">
               <FileEdit className="h-4 w-4" />
               <span className="hidden sm:inline">Updates</span>
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              <span className="hidden sm:inline">Activity Log</span>
             </TabsTrigger>
           </TabsList>
 
@@ -593,14 +597,44 @@ const MuseumResearcherDashboard = () => {
             </ErrorBoundary>
           </TabsContent>
 
-          {/* Activity Log Tab */}
-          <TabsContent value="activity" className="space-y-4">
-            <ErrorBoundary>
-              <AuditLogViewer mode="all" limit={100} />
-            </ErrorBoundary>
-          </TabsContent>
-
         </Tabs>
+
+        {/* Recent Activity Widget */}
+        <Card className="border-amber-200">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold flex items-center gap-2 text-amber-900">
+                <History className="w-4 h-4 text-amber-600" />
+                Recent Activity
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActivityLogOpen(true)}
+              >
+                View All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ErrorBoundary>
+              <AuditLogViewer mode="all" limit={5} compact />
+            </ErrorBoundary>
+          </CardContent>
+        </Card>
+
+        {/* Full Activity Log Dialog */}
+        <Dialog open={activityLogOpen} onOpenChange={setActivityLogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Activity Log
+              </DialogTitle>
+            </DialogHeader>
+            <AuditLogViewer mode="all" limit={100} compact />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Heritage Validation Checklist Dialog */}

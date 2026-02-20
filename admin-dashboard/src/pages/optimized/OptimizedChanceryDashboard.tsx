@@ -9,6 +9,14 @@ import { PendingUpdatesReviewList } from '@/components/PendingUpdatesReviewList'
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
 import { PendingChancellors } from '@/components/PendingChancellors';
 import { AuditLogViewer } from '@/components/AuditLogViewer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +49,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
 
   // Tab state
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
 
   // Pending chancellor registration count
   const [pendingChancellorCount, setPendingChancellorCount] = useState(0);
@@ -269,7 +278,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
 
         {/* Tabbed Content Area */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -291,10 +300,6 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
                   {pendingChancellorCount}
                 </Badge>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              <span className="hidden sm:inline">Activity Log</span>
             </TabsTrigger>
           </TabsList>
 
@@ -359,6 +364,31 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
                 </div>
               </div>
             </div>
+
+            {/* Recent Activity Widget */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <History className="w-4 h-4 text-blue-600" />
+                    Recent Activity
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActivityLogOpen(true)}
+                  >
+                    View All
+                  </Button>
+                </div>
+                <CardDescription>Latest actions in {diocese === 'tagbilaran' ? 'Tagbilaran' : 'Talibon'} Diocese</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ErrorBoundary>
+                  <AuditLogViewer diocese={diocese} limit={5} compact />
+                </ErrorBoundary>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Pending Updates Tab */}
@@ -389,14 +419,20 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
               )}
             </ErrorBoundary>
           </TabsContent>
-
-          {/* Activity Log Tab */}
-          <TabsContent value="activity">
-            <ErrorBoundary>
-              <AuditLogViewer diocese={diocese} limit={100} showFilters={true} />
-            </ErrorBoundary>
-          </TabsContent>
         </Tabs>
+
+        {/* Full Activity Log Dialog */}
+        <Dialog open={activityLogOpen} onOpenChange={setActivityLogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Activity Log — {diocese === 'tagbilaran' ? 'Tagbilaran' : 'Talibon'} Diocese
+              </DialogTitle>
+            </DialogHeader>
+            <AuditLogViewer diocese={diocese} limit={100} compact />
+          </DialogContent>
+        </Dialog>
       </div>
       )}
 

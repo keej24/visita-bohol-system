@@ -97,6 +97,12 @@ import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
 import { ParishFeedback } from '@/components/parish/ParishFeedback';
 import { PendingParishStaff } from '@/components/PendingParishStaff';
 import { AuditLogViewer } from '@/components/AuditLogViewer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ChurchService } from '@/services/churchService';
 import { notifyChurchStatusChange, notifyPendingChangesSubmitted } from '@/lib/notifications';
 import { getFieldLabel } from '@/lib/church-field-categories';
@@ -107,7 +113,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 
 // View type for managing which content is displayed
-type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback' | 'staff' | 'activity';
+type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback' | 'staff';
 
 // Simplified Parish Dashboard - Shows form on first access, then Parish Profile after approval
 const ParishDashboard = () => {
@@ -121,6 +127,7 @@ const ParishDashboard = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingChurch, setExistingChurch] = useState<Church | null>(null);
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
   
   // Track if initial church load has completed to prevent view reset on profile refresh
   const initialLoadCompleteRef = useRef(false);
@@ -612,8 +619,6 @@ const ParishDashboard = () => {
       setCurrentView('account');
     } else if (activeTab === 'staff') {
       setCurrentView('staff');
-    } else if (activeTab === 'activity') {
-      setCurrentView('activity');
     } else if (activeTab === 'overview') {
       setCurrentView('overview');
     }
@@ -1972,6 +1977,56 @@ const ParishDashboard = () => {
             </Tabs>
           </ScrollArea>
         </div>
+
+        {/* Recent Activity Widget */}
+        <Card className="shadow-lg border border-gray-100">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold flex items-center gap-2 text-gray-800">
+                <History className="w-4 h-4 text-emerald-600" />
+                Recent Activity
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActivityLogOpen(true)}
+              >
+                View All
+              </Button>
+            </div>
+            <CardDescription>Your latest actions and parish updates</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AuditLogViewer
+              mode="parish"
+              actorUid={userProfile?.uid}
+              parishId={userProfile?.parishId || userProfile?.parish}
+              diocese={userProfile?.diocese}
+              limit={5}
+              compact
+            />
+          </CardContent>
+        </Card>
+
+        {/* Full Activity Log Dialog */}
+        <Dialog open={activityLogOpen} onOpenChange={setActivityLogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Activity Log
+              </DialogTitle>
+            </DialogHeader>
+            <AuditLogViewer
+              mode="parish"
+              actorUid={userProfile?.uid}
+              parishId={userProfile?.parishId || userProfile?.parish}
+              diocese={userProfile?.diocese}
+              limit={100}
+              compact
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     );
   };
@@ -2102,14 +2157,6 @@ const ParishDashboard = () => {
         <ParishFeedback
           churchName={churchInfo.churchName || churchInfo.name || 'Your Parish'}
           churchId={churchId || existingChurch?.id || userProfile?.parishId || userProfile?.parish || ''}
-        />
-      ) : currentView === 'activity' ? (
-        <AuditLogViewer
-          mode="parish"
-          actorUid={userProfile?.uid}
-          parishId={userProfile?.parishId || userProfile?.parish}
-          diocese={userProfile?.diocese}
-          limit={100}
         />
       ) : currentView === 'profile' ? (
         <ChurchProfileForm
