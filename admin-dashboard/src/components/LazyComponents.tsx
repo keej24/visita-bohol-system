@@ -22,6 +22,7 @@ export const LazyAccountSettings = lazy(() => import('../pages/AccountSettings')
 export const LazyApprovedChurches = lazy(() => import('../pages/ApprovedChurches'));
 export const LazyUserManagement = lazy(() => import('../pages/UserManagementPage'));
 export const LazyMuseumStaffManagement = lazy(() => import('../pages/MuseumStaffManagement'));
+export const LazyActivityLogPage = lazy(() => import('../pages/ActivityLogPage'));
 export const LazyMigrateAccounts = lazy(() => import('../pages/MigrateParishAccounts').then(module => ({
   default: module.MigrateParishAccounts
 })));

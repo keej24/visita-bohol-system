@@ -17,11 +17,13 @@ import {
   AlertTriangle,
   Loader2,
   ArrowRight,
-  FileEdit
+  FileEdit,
+  History
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MuseumPendingUpdates } from '@/components/MuseumPendingUpdates';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { AuditLogViewer } from '@/components/AuditLogViewer';
 import { useAuth } from "@/contexts/AuthContext";
 import { getChurchesByDiocese, updateChurchStatusWithValidation, type Church, type ChurchStatus } from '@/lib/churches';
 import { ChurchDetailModal } from '@/components/ChurchDetailModal';
@@ -458,7 +460,7 @@ const MuseumResearcherDashboard = () => {
 
         {/* Tabbed Content Area */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
             <TabsTrigger value="heritage" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Heritage Review</span>
@@ -466,6 +468,10 @@ const MuseumResearcherDashboard = () => {
             <TabsTrigger value="updates" className="flex items-center gap-2">
               <FileEdit className="h-4 w-4" />
               <span className="hidden sm:inline">Updates</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">Activity Log</span>
             </TabsTrigger>
           </TabsList>
 
@@ -584,6 +590,13 @@ const MuseumResearcherDashboard = () => {
                 onViewChurch={handleViewChurch}
                 onEditChurch={handleEditChurch}
               />
+            </ErrorBoundary>
+          </TabsContent>
+
+          {/* Activity Log Tab */}
+          <TabsContent value="activity" className="space-y-4">
+            <ErrorBoundary>
+              <AuditLogViewer mode="all" limit={100} />
             </ErrorBoundary>
           </TabsContent>
 

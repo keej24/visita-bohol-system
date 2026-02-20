@@ -20,6 +20,7 @@ import {
 import { collection, query, where, getDocs, updateDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { AuditService } from '@/services/auditService';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -93,7 +94,7 @@ const formatTimestamp = (
 };
 
 export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ churchId }) => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, userProfile } = useAuth();
   const [users, setUsers] = useState<PublicUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -255,6 +256,15 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
         lastUpdatedAt: Timestamp.now(),
       });
 
+      // Audit log: public user blocked
+      if (userProfile) {
+        AuditService.logAction(userProfile, 'user.deactivate', 'user', selectedUser.id, {
+          resourceName: selectedUser.displayName,
+          changes: [{ field: 'isBlocked', oldValue: false, newValue: true }],
+          metadata: { userEmail: selectedUser.email, reason: deactivateReason.trim(), accountType: 'public' },
+        }).catch(err => console.error('[PublicUserManagement] Audit log failed:', err));
+      }
+
       setShowDeactivateModal(false);
       setDeactivateReason('');
       setSelectedUser(null);
@@ -289,6 +299,15 @@ export const PublicUserManagement: React.FC<PublicUserManagementProps> = ({ chur
         blockedBy: null,
         lastUpdatedAt: Timestamp.now(),
       });
+
+      // Audit log: public user unblocked
+      if (userProfile) {
+        AuditService.logAction(userProfile, 'user.reactivate', 'user', userToReactivate.id, {
+          resourceName: userToReactivate.name,
+          changes: [{ field: 'isBlocked', oldValue: true, newValue: false }],
+          metadata: { accountType: 'public' },
+        }).catch(err => console.error('[PublicUserManagement] Audit log failed:', err));
+      }
 
       fetchUsers();
     } catch (err) {

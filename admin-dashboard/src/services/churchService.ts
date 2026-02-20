@@ -246,7 +246,8 @@ export class ChurchService {
     formData: ChurchFormData,
     diocese: Diocese,
     userId: string,
-    parishId?: string
+    parishId?: string,
+    userProfile?: UserProfile
   ): Promise<string> {
     try {
       const data = convertToFirestoreData(formData, userId, diocese);
@@ -268,6 +269,7 @@ export class ChurchService {
 
       // Use parishId as document ID if provided, otherwise auto-generate
       // Using parishId ensures consistency with user profiles and feedback/announcements
+      let churchId: string;
       if (parishId) {
         console.log('[ChurchService] Creating church with explicit parishId:', parishId);
         // Include parishId as a field in the document for Firestore security rules
@@ -275,12 +277,23 @@ export class ChurchService {
           ...data,
           parishId: parishId
         });
-        return parishId;
+        churchId = parishId;
       } else {
         console.log('[ChurchService] Creating church with auto-generated ID');
         const docRef = await addDoc(collection(db, CHURCHES_COLLECTION), data);
-        return docRef.id;
+        churchId = docRef.id;
       }
+
+      // Audit log: church created
+      if (userProfile) {
+        AuditService.logAction(userProfile, 'church.create', 'church', churchId, {
+          resourceName: formData.name,
+          parishId: parishId,
+          metadata: { diocese, municipality: formData.municipality },
+        }).catch(err => console.error('[ChurchService] Audit log failed:', err));
+      }
+
+      return churchId;
     } catch (error) {
       console.error('Error creating church:', error);
       // Re-throw the error with its original message if it's a duplicate check error
@@ -296,7 +309,8 @@ export class ChurchService {
     id: string,
     formData: ChurchFormData,
     diocese: Diocese,
-    userId: string
+    userId: string,
+    userProfile?: UserProfile
   ): Promise<void> {
     try {
       // Get current church data to check for classification changes
@@ -379,6 +393,23 @@ export class ChurchService {
       });
 
       await updateDoc(churchRef, updateData);
+
+      // Audit log: church updated
+      if (userProfile) {
+        const changes = [];
+        if (classificationChanged) {
+          changes.push({ field: 'classification', oldValue: currentChurch.classification, newValue: data.classification });
+        }
+        if (newStatus) {
+          changes.push({ field: 'status', oldValue: currentChurch.status, newValue: newStatus });
+        }
+        AuditService.logAction(userProfile, 'church.update', 'church', id, {
+          resourceName: formData.name || currentChurch.name,
+          changes: changes.length > 0 ? changes : undefined,
+          parishId: (currentChurch as Record<string, unknown>).parishId as string,
+          metadata: { diocese, updatedFields: Object.keys(updateData) },
+        }).catch(err => console.error('[ChurchService] Audit log failed:', err));
+      }
     } catch (error) {
       console.error('Error updating church:', error);
       throw new Error('Failed to update church');
@@ -404,7 +435,8 @@ export class ChurchService {
     id: string,
     formData: ChurchFormData,
     diocese: Diocese,
-    userId: string
+    userId: string,
+    userProfile?: UserProfile
   ): Promise<{
     directlyPublished: string[];
     stagedForReview: string[];
@@ -539,6 +571,20 @@ export class ChurchService {
       
       // Perform the update
       await updateDoc(churchRef, updateData);
+
+      // Audit log: church updated (with staging info)
+      if (userProfile) {
+        AuditService.logAction(userProfile, 'church.update', 'church', id, {
+          resourceName: currentChurch.name,
+          parishId: (currentChurch as Record<string, unknown>).parishId as string,
+          metadata: {
+            diocese,
+            directlyPublished: directPublishFields,
+            stagedForReview: sensitiveFields,
+            hasPendingChanges: hasSensitiveChanges,
+          },
+        }).catch(err => console.error('[ChurchService] Audit log failed:', err));
+      }
       
       return {
         directlyPublished: directPublishFields,

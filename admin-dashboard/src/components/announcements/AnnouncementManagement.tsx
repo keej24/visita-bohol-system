@@ -222,7 +222,8 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
 
   const handleArchiveAnnouncement = async (id: string) => {
     try {
-      await AnnouncementService.archiveAnnouncement(id);
+      const ann = announcements.find(a => a.id === id);
+      await AnnouncementService.archiveAnnouncement(id, userProfile ?? undefined, ann?.title);
       toast({
         title: "Archived",
         description: "Announcement archived successfully."
@@ -245,7 +246,8 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
 
   const handleUnarchiveAnnouncement = async (id: string) => {
     try {
-      await AnnouncementService.unarchiveAnnouncement(id);
+      const ann = archivedAnnouncements.find(a => a.id === id);
+      await AnnouncementService.unarchiveAnnouncement(id, userProfile ?? undefined, ann?.title);
       toast({
         title: "Restored",
         description: "Announcement moved to active list"
@@ -276,7 +278,7 @@ export const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ 
     if (!announcementToDelete) return;
     
     try {
-      await AnnouncementService.deleteAnnouncement(announcementToDelete.id);
+      await AnnouncementService.deleteAnnouncement(announcementToDelete.id, userProfile ?? undefined, announcementToDelete.title);
       toast({
         title: "Deleted",
         description: "Announcement deleted permanently"

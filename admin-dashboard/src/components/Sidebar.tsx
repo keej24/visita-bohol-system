@@ -70,6 +70,7 @@ import {
   Search,
   Filter,
   Users,
+  History,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -123,6 +124,7 @@ const getNavigationItems = (role?: string, setActiveTab?: (tab: string) => void,
         disabledReason: 'Available after church profile approval'
       },
       { title: 'Staff Management', url: '/parish', icon: Users, onClick: () => setActiveTab?.('staff'), isTab: true },
+      { title: 'Activity Log', url: '/parish', icon: History, onClick: () => setActiveTab?.('activity'), isTab: true },
       { title: 'Account Settings', url: '/parish', icon: User, onClick: () => setActiveTab?.('account'), isTab: true },
     ];
   }
@@ -149,6 +151,9 @@ const getNavigationItems = (role?: string, setActiveTab?: (tab: string) => void,
       
       // Staff Management
       { title: 'Staff Management', url: '/staff-management', icon: Users },
+      
+      // Activity Log
+      { title: 'Activity Log', url: '/activity-log', icon: History },
       
       // Settings
       { title: 'Account Settings', url: '/settings', icon: Settings },

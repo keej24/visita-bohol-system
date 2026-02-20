@@ -1,7 +1,10 @@
 /**
- * FILE PURPOSE: Audit Log Viewer Component for Chancery Dashboard
+ * FILE PURPOSE: Audit Log Viewer Component
  *
- * Simple activity log showing recent actions in the diocese.
+ * Reusable activity log viewer for all roles:
+ * - Chancery: Shows all logs in their diocese
+ * - Museum Researcher: Shows all logs (cross-diocese)
+ * - Parish Secretary: Shows own actions + actions on their parish
  */
 
 import React, { useState, useEffect } from 'react';
@@ -38,8 +41,23 @@ import type { AuditLog, ResourceType, AuditAction } from '@/types/audit';
 import { AUDIT_ACTION_LABELS, RESOURCE_TYPE_LABELS, getActionCategory, isDestructiveAction } from '@/types/audit';
 import type { Diocese } from '@/contexts/AuthContext';
 
+/**
+ * Query mode determines how logs are fetched:
+ * - 'diocese': Filter by diocese (Chancery)
+ * - 'all': No filtering (Museum Researcher)
+ * - 'parish': Filter by actorUid OR parishId (Parish Secretary)
+ */
+type QueryMode = 'diocese' | 'all' | 'parish';
+
 interface AuditLogViewerProps {
-  diocese: Diocese;
+  /** Diocese filter (required for 'diocese' mode) */
+  diocese?: Diocese;
+  /** Query mode - determines how logs are fetched */
+  mode?: QueryMode;
+  /** Actor UID for parish-scoped queries */
+  actorUid?: string;
+  /** Parish ID for parish-scoped queries */
+  parishId?: string;
   limit?: number;
   showFilters?: boolean;
   compact?: boolean;
@@ -98,6 +116,9 @@ const getActionBadgeVariant = (action: AuditAction): 'default' | 'secondary' | '
 
 export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
   diocese,
+  mode = 'diocese',
+  actorUid,
+  parishId,
   limit = 50,
   compact = false,
 }) => {
@@ -108,11 +129,25 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  // Load audit logs
+  // Load audit logs based on mode
   const loadLogs = React.useCallback(async () => {
     try {
       setError(null);
-      const fetchedLogs = await AuditService.getLogsByDiocese(diocese, { limit });
+      let fetchedLogs: AuditLog[];
+
+      if (mode === 'parish' && actorUid && parishId) {
+        // Parish: own actions + actions on their parish
+        fetchedLogs = await AuditService.getParishLogs(actorUid, parishId, { limit });
+      } else if (mode === 'all') {
+        // Museum researcher: all logs (cross-diocese)
+        fetchedLogs = await AuditService.getAllLogs({ limit });
+      } else if (diocese) {
+        // Chancery: diocese-scoped logs
+        fetchedLogs = await AuditService.getLogsByDiocese(diocese, { limit });
+      } else {
+        fetchedLogs = [];
+      }
+
       setLogs(fetchedLogs);
     } catch (err) {
       console.error('[AuditLogViewer] Failed to load logs:', err);
@@ -121,7 +156,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [diocese, limit]);
+  }, [diocese, mode, actorUid, parishId, limit]);
 
   // Initial load
   useEffect(() => {
@@ -207,7 +242,11 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
                   Activity Log
                 </CardTitle>
                 <CardDescription>
-                  Recent actions in {diocese === 'tagbilaran' ? 'Tagbilaran' : 'Talibon'} Diocese
+                  {mode === 'all'
+                    ? 'Recent actions across all dioceses'
+                    : mode === 'parish'
+                    ? 'Your recent actions and parish activity'
+                    : `Recent actions in ${diocese === 'tagbilaran' ? 'Tagbilaran' : 'Talibon'} Diocese`}
                 </CardDescription>
               </div>
               <Button

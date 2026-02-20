@@ -96,6 +96,7 @@ import { ParishAccount } from '@/components/parish/ParishAccount';
 import { ParishAnnouncements } from '@/components/parish/ParishAnnouncements';
 import { ParishFeedback } from '@/components/parish/ParishFeedback';
 import { PendingParishStaff } from '@/components/PendingParishStaff';
+import { AuditLogViewer } from '@/components/AuditLogViewer';
 import { ChurchService } from '@/services/churchService';
 import { notifyChurchStatusChange, notifyPendingChangesSubmitted } from '@/lib/notifications';
 import { getFieldLabel } from '@/lib/church-field-categories';
@@ -106,7 +107,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 
 // View type for managing which content is displayed
-type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback' | 'staff';
+type ViewType = 'overview' | 'profile' | 'reports' | 'account' | 'announcements' | 'feedback' | 'staff' | 'activity';
 
 // Simplified Parish Dashboard - Shows form on first access, then Parish Profile after approval
 const ParishDashboard = () => {
@@ -611,6 +612,8 @@ const ParishDashboard = () => {
       setCurrentView('account');
     } else if (activeTab === 'staff') {
       setCurrentView('staff');
+    } else if (activeTab === 'activity') {
+      setCurrentView('activity');
     } else if (activeTab === 'overview') {
       setCurrentView('overview');
     }
@@ -835,7 +838,8 @@ const ParishDashboard = () => {
             existingChurch.id,
             formData,
             userProfile.diocese,
-            userProfile.uid
+            userProfile.uid,
+            userProfile
           );
           
           setChurchInfo({ ...data, status: 'approved', id: existingChurch.id });
@@ -992,7 +996,8 @@ const ParishDashboard = () => {
           formData,
           userProfile.diocese,
           userProfile.uid,
-          parishIdentifier // Use unique parish ID as document ID
+          parishIdentifier, // Use unique parish ID as document ID
+          userProfile
         );
 
         setChurchId(newChurchId);
@@ -1059,7 +1064,8 @@ const ParishDashboard = () => {
             existingChurch.id,
             formData,
             userProfile.diocese,
-            userProfile.uid
+            userProfile.uid,
+            userProfile
           );
 
           if (stagingResult.hasPendingChanges) {
@@ -2096,6 +2102,14 @@ const ParishDashboard = () => {
         <ParishFeedback
           churchName={churchInfo.churchName || churchInfo.name || 'Your Parish'}
           churchId={churchId || existingChurch?.id || userProfile?.parishId || userProfile?.parish || ''}
+        />
+      ) : currentView === 'activity' ? (
+        <AuditLogViewer
+          mode="parish"
+          actorUid={userProfile?.uid}
+          parishId={userProfile?.parishId || userProfile?.parish}
+          diocese={userProfile?.diocese}
+          limit={100}
         />
       ) : currentView === 'profile' ? (
         <ChurchProfileForm

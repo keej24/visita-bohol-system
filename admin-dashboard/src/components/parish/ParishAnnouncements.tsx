@@ -93,7 +93,7 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
 
           if (shouldArchive && !announcement.isArchived) {
             console.log(`📦 Auto-archiving past announcement: "${announcement.title}"`);
-            await AnnouncementService.archiveAnnouncement(announcement.id);
+            await AnnouncementService.archiveAnnouncement(announcement.id, userProfile, announcement.title);
             archivedCount++;
           }
         }
@@ -282,7 +282,8 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
   // Handle archive
   const handleArchive = async (announcementId: string) => {
     try {
-      await AnnouncementService.archiveAnnouncement(announcementId);
+      const ann = announcements.find(a => a.id === announcementId);
+      await AnnouncementService.archiveAnnouncement(announcementId, userProfile ?? undefined, ann?.title);
       toast({
         title: "Success",
         description: "Announcement archived successfully."
@@ -306,7 +307,8 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
   // Handle unarchive
   const handleUnarchive = async (announcementId: string) => {
     try {
-      await AnnouncementService.unarchiveAnnouncement(announcementId);
+      const ann = archivedAnnouncements.find(a => a.id === announcementId);
+      await AnnouncementService.unarchiveAnnouncement(announcementId, userProfile ?? undefined, ann?.title);
       toast({
         title: "Success",
         description: "Announcement restored successfully"
@@ -330,7 +332,8 @@ export const ParishAnnouncements: React.FC<ParishAnnouncementsProps> = ({
   // Handle delete
   const handleDelete = async (announcementId: string) => {
     try {
-      await AnnouncementService.deleteAnnouncement(announcementId);
+      const ann = archivedAnnouncements.find(a => a.id === announcementId);
+      await AnnouncementService.deleteAnnouncement(announcementId, userProfile ?? undefined, ann?.title);
       toast({
         title: "Deleted",
         description: "Announcement deleted permanently"

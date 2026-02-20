@@ -321,6 +321,96 @@ export class AuditService {
     })) as AuditLog[];
   }
 
+  /**
+   * Get audit logs visible to a parish secretary.
+   *
+   * Firestore rules allow parish secretaries to read logs where:
+   * - actor.uid == their own uid (their own actions), OR
+   * - parishId == their parishId (actions on their parish resources)
+   *
+   * Since Firestore doesn't support OR across different fields in a single
+   * query, we run two queries and merge/deduplicate the results.
+   *
+   * @param actorUid - The parish secretary's UID
+   * @param parishId - The parish secretary's parishId
+   * @param options - Query options (limit)
+   * @returns Merged, deduplicated array of audit log entries
+   */
+  static async getParishLogs(
+    actorUid: string,
+    parishId: string,
+    options?: { limit?: number }
+  ): Promise<AuditLog[]> {
+    const resultLimit = options?.limit || 50;
+
+    // Query 1: Logs where the parish user is the actor
+    const actorQuery = query(
+      collection(db, AUDIT_LOGS_COLLECTION),
+      where('actor.uid', '==', actorUid),
+      orderBy('timestamp', 'desc'),
+      firestoreLimit(resultLimit)
+    );
+
+    // Query 2: Logs where the parishId matches (actions on their parish resources)
+    const parishQuery = query(
+      collection(db, AUDIT_LOGS_COLLECTION),
+      where('parishId', '==', parishId),
+      orderBy('timestamp', 'desc'),
+      firestoreLimit(resultLimit)
+    );
+
+    // Run both queries in parallel
+    const [actorSnapshot, parishSnapshot] = await Promise.all([
+      getDocs(actorQuery),
+      getDocs(parishQuery),
+    ]);
+
+    // Merge and deduplicate by document ID
+    const logsMap = new Map<string, AuditLog>();
+
+    for (const docSnap of actorSnapshot.docs) {
+      logsMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() } as AuditLog);
+    }
+    for (const docSnap of parishSnapshot.docs) {
+      if (!logsMap.has(docSnap.id)) {
+        logsMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() } as AuditLog);
+      }
+    }
+
+    // Sort by timestamp descending and limit
+    const merged = Array.from(logsMap.values()).sort((a, b) => {
+      const aTime = a.timestamp instanceof Date ? a.timestamp.getTime() : a.timestamp.toDate().getTime();
+      const bTime = b.timestamp instanceof Date ? b.timestamp.getTime() : b.timestamp.toDate().getTime();
+      return bTime - aTime;
+    });
+
+    return merged.slice(0, resultLimit);
+  }
+
+  /**
+   * Get all audit logs without diocese filtering.
+   * Used by museum researchers who have cross-diocese read access.
+   *
+   * @param options - Query options (limit)
+   * @returns Array of audit log entries
+   */
+  static async getAllLogs(
+    options?: { limit?: number }
+  ): Promise<AuditLog[]> {
+    const constraints: QueryConstraint[] = [
+      orderBy('timestamp', 'desc'),
+      firestoreLimit(options?.limit || 50),
+    ];
+
+    const q = query(collection(db, AUDIT_LOGS_COLLECTION), ...constraints);
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as AuditLog[];
+  }
+
   // ============================================================================
   // STATISTICS METHODS
   // ============================================================================

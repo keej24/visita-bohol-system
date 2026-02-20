@@ -64,6 +64,7 @@ import {
   LazyApprovedChurches,       // Approved Churches List (for Museum)
   LazyUserManagement,         // User Management Page (create/edit users)
   LazyMuseumStaffManagement,  // Museum Staff Management Page
+  LazyActivityLogPage,        // Activity Log Page (Museum Researcher)
   LazyMigrateAccounts         // Parish Account Migration Tool
 } from "@/components/LazyComponents";
 
@@ -408,6 +409,20 @@ const App = () => (
               <ProtectedRoute allowedRoles={['museum_researcher']}>
                 <Suspense fallback={<PageLoadingFallback />}>
                   <LazyMuseumStaffManagement />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            
+            {/* 
+              ACTIVITY LOG PAGE (/activity-log)
+              
+              WHO: Only museum_researcher
+              WHAT: View all system activity logs across both dioceses
+            */}
+            <Route path="/activity-log" element={
+              <ProtectedRoute allowedRoles={['museum_researcher']}>
+                <Suspense fallback={<PageLoadingFallback />}>
+                  <LazyActivityLogPage />
                 </Suspense>
               </ProtectedRoute>
             } />

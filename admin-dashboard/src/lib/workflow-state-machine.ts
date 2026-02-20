@@ -5,6 +5,7 @@ import type { UserProfile } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp, Timestamp, doc, updateDoc, getDoc, deleteField } from 'firebase/firestore';
 import type { Church, ChurchFormData } from '@/types/church';
+import { AuditService } from '@/services/auditService';
 
 
 export type WorkflowTransition = {
@@ -483,6 +484,18 @@ export async function applyPendingChanges(
     
     await addDoc(collection(db, 'church_status_audit'), auditLog);
     
+    // Also log to centralized audit trail
+    AuditService.logAction(userProfile, 'church.approve', 'church', churchId, {
+      resourceName: church.name,
+      changes: [{ field: 'pendingChanges', oldValue: 'pending', newValue: 'applied' }],
+      parishId: (church as Record<string, unknown>).parishId as string,
+      metadata: {
+        action: 'apply_pending_changes',
+        changedFields: church.pendingChanges?.changedFields,
+        wasEdited: !!editedData,
+      },
+    }).catch(err => console.error('[WorkflowStateMachine] Centralized audit log failed:', err));
+    
     console.log(`[WorkflowStateMachine] Successfully applied pending changes for church ${churchId}`);
     
     return { success: true };
@@ -564,6 +577,17 @@ export async function forwardPendingChangesToMuseum(
     };
     
     await addDoc(collection(db, 'church_status_audit'), auditLog);
+    
+    // Also log to centralized audit trail
+    AuditService.logAction(userProfile, 'church.forward_heritage', 'church', churchId, {
+      resourceName: church.name,
+      parishId: (church as Record<string, unknown>).parishId as string,
+      metadata: {
+        action: 'forward_pending_to_museum',
+        changedFields: church.pendingChanges?.changedFields,
+        note: note || 'Forwarded pending changes to Museum for heritage validation',
+      },
+    }).catch(err => console.error('[WorkflowStateMachine] Centralized audit log failed:', err));
     
     console.log(`[WorkflowStateMachine] Forwarded pending changes for church ${churchId} to Museum`);
     
