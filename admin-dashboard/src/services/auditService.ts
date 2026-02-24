@@ -351,29 +351,49 @@ export class AuditService {
       firestoreLimit(resultLimit)
     );
 
-    // Query 2: Logs where the parishId matches (actions on their parish resources)
-    const parishQuery = query(
-      collection(db, AUDIT_LOGS_COLLECTION),
-      where('parishId', '==', parishId),
-      orderBy('timestamp', 'desc'),
-      firestoreLimit(resultLimit)
-    );
+    // Run queries independently so one failure doesn't break the other
+    const results: { actorDocs: AuditLog[]; parishDocs: AuditLog[] } = {
+      actorDocs: [],
+      parishDocs: [],
+    };
 
-    // Run both queries in parallel
-    const [actorSnapshot, parishSnapshot] = await Promise.all([
-      getDocs(actorQuery),
-      getDocs(parishQuery),
-    ]);
+    // Always query by actor UID
+    try {
+      const actorSnapshot = await getDocs(actorQuery);
+      results.actorDocs = actorSnapshot.docs.map(docSnap => (
+        { id: docSnap.id, ...docSnap.data() } as AuditLog
+      ));
+    } catch (err) {
+      console.warn('[AuditService] Actor query failed (may lack permissions):', err);
+    }
+
+    // Only query by parishId if it's provided
+    if (parishId) {
+      try {
+        const parishQuery = query(
+          collection(db, AUDIT_LOGS_COLLECTION),
+          where('parishId', '==', parishId),
+          orderBy('timestamp', 'desc'),
+          firestoreLimit(resultLimit)
+        );
+        const parishSnapshot = await getDocs(parishQuery);
+        results.parishDocs = parishSnapshot.docs.map(docSnap => (
+          { id: docSnap.id, ...docSnap.data() } as AuditLog
+        ));
+      } catch (err) {
+        console.warn('[AuditService] Parish query failed (may lack permissions):', err);
+      }
+    }
 
     // Merge and deduplicate by document ID
     const logsMap = new Map<string, AuditLog>();
 
-    for (const docSnap of actorSnapshot.docs) {
-      logsMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() } as AuditLog);
+    for (const log of results.actorDocs) {
+      logsMap.set(log.id, log);
     }
-    for (const docSnap of parishSnapshot.docs) {
-      if (!logsMap.has(docSnap.id)) {
-        logsMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() } as AuditLog);
+    for (const log of results.parishDocs) {
+      if (!logsMap.has(log.id)) {
+        logsMap.set(log.id, log);
       }
     }
 

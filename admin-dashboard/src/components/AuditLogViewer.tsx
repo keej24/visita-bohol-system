@@ -138,13 +138,13 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
       setError(null);
       let fetchedLogs: AuditLog[];
 
-      if (mode === 'parish' && actorUid && parishId) {
+      if (mode === 'parish' && actorUid) {
         // Parish: own actions + actions on their parish
-        fetchedLogs = await AuditService.getParishLogs(actorUid, parishId, { limit });
+        fetchedLogs = await AuditService.getParishLogs(actorUid, parishId || '', { limit });
       } else if (mode === 'all') {
         // Museum researcher: all logs (cross-diocese)
         fetchedLogs = await AuditService.getAllLogs({ limit });
-      } else if (diocese) {
+      } else if (mode === 'diocese' && diocese) {
         // Chancery: diocese-scoped logs
         fetchedLogs = await AuditService.getLogsByDiocese(diocese, { limit });
       } else {
