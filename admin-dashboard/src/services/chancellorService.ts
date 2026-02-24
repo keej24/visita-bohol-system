@@ -33,10 +33,9 @@ import {
   orderBy,
   Timestamp,
   serverTimestamp,
-  writeBatch,
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
 import { notifyChancellorPendingApproval } from '@/lib/notifications';
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
@@ -70,7 +69,6 @@ export interface PendingChancellor {
 export interface ApprovalResult {
   success: boolean;
   message: string;
-  archivedChancellorId?: string;
   newChancellorId?: string;
 }
 
@@ -97,6 +95,10 @@ export async function registerChancellor(
     // NOTE: We no longer check Firestore for existing emails before auth creation
     // because the user is not authenticated yet and Firestore rules block the query.
     // Instead, Firebase Auth will reject duplicate emails with 'auth/email-already-in-use'.
+
+    // Prevent AuthContext from calling signOut on the newly created pending
+    // user, which would disrupt the Firestore setDoc promise and hang it.
+    setRegistrationInProgress(true);
 
     // Create Firebase Auth account first
     // Firebase Auth will reject if email already exists with error code 'auth/email-already-in-use'
@@ -133,6 +135,9 @@ export async function registerChancellor(
         console.error('[ChancellorService] Failed to cleanup Auth account:', cleanupError);
       }
       throw firestoreError; // Re-throw to be caught by outer handler
+    } finally {
+      // Release the lock so AuthContext resumes normal pending-user handling
+      setRegistrationInProgress(false);
     }
 
     // Run audit log, active chancellor lookup + notification, and sign-out in parallel
@@ -335,11 +340,13 @@ export async function getActiveChancellor(diocese: Diocese): Promise<UserProfile
 /**
  * Approve a pending chancellor registration
  *
- * This is a critical operation that:
- * 1. Archives the current active chancellor (ends their term)
- * 2. Activates the new chancellor
- * 3. Creates term records for audit trail
- * 4. Logs all actions
+ * This operation:
+ * 1. Activates the new chancellor
+ * 2. Logs the approval action for audit trail
+ *
+ * Note: The approving chancellor's account remains active.
+ * To transfer access, the old chancellor must be explicitly
+ * deactivated using toggleChancellorStatus().
  *
  * @param approvingChancellor - The currently active chancellor approving the request
  * @param pendingChancellorId - UID of the pending chancellor to approve
@@ -351,7 +358,6 @@ export async function approveChancellor(
   notes?: string
 ): Promise<ApprovalResult> {
   try {
-    const batch = writeBatch(db);
     const now = Timestamp.now();
 
     // Get the pending chancellor's data
@@ -370,38 +376,8 @@ export async function approveChancellor(
       return { success: false, message: 'You can only approve chancellors for your own diocese.' };
     }
 
-    // Get current active chancellor (the one approving)
-    const activeChancellor = await getActiveChancellor(approvingChancellor.diocese);
-
-    // Step 1: Archive the approving chancellor's account
-    if (activeChancellor) {
-      const approvingDocRef = doc(db, 'users', approvingChancellor.uid);
-      batch.update(approvingDocRef, {
-        status: 'archived',
-        archivedAt: now,
-        archivedReason: `Term ended - approved successor: ${pendingData.name}`,
-        termEnd: now,
-      });
-
-      // Step 2: Create a term record for the outgoing chancellor
-      const termRef = doc(collection(db, 'chancellor_terms'));
-      batch.set(termRef, {
-        chancellorId: approvingChancellor.uid,
-        chancellorName: approvingChancellor.name,
-        chancellorEmail: approvingChancellor.email,
-        diocese: approvingChancellor.diocese,
-        termStart: activeChancellor.createdAt || now,
-        termEnd: now,
-        status: 'completed',
-        endReason: `Approved successor: ${pendingData.name}`,
-        successorId: pendingChancellorId,
-        successorName: pendingData.name,
-        createdAt: now,
-      });
-    }
-
-    // Step 3: Activate the new chancellor
-    batch.update(pendingDocRef, {
+    // Activate the new chancellor
+    await updateDoc(pendingDocRef, {
       status: 'active',
       approvedAt: now,
       approvedBy: approvingChancellor.uid,
@@ -410,21 +386,7 @@ export async function approveChancellor(
       termStart: now,
     });
 
-    // Commit all changes
-    await batch.commit();
-
     // Log the approval
-    const newChancellorProfile: UserProfile = {
-      uid: pendingChancellorId,
-      email: pendingData.email,
-      name: pendingData.name,
-      role: 'chancery_office',
-      diocese: pendingData.diocese,
-      status: 'active',
-      createdAt: pendingData.createdAt?.toDate() || new Date(),
-      lastLoginAt: new Date(),
-    };
-
     await AuditService.logAction(
       approvingChancellor,
       'chancellor.approve',
@@ -434,12 +396,11 @@ export async function approveChancellor(
         resourceName: pendingData.name,
         changes: [
           { field: 'status', oldValue: 'pending', newValue: 'active' },
-          { field: 'previous_chancellor_status', oldValue: 'active', newValue: 'archived' },
         ],
         metadata: {
           diocese: pendingData.diocese,
-          archivedChancellorId: approvingChancellor.uid,
-          archivedChancellorName: approvingChancellor.name,
+          approvedBy: approvingChancellor.uid,
+          approvedByName: approvingChancellor.name,
           notes,
         },
       }
@@ -447,8 +408,7 @@ export async function approveChancellor(
 
     return {
       success: true,
-      message: `${pendingData.name} has been approved as the new chancellor. Your account has been archived.`,
-      archivedChancellorId: activeChancellor?.uid,
+      message: `${pendingData.name} has been approved as a new chancellor. You can deactivate your account when ready to complete the transition.`,
       newChancellorId: pendingChancellorId,
     };
   } catch (error) {

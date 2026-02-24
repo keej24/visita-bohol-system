@@ -272,7 +272,7 @@ const ParishStaffRegistration: React.FC = () => {
             </div>
             <h2 className="text-2xl font-bold text-green-800 mb-2">Registration Successful!</h2>
             <p className="text-muted-foreground mb-4">
-              Your account has been created and is pending approval from the Chancery Office.
+              Your account has been created and is pending approval from the current parish user.
             </p>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -294,7 +294,7 @@ const ParishStaffRegistration: React.FC = () => {
           <CardTitle className="text-2xl">Parish Staff Registration</CardTitle>
           <CardDescription>
             Register as a new parish secretary or parish priest. Your account will need to be approved
-            by the Chancery Office before you can access the system.
+            by the current Parish user before you can access the system.
           </CardDescription>
           
           {/* Progress Indicator */}

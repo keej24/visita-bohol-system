@@ -1,14 +1,14 @@
 /**
  * FILE PURPOSE: Pending Approval Page
  *
- * This page is shown to chancellors who have registered but are
- * still waiting for approval from the current active chancellor.
+ * This page is shown to users (chancellors, parish staff, museum staff)
+ * who have registered but are still waiting for approval.
  *
  * FEATURES:
+ * - Role-aware messaging (parish, chancellor, museum)
  * - Clear status message about pending state
  * - Contact information for the diocese
  * - Option to go back to login
- * - Auto-refresh to check approval status (optional)
  *
  * ROUTE: /pending-approval
  */
@@ -32,17 +32,41 @@ interface LocationState {
   name?: string;
   diocese?: string;
   email?: string;
+  parish?: string;
+  role?: 'parish' | 'museum' | string;
 }
 
 const PendingApproval: React.FC = () => {
   const location = useLocation();
   const state = location.state as LocationState | null;
 
+  const isParish = state?.role === 'parish';
+  const isMuseum = state?.role === 'museum';
+
   const dioceseName = state?.diocese === 'tagbilaran' 
     ? 'Diocese of Tagbilaran' 
     : state?.diocese === 'talibon'
     ? 'Diocese of Talibon'
     : 'your diocese';
+
+  // Role-specific messaging
+  const roleLabel = isParish
+    ? `parish${state?.parish ? ` (${state.parish})` : ''}`
+    : isMuseum
+    ? 'museum researcher'
+    : 'chancery office';
+
+  const reviewerLabel = isParish
+    ? 'current parish user for your parish'
+    : isMuseum
+    ? 'current museum researcher'
+    : 'current chancellor';
+
+  const submissionText = isParish
+    ? (<>Your registration for <strong>{state?.parish || 'your parish'}</strong> in the <strong>{dioceseName}</strong> has been submitted successfully.</>)
+    : isMuseum
+    ? (<>Your registration as a museum researcher has been submitted successfully.</>)
+    : (<>Your registration for the <strong>{dioceseName}</strong> chancery office has been submitted successfully.</>);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center p-4">
@@ -66,8 +90,7 @@ const PendingApproval: React.FC = () => {
               </p>
             )}
             <p className="text-muted-foreground">
-              Your registration for the <strong>{dioceseName}</strong> chancery office has been
-              submitted successfully.
+              {submissionText}
             </p>
           </div>
 
@@ -78,7 +101,7 @@ const PendingApproval: React.FC = () => {
             <AlertDescription className="text-sm space-y-2 mt-2">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600 flex-shrink-0" />
-                <span>The current chancellor will review your registration</span>
+                <span>The {reviewerLabel} will review your registration</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600 flex-shrink-0" />
@@ -99,7 +122,7 @@ const PendingApproval: React.FC = () => {
             </h3>
             <p className="text-sm text-muted-foreground">
               If you need to expedite your approval or have questions, please contact
-              the current chancellor directly:
+              the {isParish ? 'current parish administrator or your chancery office' : isMuseum ? 'current museum researcher or your chancery office' : 'current chancellor'} directly:
             </p>
             <div className="space-y-2 text-sm">
               {state?.diocese === 'tagbilaran' ? (

@@ -46,7 +46,8 @@ const FIELD_DEFINITIONS: FieldDefinition[] = [
   { path: 'contactInfo.phone', label: 'Contact Phone' },
   { path: 'contactInfo.email', label: 'Contact Email' },
   { path: 'contactInfo.website', label: 'Website' },
-  { path: 'contactInfo.facebookPage', label: 'Facebook Page' }
+  { path: 'contactInfo.facebookPage', label: 'Facebook Page' },
+  { path: 'massSchedules', label: 'Mass Schedule', description: 'Extracted worship schedule entries' }
 ];
 
 const getNestedValue = (source: Record<string, any> | undefined, path: string) => {

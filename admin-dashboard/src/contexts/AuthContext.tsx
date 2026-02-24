@@ -51,7 +51,7 @@
 import { createContext, useEffect, useState } from 'react';
 import { User, UserCredential, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, DocumentSnapshot } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, isRegistrationInProgress } from '@/lib/firebase';
 import { getKnownAccountProfile } from '@/lib/auth-utils';
 import { AuditService } from '@/services/auditService';
 
@@ -227,6 +227,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Check if account is pending approval - handle gracefully without error
           if (data.status === 'pending') {
             console.log('[AuthContext] Account is pending approval:', user.email);
+            if (isRegistrationInProgress()) {
+              // During self-registration, skip signOut to avoid disrupting the
+              // Firestore setDoc promise. The registration service handles
+              // signOut itself after the critical write completes.
+              console.log('[AuthContext] Registration in progress — deferring signOut to service');
+              setUserProfile(null);
+              setLoading(false);
+              return;
+            }
             // Sign out the user silently
             await signOut(auth);
             setUserProfile(null);

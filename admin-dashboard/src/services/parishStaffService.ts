@@ -36,7 +36,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
 import { notifyAccountPendingApproval, notifyAccountApproved } from '@/lib/notifications';
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
@@ -125,6 +125,10 @@ export async function registerParishStaff(
     // because the user is not authenticated yet and Firestore rules block the query.
     // Instead, Firebase Auth will reject duplicate emails with 'auth/email-already-in-use'.
 
+    // Prevent AuthContext from calling signOut on the newly created pending
+    // user, which would disrupt the Firestore setDoc promise and hang it.
+    setRegistrationInProgress(true);
+
     // Create Firebase Auth account first
     // Firebase Auth will reject if email already exists with error code 'auth/email-already-in-use'
     console.log('[ParishStaffService] Creating Firebase Auth account for:', data.email);
@@ -166,6 +170,9 @@ export async function registerParishStaff(
         console.error('[ParishStaffService] Failed to cleanup Auth account:', cleanupError);
       }
       throw firestoreError;
+    } finally {
+      // Release the lock so AuthContext resumes normal pending-user handling
+      setRegistrationInProgress(false);
     }
 
     // Run audit log, active staff lookup + notification, and sign-out in parallel

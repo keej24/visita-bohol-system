@@ -6,7 +6,7 @@
  *
  * FEATURES:
  * - List all pending registrations
- * - Approve a pending researcher (archives current, activates new)
+ * - Approve a pending researcher (activates new, current stays active)
  * - Reject a pending registration with reason
  * - Shows warning about account transition
  *
@@ -17,9 +17,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +51,6 @@ import {
   Loader2,
   Info,
   Users,
-  Archive,
 } from 'lucide-react';
 import { MuseumStaffService, type PendingMuseumStaff as PendingStaffType } from '@/services/museumStaffService';
 import type { UserProfile } from '@/contexts/AuthContext';
@@ -70,7 +66,6 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
   onStaffApproved,
 }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   // State
   const [pendingList, setPendingList] = useState<PendingStaffType[]>([]);
@@ -140,19 +135,8 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
         });
         setApprovalDialogOpen(false);
         onStaffApproved?.();
-        // The approver's account is now archived — sign out and redirect
-        try {
-          await signOut(auth);
-        } catch (e) {
-          console.warn('[PendingMuseumStaff] Sign out after approval failed:', e);
-        }
-        navigate('/term-ended', {
-          state: {
-            name: currentUser.name,
-            role: 'museum_researcher',
-            successorName: selectedPending.name,
-          },
-        });
+        // Refresh the list to reflect the change
+        loadPendingStaff();
       } else {
         toast({
           title: 'Approval Failed',
@@ -406,26 +390,26 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Warning about account archival */}
-            <Alert variant="default" className="border-amber-200 bg-amber-50">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertTitle className="text-amber-800">Important: Account Transition</AlertTitle>
-              <AlertDescription className="text-amber-700 text-sm">
+            {/* Info about approval */}
+            <Alert variant="default" className="border-green-200 bg-green-50">
+              <Check className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-800">Approval Information</AlertTitle>
+              <AlertDescription className="text-green-700 text-sm">
                 <p className="mb-2">
                   By approving this registration:
                 </p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>
-                    {selectedPending?.name} will become the active Museum Staff
+                    <strong>{selectedPending?.name}</strong> will become an active Museum Staff
                   </li>
                   <li>
-                    <strong>Your account will be archived</strong> — you will be signed out and will no longer have access
+                    <strong>Your account will remain active</strong> — you can continue using the system until your account is deactivated
                   </li>
                   <li>
-                    Your term history and actions will be preserved for audit purposes
+                    To complete the transition, your account must be deactivated separately
                   </li>
                   <li>
-                    This action cannot be undone
+                    This action will be recorded in the audit log
                   </li>
                 </ul>
               </AlertDescription>
@@ -469,7 +453,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
             <Button
               onClick={handleConfirmApproval}
               disabled={approving || confirmText !== 'APPROVE'}
-              className="bg-amber-600 hover:bg-amber-700"
+              className="bg-green-600 hover:bg-green-700"
             >
               {approving ? (
                 <>

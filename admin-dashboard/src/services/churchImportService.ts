@@ -13,7 +13,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import uploadService, { type UploadProgress } from '@/services/uploadService';
-import type { ChurchInfo, ChurchImportSession } from '@/components/parish/types';
+import type { ChurchInfo, ChurchImportSession, MassSchedule } from '@/components/parish/types';
 
 const CHURCH_IMPORTS_COLLECTION = 'church_imports';
 const MAX_UPLOAD_MB = 20;
@@ -41,12 +41,14 @@ const setNestedValue = (target: Record<string, any>, path: string, value: unknow
 // All known labels used to detect field boundaries.
 // Longer labels are listed first so they match before shorter prefixes.
 const ALL_KNOWN_LABELS = [
-  'Parish Name', 'Church Name',
+  'Parish Name', 'Church Name', 'Parish', 'Church',
   'Location Details', 'Street Address', 'Address',
   'Barangay', 'Municipality', 'City', 'Town', 'Province',
   'Current Parish Priest', 'Parish Priest', 'Current Priest', 'Priest',
-  'Feast Day', 'Patron Feast Day',
-  'Founding Year', 'Year Founded', 'Year Established', 'Founded',
+  'Parish Administrator',
+  'Feast Day', 'Patron Feast Day', 'Patron Saint', 'Patron',
+  'Founding Year', 'Year Founded', 'Year Established', 'Year Built',
+  'Date Established', 'Date Founded', 'Construction Year', 'Founded',
   'Founders', 'Founded By', 'Founding Organization',
   'Architectural Style', 'Architecture',
   'Heritage Classification', 'Heritage Class',
@@ -54,12 +56,25 @@ const ALL_KNOWN_LABELS = [
   'Historical Background', 'Historical background', 'Church History', 'History',
   'Architectural Information', 'Architectural Features', 'Design Features', 'Building Features', 'Notable Features',
   'Heritage Information', 'Heritage Details', 'Heritage Status', 'Cultural Significance',
-  'Contact Phone', 'Contact #', 'Phone', 'Telephone',
+  'Contact Phone', 'Contact Number', 'Contact #', 'Phone', 'Telephone',
+  'Mobile Number', 'Mobile', 'Tel',
   'Contact Email', 'Email',
   'Official Website', 'Website',
   'Facebook Page', 'Facebook',
-  'Mass Schedules', 'Mass Schedule'
+  'Mass Schedules', 'Mass Schedule', 'Schedule of Masses', 'Worship Schedule',
+  'GPS Coordinates', 'Coordinates', 'Latitude', 'Longitude',
+  'Diocese', 'Vicariate'
 ].sort((a, b) => b.length - a.length);
+
+// Fields whose values legitimately span multiple lines.
+// For all other fields, continuation lines are NOT appended.
+const MULTI_LINE_LABELS = new Set([
+  'historical background', 'church history', 'history',
+  'architectural information', 'architectural features', 'design features',
+  'building features', 'notable features',
+  'heritage information', 'heritage details', 'heritage status', 'cultural significance',
+  'mass schedules', 'mass schedule', 'schedule of masses', 'worship schedule'
+]);
 
 /**
  * Pre-process raw text: split concatenated fields onto separate lines
@@ -94,9 +109,11 @@ const preprocessText = (text: string): Map<string, string> => {
       currentLabel = match[1];
       currentValue = match[2] || '';
     } else if (currentLabel) {
-      // Continuation line — append to current value
+      // Only append continuation lines for multi-line fields (e.g. history, features).
+      // For short fields like names/addresses, ignore stray continuation lines
+      // to prevent address text bleeding into parish/church name fields.
       const trimmed = line.trim();
-      if (trimmed) {
+      if (trimmed && MULTI_LINE_LABELS.has(currentLabel.toLowerCase())) {
         currentValue += ' ' + trimmed;
       }
     }
@@ -169,7 +186,144 @@ const parseReligiousClassifications = (raw: string): string[] => {
   );
 };
 
-const buildParsedDataFromText = (text: string) => {
+/**
+ * Parse mass schedule text into structured MassSchedule objects.
+ * Handles formats like:
+ *   "Sunday 7:00 AM, 9:00 AM; Saturday 5:30 PM"
+ *   "Sunday: 6:00 AM - 7:00 AM, 9:00 AM - 10:00 AM"
+ *   "Mon-Fri 6:00 AM"
+ */
+const parseMassSchedules = (raw: string): MassSchedule[] => {
+  const schedules: MassSchedule[] = [];
+  // Split on semicolons or newlines to get per-day entries
+  const entries = raw.split(/[;\n]/).map(s => s.trim()).filter(Boolean);
+
+  const dayAliases: Record<string, string> = {
+    'sun': 'Sunday', 'sunday': 'Sunday',
+    'mon': 'Monday', 'monday': 'Monday',
+    'tue': 'Tuesday', 'tues': 'Tuesday', 'tuesday': 'Tuesday',
+    'wed': 'Wednesday', 'wednesday': 'Wednesday',
+    'thu': 'Thursday', 'thurs': 'Thursday', 'thursday': 'Thursday',
+    'fri': 'Friday', 'friday': 'Friday',
+    'sat': 'Saturday', 'saturday': 'Saturday',
+    'weekdays': 'Weekdays', 'weekday': 'Weekdays',
+    'daily': 'Daily',
+  };
+
+  const timeRegex = /(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/g;
+
+  for (const entry of entries) {
+    // Try to find a day name at the start
+    const dayMatch = entry.match(/^([A-Za-z-]+)[:\s,]+(.+)$/i);
+    let day = '';
+    let rest = entry;
+    if (dayMatch) {
+      const dayKey = dayMatch[1].toLowerCase().replace(/-/g, '');
+      if (dayAliases[dayKey]) {
+        day = dayAliases[dayKey];
+        rest = dayMatch[2];
+      } else {
+        // Try multi-word day like "Mon-Fri"
+        const parts = dayMatch[1].split('-');
+        if (parts.length === 2 && dayAliases[parts[0].toLowerCase()] && dayAliases[parts[1].toLowerCase()]) {
+          day = `${dayAliases[parts[0].toLowerCase()]}-${dayAliases[parts[1].toLowerCase()]}`;
+          rest = dayMatch[2];
+        }
+      }
+    }
+
+    // Extract all times from the rest
+    const times = [...rest.matchAll(timeRegex)].map(m => m[1].trim());
+    if (times.length > 0 && day) {
+      for (const time of times) {
+        schedules.push({ day, time, endTime: '' });
+      }
+    } else if (day && rest.trim()) {
+      // Could not parse times, store raw
+      schedules.push({ day, time: rest.trim(), endTime: '' });
+    }
+  }
+
+  return schedules;
+};
+
+/**
+ * Validate extracted values and compute dynamic confidence scores.
+ * Returns the (possibly transformed) value and its confidence.
+ */
+const validateAndScore = (
+  path: string,
+  value: unknown
+): { value: unknown; confidence: number } => {
+  const str = typeof value === 'string' ? value : '';
+
+  switch (path) {
+    case 'parishName':
+    case 'churchName': {
+      // Flag if value looks like it contains address fragments
+      const addressPatterns = /\b(bohol|cebu|leyte|street|st\.|brgy\.|barangay|province|philippines)\b/i;
+      if (addressPatterns.test(str)) return { value: str, confidence: 0.4 };
+      if (str.length < 3) return { value: str, confidence: 0.3 };
+      if (str.length > 200) return { value: str, confidence: 0.4 };
+      return { value: str, confidence: 0.85 };
+    }
+
+    case 'historicalDetails.foundingYear': {
+      // Extract a 4-digit year
+      const yearMatch = str.match(/\b(1[0-9]{3}|20[0-2][0-9])\b/);
+      if (yearMatch) {
+        const year = parseInt(yearMatch[1], 10);
+        const currentYear = new Date().getFullYear();
+        if (year >= 1521 && year <= currentYear) return { value: String(year), confidence: 0.95 };
+        return { value: String(year), confidence: 0.5 };
+      }
+      // Value present but no parseable year
+      return { value: str, confidence: 0.3 };
+    }
+
+    case 'historicalDetails.heritageClassification': {
+      const validValues = ['National Cultural Treasures', 'Important Cultural Properties', 'None'];
+      if (validValues.includes(str)) return { value: str, confidence: 0.95 };
+      return { value: str, confidence: 0.4 };
+    }
+
+    case 'historicalDetails.architecturalStyle': {
+      const validStyles = ['Baroque', 'Neo-Gothic', 'Byzantine', 'Neo-Classical', 'Modern', 'Mixed Styles', 'Other'];
+      if (validStyles.includes(str)) return { value: str, confidence: 0.9 };
+      return { value: str, confidence: 0.5 };
+    }
+
+    case 'contactInfo.email': {
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)) return { value: str, confidence: 0.9 };
+      return { value: str, confidence: 0.3 };
+    }
+
+    case 'contactInfo.phone': {
+      const digits = str.replace(/[^0-9]/g, '');
+      if (digits.length >= 7) return { value: str, confidence: 0.85 };
+      return { value: str, confidence: 0.4 };
+    }
+
+    case 'historicalDetails.historicalBackground':
+    case 'historicalDetails.architecturalFeatures':
+    case 'historicalDetails.heritageInformation': {
+      if (str.length > 100) return { value: str, confidence: 0.85 };
+      if (str.length > 30) return { value: str, confidence: 0.7 };
+      return { value: str, confidence: 0.5 };
+    }
+
+    case 'massSchedules': {
+      if (Array.isArray(value) && value.length > 0) return { value, confidence: 0.8 };
+      return { value, confidence: 0.4 };
+    }
+
+    default:
+      return { value, confidence: 0.7 };
+  }
+};
+
+/** @internal Exported for testing */
+export const buildParsedDataFromText = (text: string) => {
   const fieldValues = preprocessText(text);
   const parsedData: Partial<ChurchInfo> = {};
   const confidence: Record<string, number> = {};
@@ -181,9 +335,9 @@ const buildParsedDataFromText = (text: string) => {
     { path: 'locationDetails.barangay', labels: ['barangay'] },
     { path: 'locationDetails.municipality', labels: ['municipality', 'city', 'town'] },
     { path: 'locationDetails.province', labels: ['province'] },
-    { path: 'currentParishPriest', labels: ['current parish priest', 'parish priest', 'current priest', 'priest'] },
+    { path: 'currentParishPriest', labels: ['current parish priest', 'parish priest', 'current priest', 'priest', 'parish administrator'] },
     { path: 'feastDay', labels: ['feast day', 'patron feast day'] },
-    { path: 'historicalDetails.foundingYear', labels: ['founding year', 'year founded', 'year established', 'founded'] },
+    { path: 'historicalDetails.foundingYear', labels: ['founding year', 'year founded', 'year established', 'year built', 'date established', 'date founded', 'construction year', 'founded'] },
     { path: 'historicalDetails.founders', labels: ['founders', 'founded by', 'founding organization'] },
     { path: 'historicalDetails.architecturalStyle', labels: ['architectural style', 'architecture'], transform: normalizeArchitecturalStyle },
     { path: 'historicalDetails.heritageClassification', labels: ['heritage classification', 'heritage class'], transform: normalizeHeritageClassification },
@@ -191,10 +345,11 @@ const buildParsedDataFromText = (text: string) => {
     { path: 'historicalDetails.historicalBackground', labels: ['historical background', 'church history', 'history'] },
     { path: 'historicalDetails.architecturalFeatures', labels: ['architectural information', 'architectural features', 'design features', 'building features', 'notable features'] },
     { path: 'historicalDetails.heritageInformation', labels: ['heritage information', 'heritage details', 'heritage status', 'cultural significance'] },
-    { path: 'contactInfo.phone', labels: ['contact phone', 'contact #', 'phone', 'telephone'] },
+    { path: 'contactInfo.phone', labels: ['contact phone', 'contact number', 'contact #', 'phone', 'telephone', 'mobile number', 'mobile', 'tel'] },
     { path: 'contactInfo.email', labels: ['contact email', 'email'] },
     { path: 'contactInfo.website', labels: ['official website', 'website'] },
-    { path: 'contactInfo.facebookPage', labels: ['facebook page', 'facebook'] }
+    { path: 'contactInfo.facebookPage', labels: ['facebook page', 'facebook'] },
+    { path: 'massSchedules', labels: ['mass schedules', 'mass schedule', 'schedule of masses', 'worship schedule'], transform: (v) => { const arr = parseMassSchedules(v); return arr.length > 0 ? arr : undefined; } }
   ];
 
   fieldMap.forEach(({ path, labels, transform }) => {
@@ -203,8 +358,11 @@ const buildParsedDataFromText = (text: string) => {
       if (raw) {
         const value = transform ? transform(raw) : raw;
         if (value !== undefined && value !== '') {
-          setNestedValue(parsedData as Record<string, any>, path, value);
-          confidence[path] = 0.7;
+          const validated = validateAndScore(path, value);
+          if (validated.value !== undefined && validated.value !== '') {
+            setNestedValue(parsedData as Record<string, any>, path, validated.value);
+            confidence[path] = validated.confidence;
+          }
         }
         break;
       }

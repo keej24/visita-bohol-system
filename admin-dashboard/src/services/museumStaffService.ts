@@ -33,11 +33,10 @@ import {
   orderBy,
   Timestamp,
   serverTimestamp,
-  writeBatch,
   DocumentData,
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
 import { notifyMuseumStaffPendingApproval } from '@/lib/notifications';
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
@@ -68,7 +67,6 @@ export interface PendingMuseumStaff {
 export interface MuseumStaffApprovalResult {
   success: boolean;
   message: string;
-  archivedStaffId?: string;
   newStaffId?: string;
 }
 
@@ -114,6 +112,10 @@ export async function registerMuseumStaff(
     // because the user is not authenticated yet and Firestore rules block the query.
     // Instead, Firebase Auth will reject duplicate emails with 'auth/email-already-in-use'.
 
+    // Prevent AuthContext from calling signOut on the newly created pending
+    // user, which would disrupt the Firestore setDoc promise and hang it.
+    setRegistrationInProgress(true);
+
     // Create Firebase Auth account first
     // Firebase Auth will reject if email already exists with error code 'auth/email-already-in-use'
     console.log('[MuseumStaffService] Creating Firebase Auth account for:', data.email);
@@ -154,6 +156,9 @@ export async function registerMuseumStaff(
         console.error('[MuseumStaffService] Failed to cleanup Auth account:', cleanupError);
       }
       throw firestoreError;
+    } finally {
+      // Release the lock so AuthContext resumes normal pending-user handling
+      setRegistrationInProgress(false);
     }
 
     // Fire-and-forget: Run audit log, notification, and sign-out in the background.
@@ -335,10 +340,12 @@ export async function getActiveMuseumStaff(): Promise<UserProfile | null> {
  * Approve a pending museum staff registration
  *
  * This operation:
- * 1. Archives the current active museum researcher (if exists)
- * 2. Activates the new staff member
- * 3. Creates term records for audit trail
- * 4. Logs all actions
+ * 1. Activates the new staff member
+ * 2. Logs the approval action for audit trail
+ *
+ * Note: The approving museum researcher's account remains active.
+ * To transfer access, the old staff must be explicitly
+ * deactivated using toggleMuseumStaffStatus().
  *
  * @param approvingUser - The current museum researcher approving their replacement
  * @param pendingStaffId - UID of the pending staff member to approve
@@ -365,7 +372,6 @@ export async function approveMuseumStaff(
       await updateDoc(approvingUserRef, { status: 'active' });
     }
 
-    const batch = writeBatch(db);
     const now = Timestamp.now();
 
     // Get the pending staff member's data
@@ -381,34 +387,8 @@ export async function approveMuseumStaff(
       return { success: false, message: 'This registration has already been processed.' };
     }
 
-    // Archive the approving museum researcher's account
-    const approvingUserDocRef = doc(db, 'users', approvingUser.uid);
-    batch.update(approvingUserDocRef, {
-      status: 'archived',
-      archivedAt: now,
-      archivedReason: `Term ended - approved successor: ${pendingData.name}`,
-      termEnd: now,
-    });
-
-    // Create a term record for the outgoing museum researcher
-    const termRef = doc(collection(db, 'museum_staff_terms'));
-    batch.set(termRef, {
-      staffId: approvingUser.uid,
-      staffName: approvingUser.name,
-      staffEmail: approvingUser.email,
-      diocese: approvingUser.diocese || 'tagbilaran',
-      institution: 'National Museum of the Philippines',
-      position: approvingUser.position,
-      termStart: approvingUser.createdAt || now,
-      termEnd: now,
-      status: 'completed',
-      endReason: `Approved successor: ${pendingData.name}`,
-      approvedSuccessorId: pendingStaffId,
-      createdAt: now,
-    });
-
     // Activate the new museum staff
-    batch.update(pendingDocRef, {
+    await updateDoc(pendingDocRef, {
       status: 'active',
       approvedAt: now,
       approvedBy: approvingUser.uid,
@@ -416,9 +396,6 @@ export async function approveMuseumStaff(
       approvalNotes: notes || null,
       termStart: now,
     });
-
-    // Execute all changes
-    await batch.commit();
 
     // Log the approval action
     await AuditService.logAction(
@@ -430,23 +407,21 @@ export async function approveMuseumStaff(
         resourceName: pendingData.name,
         changes: [
           { field: 'status', oldValue: 'pending', newValue: 'active' },
-          { field: 'previous_staff_status', oldValue: 'active', newValue: 'archived' },
         ],
         metadata: {
           institution: pendingData.institution || pendingData.institutionName,
           position: pendingData.position,
           diocese: pendingData.diocese,
           approvalNotes: notes,
-          archivedStaffId: approvingUser.uid,
-          archivedStaffName: approvingUser.name,
+          approvedBy: approvingUser.uid,
+          approvedByName: approvingUser.name,
         },
       }
     );
 
     return {
       success: true,
-      message: `${pendingData.name} has been approved as Museum Staff. Your account has been archived.`,
-      archivedStaffId: approvingUser.uid,
+      message: `${pendingData.name} has been approved as Museum Staff. You can deactivate your account when ready to complete the transition.`,
       newStaffId: pendingStaffId,
     };
   } catch (error) {

@@ -96,3 +96,25 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
 
+// ============================================================================
+// REGISTRATION LOCK
+// ============================================================================
+// During self-registration (parish, chancellor, museum staff), calling
+// createUserWithEmailAndPassword signs in the new user. This triggers
+// AuthContext's onAuthStateChanged, which detects "pending" status and calls
+// signOut(). That signOut disrupts the Firestore SDK mid-write, causing the
+// setDoc promise to hang indefinitely (the data reaches the server, but the
+// client promise never resolves). This lock tells AuthContext to skip the
+// signOut for pending users while a registration flow is in progress.
+// The registration service handles signOut itself in a fire-and-forget block.
+
+let _registrationInProgress = false;
+
+export function setRegistrationInProgress(value: boolean): void {
+  _registrationInProgress = value;
+}
+
+export function isRegistrationInProgress(): boolean {
+  return _registrationInProgress;
+}
+
