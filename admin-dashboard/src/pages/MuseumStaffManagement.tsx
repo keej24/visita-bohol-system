@@ -8,7 +8,6 @@
  * - Stats cards (Total / Active / Archived / Pending)
  * - Searchable, filterable list of all museum researcher accounts
  * - Deactivate action for active accounts (excludes self)
- * - Term history viewer from museum_staff_terms collection
  * - Embedded PendingMuseumStaff component for approve/reject workflow
  *
  * ACCESS CONTROL:
@@ -51,13 +50,12 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Calendar,
   UserX,
   UserCheck,
 } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { MuseumStaffService, type MuseumStaffTermRecord } from '@/services/museumStaffService';
+import { MuseumStaffService } from '@/services/museumStaffService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { PendingMuseumStaff } from '@/components/PendingMuseumStaff';
@@ -97,7 +95,6 @@ const MuseumStaffManagement = () => {
 
   // State
   const [accounts, setAccounts] = useState<MuseumStaffAccount[]>([]);
-  const [termHistory, setTermHistory] = useState<MuseumStaffTermRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,9 +106,6 @@ const MuseumStaffManagement = () => {
   const [selectedAccount, setSelectedAccount] = useState<MuseumStaffAccount | null>(null);
   const [deactivateReason, setDeactivateReason] = useState('');
   const [deactivating, setDeactivating] = useState(false);
-
-  // Term history dialog
-  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
   // ============================================================================
   // ACCESS CHECK
@@ -187,24 +181,13 @@ const MuseumStaffManagement = () => {
     }
   }, []);
 
-  const loadTermHistory = useCallback(async () => {
-    try {
-      const terms = await MuseumStaffService.getMuseumTermHistory();
-      setTermHistory(terms);
-    } catch (err) {
-      console.error('[MuseumStaffManagement] Term history load error:', err);
-    }
-  }, []);
-
   useEffect(() => {
     loadAccounts();
-    loadTermHistory();
-  }, [loadAccounts, loadTermHistory]);
+  }, [loadAccounts]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     loadAccounts();
-    loadTermHistory();
   };
 
   // ============================================================================
@@ -240,7 +223,6 @@ const MuseumStaffManagement = () => {
         });
         setDeactivateDialogOpen(false);
         loadAccounts();
-        loadTermHistory();
       } else {
         toast({
           title: 'Action Failed',
@@ -414,7 +396,7 @@ const MuseumStaffManagement = () => {
             Museum Staff Management
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage museum researcher accounts, view term history, and review pending registrations
+            Manage museum researcher accounts and review pending registrations
           </p>
         </div>
 
@@ -483,15 +465,6 @@ const MuseumStaffManagement = () => {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setHistoryDialogOpen(true)}
-                  disabled={termHistory.length === 0}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Term History ({termHistory.length})
-                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -655,7 +628,6 @@ const MuseumStaffManagement = () => {
               });
               // Refresh the accounts list to reflect the change
               loadAccounts();
-              loadTermHistory();
             }}
           />
         </div>
@@ -775,53 +747,6 @@ const MuseumStaffManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Term History Dialog */}
-      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Museum Researcher Term History
-            </DialogTitle>
-            <DialogDescription>
-              Historical record of museum researcher terms
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            {termHistory.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground">
-                <Calendar className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                <p>No term history records found</p>
-              </div>
-            ) : (
-              termHistory.map((term) => (
-                <div key={term.id} className="p-3 border rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium">{term.staffName}</div>
-                    <Badge variant={term.status === 'active' ? 'default' : 'secondary'} className="text-xs">
-                      {term.status}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">{term.staffEmail}</div>
-                  {term.institution && (
-                    <div className="text-sm text-muted-foreground">{term.institution}</div>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>From: {formatDate(term.termStart)}</span>
-                    <span>To: {formatDate(term.termEnd)}</span>
-                  </div>
-                  {term.endReason && (
-                    <div className="text-xs italic text-muted-foreground">
-                      Reason: {term.endReason}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 };

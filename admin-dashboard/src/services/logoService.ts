@@ -1,6 +1,6 @@
 import { db, storage } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 
 export interface LogoData {
@@ -8,11 +8,8 @@ export interface LogoData {
   parishLogoUrl?: string;
 }
 
-export interface DioceseSetting {
-  logoUrl?: string;
-  updatedAt?: Date;
-  updatedBy?: string;
-}
+// Diocese logo URLs are resolved directly from Firebase Storage paths
+// (no Firestore diocese_settings collection needed)
 
 // In-memory cache for logo base64 data (avoids re-fetching during batch exports)
 const logoBase64Cache: Record<string, string> = {};
@@ -27,18 +24,27 @@ export class LogoService {
   // ===========================
 
   /**
-   * Get diocese logo URL from Firestore diocese_settings collection
+   * Get diocese logo URL directly from Firebase Storage.
+   * Lists files at logos/diocese/{dioceseId}/ and returns the latest
+   * (by timestamp in filename). No Firestore collection needed.
    */
   static async getDioceseLogoUrl(dioceseId: string): Promise<string | null> {
     try {
-      const settingsRef = doc(db, 'diocese_settings', dioceseId);
-      const settingsDoc = await getDoc(settingsRef);
-      if (settingsDoc.exists()) {
-        return settingsDoc.data()?.logoUrl || null;
+      const folderRef = ref(storage, `logos/diocese/${dioceseId}`);
+      const result = await listAll(folderRef);
+
+      if (result.items.length === 0) {
+        return null;
       }
-      return null;
+
+      // Sort by name descending — filenames contain timestamps (logo_1708801234.png)
+      // so lexicographic sort gives us chronological order
+      const sorted = result.items.sort((a, b) => b.name.localeCompare(a.name));
+      const latestRef = sorted[0];
+
+      return await getDownloadURL(latestRef);
     } catch (error) {
-      console.error('❌ Error fetching diocese logo URL:', error);
+      console.error('❌ Error fetching diocese logo URL from Storage:', error);
       return null;
     }
   }
@@ -89,13 +95,15 @@ export class LogoService {
       );
     });
 
-    // Save URL to Firestore diocese_settings
-    const settingsRef = doc(db, 'diocese_settings', dioceseId);
-    await setDoc(settingsRef, {
-      logoUrl: downloadURL,
-      updatedAt: new Date(),
-      updatedBy: userId,
-    }, { merge: true });
+    // Clean up old logo files from Storage to prevent accumulation
+    try {
+      const folderRef = ref(storage, `logos/diocese/${dioceseId}`);
+      const existing = await listAll(folderRef);
+      const oldFiles = existing.items.filter(item => item.fullPath !== storageRef.fullPath);
+      await Promise.all(oldFiles.map(item => deleteObject(item).catch(() => {})));
+    } catch (cleanupError) {
+      console.warn('⚠️ Could not clean up old diocese logos:', cleanupError);
+    }
 
     // Clear cache for this diocese
     this.clearCachedLogo(`diocese_${dioceseId}`);
@@ -105,25 +113,23 @@ export class LogoService {
   }
 
   /**
-   * Delete diocese logo from Storage and remove URL from Firestore
+   * Delete all diocese logo files from Storage.
+   * No Firestore cleanup needed — logos live only in Storage.
    */
   static async deleteDioceseLogo(dioceseId: string): Promise<void> {
     try {
-      // Get current logo URL
-      const currentUrl = await this.getDioceseLogoUrl(dioceseId);
-      
-      // Remove from Firestore
-      const settingsRef = doc(db, 'diocese_settings', dioceseId);
-      await setDoc(settingsRef, { logoUrl: null, updatedAt: new Date() }, { merge: true });
+      // List and delete all logo files in the diocese folder
+      const folderRef = ref(storage, `logos/diocese/${dioceseId}`);
+      const result = await listAll(folderRef);
 
-      // Try to delete from Storage (may fail if URL format changed)
-      if (currentUrl) {
-        try {
-          const storageRef = ref(storage, currentUrl);
-          await deleteObject(storageRef);
-        } catch (storageError) {
-          console.warn('⚠️ Could not delete old logo from storage:', storageError);
-        }
+      if (result.items.length > 0) {
+        await Promise.all(
+          result.items.map(item =>
+            deleteObject(item).catch(err =>
+              console.warn(`⚠️ Could not delete ${item.fullPath}:`, err)
+            )
+          )
+        );
       }
 
       // Clear cache

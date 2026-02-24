@@ -300,16 +300,6 @@ service cloud.firestore {
                        dioceseId == getUserData().diocese;
     }
     
-    // Diocese settings (logos, branding for reports)
-    match /diocese_settings/{dioceseId} {
-      // Everyone can read diocese settings (logos needed in reports)
-      allow read: if true;
-      
-      // Only chancery office can create/update their own diocese settings
-      allow create, update: if isChanceryOffice() && 
-                               dioceseId == getUserData().diocese;
-    }
-    
     // Reports collection
     match /reports/{reportId} {
       // Chancery office can create and read reports for their diocese
@@ -410,55 +400,6 @@ service cloud.firestore {
       // NO UPDATES OR DELETES - Audit logs are immutable
       // This ensures tamper-proof records for accountability
       allow update, delete: if false;
-    }
-
-    // =========================================================================
-    // CHANCELLOR TERMS COLLECTION - Historical Record of Chancellor Terms
-    // =========================================================================
-    // This collection maintains a denormalized history of chancellor terms
-    // for quick reference and reporting. Each document represents one term
-    // with summary statistics and links to predecessor/successor.
-    // =========================================================================
-    match /chancellor_terms/{termId} {
-      // All authenticated users can read term history
-      // This supports transparency and accountability
-      allow read: if isAuthenticated();
-
-      // Only chancery office can create/update term records
-      // This happens when approving new chancellors or archiving terms
-      allow create: if isChanceryOffice();
-      
-      // Update allowed only for the archiving chancellor or system
-      allow update: if isChanceryOffice() && 
-                       (resource.data.diocese == getUserData().diocese ||
-                        resource.data.status == 'active');
-
-      // Term records cannot be deleted (historical preservation)
-      allow delete: if false;
-    }
-
-    // =========================================================================
-    // MUSEUM STAFF TERM HISTORY
-    // =========================================================================
-    // Tracks the historical terms of museum researchers.
-    // Each term includes start/end dates, actions taken, heritage validations,
-    // with summary statistics and links to predecessor/successor.
-    // =========================================================================
-    match /museum_staff_terms/{termId} {
-      // All authenticated users can read term history
-      // This supports transparency and accountability
-      allow read: if isAuthenticated();
-
-      // Only museum researchers can create/update term records
-      // This happens when approving new museum researchers or archiving terms
-      allow create: if isMuseumResearcher();
-      
-      // Update allowed only for the archiving researcher
-      allow update: if isMuseumResearcher() && 
-                       resource.data.diocese == getUserData().diocese;
-
-      // Term records cannot be deleted (historical preservation)
-      allow delete: if false;
     }
 
     // =========================================================================

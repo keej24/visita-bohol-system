@@ -48,7 +48,6 @@ export function SecurityReviewChecklist({
     religiousContentRespectful: false,
     noUnpublishedDevotional: false,
     supportingDocsReviewed: false,
-    parishConsentConfirmed: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -70,7 +69,6 @@ export function SecurityReviewChecklist({
         religiousContentRespectful: false,
         noUnpublishedDevotional: false,
         supportingDocsReviewed: false,
-        parishConsentConfirmed: false,
       });
       onClose();
     } finally {
@@ -89,7 +87,6 @@ export function SecurityReviewChecklist({
       religiousContentRespectful: false,
       noUnpublishedDevotional: false,
       supportingDocsReviewed: false,
-      parishConsentConfirmed: false,
     });
     onClose();
   };

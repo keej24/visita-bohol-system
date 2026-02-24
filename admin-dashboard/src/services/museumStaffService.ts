@@ -33,7 +33,6 @@ import {
   orderBy,
   Timestamp,
   serverTimestamp,
-  DocumentData,
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth, setRegistrationInProgress } from '@/lib/firebase';
@@ -68,25 +67,6 @@ export interface MuseumStaffApprovalResult {
   success: boolean;
   message: string;
   newStaffId?: string;
-}
-
-export interface MuseumStaffTermRecord {
-  id: string;
-  staffId: string;
-  staffName: string;
-  staffEmail: string;
-  diocese: Diocese;
-  institution: string;
-  position?: string;
-  termStart: Date;
-  termEnd?: Date;
-  status: 'active' | 'completed' | 'suspended';
-  endReason?: string;
-  approvedSuccessorId?: string;
-  stats?: {
-    totalActions: number;
-    actionBreakdown: Record<string, number>;
-  };
 }
 
 // ============================================================================
@@ -509,50 +489,7 @@ export async function rejectMuseumStaff(
 }
 
 // ============================================================================
-// TERM HISTORY
-// ============================================================================
-
-/**
- * Get the term history for museum researchers
- */
-export async function getMuseumTermHistory(diocese?: Diocese): Promise<MuseumStaffTermRecord[]> {
-  let q;
-  if (diocese) {
-    q = query(
-      collection(db, 'museum_staff_terms'),
-      where('diocese', '==', diocese),
-      orderBy('termEnd', 'desc')
-    );
-  } else {
-    q = query(
-      collection(db, 'museum_staff_terms'),
-      orderBy('termEnd', 'desc')
-    );
-  }
-
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data() as DocumentData;
-    return {
-      id: docSnap.id,
-      staffId: data.staffId,
-      staffName: data.staffName,
-      staffEmail: data.staffEmail,
-      diocese: data.diocese as Diocese,
-      institution: data.institution || data.institutionName || 'National Museum of the Philippines',
-      position: data.position,
-      termStart: data.termStart?.toDate() || new Date(),
-      termEnd: data.termEnd?.toDate(),
-      status: data.status,
-      endReason: data.endReason,
-      approvedSuccessorId: data.approvedSuccessorId,
-      stats: data.stats,
-    };
-  });
-}
-
-// ============================================================================
-// MANUAL TERM MANAGEMENT
+// MANUAL STATUS MANAGEMENT
 // ============================================================================
 
 /**
@@ -658,6 +595,5 @@ export const MuseumStaffService = {
   getActiveMuseumStaff,
   approveMuseumStaff,
   rejectMuseumStaff,
-  getMuseumTermHistory,
   toggleMuseumStaffStatus,
 };

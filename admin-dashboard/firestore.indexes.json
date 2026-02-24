@@ -977,34 +977,6 @@
       ]
     },
     {
-      "collectionGroup": "chancellor_terms",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "diocese",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "termEnd",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "chancellor_terms",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "diocese",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [

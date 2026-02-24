@@ -39,7 +39,7 @@ import { db, auth, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
 import { notifyChancellorPendingApproval } from '@/lib/notifications';
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
-import type { TermStats } from '@/types/audit';
+
 
 // ============================================================================
 // TYPES
@@ -483,54 +483,6 @@ export async function rejectChancellor(
   }
 }
 
-// ============================================================================
-// TERM MANAGEMENT
-// ============================================================================
-
-/**
- * Historical chancellor term record (as stored in Firestore)
- */
-export interface ChancellorTermRecord {
-  id: string;
-  chancellorId: string;
-  chancellorName: string;
-  chancellorEmail: string;
-  diocese: Diocese;
-  termStart: Date;
-  termEnd: Date;
-  status: 'completed' | 'active';
-  endReason?: string;
-  stats?: TermStats;
-}
-
-/**
- * Get all chancellor terms for a diocese
- */
-export async function getChancellorTerms(diocese: Diocese): Promise<ChancellorTermRecord[]> {
-  const q = query(
-    collection(db, 'chancellor_terms'),
-    where('diocese', '==', diocese),
-    orderBy('termEnd', 'desc')
-  );
-
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      chancellorId: data.chancellorId,
-      chancellorName: data.chancellorName,
-      chancellorEmail: data.chancellorEmail,
-      diocese: data.diocese,
-      termStart: data.termStart?.toDate(),
-      termEnd: data.termEnd?.toDate(),
-      status: data.status,
-      endReason: data.endReason,
-      stats: data.stats,
-    };
-  });
-}
-
 /**
  * Toggle a chancellor's status between active and inactive.
  * This is a reversible operation — inactive chancellors can be reactivated.
@@ -637,7 +589,6 @@ export const ChancellorService = {
   getActiveChancellor,
   approveChancellor,
   rejectChancellor,
-  getChancellorTerms,
   toggleChancellorStatus,
 };
 

@@ -9,7 +9,6 @@
  * - Filter by status (All / Active / Archived / Pending / Rejected)
  * - Stats cards (Total / Active / Archived)
  * - Deactivate an active chancellor (end their term manually)
- * - View term history
  * - Search by name/email
  *
  * USAGE:
@@ -54,14 +53,13 @@ import {
   CheckCircle,
   XCircle,
   Shield,
-  Calendar,
   Info,
   UserX,
   UserCheck,
 } from 'lucide-react';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { ChancellorService, type ChancellorTermRecord } from '@/services/chancellorService';
+import { ChancellorService } from '@/services/chancellorService';
 
 type ToggleAction = 'deactivate' | 'reactivate';
 import { useAuth, type Diocese, type UserProfile } from '@/contexts/AuthContext';
@@ -104,7 +102,6 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
 
   // State
   const [accounts, setAccounts] = useState<ChancellorAccount[]>([]);
-  const [termHistory, setTermHistory] = useState<ChancellorTermRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,9 +113,6 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
   const [selectedAccount, setSelectedAccount] = useState<ChancellorAccount | null>(null);
   const [deactivateReason, setDeactivateReason] = useState('');
   const [deactivating, setDeactivating] = useState(false);
-
-  // Term history dialog
-  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
   // ============================================================================
   // DATA LOADING
@@ -165,24 +159,13 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
     }
   }, [diocese]);
 
-  const loadTermHistory = useCallback(async () => {
-    try {
-      const terms = await ChancellorService.getChancellorTerms(diocese);
-      setTermHistory(terms);
-    } catch (err) {
-      console.error('[ChanceryStaffManagement] Term history load error:', err);
-    }
-  }, [diocese]);
-
   useEffect(() => {
     loadAccounts();
-    loadTermHistory();
-  }, [loadAccounts, loadTermHistory]);
+  }, [loadAccounts]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     loadAccounts();
-    loadTermHistory();
   };
 
   // ============================================================================
@@ -218,7 +201,6 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
         });
         setDeactivateDialogOpen(false);
         loadAccounts();
-        loadTermHistory();
       } else {
         toast({
           title: 'Action Failed',
@@ -451,15 +433,6 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setHistoryDialogOpen(true)}
-                disabled={termHistory.length === 0}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Term History ({termHistory.length})
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -722,50 +695,6 @@ export const ChanceryStaffManagement: React.FC<ChanceryStaffManagementProps> = (
         </DialogContent>
       </Dialog>
 
-      {/* Term History Dialog */}
-      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Chancellor Term History
-            </DialogTitle>
-            <DialogDescription>
-              Historical record of chancellor terms for the Diocese of {diocese === 'tagbilaran' ? 'Tagbilaran' : 'Talibon'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            {termHistory.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground">
-                <Calendar className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                <p>No term history records found</p>
-              </div>
-            ) : (
-              termHistory.map((term) => (
-                <div key={term.id} className="p-3 border rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium">{term.chancellorName}</div>
-                    <Badge variant={term.status === 'active' ? 'default' : 'secondary'} className="text-xs">
-                      {term.status}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">{term.chancellorEmail}</div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>From: {formatDate(term.termStart)}</span>
-                    <span>To: {formatDate(term.termEnd)}</span>
-                  </div>
-                  {term.endReason && (
-                    <div className="text-xs italic text-muted-foreground">
-                      Reason: {term.endReason}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
