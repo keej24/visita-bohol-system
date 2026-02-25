@@ -12,7 +12,7 @@ import type { UserProfile } from '@/contexts/AuthContext';
 import { ChurchImportService } from '@/services/churchImportService';
 
 interface ChurchDocumentImportProps {
-  churchId?: string;
+  churchId: string;
   diocese?: string;
   user?: UserProfile | null;
   currentData: ChurchInfo;
@@ -103,12 +103,12 @@ export const ChurchDocumentImport: React.FC<ChurchDocumentImportProps> = ({
   const [lastFileName, setLastFileName] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!importSession?.id) return;
-    const unsubscribe = ChurchImportService.subscribeToImportSession(importSession.id, (session) => {
+    if (!importSession?.id || !churchId) return;
+    const unsubscribe = ChurchImportService.subscribeToImportSession(churchId, importSession.id, (session) => {
       setImportSession(session);
     });
     return () => unsubscribe();
-  }, [importSession?.id]);
+  }, [churchId, importSession?.id]);
 
   const parsedFields = useMemo(() => {
     const data = importSession?.parsedData;
@@ -158,7 +158,7 @@ export const ChurchDocumentImport: React.FC<ChurchDocumentImportProps> = ({
       });
       setImportSession(session);
       setLastFileName(file.name);
-      await ChurchImportService.startImportProcessing(session.id, file);
+      await ChurchImportService.startImportProcessing(churchId, session.id, file);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to upload file.';
       setErrorMessage(message);
@@ -193,7 +193,7 @@ export const ChurchDocumentImport: React.FC<ChurchDocumentImportProps> = ({
     });
     onApply(patch as Partial<ChurchInfo>, { importId: importSession.id, appliedFields: appliedPaths });
     if (user?.uid) {
-      await ChurchImportService.markImportApplied(importSession.id, user.uid, appliedPaths);
+      await ChurchImportService.markImportApplied(churchId, importSession.id, user.uid, appliedPaths);
       if (churchId) {
         const changes = appliedPaths.map((path) => createFieldChange(path, 'import', 'applied'));
         void AuditService.logAction(

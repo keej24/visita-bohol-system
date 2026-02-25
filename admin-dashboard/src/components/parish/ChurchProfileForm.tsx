@@ -139,7 +139,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     
     // Current Parish Operations
     currentParishPriest: initialData?.currentParishPriest || '',
-    priestHistory: initialData?.priestHistory || [],
+    priest_assignment: initialData?.priest_assignment || [],
     assistantPriests: initialData?.assistantPriests || [],
     feastDay: initialData?.feastDay || '',
     massSchedules: initialData?.massSchedules || [],
@@ -1630,7 +1630,7 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     </div>
                   </div>
 
-                  {!isChanceryEdit && !isMuseumResearcher && userProfile?.uid && (
+                  {!isChanceryEdit && !isMuseumResearcher && userProfile?.uid && effectiveChurchId && (
                     <ChurchDocumentImport
                       churchId={effectiveChurchId}
                       diocese={userProfile?.diocese}
@@ -2074,9 +2074,9 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
                     <div>
                       <PriestHistoryManager
                         currentPriest={formData.currentParishPriest}
-                        priestHistory={formData.priestHistory || []}
+                        priest_assignment={formData.priest_assignment || []}
                         onUpdateCurrentPriest={(name) => updateBasicField('currentParishPriest', name)}
-                        onUpdateHistory={(history) => setFormData(prev => ({ ...prev, priestHistory: history }))}
+                        onUpdateHistory={(history) => setFormData(prev => ({ ...prev, priest_assignment: history }))}
                         disabled={isMuseumResearcher}
                       />
                       {getFieldError('currentParishPriest') && (

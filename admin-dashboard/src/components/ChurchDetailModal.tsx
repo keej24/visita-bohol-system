@@ -169,7 +169,7 @@ export function ChurchDetailModal({
         heritageInformation: churchData.heritageInformation || ''
       },
       currentParishPriest: churchData.assignedPriest || '',
-      priestHistory: (churchData as unknown as { priestHistory?: import('@/types/church').PriestAssignment[] }).priestHistory || [],
+      priest_assignment: (churchData as unknown as { priest_assignment?: import('@/types/church').PriestAssignment[] }).priest_assignment || [],
       assistantPriests: (churchData as unknown as { assistantPriests?: string[] }).assistantPriests || [],
       feastDay: churchData.feastDay || '',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -798,7 +798,7 @@ export function ChurchDetailModal({
 
                       {/* Priest Assignment History */}
                       {(() => {
-                        const history = (churchData as unknown as { priestHistory?: Array<{ name: string; startDate?: string; endDate?: string; isCurrent: boolean; notes?: string }> }).priestHistory;
+                        const history = (churchData as unknown as { priest_assignment?: Array<{ name: string; startDate?: string; endDate?: string; isCurrent: boolean; notes?: string }> }).priest_assignment;
                         const pastPriests = history?.filter(e => !e.isCurrent) || [];
                         if (pastPriests.length === 0) return null;
                         const formatHistDate = (d?: string) => {

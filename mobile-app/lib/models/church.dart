@@ -141,7 +141,7 @@ class Church {
   final String? description; // Church description
   final String? assignedPriest; // Current priest
   final List<PriestAssignment>?
-      priestHistory; // Historical record of priest assignments
+      priestAssignment; // Historical record of priest assignments
   final List<String>?
       assistantPriests; // Assistant parish priest(s) - optional, supports multiple
   final List<Map<String, String>>? massSchedules; // Mass schedule
@@ -187,7 +187,7 @@ class Church {
     this.history,
     this.description,
     this.assignedPriest,
-    this.priestHistory,
+    this.priestAssignment,
     this.assistantPriests,
     this.massSchedules,
     this.contactInfo,
@@ -308,10 +308,10 @@ class Church {
         history: j['history'] ?? j['historicalBackground'],
         description: j['description'],
         assignedPriest: j['assignedPriest'],
-        priestHistory: (() {
-          if (j['priestHistory'] == null) return null;
-          if (j['priestHistory'] is! List) return null;
-          return (j['priestHistory'] as List)
+        priestAssignment: (() {
+          if (j['priest_assignment'] == null) return null;
+          if (j['priest_assignment'] is! List) return null;
+          return (j['priest_assignment'] as List)
               .where((e) => e is Map<String, dynamic>)
               .map((e) => PriestAssignment.fromMap(e as Map<String, dynamic>))
               .toList();
@@ -509,7 +509,7 @@ class Church {
         'history': history,
         'description': description,
         'assignedPriest': assignedPriest,
-        'priestHistory': priestHistory?.map((p) => p.toMap()).toList(),
+        'priest_assignment': priestAssignment?.map((p) => p.toMap()).toList(),
         'assistantPriests': assistantPriests,
         'massSchedules': massSchedules,
         'contactInfo': contactInfo,

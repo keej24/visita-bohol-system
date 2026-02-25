@@ -194,7 +194,7 @@ service cloud.firestore {
            // Sensitive fields must go through pendingChanges
            (resource.data.status != 'approved' ||
             request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['contactInfo', 'massSchedules', 'assignedPriest', 'priestHistory', 'assistantPriests', 'feastDay',
+              .hasOnly(['contactInfo', 'massSchedules', 'assignedPriest', 'priest_assignment', 'assistantPriests', 'feastDay',
                         'images', 'photos', 'documents', 'virtualTour',
                         'tags', 'category', 'updatedAt', 'logoUrl',
                         'pendingChanges', 'hasPendingChanges']));
@@ -253,8 +253,8 @@ service cloud.firestore {
       allow create, update: if isMuseumResearcher();
     }
 
-    // Church import sessions - Parish document upload + parsing
-    match /church_imports/{importId} {
+    // Church import sessions subcollection - Parish document upload + parsing
+    match /churches/{churchId}/import_sessions/{importId} {
       // Parish secretaries can create import sessions for their diocese
       allow create: if isParishSecretary() &&
                        request.resource.data.createdBy == request.auth.uid &&

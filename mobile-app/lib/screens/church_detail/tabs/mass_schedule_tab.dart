@@ -234,13 +234,13 @@ class MassScheduleTab extends StatelessWidget {
             ),
 
           // Previous Parish Priests History
-          if (church.priestHistory != null &&
-              church.priestHistory!.where((e) => !e.isCurrent).isNotEmpty)
+          if (church.priestAssignment != null &&
+              church.priestAssignment!.where((e) => !e.isCurrent).isNotEmpty)
             _buildCard(
               icon: Icons.history,
               title: 'Previous Parish Priests',
               child: Column(
-                children: church.priestHistory!
+                children: church.priestAssignment!
                     .where((e) => !e.isCurrent)
                     .toList()
                     .reversed

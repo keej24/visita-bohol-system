@@ -15,8 +15,17 @@ import { auth } from '@/lib/firebase';
 import uploadService, { type UploadProgress } from '@/services/uploadService';
 import type { ChurchInfo, ChurchImportSession, MassSchedule } from '@/components/parish/types';
 
-const CHURCH_IMPORTS_COLLECTION = 'church_imports';
 const MAX_UPLOAD_MB = 20;
+
+/**
+ * Build a Firestore reference to the import_sessions subcollection
+ * under a specific church document: churches/{churchId}/import_sessions
+ */
+const importSessionsCollection = (churchId: string) =>
+  collection(db, 'churches', churchId, 'import_sessions');
+
+const importSessionDoc = (churchId: string, importId: string) =>
+  doc(db, 'churches', churchId, 'import_sessions', importId);
 
 const isTextFile = (file: File) => {
   if (file.type.startsWith('text/')) return true;
@@ -406,11 +415,15 @@ export class ChurchImportService {
     onProgress
   }: {
     file: File;
-    churchId?: string;
+    churchId: string;
     diocese?: string;
     createdBy: string;
     onProgress?: (progress: UploadProgress) => void;
   }): Promise<ChurchImportSession> {
+    if (!churchId) {
+      throw new Error('A church must be saved before importing documents.');
+    }
+
     if (file.size > ChurchImportService.getMaxUploadBytes()) {
       throw new Error(`File exceeds ${MAX_UPLOAD_MB}MB limit.`);
     }
@@ -422,14 +435,14 @@ export class ChurchImportService {
 
     console.log(`📄 Import upload: name=${file.name}, type="${file.type}", size=${file.size}`);
 
-    const folder = churchId ? `churches/${churchId}/imports` : `churches/draft_${createdBy}/imports`;
+    const folder = `churches/${churchId}/imports`;
     const filename = `${Date.now()}_${file.name}`;
     const storagePath = `${folder}/${filename}`;
     const fileUrl = await uploadService.uploadFile(file, {
       folder,
       filename,
       metadata: {
-        churchId: churchId || 'draft',
+        churchId,
         diocese: diocese || 'unknown',
         importType: 'church_profile',
         originalName: file.name
@@ -437,8 +450,9 @@ export class ChurchImportService {
       onProgress
     });
 
-    const docRef = await addDoc(collection(db, CHURCH_IMPORTS_COLLECTION), {
-      churchId: churchId || null,
+    // Store in subcollection: churches/{churchId}/import_sessions/{auto-id}
+    const docRef = await addDoc(importSessionsCollection(churchId), {
+      churchId,
       diocese: diocese || null,
       createdBy,
       status: 'queued',
@@ -457,8 +471,8 @@ export class ChurchImportService {
     return convertImportSnapshot({ id: snapshot.id, data: () => snapshot.data() || {} });
   }
 
-  static subscribeToImportSession(id: string, onUpdate: (session: ChurchImportSession | null) => void): Unsubscribe {
-    const docRef = doc(db, CHURCH_IMPORTS_COLLECTION, id);
+  static subscribeToImportSession(churchId: string, importId: string, onUpdate: (session: ChurchImportSession | null) => void): Unsubscribe {
+    const docRef = importSessionDoc(churchId, importId);
     return onSnapshot(docRef, (snapshot) => {
       if (!snapshot.exists()) {
         onUpdate(null);
@@ -468,8 +482,8 @@ export class ChurchImportService {
     });
   }
 
-  static async startImportProcessing(importId: string, file: File): Promise<void> {
-    const docRef = doc(db, CHURCH_IMPORTS_COLLECTION, importId);
+  static async startImportProcessing(churchId: string, importId: string, file: File): Promise<void> {
+    const docRef = importSessionDoc(churchId, importId);
     await updateDoc(docRef, {
       status: 'processing',
       updatedAt: serverTimestamp()
@@ -489,7 +503,7 @@ export class ChurchImportService {
 
     try {
       const parseFn = httpsCallable(functions, 'parseChurchImport');
-      await parseFn({ importId });
+      await parseFn({ importId, churchId });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to start parsing.';
       await updateDoc(docRef, {
@@ -501,8 +515,8 @@ export class ChurchImportService {
     }
   }
 
-  static async markImportApplied(importId: string, appliedBy: string, appliedFields: string[]) {
-    const docRef = doc(db, CHURCH_IMPORTS_COLLECTION, importId);
+  static async markImportApplied(churchId: string, importId: string, appliedBy: string, appliedFields: string[]) {
+    const docRef = importSessionDoc(churchId, importId);
     await updateDoc(docRef, {
       appliedAt: Timestamp.now(),
       appliedBy,

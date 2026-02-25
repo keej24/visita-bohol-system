@@ -127,7 +127,7 @@ const convertToChurch = (doc: FirestoreChurchDoc): Church => {
     classification: data.classification,
     religiousClassification: data.religiousClassification,
     assignedPriest: data.assignedPriest as string,
-    priestHistory: (data.priestHistory || []) as import('@/types/church').PriestAssignment[],
+    priest_assignment: (data.priest_assignment || []) as import('@/types/church').PriestAssignment[],
     assistantPriests: (data.assistantPriests || []) as string[],
     feastDay: data.feastDay as string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,7 +200,7 @@ const convertToFirestoreData = (formData: ChurchFormData, userId: string, dioces
     // Persist religiousClassifications array in historicalDetails
     historicalDetails: formData.historicalDetails,
     assignedPriest: formData.assignedPriest,
-    priestHistory: formData.priestHistory || [],
+    priest_assignment: formData.priest_assignment || [],
     assistantPriests: (formData.assistantPriests || []).filter(p => p.trim() !== ''),
     feastDay: formData.feastDay,
     massSchedules: formData.massSchedules,
@@ -484,7 +484,7 @@ export class ChurchService {
         religiousClassification: currentChurch.religiousClassification,
         historicalDetails: (currentChurch as unknown as Record<string, unknown>).historicalDetails as ChurchFormData['historicalDetails'],
         assignedPriest: currentChurch.assignedPriest,
-        priestHistory: currentChurch.priestHistory,
+        priest_assignment: currentChurch.priest_assignment,
         assistantPriests: currentChurch.assistantPriests,
         feastDay: currentChurch.feastDay,
         massSchedules: currentChurch.massSchedules,

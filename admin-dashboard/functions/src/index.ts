@@ -1306,13 +1306,16 @@ export const parseChurchImport = functions.https.onCall(async (data, context) =>
     );
   }
 
-  const { importId } = data || {};
+  const { importId, churchId } = data || {};
   if (!importId || typeof importId !== "string") {
     throw new functions.https.HttpsError("invalid-argument", "importId is required");
   }
+  if (!churchId || typeof churchId !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "churchId is required");
+  }
 
   const db = admin.firestore();
-  const importRef = db.collection("church_imports").doc(importId);
+  const importRef = db.collection("churches").doc(churchId).collection("import_sessions").doc(importId);
   const importSnap = await importRef.get();
 
   if (!importSnap.exists) {
@@ -1384,7 +1387,7 @@ const cleanupChurchImportsInternal = async (retentionDays: number) => {
   const bucket = admin.storage().bucket();
 
   const snapshot = await db
-    .collection("church_imports")
+    .collectionGroup("import_sessions")
     .where("createdAt", "<=", cutoffDate)
     .get();
 

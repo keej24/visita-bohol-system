@@ -42,7 +42,7 @@ export interface Church {
   description?: string;
   massSchedules?: MassSchedule[];
   assignedPriest?: string;
-  priestHistory?: import('@/types/church').PriestAssignment[];
+  priest_assignment?: import('@/types/church').PriestAssignment[];
   contactInfo?: {
     phone?: string;
     email?: string;

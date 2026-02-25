@@ -64,7 +64,7 @@ export const DIRECT_PUBLISH_FIELDS: (keyof ChurchFormData)[] = [
   'contactInfo',
   'massSchedules',
   'assignedPriest',
-  'priestHistory',
+  'priest_assignment',
   'feastDay',
   
   // Media (360° photos explicitly excluded from re-verification per stakeholder)
@@ -182,7 +182,7 @@ export function getFieldLabel(fieldName: string): string {
     contactInfo: 'Contact Information',
     massSchedules: 'Mass Schedules',
     assignedPriest: 'Assigned Priest',
-    priestHistory: 'Priest Assignment History',
+    priest_assignment: 'Priest Assignment History',
     feastDay: 'Feast Day',
     images: 'Images',
     photos: 'Photos',

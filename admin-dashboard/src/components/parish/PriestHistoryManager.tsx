@@ -26,7 +26,7 @@ import type { PriestAssignment } from '@/types/church';
 
 interface PriestHistoryManagerProps {
   currentPriest: string;
-  priestHistory: PriestAssignment[];
+  priest_assignment: PriestAssignment[];
   onUpdateCurrentPriest: (name: string) => void;
   onUpdateHistory: (history: PriestAssignment[]) => void;
   disabled?: boolean;
@@ -45,7 +45,7 @@ interface PriestHistoryManagerProps {
  */
 export const PriestHistoryManager: React.FC<PriestHistoryManagerProps> = ({
   currentPriest,
-  priestHistory,
+  priest_assignment,
   onUpdateCurrentPriest,
   onUpdateHistory,
   disabled = false,
@@ -68,7 +68,7 @@ export const PriestHistoryManager: React.FC<PriestHistoryManagerProps> = ({
   const [editNotes, setEditNotes] = useState('');
 
   // Sort history: current first, then by startDate descending
-  const sortedHistory = [...priestHistory].sort((a, b) => {
+  const sortedHistory = [...priest_assignment].sort((a, b) => {
     if (a.isCurrent && !b.isCurrent) return -1;
     if (!a.isCurrent && b.isCurrent) return 1;
     return (b.startDate || '').localeCompare(a.startDate || '');
@@ -77,7 +77,7 @@ export const PriestHistoryManager: React.FC<PriestHistoryManagerProps> = ({
   const handleReassign = () => {
     if (!newPriestName.trim()) return;
 
-    const updatedHistory = priestHistory.map((entry) =>
+    const updatedHistory = priest_assignment.map((entry) =>
       entry.isCurrent
         ? { ...entry, isCurrent: false, endDate: reassignStartDate }
         : entry
@@ -116,13 +116,13 @@ export const PriestHistoryManager: React.FC<PriestHistoryManagerProps> = ({
     if (editingIndex === null || !editName.trim()) return;
 
     const entryToEdit = sortedHistory[editingIndex];
-    const originalIndex = priestHistory.findIndex(
+    const originalIndex = priest_assignment.findIndex(
       (e) => e.name === entryToEdit.name && e.startDate === entryToEdit.startDate
     );
 
     if (originalIndex === -1) return;
 
-    const updatedHistory = [...priestHistory];
+    const updatedHistory = [...priest_assignment];
     updatedHistory[originalIndex] = {
       ...updatedHistory[originalIndex],
       name: editName.trim(),
@@ -144,7 +144,7 @@ export const PriestHistoryManager: React.FC<PriestHistoryManagerProps> = ({
 
   const handleInitializeHistory = () => {
     // Initialize priest history from the current priest name if history is empty
-    if (currentPriest && priestHistory.length === 0) {
+    if (currentPriest && priest_assignment.length === 0) {
       const initialEntry: PriestAssignment = {
         name: currentPriest,
         startDate: new Date().toISOString().split('T')[0],
@@ -224,7 +224,7 @@ export const PriestHistoryManager: React.FC<PriestHistoryManagerProps> = ({
               className="h-9 text-sm"
               disabled={disabled}
             />
-            {currentPriest && priestHistory.length === 0 && !disabled && (
+            {currentPriest && priest_assignment.length === 0 && !disabled && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -291,7 +291,7 @@ export const PriestHistoryManager: React.FC<PriestHistoryManagerProps> = ({
       )}
 
       {/* Empty history info */}
-      {priestHistory.length === 0 && currentPriest && (
+      {priest_assignment.length === 0 && currentPriest && (
         <p className="text-xs text-gray-400 italic">
           No assignment history recorded yet. Click "Initialize assignment record" to start tracking.
         </p>

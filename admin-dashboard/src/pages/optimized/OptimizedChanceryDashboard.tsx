@@ -210,7 +210,7 @@ export const OptimizedChanceryDashboard = React.memo<OptimizedChanceryDashboardP
         })
       },
       assignedPriest: data.currentParishPriest || '',
-      priestHistory: data.priestHistory || [],
+      priest_assignment: data.priest_assignment || [],
       feastDay: data.feastDay || '',
       massSchedules: (data.massSchedules || []).map(schedule => ({
         day: schedule.day || '',
