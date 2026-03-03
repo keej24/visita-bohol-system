@@ -34,8 +34,9 @@ import {
   Timestamp,
   serverTimestamp,
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth, setRegistrationInProgress } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, sendEmailVerification as firebaseSendEmailVerification } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { db, auth, functions, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
 import { notifyMuseumStaffPendingApproval } from '@/lib/notifications';
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
@@ -61,6 +62,7 @@ export interface PendingMuseumStaff {
   status: 'pending';
   role: 'museum_researcher';
   registeredAt: Date;
+  emailVerified?: boolean;
 }
 
 export interface MuseumStaffApprovalResult {
@@ -117,7 +119,8 @@ export async function registerMuseumStaff(
         email: data.email.toLowerCase(),
         name: data.name,
         role: 'museum_researcher',
-        status: 'pending',
+        status: 'pending_verification',
+        emailVerified: false,
         position: data.position || null,
         phoneNumber: data.phoneNumber || null,
         accountType: 'admin',
@@ -141,7 +144,7 @@ export async function registerMuseumStaff(
       setRegistrationInProgress(false);
     }
 
-    // Fire-and-forget: Run audit log, notification, and sign-out in the background.
+    // Fire-and-forget: Run audit log, notification, verification email, and sign-out in the background.
     // These are non-critical and must NOT block the return, because AuthContext's
     // onAuthStateChanged may also call signOut (for pending users), which can cause
     // these Firestore operations to lose their auth context and hang indefinitely.
@@ -153,7 +156,7 @@ export async function registerMuseumStaff(
           email: data.email,
           name: data.name,
           role: 'museum_researcher',
-          status: 'pending',
+          status: 'pending_verification',
         } as UserProfile,
         'museum_staff.register',
         'user',
@@ -171,6 +174,29 @@ export async function registerMuseumStaff(
       ).catch(auditError => {
         console.warn('[MuseumStaffService] Audit logging failed (non-critical):', auditError);
       }),
+
+      // 1b. Send email verification (non-critical)
+      // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
+      // This matches the mobile app's dual-strategy pattern.
+      (async () => {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const sendVerification = httpsCallable(functions, 'sendEmailVerification');
+          await sendVerification({ email: data.email, source: 'admin' });
+          console.log('[MuseumStaffService] Custom branded verification email sent to:', data.email);
+        } catch (cloudFunctionError) {
+          // Fallback: Firebase SDK default verification email
+          console.warn('[MuseumStaffService] Cloud Function failed, using Firebase default:', cloudFunctionError);
+          try {
+            if (userCredential.user) {
+              await firebaseSendEmailVerification(userCredential.user);
+              console.log('[MuseumStaffService] Firebase default verification email sent to:', data.email);
+            }
+          } catch (fallbackError) {
+            console.warn('[MuseumStaffService] Verification email failed entirely (non-critical):', fallbackError);
+          }
+        }
+      })(),
 
       // 2. Look up current active museum researcher + send notification (non-critical)
       (async () => {
@@ -273,6 +299,7 @@ export async function getPendingMuseumStaff(): Promise<PendingMuseumStaff[]> {
         status: 'pending' as const,
         role: 'museum_researcher' as const,
         registeredAt: data.createdAt?.toDate() || new Date(),
+        emailVerified: data.emailVerified ?? undefined,
       };
     });
     
@@ -399,6 +426,19 @@ export async function approveMuseumStaff(
       }
     );
 
+    // Send approval notification email (fire-and-forget)
+    try {
+      const sendStatusEmail = httpsCallable(functions, 'sendAccountStatusEmail');
+      await sendStatusEmail({
+        email: pendingData.email,
+        name: pendingData.name,
+        status: 'approved',
+        role: 'museum_researcher',
+      });
+    } catch (emailError) {
+      console.warn('[MuseumStaffService] Approval notification email failed (non-critical):', emailError);
+    }
+
     return {
       success: true,
       message: `${pendingData.name} has been approved as Museum Staff. You can deactivate your account when ready to complete the transition.`,
@@ -477,6 +517,20 @@ export async function rejectMuseumStaff(
         },
       }
     );
+
+    // Send rejection notification email (fire-and-forget)
+    try {
+      const sendStatusEmail = httpsCallable(functions, 'sendAccountStatusEmail');
+      await sendStatusEmail({
+        email: pendingData.email,
+        name: pendingData.name,
+        status: 'rejected',
+        role: 'museum_researcher',
+        reason,
+      });
+    } catch (emailError) {
+      console.warn('[MuseumStaffService] Rejection notification email failed (non-critical):', emailError);
+    }
 
     return {
       success: true,

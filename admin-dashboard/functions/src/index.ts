@@ -514,7 +514,7 @@ const generateEmailVerificationLink = async (
   // Use our custom action handler URL  
   const actionCodeSettings = {
     url: continueUrl,
-    handleCodeInApp: true, // This allows us to handle the action in our app
+    handleCodeInApp: false, // Must be false — Dynamic Links is deprecated and causes silent failures
   };
   
   // Get the Firebase-generated verification link
@@ -1142,12 +1142,315 @@ export const sendEmailVerification = functions
         message: "Verification email sent successfully" 
       };
 
-    } catch (error) {
-      functions.logger.error("Error sending verification email:", error);
+    } catch (error: any) {
+      functions.logger.error("Error sending verification email:", {
+        email,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        fullError: error,
+      });
       
       throw new functions.https.HttpsError(
         "internal",
-        "Failed to send verification email. Please try again later."
+        `Failed to send verification email: ${error?.code || error?.message || 'Unknown error'}`
+      );
+    }
+  });
+
+/**
+ * Cloud Function: Check Email Verification Status
+ * 
+ * Checks whether a user's email is verified in Firebase Auth and
+ * syncs the result to their Firestore user document.
+ * Used by approval UIs to gate approval on email verification.
+ * Accepts either {uid} or {email} to identify the user.
+ */
+export const checkEmailVerified = functions
+  .https.onCall(async (data, context) => {
+    const { uid, email } = data;
+
+    if ((!uid || typeof uid !== "string") && (!email || typeof email !== "string")) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Either user UID or email is required"
+      );
+    }
+
+    try {
+      // Get the user record from Firebase Auth (by UID or email)
+      let userRecord;
+      if (uid) {
+        userRecord = await admin.auth().getUser(uid);
+      } else {
+        userRecord = await admin.auth().getUserByEmail(email);
+      }
+      
+      const verified = userRecord.emailVerified;
+
+      // Sync verification status to Firestore
+      if (verified) {
+        // Update emailVerified flag
+        const updateData: Record<string, any> = { emailVerified: true };
+        
+        // Also transition status from 'pending_verification' to 'pending'
+        // so the user appears in the pending registrations list for approval
+        const userDoc = await admin.firestore().collection("users").doc(userRecord.uid).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          if (userData?.status === 'pending_verification') {
+            updateData.status = 'pending';
+            updateData.emailVerifiedAt = admin.firestore.FieldValue.serverTimestamp();
+            functions.logger.info(`User ${userRecord.email} email verified — transitioning from pending_verification to pending`);
+          }
+        }
+        
+        await admin.firestore().collection("users").doc(userRecord.uid).update(updateData);
+      }
+
+      return {
+        verified,
+        email: userRecord.email,
+      };
+    } catch (error) {
+      functions.logger.error("Error checking email verification:", error);
+
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to check email verification status"
+      );
+    }
+  });
+
+/**
+ * Cloud Function: Resend Email Verification
+ * 
+ * Resends the verification email for a pending user.
+ * Can be called by the pending user themselves or by an admin.
+ */
+export const resendEmailVerification = functions
+  .runWith({ secrets: ["GMAIL_EMAIL", "GMAIL_APP_PASSWORD"] })
+  .https.onCall(async (data) => {
+    const { email } = data;
+
+    if (!email || typeof email !== "string") {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Email address is required"
+      );
+    }
+
+    try {
+      const verifyLink = await generateEmailVerificationLink(email, 'admin');
+      const transporter = createGmailTransporter();
+      const template = emailTemplates.emailVerification(verifyLink, 'admin');
+      
+      await transporter.sendMail({
+        from: `"${EMAIL_CONFIG.fromName}" <${process.env.GMAIL_EMAIL}>`,
+        to: email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      functions.logger.info(`Verification email resent to ${email}`);
+      
+      return { 
+        success: true, 
+        message: "Verification email sent successfully" 
+      };
+    } catch (error: any) {
+      functions.logger.error("Error resending verification email:", {
+        email,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        fullError: error,
+      });
+      
+      throw new functions.https.HttpsError(
+        "internal",
+        `Failed to resend verification email: ${error?.code || error?.message || 'Unknown error'}`
+      );
+    }
+  });
+
+// =================
+// ACCOUNT STATUS NOTIFICATION EMAIL
+// =================
+
+/**
+ * Cloud Function: Send Account Status Email
+ * 
+ * Sends a branded email notification when a user's account is approved or rejected.
+ * Called by approval/rejection services after status update.
+ * 
+ * @param email - User's email address
+ * @param name - User's display name
+ * @param status - 'approved' or 'rejected'
+ * @param role - User's role (chancery_office, parish, museum_researcher)
+ * @param reason - Rejection reason (only for rejected status)
+ */
+export const sendAccountStatusEmail = functions
+  .runWith({ secrets: ["GMAIL_EMAIL", "GMAIL_APP_PASSWORD"] })
+  .https.onCall(async (data) => {
+    const { email, name, status, role, reason } = data;
+
+    if (!email || typeof email !== "string") {
+      throw new functions.https.HttpsError("invalid-argument", "Email is required");
+    }
+    if (!status || (status !== "approved" && status !== "rejected")) {
+      throw new functions.https.HttpsError("invalid-argument", "Status must be 'approved' or 'rejected'");
+    }
+
+    const roleLabelMap: Record<string, string> = {
+      chancery_office: "Chancery Office Staff",
+      parish: "Parish Staff",
+      parish_secretary: "Parish Secretary",
+      parish_priest: "Parish Priest",
+      museum_researcher: "Museum Researcher",
+    };
+    const roleLabel = roleLabelMap[role] || role || "Staff";
+    const displayName = name || email;
+    const loginUrl = "https://visita-bohol-system.vercel.app/login";
+
+    try {
+      const transporter = createGmailTransporter();
+
+      let subject: string;
+      let heading: string;
+      let statusColor: string;
+      let statusIcon: string;
+      let bodyContent: string;
+      let buttonHtml: string;
+
+      if (status === "approved") {
+        subject = "Your Account Has Been Approved — VISITA Bohol";
+        heading = "Account Approved!";
+        statusColor = "#16a34a";
+        statusIcon = "✅";
+        bodyContent = `
+          <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #475569;">
+            Dear <strong>${displayName}</strong>,
+          </p>
+          <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #475569;">
+            Great news! Your registration as <strong>${roleLabel}</strong> for the VISITA Bohol Churches Information System has been <span style="color: ${statusColor}; font-weight: 600;">approved</span>.
+          </p>
+          <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #475569;">
+            You can now log in to the admin dashboard and start managing your assigned responsibilities.
+          </p>
+        `;
+        buttonHtml = `
+          <table role="presentation" cellspacing="0" cellpadding="0" width="100%">
+            <tr>
+              <td align="center" style="padding: 8px 0 24px;">
+                <a href="${loginUrl}" 
+                   style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #16a34a, #15803d); color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 8px; box-shadow: 0 2px 4px rgba(22, 163, 74, 0.3);">
+                  Log In to Dashboard
+                </a>
+              </td>
+            </tr>
+          </table>
+        `;
+      } else {
+        subject = "Account Registration Update — VISITA Bohol";
+        heading = "Registration Update";
+        statusColor = "#dc2626";
+        statusIcon = "📋";
+        bodyContent = `
+          <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #475569;">
+            Dear <strong>${displayName}</strong>,
+          </p>
+          <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #475569;">
+            We regret to inform you that your registration as <strong>${roleLabel}</strong> for the VISITA Bohol Churches Information System has <span style="color: ${statusColor}; font-weight: 600;">not been approved</span> at this time.
+          </p>
+          ${reason ? `
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 4px 4px 0; margin: 0 0 16px;">
+            <p style="margin: 0; font-size: 14px; color: #92400e;">
+              <strong>Reason:</strong> ${reason}
+            </p>
+          </div>
+          ` : ""}
+          <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #475569;">
+            If you believe this was a mistake or need further assistance, please contact your Chancery Office administrator directly.
+          </p>
+        `;
+        buttonHtml = "";
+      }
+
+      const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${heading}</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+        <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="background-color: #f4f4f5;">
+          <tr>
+            <td align="center" style="padding: 40px 20px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="max-width: 480px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                <!-- Header -->
+                <tr>
+                  <td style="padding: 40px 40px 20px; text-align: center;">
+                    <img src="https://visita-bohol-system.vercel.app/visita-logo.png" alt="VISITA Logo" width="100" height="100" style="display: block; margin: 0 auto 20px; border-radius: 12px;">
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b;">
+                      VISITA Admin
+                    </h1>
+                    <p style="margin: 8px 0 0; font-size: 14px; color: #64748b;">
+                      Bohol Churches Information System
+                    </p>
+                  </td>
+                </tr>
+                <!-- Content -->
+                <tr>
+                  <td style="padding: 20px 40px;">
+                    <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600; color: #1e293b;">
+                      ${statusIcon} ${heading}
+                    </h2>
+                    ${bodyContent}
+                    ${buttonHtml}
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td style="padding: 20px 40px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
+                    <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+                      This is an automated message from the VISITA Bohol Churches Information System.
+                    </p>
+                    <p style="margin: 8px 0 0; font-size: 12px; color: #94a3b8;">
+                      Diocese of Tagbilaran &amp; Diocese of Talibon
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+      `;
+
+      await transporter.sendMail({
+        from: `"${EMAIL_CONFIG.fromName}" <${process.env.GMAIL_EMAIL}>`,
+        to: email,
+        subject,
+        html,
+        text: status === "approved"
+          ? `Dear ${displayName}, your registration as ${roleLabel} has been approved. You can now log in at ${loginUrl}`
+          : `Dear ${displayName}, your registration as ${roleLabel} has not been approved.${reason ? ` Reason: ${reason}` : ""} Please contact your Chancery Office for assistance.`,
+      });
+
+      functions.logger.info(`Account ${status} email sent to ${email}`);
+      return { success: true, message: `Account ${status} email sent successfully` };
+    } catch (error: any) {
+      functions.logger.error(`Error sending account ${status} email:`, {
+        email,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+      });
+      throw new functions.https.HttpsError(
+        "internal",
+        `Failed to send account ${status} email: ${error?.message || "Unknown error"}`
       );
     }
   });

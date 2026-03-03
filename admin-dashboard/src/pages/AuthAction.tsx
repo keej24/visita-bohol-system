@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { applyActionCode, checkActionCode } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 /**
@@ -40,8 +41,19 @@ const AuthAction = () => {
             
             // Apply the action code to verify email
             await applyActionCode(auth, oobCode);
+            
+            // Sync emailVerified status to Firestore via Cloud Function
+            try {
+              const checkVerified = httpsCallable(functions, 'checkEmailVerified');
+              await checkVerified({ email: info.data.email });
+              console.log('[AuthAction] Email verification synced to Firestore for:', info.data.email);
+            } catch (syncError) {
+              // Non-critical — the approval flow's checkEmailVerified call will also sync
+              console.warn('[AuthAction] Failed to sync verification to Firestore:', syncError);
+            }
+            
             setStatus("success");
-            setMessage("Your email has been verified successfully!");
+            setMessage("Your email has been verified successfully! Your registration has been submitted for approval. You will be able to log in once your account is approved.");
             
             // Auto-redirect after 3 seconds
             setTimeout(() => {

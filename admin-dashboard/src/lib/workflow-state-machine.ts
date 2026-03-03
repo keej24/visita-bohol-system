@@ -355,8 +355,8 @@ export class ChurchWorkflowStateMachine {
 
       console.log('Attempting to create audit log:', auditLog);
       
-      // Save to Firestore audit collection
-      await addDoc(collection(db, 'church_status_audit'), auditLog);
+      // Save to Firestore audit subcollection under the church document
+      await addDoc(collection(db, 'churches', context.churchId, 'status_audit'), auditLog);
       
       console.log('Audit log created successfully');
     } catch (error) {
@@ -383,7 +383,7 @@ export const workflowStateMachine = new ChurchWorkflowStateMachine();
  * 1. Merge pendingChanges.data into the root church document
  * 2. Clear pendingChanges and hasPendingChanges flags
  * 3. Update approval metadata (approvedAt, reviewedBy)
- * 4. Log the action to church_status_audit
+ * 4. Log the action to churches/{churchId}/status_audit
  * 
  * @param churchId - The church document ID
  * @param userProfile - The reviewer approving the changes
@@ -482,7 +482,7 @@ export async function applyPendingChanges(
       diocese: userProfile.diocese,
     };
     
-    await addDoc(collection(db, 'church_status_audit'), auditLog);
+    await addDoc(collection(db, 'churches', churchId, 'status_audit'), auditLog);
     
     // Also log to centralized audit trail
     AuditService.logAction(userProfile, 'church.approve', 'church', churchId, {
@@ -576,7 +576,7 @@ export async function forwardPendingChangesToMuseum(
       diocese: userProfile.diocese,
     };
     
-    await addDoc(collection(db, 'church_status_audit'), auditLog);
+    await addDoc(collection(db, 'churches', churchId, 'status_audit'), auditLog);
     
     // Also log to centralized audit trail
     AuditService.logAction(userProfile, 'church.forward_heritage', 'church', churchId, {

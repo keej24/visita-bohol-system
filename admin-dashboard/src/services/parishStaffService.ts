@@ -35,8 +35,9 @@ import {
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth, setRegistrationInProgress } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, sendEmailVerification as firebaseSendEmailVerification } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { db, auth, functions, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
 import { notifyAccountPendingApproval, notifyAccountApproved } from '@/lib/notifications';
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
@@ -72,6 +73,7 @@ export interface PendingParishStaff {
   status: 'pending';
   role: 'parish';
   registeredAt: Date;
+  emailVerified?: boolean;
 }
 
 export interface ParishStaffApprovalResult {
@@ -152,7 +154,8 @@ export async function registerParishStaff(
           name: data.parishName,
           municipality: data.municipality,
         },
-        status: 'pending',
+        status: 'pending_verification',
+        emailVerified: false,
         registrationSource: 'self', // Self-registered via parish staff registration form
         position: data.position, // Position distinguishes secretary vs priest
         phoneNumber: data.phoneNumber || null,
@@ -184,12 +187,12 @@ export async function registerParishStaff(
       role: 'parish',
       diocese: data.diocese,
       parishId: data.parishId,
-      status: 'pending',
+      status: 'pending_verification',
       createdAt: new Date(),
       lastLoginAt: new Date(),
     };
 
-    // Fire-and-forget: Run audit log, notification, and sign-out in the background.
+    // Fire-and-forget: Run audit log, notification, verification email, and sign-out in the background.
     // These are non-critical and must NOT block the return, because AuthContext's
     // onAuthStateChanged may also call signOut (for pending users), which can cause
     // these Firestore operations to lose their auth context and hang indefinitely.
@@ -213,6 +216,29 @@ export async function registerParishStaff(
       ).catch(auditError => {
         console.warn('[ParishStaffService] Audit logging failed (non-critical):', auditError);
       }),
+
+      // 1b. Send email verification (non-critical)
+      // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
+      // This matches the mobile app's dual-strategy pattern.
+      (async () => {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const sendVerification = httpsCallable(functions, 'sendEmailVerification');
+          await sendVerification({ email: data.email, source: 'admin' });
+          console.log('[ParishStaffService] Custom branded verification email sent to:', data.email);
+        } catch (cloudFunctionError) {
+          // Fallback: Firebase SDK default verification email
+          console.warn('[ParishStaffService] Cloud Function failed, using Firebase default:', cloudFunctionError);
+          try {
+            if (userCredential.user) {
+              await firebaseSendEmailVerification(userCredential.user);
+              console.log('[ParishStaffService] Firebase default verification email sent to:', data.email);
+            }
+          } catch (fallbackError) {
+            console.warn('[ParishStaffService] Verification email failed entirely (non-critical):', fallbackError);
+          }
+        }
+      })(),
 
       // 2. Look up current active parish staff + send notification (non-critical)
       (async () => {
@@ -335,6 +361,7 @@ export async function getPendingParishStaff(parishId: string): Promise<PendingPa
         status: 'pending' as const,
         role: 'parish' as const,
         registeredAt: data.createdAt?.toDate() || new Date(),
+        emailVerified: data.emailVerified ?? undefined,
       };
     });
     
@@ -631,6 +658,19 @@ export async function approveParishStaff(
       console.warn('[ParishStaffService] Approval notification failed (non-critical):', notificationError);
     }
 
+    // Send approval notification email (fire-and-forget)
+    try {
+      const sendStatusEmail = httpsCallable(functions, 'sendAccountStatusEmail');
+      await sendStatusEmail({
+        email: pendingData.email,
+        name: pendingData.name,
+        status: 'approved',
+        role: position,
+      });
+    } catch (emailError) {
+      console.warn('[ParishStaffService] Approval notification email failed (non-critical):', emailError);
+    }
+
     const positionLabel = position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary';
     return {
       success: true,
@@ -711,6 +751,20 @@ export async function rejectParishStaff(
         },
       }
     );
+
+    // Send rejection notification email (fire-and-forget)
+    try {
+      const sendStatusEmail = httpsCallable(functions, 'sendAccountStatusEmail');
+      await sendStatusEmail({
+        email: pendingData.email,
+        name: pendingData.name,
+        status: 'rejected',
+        role: position,
+        reason,
+      });
+    } catch (emailError) {
+      console.warn('[ParishStaffService] Rejection notification email failed (non-critical):', emailError);
+    }
 
     return {
       success: true,

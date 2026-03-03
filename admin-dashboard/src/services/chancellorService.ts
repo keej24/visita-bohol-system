@@ -34,8 +34,9 @@ import {
   Timestamp,
   serverTimestamp,
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth, setRegistrationInProgress } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, sendEmailVerification as firebaseSendEmailVerification } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { db, auth, functions, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
 import { notifyChancellorPendingApproval } from '@/lib/notifications';
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
@@ -64,6 +65,7 @@ export interface PendingChancellor {
   status: 'pending';
   role: 'chancery_office';
   registeredAt: Date;
+  emailVerified?: boolean;
 }
 
 export interface ApprovalResult {
@@ -118,7 +120,8 @@ export async function registerChancellor(
         name: data.name,
         role: 'chancery_office' as UserRole,
         diocese: data.diocese,
-        status: 'pending',
+        status: 'pending_verification',
+        emailVerified: false,
         position: data.position || 'Chancellor',
         phoneNumber: data.phoneNumber || null,
         createdAt: serverTimestamp(),
@@ -149,12 +152,12 @@ export async function registerChancellor(
       name: data.name,
       role: 'chancery_office',
       diocese: data.diocese,
-      status: 'pending',
+      status: 'pending_verification',
       createdAt: new Date(),
       lastLoginAt: new Date(),
     };
 
-    // Fire-and-forget: Run audit log, notification, and sign-out in the background.
+    // Fire-and-forget: Run audit log, notification, verification email, and sign-out in the background.
     // These are non-critical and must NOT block the return, because AuthContext's
     // onAuthStateChanged may also call signOut (for pending users), which can cause
     // these Firestore operations to lose their auth context and hang indefinitely.
@@ -175,6 +178,29 @@ export async function registerChancellor(
       ).catch(auditError => {
         console.warn('[ChancellorService] Audit logging failed (non-critical):', auditError);
       }),
+
+      // 1b. Send email verification (non-critical)
+      // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
+      // This matches the mobile app's dual-strategy pattern.
+      (async () => {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const sendVerification = httpsCallable(functions, 'sendEmailVerification');
+          await sendVerification({ email: data.email, source: 'admin' });
+          console.log('[ChancellorService] Custom branded verification email sent to:', data.email);
+        } catch (cloudFunctionError) {
+          // Fallback: Firebase SDK default verification email
+          console.warn('[ChancellorService] Cloud Function failed, using Firebase default:', cloudFunctionError);
+          try {
+            if (userCredential.user) {
+              await firebaseSendEmailVerification(userCredential.user);
+              console.log('[ChancellorService] Firebase default verification email sent to:', data.email);
+            }
+          } catch (fallbackError) {
+            console.warn('[ChancellorService] Verification email failed entirely (non-critical):', fallbackError);
+          }
+        }
+      })(),
 
       // 2. Look up current active chancellor + send notification (non-critical)
       (async () => {
@@ -291,6 +317,7 @@ export async function getPendingChancellors(diocese: Diocese): Promise<PendingCh
         status: 'pending' as const,
         role: 'chancery_office' as const,
         registeredAt: data.createdAt?.toDate() || new Date(),
+        emailVerified: data.emailVerified ?? undefined,
       };
     });
     
@@ -406,6 +433,19 @@ export async function approveChancellor(
       }
     );
 
+    // Send approval notification email (fire-and-forget)
+    try {
+      const sendStatusEmail = httpsCallable(functions, 'sendAccountStatusEmail');
+      await sendStatusEmail({
+        email: pendingData.email,
+        name: pendingData.name,
+        status: 'approved',
+        role: 'chancery_office',
+      });
+    } catch (emailError) {
+      console.warn('[ChancellorService] Approval notification email failed (non-critical):', emailError);
+    }
+
     return {
       success: true,
       message: `${pendingData.name} has been approved as a new chancellor. You can deactivate your account when ready to complete the transition.`,
@@ -469,6 +509,20 @@ export async function rejectChancellor(
         },
       }
     );
+
+    // Send rejection notification email (fire-and-forget)
+    try {
+      const sendStatusEmail = httpsCallable(functions, 'sendAccountStatusEmail');
+      await sendStatusEmail({
+        email: pendingData.email,
+        name: pendingData.name,
+        status: 'rejected',
+        role: 'chancery_office',
+        reason,
+      });
+    } catch (emailError) {
+      console.warn('[ChancellorService] Rejection notification email failed (non-critical):', emailError);
+    }
 
     return {
       success: true,

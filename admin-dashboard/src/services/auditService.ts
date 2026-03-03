@@ -431,6 +431,33 @@ export class AuditService {
     })) as AuditLog[];
   }
 
+  /**
+   * Get audit logs relevant to museum researchers.
+   * Shows only actions performed by museum_researcher role users,
+   * so the museum dashboard displays its own activity rather than
+   * a mix of chancery, parish, and museum actions.
+   *
+   * @param options - Query options (limit)
+   * @returns Array of audit log entries by museum researchers
+   */
+  static async getMuseumLogs(
+    options?: { limit?: number }
+  ): Promise<AuditLog[]> {
+    const constraints: QueryConstraint[] = [
+      where('actor.role', '==', 'museum_researcher'),
+      orderBy('timestamp', 'desc'),
+      firestoreLimit(options?.limit || 50),
+    ];
+
+    const q = query(collection(db, AUDIT_LOGS_COLLECTION), ...constraints);
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as AuditLog[];
+  }
+
   // ============================================================================
   // STATISTICS METHODS
   // ============================================================================

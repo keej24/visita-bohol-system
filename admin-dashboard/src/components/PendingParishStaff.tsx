@@ -55,7 +55,12 @@ import {
   UserX,
   UserCheck,
   Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Send,
 } from 'lucide-react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase';
 import { ParishStaffService, type PendingParishStaff as PendingStaffType } from '@/services/parishStaffService';
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -88,6 +93,7 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState<string | null>(null);
 
   // Active staff state
   const [activeStaff, setActiveStaff] = useState<UserProfile[]>([]);
@@ -287,6 +293,28 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
     }
   };
 
+  // Resend verification email
+  const handleResendVerification = async (pending: PendingStaffType) => {
+    setResendingVerification(pending.uid);
+    try {
+      const resendVerification = httpsCallable(functions, 'resendEmailVerification');
+      await resendVerification({ email: pending.email });
+      toast({
+        title: 'Verification Email Sent',
+        description: `A new verification email has been sent to ${pending.email}.`,
+      });
+    } catch (err) {
+      console.error('[PendingParishStaff] Resend verification error:', err);
+      toast({
+        title: 'Failed to Send',
+        description: 'Could not resend the verification email. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResendingVerification(null);
+    }
+  };
+
   // Format date
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString('en-US', {
@@ -454,7 +482,7 @@ export const PendingParishStaff: React.FC<PendingParishStaffProps> = ({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
                     <Button
                       size="sm"
                       variant="outline"

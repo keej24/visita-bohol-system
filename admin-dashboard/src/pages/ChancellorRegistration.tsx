@@ -200,8 +200,11 @@ const ChancellorRegistration: React.FC = () => {
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
             <h2 className="text-2xl font-bold text-green-800 mb-2">Registration Successful!</h2>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground mb-2">
               Your account has been created and is pending approval from the current chancellor.
+            </p>
+            <p className="text-sm text-blue-600 mb-4">
+              📧 A verification email has been sent to your email address. Please check your inbox and verify your email to complete the process.
             </p>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -47,7 +47,7 @@ import type { Diocese } from '@/contexts/AuthContext';
  * - 'all': No filtering (Museum Researcher)
  * - 'parish': Filter by actorUid OR parishId (Parish Secretary)
  */
-type QueryMode = 'diocese' | 'all' | 'parish';
+type QueryMode = 'diocese' | 'all' | 'parish' | 'museum';
 
 interface AuditLogViewerProps {
   /** Diocese filter (required for 'diocese' mode) */
@@ -141,8 +141,11 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
       if (mode === 'parish' && actorUid) {
         // Parish: own actions + actions on their parish
         fetchedLogs = await AuditService.getParishLogs(actorUid, parishId || '', { limit });
+      } else if (mode === 'museum') {
+        // Museum researcher: only museum staff actions
+        fetchedLogs = await AuditService.getMuseumLogs({ limit });
       } else if (mode === 'all') {
-        // Museum researcher: all logs (cross-diocese)
+        // All logs (cross-diocese, cross-role)
         fetchedLogs = await AuditService.getAllLogs({ limit });
       } else if (mode === 'diocese' && diocese) {
         // Chancery: diocese-scoped logs
@@ -253,6 +256,8 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
                 <CardDescription>
                   {mode === 'all'
                     ? 'Recent actions across all dioceses'
+                    : mode === 'museum'
+                    ? 'Recent museum staff activity'
                     : mode === 'parish'
                     ? 'Your recent actions and parish activity'
                     : `Recent actions in ${diocese === 'tagbilaran' ? 'Tagbilaran' : 'Talibon'} Diocese`}

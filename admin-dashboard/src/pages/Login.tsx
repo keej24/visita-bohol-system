@@ -277,10 +277,26 @@ const Login = () => {
         return;
       }
 
+      // Check if the account is pending email verification
+      if (userProfile.status === 'pending_verification') {
+        await signOut(auth);
+        setError('Your email address has not been verified yet. Please check your inbox for the verification link. Once verified, your account will be submitted for approval.');
+        setLoading(false);
+        return;
+      }
+
       // Check if the account is pending approval
       if (userProfile.status === 'pending') {
         await signOut(auth);
         setError('Your account is pending approval. Please wait for the administrator to approve your registration.');
+        setLoading(false);
+        return;
+      }
+
+      // Check email verification for active users (skip if emailVerified field doesn't exist - legacy accounts)
+      if (userProfile.emailVerified === false && !userCredential.user.emailVerified) {
+        await signOut(auth);
+        setError('Your email address has not been verified yet. Please check your inbox for the verification link before logging in.');
         setLoading(false);
         return;
       }

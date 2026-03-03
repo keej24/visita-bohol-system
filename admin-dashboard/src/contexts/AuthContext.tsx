@@ -89,7 +89,7 @@ export interface UserProfile {
   role: UserRole;
   name: string;
   diocese: Diocese;
-  status?: 'active' | 'inactive' | 'pending' | 'archived';  // Account status
+  status?: 'active' | 'inactive' | 'pending' | 'pending_verification' | 'archived';  // Account status
   
   // NEW: Unique parish identifier (replaces parish name)
   parishId?: string;  // e.g., "tagbilaran_alburquerque_san_isidro_labrador_parish"
@@ -225,8 +225,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           // Check if account is pending approval - handle gracefully without error
-          if (data.status === 'pending') {
-            console.log('[AuthContext] Account is pending approval:', user.email);
+          if (data.status === 'pending' || data.status === 'pending_verification') {
+            console.log('[AuthContext] Account is pending:', data.status, user.email);
             if (isRegistrationInProgress()) {
               // During self-registration, skip signOut to avoid disrupting the
               // Firestore setDoc promise. The registration service handles

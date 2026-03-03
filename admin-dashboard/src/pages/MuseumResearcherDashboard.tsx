@@ -618,7 +618,7 @@ const MuseumResearcherDashboard = () => {
           </CardHeader>
           <CardContent>
             <ErrorBoundary>
-              <AuditLogViewer mode="all" limit={5} compact />
+              <AuditLogViewer mode="museum" limit={5} compact />
             </ErrorBoundary>
           </CardContent>
         </Card>
@@ -632,7 +632,7 @@ const MuseumResearcherDashboard = () => {
                 Activity Log
               </DialogTitle>
             </DialogHeader>
-            <AuditLogViewer mode="all" limit={100} compact />
+            <AuditLogViewer mode="museum" limit={100} compact />
           </DialogContent>
         </Dialog>
       </div>

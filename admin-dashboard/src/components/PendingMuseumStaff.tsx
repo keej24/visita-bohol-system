@@ -51,7 +51,12 @@ import {
   Loader2,
   Info,
   Users,
+  ShieldCheck,
+  ShieldAlert,
+  Send,
 } from 'lucide-react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase';
 import { MuseumStaffService, type PendingMuseumStaff as PendingStaffType } from '@/services/museumStaffService';
 import type { UserProfile } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -83,6 +88,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState<string | null>(null);
 
   // Load pending staff
   const loadPendingStaff = React.useCallback(async () => {
@@ -200,6 +206,28 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
       });
     } finally {
       setRejecting(false);
+    }
+  };
+
+  // Resend verification email
+  const handleResendVerification = async (pending: PendingStaffType) => {
+    setResendingVerification(pending.uid);
+    try {
+      const resendVerification = httpsCallable(functions, 'resendEmailVerification');
+      await resendVerification({ email: pending.email });
+      toast({
+        title: 'Verification Email Sent',
+        description: `A new verification email has been sent to ${pending.email}.`,
+      });
+    } catch (err) {
+      console.error('[PendingMuseumStaff] Resend verification error:', err);
+      toast({
+        title: 'Failed to Send',
+        description: 'Could not resend the verification email. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResendingVerification(null);
     }
   };
 
@@ -352,7 +380,7 @@ export const PendingMuseumStaff: React.FC<PendingMuseumStaffProps> = ({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
                     <Button
                       size="sm"
                       variant="outline"

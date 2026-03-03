@@ -347,8 +347,8 @@ service cloud.firestore {
                        get(/databases/$(database)/documents/churches/$(resource.data.church_id)).data.diocese == getUserData().diocese;
     }
     
-    // Church status audit logs
-    match /church_status_audit/{auditId} {
+    // Church status audit logs (subcollection under each church)
+    match /churches/{churchId}/status_audit/{auditId} {
       // Authenticated users can create audit logs when changing church status
       allow create: if isAuthenticated();
 

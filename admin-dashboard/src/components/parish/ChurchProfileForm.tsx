@@ -189,7 +189,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
       },
       contactInfo: {
         ...prev.contactInfo,
-        ...data.contactInfo
+        ...data.contactInfo,
+        // Sync singular phone/email into their array counterparts so the form inputs reflect the imported values
+        ...(data.contactInfo?.phone ? {
+          phones: [data.contactInfo.phone, ...(prev.contactInfo.phones || []).slice(1)]
+        } : {}),
+        ...(data.contactInfo?.email ? {
+          emails: [data.contactInfo.email, ...(prev.contactInfo.emails || []).slice(1)]
+        } : {})
       },
       massSchedules: data.massSchedules || prev.massSchedules
     }));
