@@ -38,7 +38,8 @@ import { createUserWithEmailAndPassword, sendEmailVerification as firebaseSendEm
 import { httpsCallable } from 'firebase/functions';
 import { db, auth, functions, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
-import { notifyMuseumStaffPendingApproval } from '@/lib/notifications';
+// Notification for pending approval is now sent server-side by the
+// checkEmailVerified Cloud Function after the user verifies their email.
 import type { Diocese, UserProfile } from '@/contexts/AuthContext';
 
 // ============================================================================
@@ -144,99 +145,75 @@ export async function registerMuseumStaff(
       setRegistrationInProgress(false);
     }
 
-    // Fire-and-forget: Run audit log, notification, verification email, and sign-out in the background.
-    // These are non-critical and must NOT block the return, because AuthContext's
-    // onAuthStateChanged may also call signOut (for pending users), which can cause
-    // these Firestore operations to lose their auth context and hang indefinitely.
-    Promise.all([
-      // 1. Audit log (non-critical)
-      AuditService.logAction(
-        {
-          uid,
-          email: data.email,
-          name: data.name,
-          role: 'museum_researcher',
-          status: 'pending_verification',
-        } as UserProfile,
-        'museum_staff.register',
-        'user',
-        uid,
-        {
-          resourceName: data.name,
-          changes: [
-            { field: 'status', oldValue: null, newValue: 'pending' },
-          ],
-          metadata: {
-            position: data.position,
-            selfRegistration: true,
-          },
-        }
-      ).catch(auditError => {
-        console.warn('[MuseumStaffService] Audit logging failed (non-critical):', auditError);
-      }),
-
-      // 1b. Send email verification (non-critical)
-      // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
-      // This matches the mobile app's dual-strategy pattern.
-      (async () => {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          const sendVerification = httpsCallable(functions, 'sendEmailVerification');
-          await sendVerification({ email: data.email, source: 'admin' });
-          console.log('[MuseumStaffService] Custom branded verification email sent to:', data.email);
-        } catch (cloudFunctionError) {
-          // Fallback: Firebase SDK default verification email
-          console.warn('[MuseumStaffService] Cloud Function failed, using Firebase default:', cloudFunctionError);
-          try {
-            if (userCredential.user) {
-              await firebaseSendEmailVerification(userCredential.user);
-              console.log('[MuseumStaffService] Firebase default verification email sent to:', data.email);
-            }
-          } catch (fallbackError) {
-            console.warn('[MuseumStaffService] Verification email failed entirely (non-critical):', fallbackError);
-          }
-        }
-      })(),
-
-      // 2. Look up current active museum researcher + send notification (non-critical)
-      (async () => {
-        try {
-          let currentMuseumStaffUid: string | undefined;
-          try {
-            const activeStaffQuery = query(
-              collection(db, 'users'),
-              where('role', '==', 'museum_researcher'),
-              where('status', '==', 'active')
-            );
-            const activeStaffSnap = await getDocs(activeStaffQuery);
-            if (!activeStaffSnap.empty) {
-              currentMuseumStaffUid = activeStaffSnap.docs[0].id;
-              console.log('[MuseumStaffService] Found current museum staff UID:', currentMuseumStaffUid);
-            }
-          } catch (lookupError) {
-            console.warn('[MuseumStaffService] Could not look up current museum staff (non-critical):', lookupError);
-          }
-
-          await notifyMuseumStaffPendingApproval({
-            name: data.name,
-            email: data.email,
+    // Run audit log, notification, and verification email FIRST (while still authenticated),
+    // then sign out AFTER they complete. This prevents a race condition where signOut()
+    // invalidates the auth context before Firestore writes (like notification creation) finish.
+    try {
+      await Promise.all([
+        // 1. Audit log (non-critical)
+        AuditService.logAction(
+          {
             uid,
-            currentMuseumStaffUid,
-          });
-        } catch (notificationError) {
-          console.warn('[MuseumStaffService] Notification failed (non-critical):', notificationError);
-        }
-      })(),
+            email: data.email,
+            name: data.name,
+            role: 'museum_researcher',
+            status: 'pending_verification',
+          } as UserProfile,
+          'museum_staff.register',
+          'user',
+          uid,
+          {
+            resourceName: data.name,
+            changes: [
+              { field: 'status', oldValue: null, newValue: 'pending' },
+            ],
+            metadata: {
+              position: data.position,
+              selfRegistration: true,
+            },
+          }
+        ).catch(auditError => {
+          console.warn('[MuseumStaffService] Audit logging failed (non-critical):', auditError);
+        }),
 
-      // 3. Sign out
-      auth.signOut().then(() => {
-        console.log('[MuseumStaffService] User signed out after successful registration');
-      }).catch(signOutError => {
-        console.warn('[MuseumStaffService] Sign out failed (non-critical):', signOutError);
-      }),
-    ]).catch(() => {
-      // Ensure no unhandled promise rejection from the background tasks
-    });
+        // 1b. Send email verification (non-critical)
+        // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
+        // This matches the mobile app's dual-strategy pattern.
+        (async () => {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const sendVerification = httpsCallable(functions, 'sendEmailVerification');
+            await sendVerification({ email: data.email, source: 'admin' });
+            console.log('[MuseumStaffService] Custom branded verification email sent to:', data.email);
+          } catch (cloudFunctionError) {
+            // Fallback: Firebase SDK default verification email
+            console.warn('[MuseumStaffService] Cloud Function failed, using Firebase default:', cloudFunctionError);
+            try {
+              if (userCredential.user) {
+                await firebaseSendEmailVerification(userCredential.user);
+                console.log('[MuseumStaffService] Firebase default verification email sent to:', data.email);
+              }
+            } catch (fallbackError) {
+              console.warn('[MuseumStaffService] Verification email failed entirely (non-critical):', fallbackError);
+            }
+          }
+        })(),
+
+        // 2. Notification is now sent server-side by checkEmailVerified Cloud Function
+        // after the user verifies their email (pending_verification → pending transition).
+      ]);
+    } catch (backgroundError) {
+      console.warn('[MuseumStaffService] Background tasks error (non-critical):', backgroundError);
+    }
+
+    // Sign out AFTER audit, email, and notification tasks have completed
+    // so that Firestore writes have valid auth context
+    try {
+      await auth.signOut();
+      console.log('[MuseumStaffService] User signed out after successful registration');
+    } catch (signOutError) {
+      console.warn('[MuseumStaffService] Sign out failed (non-critical):', signOutError);
+    }
 
     return {
       success: true,

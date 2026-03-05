@@ -505,11 +505,16 @@ export class NotificationService {
 
         return notifications.slice(0, limitCount);
       } catch (error: unknown) {
-        const firebaseError = error as { code?: string };
+        const firebaseError = error as { code?: string; message?: string };
         if (firebaseError?.code === 'permission-denied') {
+          console.error('[Notifications] Permission denied fetching notifications. Check Firestore rules for the notifications collection.', firebaseError.message);
           return [];
         }
-        console.error('Error fetching user notifications:', error);
+        if (firebaseError?.code === 'failed-precondition') {
+          console.error('[Notifications] Missing Firestore composite index for notifications query. Deploy indexes with: firebase deploy --only firestore:indexes', firebaseError.message);
+          return [];
+        }
+        console.error('[Notifications] Error fetching user notifications:', error);
         return [];
       }
     }
@@ -564,30 +569,37 @@ export class NotificationService {
   }
 
   /**
-   * Clear (delete) all notifications visible to the current user.
-   * Deletes them from Firestore in batches of 500 (Firestore batch limit).
+   * Clear all notifications visible to the current user.
+   * Chancery Office users can delete notifications from Firestore.
+   * Other roles mark all as read (Firestore rules only allow chancery to delete).
    */
   async clearAllNotifications(userProfile: UserProfile): Promise<void> {
     try {
       const notifications = await this.getUserNotifications(userProfile, 500, false);
       if (notifications.length === 0) return;
 
-      // Firestore batched writes (max 500 per batch)
-      const batchSize = 500;
-      for (let i = 0; i < notifications.length; i += batchSize) {
-        const batch = writeBatch(db);
-        const chunk = notifications.slice(i, i + batchSize);
-        for (const notification of chunk) {
-          if (notification.id) {
-            batch.delete(doc(db, 'notifications', notification.id));
+      if (userProfile.role === 'chancery_office') {
+        // Chancery can delete notifications per Firestore rules
+        const batchSize = 500;
+        for (let i = 0; i < notifications.length; i += batchSize) {
+          const batch = writeBatch(db);
+          const chunk = notifications.slice(i, i + batchSize);
+          for (const notification of chunk) {
+            if (notification.id) {
+              batch.delete(doc(db, 'notifications', notification.id));
+            }
           }
+          await batch.commit();
         }
-        await batch.commit();
+        console.log(`[NotificationService] Deleted ${notifications.length} notifications for chancery user ${userProfile.uid}`);
+      } else {
+        // Non-chancery users: mark all as read instead of deleting
+        // (Firestore rules only allow chancery_office to delete notifications)
+        await this.markAllAsRead(userProfile);
+        console.log(`[NotificationService] Marked ${notifications.length} notifications as read for user ${userProfile.uid}`);
       }
-      
-      console.log(`[NotificationService] Cleared ${notifications.length} notifications for user ${userProfile.uid}`);
     } catch (error) {
-      console.error('Error clearing all notifications:', error);
+      console.error('[NotificationService] Error clearing notifications:', error);
       throw error;
     }
   }

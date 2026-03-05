@@ -38,7 +38,8 @@ import { createUserWithEmailAndPassword, sendEmailVerification as firebaseSendEm
 import { httpsCallable } from 'firebase/functions';
 import { db, auth, functions, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
-import { notifyChancellorPendingApproval } from '@/lib/notifications';
+// Notification for pending approval is now sent server-side by the
+// checkEmailVerified Cloud Function after the user verifies their email.
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
 
 
@@ -157,92 +158,66 @@ export async function registerChancellor(
       lastLoginAt: new Date(),
     };
 
-    // Fire-and-forget: Run audit log, notification, verification email, and sign-out in the background.
-    // These are non-critical and must NOT block the return, because AuthContext's
-    // onAuthStateChanged may also call signOut (for pending users), which can cause
-    // these Firestore operations to lose their auth context and hang indefinitely.
-    Promise.all([
-      // 1. Audit log (non-critical)
-      AuditService.logAction(
-        registrationProfile,
-        'chancellor.register',
-        'user',
-        user.uid,
-        {
-          resourceName: data.name,
-          metadata: {
-            diocese: data.diocese,
-            position: data.position || 'Chancellor',
-          },
-        }
-      ).catch(auditError => {
-        console.warn('[ChancellorService] Audit logging failed (non-critical):', auditError);
-      }),
-
-      // 1b. Send email verification (non-critical)
-      // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
-      // This matches the mobile app's dual-strategy pattern.
-      (async () => {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          const sendVerification = httpsCallable(functions, 'sendEmailVerification');
-          await sendVerification({ email: data.email, source: 'admin' });
-          console.log('[ChancellorService] Custom branded verification email sent to:', data.email);
-        } catch (cloudFunctionError) {
-          // Fallback: Firebase SDK default verification email
-          console.warn('[ChancellorService] Cloud Function failed, using Firebase default:', cloudFunctionError);
-          try {
-            if (userCredential.user) {
-              await firebaseSendEmailVerification(userCredential.user);
-              console.log('[ChancellorService] Firebase default verification email sent to:', data.email);
-            }
-          } catch (fallbackError) {
-            console.warn('[ChancellorService] Verification email failed entirely (non-critical):', fallbackError);
+    // Run audit log, notification, and verification email FIRST (while still authenticated),
+    // then sign out AFTER they complete. This prevents a race condition where signOut()
+    // invalidates the auth context before Firestore writes (like notification creation) finish.
+    try {
+      await Promise.all([
+        // 1. Audit log (non-critical)
+        AuditService.logAction(
+          registrationProfile,
+          'chancellor.register',
+          'user',
+          user.uid,
+          {
+            resourceName: data.name,
+            metadata: {
+              diocese: data.diocese,
+              position: data.position || 'Chancellor',
+            },
           }
-        }
-      })(),
+        ).catch(auditError => {
+          console.warn('[ChancellorService] Audit logging failed (non-critical):', auditError);
+        }),
 
-      // 2. Look up current active chancellor + send notification (non-critical)
-      (async () => {
-        try {
-          let currentChancellorUid: string | undefined;
+        // 1b. Send email verification (non-critical)
+        // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
+        // This matches the mobile app's dual-strategy pattern.
+        (async () => {
           try {
-            const activeChancellorQuery = query(
-              collection(db, 'users'),
-              where('role', '==', 'chancery_office'),
-              where('diocese', '==', data.diocese),
-              where('status', '==', 'active')
-            );
-            const activeChancellorSnap = await getDocs(activeChancellorQuery);
-            if (!activeChancellorSnap.empty) {
-              currentChancellorUid = activeChancellorSnap.docs[0].id;
-              console.log('[ChancellorService] Found current chancellor UID:', currentChancellorUid);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const sendVerification = httpsCallable(functions, 'sendEmailVerification');
+            await sendVerification({ email: data.email, source: 'admin' });
+            console.log('[ChancellorService] Custom branded verification email sent to:', data.email);
+          } catch (cloudFunctionError) {
+            // Fallback: Firebase SDK default verification email
+            console.warn('[ChancellorService] Cloud Function failed, using Firebase default:', cloudFunctionError);
+            try {
+              if (userCredential.user) {
+                await firebaseSendEmailVerification(userCredential.user);
+                console.log('[ChancellorService] Firebase default verification email sent to:', data.email);
+              }
+            } catch (fallbackError) {
+              console.warn('[ChancellorService] Verification email failed entirely (non-critical):', fallbackError);
             }
-          } catch (lookupError) {
-            console.warn('[ChancellorService] Could not look up current chancellor (non-critical):', lookupError);
           }
+        })(),
 
-          await notifyChancellorPendingApproval({
-            name: data.name,
-            email: data.email,
-            diocese: data.diocese,
-            uid: user.uid,
-            currentChancellorUid,
-          });
-        } catch (notificationError) {
-          console.warn('[ChancellorService] Notification failed (non-critical):', notificationError);
-        }
-      })(),
+        // 2. Notification is now sent server-side by checkEmailVerified Cloud Function
+        // after the user verifies their email (pending_verification → pending transition).
+      ]);
+    } catch (backgroundError) {
+      console.warn('[ChancellorService] Background tasks error (non-critical):', backgroundError);
+    }
 
-      // 3. Sign out
-      auth.signOut().then(() => {
-        console.log('[ChancellorService] User signed out after successful registration');
-      }).catch(signOutError => {
-        console.warn('[ChancellorService] Sign out failed (non-critical):', signOutError);
-      }),
-    ]).catch(() => {
-      // Ensure no unhandled promise rejection from the background tasks
-    });
+    // Sign out AFTER audit, email, and notification tasks have completed
+    // so that Firestore writes have valid auth context
+    try {
+      await auth.signOut();
+      console.log('[ChancellorService] User signed out after successful registration');
+    } catch (signOutError) {
+      console.warn('[ChancellorService] Sign out failed (non-critical):', signOutError);
+    }
 
     return {
       success: true,

@@ -39,7 +39,9 @@ import { createUserWithEmailAndPassword, sendEmailVerification as firebaseSendEm
 import { httpsCallable } from 'firebase/functions';
 import { db, auth, functions, setRegistrationInProgress } from '@/lib/firebase';
 import { AuditService } from './auditService';
-import { notifyAccountPendingApproval, notifyAccountApproved } from '@/lib/notifications';
+// notifyAccountPendingApproval is now sent server-side by the checkEmailVerified
+// Cloud Function after the user verifies their email.
+import { notifyAccountApproved } from '@/lib/notifications';
 import type { Diocese, UserProfile, UserRole } from '@/contexts/AuthContext';
 
 // ============================================================================
@@ -192,98 +194,69 @@ export async function registerParishStaff(
       lastLoginAt: new Date(),
     };
 
-    // Fire-and-forget: Run audit log, notification, verification email, and sign-out in the background.
-    // These are non-critical and must NOT block the return, because AuthContext's
-    // onAuthStateChanged may also call signOut (for pending users), which can cause
-    // these Firestore operations to lose their auth context and hang indefinitely.
-    Promise.all([
-      // 1. Audit log (non-critical)
-      AuditService.logAction(
-        registrationProfile,
-        'parish_staff.register',
-        'user',
-        user.uid,
-        {
-          resourceName: data.name,
-          metadata: {
-            diocese: data.diocese,
-            parishId: data.parishId,
-            parishName: data.parishName,
-            municipality: data.municipality,
-            position: data.position,
-          },
-        }
-      ).catch(auditError => {
-        console.warn('[ParishStaffService] Audit logging failed (non-critical):', auditError);
-      }),
-
-      // 1b. Send email verification (non-critical)
-      // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
-      // This matches the mobile app's dual-strategy pattern.
-      (async () => {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          const sendVerification = httpsCallable(functions, 'sendEmailVerification');
-          await sendVerification({ email: data.email, source: 'admin' });
-          console.log('[ParishStaffService] Custom branded verification email sent to:', data.email);
-        } catch (cloudFunctionError) {
-          // Fallback: Firebase SDK default verification email
-          console.warn('[ParishStaffService] Cloud Function failed, using Firebase default:', cloudFunctionError);
-          try {
-            if (userCredential.user) {
-              await firebaseSendEmailVerification(userCredential.user);
-              console.log('[ParishStaffService] Firebase default verification email sent to:', data.email);
-            }
-          } catch (fallbackError) {
-            console.warn('[ParishStaffService] Verification email failed entirely (non-critical):', fallbackError);
+    // Run audit log, notification, and verification email FIRST (while still authenticated),
+    // then sign out AFTER they complete. This prevents a race condition where signOut()
+    // invalidates the auth context before Firestore writes (like notification creation) finish.
+    try {
+      await Promise.all([
+        // 1. Audit log (non-critical)
+        AuditService.logAction(
+          registrationProfile,
+          'parish_staff.register',
+          'user',
+          user.uid,
+          {
+            resourceName: data.name,
+            metadata: {
+              diocese: data.diocese,
+              parishId: data.parishId,
+              parishName: data.parishName,
+              municipality: data.municipality,
+              position: data.position,
+            },
           }
-        }
-      })(),
+        ).catch(auditError => {
+          console.warn('[ParishStaffService] Audit logging failed (non-critical):', auditError);
+        }),
 
-      // 2. Look up current active parish staff + send notification (non-critical)
-      (async () => {
-        try {
-          let currentParishStaffUid: string | undefined;
+        // 1b. Send email verification (non-critical)
+        // Primary: Cloud Function (branded email). Fallback: Firebase SDK built-in.
+        // This matches the mobile app's dual-strategy pattern.
+        (async () => {
           try {
-            const activeStaffQuery = query(
-              collection(db, 'users'),
-              where('role', '==', 'parish'),
-              where('parishId', '==', data.parishId),
-              where('status', '==', 'active')
-            );
-            const activeStaffSnap = await getDocs(activeStaffQuery);
-            if (!activeStaffSnap.empty) {
-              currentParishStaffUid = activeStaffSnap.docs[0].id;
-              console.log('[ParishStaffService] Found current parish staff UID:', currentParishStaffUid);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const sendVerification = httpsCallable(functions, 'sendEmailVerification');
+            await sendVerification({ email: data.email, source: 'admin' });
+            console.log('[ParishStaffService] Custom branded verification email sent to:', data.email);
+          } catch (cloudFunctionError) {
+            // Fallback: Firebase SDK default verification email
+            console.warn('[ParishStaffService] Cloud Function failed, using Firebase default:', cloudFunctionError);
+            try {
+              if (userCredential.user) {
+                await firebaseSendEmailVerification(userCredential.user);
+                console.log('[ParishStaffService] Firebase default verification email sent to:', data.email);
+              }
+            } catch (fallbackError) {
+              console.warn('[ParishStaffService] Verification email failed entirely (non-critical):', fallbackError);
             }
-          } catch (lookupError) {
-            console.warn('[ParishStaffService] Could not look up current parish staff (non-critical):', lookupError);
           }
+        })(),
 
-          await notifyAccountPendingApproval({
-            name: data.name,
-            email: data.email,
-            position: data.position,
-            parishName: data.parishName,
-            parishId: data.parishId,
-            diocese: data.diocese,
-            uid: user.uid,
-            currentParishStaffUid,
-          });
-        } catch (notificationError) {
-          console.warn('[ParishStaffService] Notification failed (non-critical):', notificationError);
-        }
-      })(),
+        // 2. Notification is now sent server-side by checkEmailVerified Cloud Function
+        // after the user verifies their email (pending_verification → pending transition).
+      ]);
+    } catch (backgroundError) {
+      console.warn('[ParishStaffService] Background tasks error (non-critical):', backgroundError);
+    }
 
-      // 3. Sign out
-      auth.signOut().then(() => {
-        console.log('[ParishStaffService] User signed out after successful registration');
-      }).catch(signOutError => {
-        console.warn('[ParishStaffService] Sign out failed (non-critical):', signOutError);
-      }),
-    ]).catch(() => {
-      // Ensure no unhandled promise rejection from the background tasks
-    });
+    // Sign out AFTER audit, email, and notification tasks have completed
+    // so that Firestore writes have valid auth context
+    try {
+      await auth.signOut();
+      console.log('[ParishStaffService] User signed out after successful registration');
+    } catch (signOutError) {
+      console.warn('[ParishStaffService] Sign out failed (non-critical):', signOutError);
+    }
 
     return {
       success: true,

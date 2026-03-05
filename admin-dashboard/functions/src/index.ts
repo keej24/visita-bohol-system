@@ -1157,6 +1157,133 @@ export const sendEmailVerification = functions
     }
   });
 
+// ============================================================================
+// NOTIFICATION HELPERS (Server-side, using Admin SDK)
+// ============================================================================
+
+/**
+ * Creates a pending approval notification in Firestore after a user verifies their email.
+ * Targets the current active user in the same role/diocese/parish who should approve.
+ * 
+ * This runs server-side with Admin SDK so there are no client auth issues.
+ */
+async function createPendingApprovalNotification(
+  newUserUid: string, 
+  userData: FirebaseFirestore.DocumentData
+): Promise<void> {
+  const role = userData.role;
+  const name = userData.name || userData.email || 'Unknown';
+  const email = userData.email || '';
+  const diocese = userData.diocese;
+  const parishId = userData.parishId;
+  const parishName = userData.parishName || userData.parish || '';
+  const position = userData.position || '';
+
+  if (role === 'chancery_office') {
+    // Chancellor registration → notify current active chancellor in same diocese
+    let currentChancellorUid: string | undefined;
+    const activeSnap = await admin.firestore().collection('users')
+      .where('role', '==', 'chancery_office')
+      .where('diocese', '==', diocese)
+      .where('status', '==', 'active')
+      .limit(1)
+      .get();
+    if (!activeSnap.empty) {
+      currentChancellorUid = activeSnap.docs[0].id;
+    }
+
+    const dioceseLabel = diocese === 'tagbilaran' ? 'Tagbilaran' : 'Talibon';
+    const actionUrl = diocese === 'tagbilaran' ? '/diocese/tagbilaran?tab=chancellors' : '/diocese/talibon?tab=chancellors';
+
+    await admin.firestore().collection('notifications').add({
+      type: 'chancellor_pending_approval',
+      priority: 'high',
+      title: `New Chancellor Registration: ${name}`,
+      message: `${name} has registered as a new Chancellor for the Diocese of ${dioceseLabel} and verified their email. Please review and approve or reject the registration from the Chancellors tab.`,
+      recipients: {
+        ...(currentChancellorUid ? { userIds: [currentChancellorUid] } : {}),
+        roles: ['chancery_office'],
+        dioceses: [diocese],
+      },
+      relatedData: {
+        actionBy: { uid: newUserUid, name, role: 'chancery_office' },
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+      readBy: [],
+      actionUrl,
+      metadata: { chancellorEmail: email, diocese },
+    });
+  } else if (role === 'parish') {
+    // Parish staff registration → notify current active parish staff in same parish
+    let currentParishStaffUid: string | undefined;
+    const activeSnap = await admin.firestore().collection('users')
+      .where('role', '==', 'parish')
+      .where('parishId', '==', parishId)
+      .where('status', '==', 'active')
+      .limit(1)
+      .get();
+    if (!activeSnap.empty) {
+      currentParishStaffUid = activeSnap.docs[0].id;
+    }
+
+    const positionLabel = position === 'parish_priest' ? 'Parish Priest' : 'Parish Secretary';
+
+    await admin.firestore().collection('notifications').add({
+      type: 'account_pending_approval',
+      priority: 'high',
+      title: `New Registration Request: ${name}`,
+      message: `${name} has registered as ${positionLabel} for ${parishName} and verified their email. Please review and approve or reject the registration from your Staff Management tab.`,
+      recipients: {
+        ...(currentParishStaffUid ? { userIds: [currentParishStaffUid] } : {}),
+        roles: ['parish'],
+        dioceses: diocese ? [diocese] : [],
+        parishId: parishId,
+      },
+      relatedData: {
+        actionBy: { uid: newUserUid, name, role: 'parish' },
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+      readBy: [],
+      actionUrl: '/parish?tab=staff',
+      metadata: { staffEmail: email, staffPosition: position, parishId, parishName },
+    });
+  } else if (role === 'museum_researcher') {
+    // Museum staff registration → notify current active museum researcher
+    let currentMuseumStaffUid: string | undefined;
+    const activeSnap = await admin.firestore().collection('users')
+      .where('role', '==', 'museum_researcher')
+      .where('status', '==', 'active')
+      .limit(1)
+      .get();
+    if (!activeSnap.empty) {
+      currentMuseumStaffUid = activeSnap.docs[0].id;
+    }
+
+    await admin.firestore().collection('notifications').add({
+      type: 'museum_staff_pending_approval',
+      priority: 'high',
+      title: `New Museum Staff Registration: ${name}`,
+      message: `${name} has registered as a new Museum Staff and verified their email. Please review and approve or reject the registration from your Staff Management tab.`,
+      recipients: {
+        ...(currentMuseumStaffUid ? { userIds: [currentMuseumStaffUid] } : {}),
+        roles: ['museum_researcher'],
+      },
+      relatedData: {
+        actionBy: { uid: newUserUid, name, role: 'museum_researcher' },
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+      readBy: [],
+      actionUrl: '/heritage?tab=staff',
+      metadata: { staffEmail: email },
+    });
+  } else {
+    functions.logger.warn(`Unknown role '${role}' for pending approval notification, skipping.`);
+  }
+}
+
 /**
  * Cloud Function: Check Email Verification Status
  * 
@@ -1201,6 +1328,15 @@ export const checkEmailVerified = functions
             updateData.status = 'pending';
             updateData.emailVerifiedAt = admin.firestore.FieldValue.serverTimestamp();
             functions.logger.info(`User ${userRecord.email} email verified — transitioning from pending_verification to pending`);
+
+            // Send notification to the appropriate approver now that email is verified.
+            // This runs server-side with Admin SDK so there are no auth/permission issues.
+            try {
+              await createPendingApprovalNotification(userRecord.uid, userData);
+              functions.logger.info(`Pending approval notification sent for user ${userRecord.email}`);
+            } catch (notifError) {
+              functions.logger.error('Failed to send pending approval notification (non-critical):', notifError);
+            }
           }
         }
         
