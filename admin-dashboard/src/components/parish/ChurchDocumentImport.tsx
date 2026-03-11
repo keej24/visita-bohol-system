@@ -214,6 +214,13 @@ export const ChurchDocumentImport: React.FC<ChurchDocumentImportProps> = ({
         );
       }
     }
+
+    // Reset import UI after successful apply
+    setImportSession(null);
+    setSelectedFields(new Set());
+    setLastFileName(null);
+    setUploadProgress(0);
+    setErrorMessage(null);
   };
 
   const renderStatus = () => {

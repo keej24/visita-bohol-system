@@ -192,7 +192,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         ...data.contactInfo,
         // Sync singular phone/email into their array counterparts so the form inputs reflect the imported values
         ...(data.contactInfo?.phone ? {
-          phones: [data.contactInfo.phone, ...(prev.contactInfo.phones || []).slice(1)]
+          phone: normalizePhoneNumber(data.contactInfo.phone),
+          phones: [normalizePhoneNumber(data.contactInfo.phone), ...(prev.contactInfo.phones || []).slice(1)]
         } : {}),
         ...(data.contactInfo?.email ? {
           emails: [data.contactInfo.email, ...(prev.contactInfo.emails || []).slice(1)]
@@ -382,16 +383,8 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
         return !value || !String(value).trim() ? 'Current Parish Priest is required' : '';
       case 'phone': {
         if (!value || !String(value).trim()) return '';
-        const phoneRegex = /^[\d\s\-()+ ]+$/;
-        if (!phoneRegex.test(String(value))) return 'Phone number contains invalid characters';
-        const allDigits = String(value).replace(/\D/g, '');
-        const digitCount = allDigits.length;
-        // With +63 prefix (2 digits) + 10 digits (9XX-XXX-XXXX) = 12 total
-        if (digitCount !== 12) return 'Please enter 10 digits after +63 (e.g., +63 9XX-XXX-XXXX)';
-        // Check for all zeros after stripping the +63 country code
-        const digitsAfterCode = allDigits.startsWith('63') ? allDigits.substring(2) : allDigits;
-        if (/^0+$/.test(digitsAfterCode)) return 'Phone number cannot be all zeros';
-        return '';
+        // Delegate to the shared validation helper for consistency
+        return getPhoneValidationError(String(value)) || '';
       }
       case 'email': {
         if (!value || !String(value).trim()) return '';
@@ -479,6 +472,24 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
     if (touchedFields.has(field)) {
       updateFieldError(field, value);
     }
+  };
+
+  // Normalize a phone number to +63 format, stripping the domestic trunk prefix 0
+  const normalizePhoneNumber = (phone: string): string => {
+    let cleaned = phone.trim();
+    // Already has +63 — just strip any 0 right after it
+    if (cleaned.startsWith('+63')) {
+      return cleaned.replace(/^(\+63\s*)0+/, '$1');
+    }
+    // Starts with 0 (domestic format) — strip 0 and prepend +63
+    if (cleaned.startsWith('0')) {
+      return '+63 ' + cleaned.replace(/^0+/, '');
+    }
+    // No prefix at all — prepend +63
+    if (/^\d/.test(cleaned)) {
+      return '+63 ' + cleaned;
+    }
+    return cleaned;
   };
 
   // Multiple contact phone management

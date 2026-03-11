@@ -331,8 +331,17 @@ const validateAndScore = (
 
     case "contactInfo.phone": {
       const digits = str.replace(/[^0-9]/g, "");
-      if (digits.length >= 7) return { value: str, confidence: 0.85 };
-      return { value: str, confidence: 0.4 };
+      if (digits.length < 7) return { value: str, confidence: 0.4 };
+      // Normalize to +63 format: strip leading 0 (domestic trunk prefix)
+      let normalized = str.trim();
+      if (normalized.startsWith("0")) {
+        normalized = "+63 " + normalized.replace(/^0+/, "");
+      } else if (/^\d/.test(normalized) && !normalized.startsWith("+")) {
+        normalized = "+63 " + normalized;
+      } else if (normalized.startsWith("+63")) {
+        normalized = normalized.replace(/^(\+63\s*)0+/, "$1");
+      }
+      return { value: normalized, confidence: 0.85 };
     }
 
     case "historicalDetails.historicalBackground":
