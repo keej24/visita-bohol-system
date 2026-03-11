@@ -464,12 +464,12 @@ export const OptimizedChurchForm: React.FC<OptimizedChurchFormProps> = ({
                           {...field}
                           value={field.value || '+63 '}
                           onChange={(e) => {
-                            // Ensure +63 prefix is maintained
+                            // Ensure +63 prefix is maintained and strip leading 0 (domestic trunk prefix)
                             const value = e.target.value;
                             if (!value.startsWith('+63')) {
-                              field.onChange('+63 ' + value.replace(/^\+63\s*/, ''));
+                              field.onChange('+63 ' + value.replace(/^\+63\s*/, '').replace(/^0+/, ''));
                             } else {
-                              field.onChange(value);
+                              field.onChange(value.replace(/^(\+63\s*)0+/, '$1'));
                             }
                             validateField('contactPhone', 1000);
                           }}

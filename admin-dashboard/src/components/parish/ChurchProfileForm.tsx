@@ -509,10 +509,14 @@ export const ChurchProfileForm: React.FC<ChurchProfileFormProps> = ({
   };
 
   const updateContactPhone = (index: number, value: string) => {
-    // Ensure +63 prefix is maintained
-    const newValue = !value.startsWith('+63') 
-      ? '+63 ' + value.replace(/^\+63\s*/, '')
-      : value;
+    // Ensure +63 prefix is maintained and strip leading 0 (domestic trunk prefix)
+    let newValue = value;
+    if (!value.startsWith('+63')) {
+      newValue = '+63 ' + value.replace(/^\+63\s*/, '').replace(/^0+/, '');
+    } else {
+      // If +63 is already there, strip any 0 right after it
+      newValue = value.replace(/^(\+63\s*)0+/, '$1');
+    }
     
     setFormData(prev => {
       const phones = [...(prev.contactInfo.phones || [])];

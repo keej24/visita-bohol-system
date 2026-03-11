@@ -876,11 +876,11 @@ const AccountSettings = () => {
                           id="phone"
                           value={profileData.phone || '+63 '}
                           onChange={(e) => {
-                            // Ensure +63 prefix is maintained
+                            // Ensure +63 prefix is maintained and strip leading 0 (domestic trunk prefix)
                             const value = e.target.value;
                             const newValue = !value.startsWith('+63') 
-                              ? '+63 ' + value.replace(/^\+63\s*/, '')
-                              : value;
+                              ? '+63 ' + value.replace(/^\+63\s*/, '').replace(/^0+/, '')
+                              : value.replace(/^(\+63\s*)0+/, '$1');
                             setProfileData(prev => ({ ...prev, phone: newValue }));
                             if (errors.phone) {
                               setErrors(prev => ({ ...prev, phone: validatePhone(newValue) }));
